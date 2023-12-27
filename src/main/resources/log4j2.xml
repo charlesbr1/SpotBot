@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Configuration xmlns="http://logging.apache.org/log4j/2.0/config" status="WARN">
+
+    <Appenders>
+
+        <Console name="stdout" target="SYSTEM_OUT">
+            <PatternLayout pattern="[%t] %-5p | %-60c | %m (%F:%L)%n" />
+        </Console>
+
+        <RollingFile name="rollingFile" fileName="logs/logs.txt"
+                     filePattern="logs/logs-%d{yyyy-MM-dd}-%i.txt">
+            <PatternLayout pattern="[%t] %-5p | %-60c | %m (%F:%L)%n" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+            </Policies>
+        </RollingFile>
+
+    </Appenders>
+
+    <Loggers>
+
+        <Logger name="org.sbot" level="all" />
+
+        <Root level="all">
+
+            <AppenderRef ref="stdout" />
+            <AppenderRef ref="rollingFile" />
+
+        </Root>
+
+    </Loggers>
+
+</Configuration>

@@ -1,0 +1,5 @@
+.DS_Store
+/*.token
+/target/
+/.idea/
+/logs/
