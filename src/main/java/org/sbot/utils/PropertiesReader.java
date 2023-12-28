@@ -33,16 +33,12 @@ public interface PropertiesReader {
                 .orElseThrow(() -> new IllegalArgumentException("Missing property " + name));
     }
 
-    static String readFile(String filePath, long maxLength) {
-        Path path = Paths.get(filePath);
+    static String readFile(String filePath) {
         try {
-            if (Files.size(path) <= maxLength) {
-                return Files.readString(path);
-            }
+            return Files.readString(Paths.get(filePath));
         } catch (IOException e) {
             LogManager.getLogger(PropertiesReader.class).debug("Failed to read file {}", filePath);
             throw new RuntimeException(e);
         }
-        throw new IllegalStateException("File " + filePath + " exceed size of " + maxLength);
     }
 }

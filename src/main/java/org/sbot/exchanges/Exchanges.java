@@ -30,7 +30,7 @@ public enum Exchanges {
     private static Exchange loadExchange(String exchange) {
         LOGGER.debug("Loading exchange {}...", exchange);
         return switch (exchange) {
-            case "binance" -> new BinanceClient(BINANCE_API_KEY, readFile(BINANCE_API_SECRET_FILE, 128));
+            case "binance" -> new BinanceClient(BINANCE_API_KEY, readFile(BINANCE_API_SECRET_FILE));
             default -> throw new IllegalArgumentException("Unsupported exchange : " + exchange);
         };
     }

@@ -6,6 +6,7 @@ import org.sbot.alerts.Alert;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.groupingBy;
@@ -38,13 +39,13 @@ public class MemoryStorage implements AlertStorage {
     }
 
     @Override
-    public void addAlert(Alert alert) {
+    public void addAlert(Alert alert, Consumer<String> asyncErrorHandler) {
         LOGGER.debug("Adding alert {}", alert);
         alertsByPairsAndExchanges.put(alert.id, alert);
     }
 
     @Override
-    public boolean deleteAlert(long alertId) {
+    public boolean deleteAlert(long alertId, Consumer<String> asyncErrorHandler) {
         LOGGER.debug("Deleting alert {}", alertId);
         return null != alertsByPairsAndExchanges.remove(alertId);
     }

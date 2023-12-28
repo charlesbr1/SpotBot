@@ -2,134 +2,142 @@ package org.sbot.discord;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
-import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.MessageChannel;
-import net.dv8tion.jda.api.entities.TextChannel;
+import net.dv8tion.jda.api.entities.channel.ChannelType;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.requests.GatewayIntent;
+import net.dv8tion.jda.api.utils.Compression;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.sbot.utils.ArgumentReader;
-import org.sbot.utils.PropertiesReader;
 
-import javax.annotation.Nonnull;
-import javax.security.auth.login.LoginException;
-import javax.swing.text.html.Option;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static java.lang.Boolean.parseBoolean;
-import static org.sbot.utils.PropertiesReader.loadProperties;
 import static org.sbot.utils.PropertiesReader.readFile;
 
-public enum Discord {
-    ;
+public final class Discord {
 
     private static final Logger LOGGER = LogManager.getLogger(Discord.class);
 
-    private static final PropertiesReader properties = loadProperties("discord.properties");
 
     private static final String DISCORD_BOT_TOKEN_FILE = "discord.token";
-    private static final String DISCORD_SERVER_ID = properties.get("discord.server.id");
-    private static final String DISCORD_SERVER_CHANNEL = properties.get("discord.server.channel");
 
 
-    // replace discord server by a logger if disabled (unit test env)
-    public static final SpotBotChannel spotBotChannel = parseBoolean(properties.get("discord.enabled")) ?
-            SpotBotChannel.spotBotChannel(initConnection()) :
-            message -> LOGGER.info("Discord disabled, message: {}", message);
-    private static final Map<String, CommandListener> commands = new ConcurrentHashMap<>();
+    private final JDA jda;
+    private final String discordBotChannel;
+    public final SpotBotChannel spotBotChannel;
+    private final Map<String, DiscordCommand> commands = new ConcurrentHashMap<>();
+
+    public Discord(String discordServerId, String discordBotChannel) {
+        jda = loadDiscordConnection();
+        this.discordBotChannel = discordBotChannel;
+        var channel = loadDiscordChannel(loadDiscordServer(discordServerId));
+        spotBotChannel = message -> Discord.sendMessage(channel, message);
+    }
 
     @FunctionalInterface
     public interface SpotBotChannel {
         void sendMessage(String message);
-
-        private static SpotBotChannel spotBotChannel(TextChannel channel) {
-            return message -> Discord.sendMessage(channel, message);
-        }
     }
 
-    public static void sendMessage(MessageChannel channel, String message) {
-        //TODO check doc MessageAction queue()
+    private static void sendMessage(TextChannel channel, String message) {
         channel.sendMessage(message).queue();
         LOGGER.debug("Discord message sent: {}", message);
     }
 
-    private static TextChannel initConnection() {
+    private JDA loadDiscordConnection() {
         try {
             LOGGER.info("Loading discord connection...");
-            return loadChannel();
-        } catch (LoginException | RuntimeException | InterruptedException e) {
-            LOGGER.error("Failed to load discord connection");
-            throw e instanceof RuntimeException ? (RuntimeException)e : new IllegalStateException(e);
+            return JDABuilder.createLight(readFile(DISCORD_BOT_TOKEN_FILE),
+                            GatewayIntent.GUILD_MESSAGES, GatewayIntent.MESSAGE_CONTENT)
+                    .setActivity(Activity.watching("prices"))
+                    .addEventListeners(new EventAdapter())
+                    .setCompression(Compression.ZLIB)
+                    .setAutoReconnect(true)
+                    .build()
+                    .awaitReady();
+        } catch (Exception e) {
+            LOGGER.error("Unable to establish discord connection");
+            throw new IllegalStateException(e);
         }
     }
 
-    private static TextChannel loadChannel() throws LoginException, InterruptedException {
-        return getDiscordServer()
-                .orElseThrow(() -> new IllegalArgumentException("Discord server " + DISCORD_SERVER_ID + " not found"))
-                .getTextChannelsByName(DISCORD_SERVER_CHANNEL, true)
+    private Guild loadDiscordServer(String discordServerId) {
+        LOGGER.info("Connection to discord server {}...", discordServerId);
+        return Optional.ofNullable(jda.getGuildById(discordServerId))
+                .orElseThrow(() -> new IllegalStateException("Failed to load discord server " + discordServerId));
+    }
+
+    private TextChannel loadDiscordChannel(Guild discordServer) {
+        return discordServer.getTextChannelsByName(discordBotChannel, true)
                 .stream().findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("channel " + DISCORD_SERVER_CHANNEL + " not found on discord server " + DISCORD_SERVER_ID));
+                .orElseThrow(() -> new IllegalArgumentException("channel " + discordBotChannel + " not found"));
     }
 
-    private static Optional<Guild> getDiscordServer() throws LoginException, InterruptedException {
-        JDA jda =
-                JDABuilder.createDefault(readFile(DISCORD_BOT_TOKEN_FILE, 128))
-                        .setActivity(Activity.listening("commands"))
-                        .enableIntents(GatewayIntent.GUILD_MESSAGES) // enables explicit access to message.getContentDisplay()
-                        .addEventListeners(new EventAdapter())
-                .build().awaitReady();
 
-        // test
-        jda.updateCommands().addCommands(
-                Commands.slash("ping", "Calculate ping of the bot"),
-                Commands.slash("ban", "Ban a user from the server")
-//                        .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.BAN_MEMBERS)) // only usable with ban permissions
-  //                      .setGuildOnly(true) // Ban command only works inside a guild
-                        .addOption(OptionType.USER, "user", "The user to ban", true) // required option of type user (target to ban)
-                        .addOption(OptionType.STRING, "reason", "The ban reason") // optional reason
-        ).queue();
-        return Optional.ofNullable(jda.getGuildById(DISCORD_SERVER_ID));
+    public void registerCommands(DiscordCommand... discordCommands) {
+        synchronized (commands) {
+            commands.clear();
+            var commandDescriptions = Optional.ofNullable(discordCommands).stream().flatMap(Arrays::stream)
+                    .filter(this::registerCommand)
+                    .map(this::getOptions).toList();
+            // this call replace previous content, that's why commands was clear
+            jda.updateCommands().addCommands(commandDescriptions).queue();
+        }
     }
 
-    private static final class EventAdapter extends ListenerAdapter {
+    public boolean registerCommand(DiscordCommand discordCommand) {
+        LOGGER.info("Registering discord command: {}", discordCommand.name());
+        if(null != commands.put(discordCommand.name(), discordCommand)) {
+            LOGGER.debug("Discord command {} was already registered", discordCommand.name());
+            return false;
+        }
+        return true;
+    }
+
+    public CommandData getOptions(DiscordCommand discordCommand) {
+        return Commands.slash(discordCommand.name(), discordCommand.description())
+//                .setDefaultPermissions(...)
+                .addOptions(discordCommand.options())
+                .setGuildOnly(true);
+    }
+
+    private final class EventAdapter extends ListenerAdapter {
+
         @Override
-        public void onSlashCommandInteraction(@Nonnull SlashCommandInteractionEvent event) {
-            LOGGER.debug("Discord command received: {}", event);
+        public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
+            LOGGER.debug("Discord slash command received: {}", event);
+//            if (discordBotChannel.equalsIgnoreCase(event.getChannel().getName())) {
+                Optional.ofNullable(commands.get(event.getName()))
+                        .ifPresent(listener -> listener.onEvent(event));
+//            }
         }
-        public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
+
+        @Override
+        public void onMessageReceived(MessageReceivedEvent event) {
             LOGGER.debug("Discord message received: {}", event.getMessage().getContentRaw());
-            // TODO need to filter on channel ?
-            ArgumentReader argumentReader = new ArgumentReader(event.getMessage().getContentRaw().trim());
-            try {
-                argumentReader.getNextString()
-                        .map(commands::get)
-                        .ifPresent(listener -> listener.onEvent(argumentReader, event));
-            } catch (RuntimeException e) {
-                LOGGER.warn("Error while processing discord command: " + event.getMessage().getContentRaw(), e);
-                sendMessage(event.getChannel(), "Execution failure with error: " + e.getMessage());
+            if (discordBotChannel.equalsIgnoreCase(event.getChannel().getName()) || event.isFromType(ChannelType.PRIVATE)) {
+                ArgumentReader argumentReader = new ArgumentReader(event.getMessage().getContentRaw().trim());
+                try {
+                    argumentReader.getNextString()
+                            .filter(command -> command.startsWith("!"))
+                            .map(command -> command.replaceFirst("!", ""))
+                            .map(commands::get)
+                            .ifPresent(listener -> listener.onEvent(argumentReader, event));
+                } catch (RuntimeException e) {
+                    LOGGER.warn("Error while processing discord command: " + event.getMessage().getContentRaw(), e);
+                    sendMessage(event.getChannel().asTextChannel(), "Execution failure with error: " + e.getMessage());
+                }
             }
-        }
-    }
-
-    public static void registerCommands(CommandListener... commandListeners) {
-        Optional.ofNullable(commandListeners).stream().flatMap(Arrays::stream)
-                .forEach(Discord::registerCommand);
-    }
-
-    public static void registerCommand(CommandListener commandListener) {
-        LOGGER.info("Registering discord command: {}", commandListener.operator());
-        if(null != commands.put(commandListener.operator(), commandListener)) {
-            LOGGER.debug("Discord command {} was already registered", commandListener.operator());
         }
     }
 }

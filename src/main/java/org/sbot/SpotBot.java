@@ -17,22 +17,31 @@ public enum SpotBot {
 
     private static final Logger LOGGER = LogManager.getLogger(SpotBot.class);
 
-    private static final PropertiesReader properties = loadProperties("spotbot.properties");
+    private static final PropertiesReader appProperties = loadProperties("spotbot.properties");
+    private static final PropertiesReader discordProperties = loadProperties("discord.properties");
+    private static final String DISCORD_SERVER_ID_PROPERTY = "discord.server.id";
+    private static final String DISCORD_BOT_CHANNEL_PROPERTY = "discord.bot.channel";
 
-    private static final long ALERTS_CHECK_PERIOD_MS = 60L * 1000L * parseLong(properties.get("alerts.check.period.minutes"));
-    private static final String ALERTS_STORAGE_CLASS = properties.get("alerts.storage.class");
+    private static final long ALERTS_CHECK_PERIOD_MS = 60L * 1000L * parseLong(appProperties.get("alerts.check.period.minutes"));
+    private static final String ALERTS_STORAGE_CLASS = appProperties.get("alerts.storage.class");
 
 
     public static void main(String[] args) {
         try {
             LOGGER.info("Starting SpotBot v1");
 
+            Discord discord = new Discord(
+                    discordProperties.get(DISCORD_SERVER_ID_PROPERTY),
+                    discordProperties.get(DISCORD_BOT_CHANNEL_PROPERTY));
+
             AlertStorage alertStorage = setupStorage();
-            setupDiscordEvents(alertStorage);
+
+            setupDiscordEvents(discord, alertStorage);
 
             LOGGER.info("Entering infinite loop to check prices and send alerts every hours...");
+            Alerts alerts = new Alerts(discord.spotBotChannel);
             for(;;) {
-                Alerts.checkPricesAndSendAlerts(alertStorage);
+                alerts.checkPricesAndSendAlerts(alertStorage);
                 Thread.sleep(ALERTS_CHECK_PERIOD_MS);
             }
         } catch (Throwable t) {
@@ -46,14 +55,14 @@ public enum SpotBot {
                 .getDeclaredConstructor().newInstance();
     }
 
-    private static void setupDiscordEvents(AlertStorage alertStorage) {
+    private static void setupDiscordEvents(Discord discord, AlertStorage alertStorage) {
         LOGGER.info("Registering discord events...");
-        Discord.registerCommands(
+        discord.registerCommands(
                 new UpTimeCommand(alertStorage),
                 new RangeCommand(alertStorage),
+                new DeleteCommand(alertStorage),
                 new TrendCommand(alertStorage),
                 new ListCommand(alertStorage),
-                new DeleteCommand(alertStorage),
                 new OwnerCommand(alertStorage),
                 new PairCommand(alertStorage),
                 new OccurrenceCommand(alertStorage),
