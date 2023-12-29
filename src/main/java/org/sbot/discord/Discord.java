@@ -100,7 +100,9 @@ public final class Discord {
         try {
             LOGGER.info("Loading discord connection...");
             return JDABuilder.createLight(readFile(DISCORD_BOT_TOKEN_FILE),
-                            GatewayIntent.GUILD_MESSAGES, GatewayIntent.MESSAGE_CONTENT)
+                            GatewayIntent.GUILD_MESSAGES,
+                            GatewayIntent.MESSAGE_CONTENT,
+                            GatewayIntent.DIRECT_MESSAGES)
                     .setActivity(Activity.watching("prices"))
                     .addEventListeners(new EventAdapter())
                     .setCompression(Compression.ZLIB)
@@ -152,8 +154,7 @@ public final class Discord {
     @NotNull
     public CommandData getOptions(@NotNull DiscordCommand discordCommand) {
         return Commands.slash(discordCommand.name(), discordCommand.description())
-                .addOptions(discordCommand.options())
-                .setGuildOnly(true);
+                .addOptions(discordCommand.options());
     }
 
     private final class EventAdapter extends ListenerAdapter {
@@ -161,7 +162,7 @@ public final class Discord {
         @Override
         public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
             LOGGER.debug("Discord slash command received: {}", event);
-            if (checkAccess(event.getChannelType(), event.getGuild(), event.getChannel().getName())) {
+            if (isPrivateMessage(event.getChannelType()) || checkAccess(event.getGuild(), event.getChannel().getName())) {
                 try {
                     Optional.ofNullable(commands.get(event.getName()))
                             .ifPresent(listener -> listener.onEvent(event));
@@ -177,7 +178,7 @@ public final class Discord {
         @Override
         public void onMessageReceived(@NotNull MessageReceivedEvent event) {
             LOGGER.debug("Discord message received: {}", event.getMessage().getContentRaw());
-            if (checkAccess(event.getChannelType(), event.getGuild(), event.getChannel().getName())) {
+            if (isPrivateMessage(event.getChannelType()) || checkAccess(event.getGuild(), event.getChannel().getName())) {
                 ArgumentReader argumentReader = new ArgumentReader(event.getMessage().getContentRaw().trim());
                 try {
                     argumentReader.getNextString()
@@ -193,14 +194,17 @@ public final class Discord {
             }
         }
 
-        private boolean checkAccess(@NotNull ChannelType channelType, @Nullable Guild guild, @NotNull String channelName) {
-            return ChannelType.PRIVATE.equals(channelType) ||
-                    Optional.ofNullable(guild)
-                            .map(Guild::getId)
-                            .map(serverIDSpotBotChannel::get)
-                            .map(SpotBotChannelMessageSender::channelName)
-                            .filter(channelName::equalsIgnoreCase)
-                            .isPresent();
+        private boolean isPrivateMessage(ChannelType channelType) {
+            return ChannelType.PRIVATE.equals(channelType);
+        }
+
+        private boolean checkAccess(@Nullable Guild guild, @NotNull String channelName) {
+            return Optional.ofNullable(guild)
+                    .map(Guild::getId)
+                    .map(serverIDSpotBotChannel::get)
+                    .map(SpotBotChannelMessageSender::channelName)
+                    .filter(channelName::equalsIgnoreCase)
+                    .isPresent();
         }
     }
 }
