@@ -4,6 +4,7 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import org.jetbrains.annotations.NotNull;
 import org.sbot.storage.AlertStorage;
 import org.sbot.utils.ArgumentReader;
 
@@ -16,7 +17,11 @@ public final class DelayCommand extends CommandAdapter {
     public static final String NAME = "delay";
     static final String DESCRIPTION = "update the delay between two occurrences of the specified alert";
 
-    public DelayCommand(AlertStorage alertStorage) {
+    static final List<OptionData> options = List.of(
+            new OptionData(OptionType.STRING, "alert_id", "id of the alert", true),
+            new OptionData(OptionType.INTEGER, "delay", "new delay in days", true));
+
+    public DelayCommand(@NotNull AlertStorage alertStorage) {
         super(alertStorage, NAME);
     }
 
@@ -27,12 +32,11 @@ public final class DelayCommand extends CommandAdapter {
 
     @Override
     public List<OptionData> options() {
-        return List.of(new OptionData(OptionType.STRING, "alert_id", "id of the alert", true),
-                new OptionData(OptionType.INTEGER, "delay", "new delay in days", true));
+        return options;
     }
 
     @Override
-    public void onEvent(ArgumentReader argumentReader, MessageReceivedEvent event) {
+    public void onEvent(@NotNull ArgumentReader argumentReader, @NotNull MessageReceivedEvent event) {
         LOGGER.debug("delay command: {}", event.getMessage().getContentRaw());
 
         long alertId = argumentReader.getMandatoryLong("alert id");
@@ -40,12 +44,12 @@ public final class DelayCommand extends CommandAdapter {
 // TODO
         alertStorage.getAlert(alertId).ifPresent(alert -> {
 //            alert.setDelay(value);
-            sendResponse(event, alert.toString());
+            sendResponse(event.getChannel()::sendMessage, alert.toString());
         });
     }
 
     @Override
-    public void onEvent(SlashCommandInteractionEvent event) {
+    public void onEvent(@NotNull SlashCommandInteractionEvent event) {
 //TODO
     }
 }

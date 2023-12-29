@@ -2,9 +2,11 @@ package org.sbot.exchanges;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
 import org.sbot.exchanges.binance.BinanceClient;
 import org.sbot.utils.PropertiesReader;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -23,11 +25,13 @@ public enum Exchanges {
 
     private static final Map<String, Exchange> exchanges = new ConcurrentHashMap<>();
 
-    public static Exchange get(String exchange) {
+    public static final List<String> SUPPORTED_EXCHANGES = List.of("binance");
+
+    public static Exchange get(@NotNull String exchange) {
         return exchanges.computeIfAbsent(exchange, Exchanges::loadExchange);
     }
 
-    private static Exchange loadExchange(String exchange) {
+    private static Exchange loadExchange(@NotNull String exchange) {
         LOGGER.debug("Loading exchange {}...", exchange);
         return switch (exchange) {
             case "binance" -> new BinanceClient(BINANCE_API_KEY, readFile(BINANCE_API_SECRET_FILE));

@@ -4,6 +4,7 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import org.jetbrains.annotations.NotNull;
 import org.sbot.utils.ArgumentReader;
 import org.sbot.storage.AlertStorage;
 
@@ -14,9 +15,13 @@ public final class OccurrenceCommand extends CommandAdapter {
 //TODO add support in Alert
 
     public static final String NAME = "occurrence";
-    static final String DESCRIPTION = "update the number of time the given alert will be thrown";
+    static final String DESCRIPTION = "update the number of time the alert will be thrown";
 
-    public OccurrenceCommand(AlertStorage alertStorage) {
+    static final List<OptionData> options = List.of(
+            new OptionData(OptionType.STRING, "alert_id", "id of the alert", true),
+            new OptionData(OptionType.INTEGER, "occurrence", "number of time the specified alert will be thrown", true));
+
+    public OccurrenceCommand(@NotNull AlertStorage alertStorage) {
         super(alertStorage, NAME);
     }
     @Override
@@ -26,11 +31,11 @@ public final class OccurrenceCommand extends CommandAdapter {
 
     @Override
     public List<OptionData> options() {
-        return List.of(new OptionData(OptionType.STRING, "alert_id", "id of the alert", true),
-                new OptionData(OptionType.INTEGER, "occurrence", "umber of time the given alert will be thrown", true));
+        return options;
     }
+
     @Override
-    public void onEvent(ArgumentReader argumentReader, MessageReceivedEvent event) {
+    public void onEvent(@NotNull ArgumentReader argumentReader, @NotNull MessageReceivedEvent event) {
         LOGGER.debug("occurrence command: {}", event.getMessage().getContentRaw());
 
         long alertId = argumentReader.getMandatoryLong("alert id");
@@ -38,12 +43,12 @@ public final class OccurrenceCommand extends CommandAdapter {
 // TODO
         alertStorage.getAlert(alertId).ifPresent(alert -> {
 //            alert.setOccurrence(value);
-            sendResponse(event, alert.toString());
+            sendResponse(event.getChannel()::sendMessage, alert.toString());
         });
     }
 
     @Override
-    public void onEvent(SlashCommandInteractionEvent event) {
+    public void onEvent(@NotNull SlashCommandInteractionEvent event) {
 //TODO
     }
 }

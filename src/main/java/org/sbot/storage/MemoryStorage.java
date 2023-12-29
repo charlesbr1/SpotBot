@@ -2,9 +2,13 @@ package org.sbot.storage;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.Alert;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -39,13 +43,13 @@ public class MemoryStorage implements AlertStorage {
     }
 
     @Override
-    public void addAlert(Alert alert, Consumer<String> asyncErrorHandler) {
+    public void addAlert(@NotNull Alert alert, @NotNull Consumer<String> asyncErrorHandler) {
         LOGGER.debug("Adding alert {}", alert);
         alertsByPairsAndExchanges.put(alert.id, alert);
     }
 
     @Override
-    public boolean deleteAlert(long alertId, Consumer<String> asyncErrorHandler) {
+    public boolean deleteAlert(long alertId, @NotNull Consumer<String> asyncErrorHandler) {
         LOGGER.debug("Deleting alert {}", alertId);
         return null != alertsByPairsAndExchanges.remove(alertId);
     }

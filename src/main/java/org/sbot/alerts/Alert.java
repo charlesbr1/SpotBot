@@ -1,9 +1,12 @@
 package org.sbot.alerts;
 
+import org.jetbrains.annotations.NotNull;
 import org.sbot.chart.Candlestick;
 import org.sbot.storage.IdGenerator;
 
 import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 public abstract class Alert {
 
@@ -17,12 +20,12 @@ public abstract class Alert {
 
     protected Candlestick lastCandlestick;
 
-    protected Alert(String exchange, String ticker1, String ticker2, String message, String owner) {
+    protected Alert(@NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2, @NotNull String message, @NotNull String owner) {
         this.exchange = exchange.toLowerCase().intern();
         this.ticker1 = ticker1.toUpperCase().intern();
         this.ticker2 = ticker2.toUpperCase().intern();
-        this.message = message;
-        this.owner = owner;
+        this.message = requireNonNull(message);
+        this.owner = requireNonNull(owner);
     }
 
     public String getExchange() {
@@ -38,11 +41,12 @@ public abstract class Alert {
     }
 
     // SIDE EFFECT, this updates field lastCandlestick TODO doc
-    public abstract boolean match(Candlestick candlestick);
+    public abstract boolean match(@NotNull Candlestick candlestick);
 
+    @NotNull
     public abstract String notification();
 
-    protected final boolean isNewerCandleStick(Candlestick candlestick) {
+    protected final boolean isNewerCandleStick(@NotNull Candlestick candlestick) {
         return null == lastCandlestick ||
                 candlestick.openTime().isAfter(lastCandlestick.openTime()) ||
                 candlestick.closeTime().isBefore(lastCandlestick.closeTime());

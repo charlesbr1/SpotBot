@@ -1,5 +1,6 @@
 package org.sbot.storage;
 
+import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.Alert;
 
 import java.util.List;
@@ -16,7 +17,7 @@ public interface AlertStorage {
 
     Map<String, Map<String, List<Alert>>> getAlertsByPairsAndExchanges();
 
-    void addAlert(Alert alert, Consumer<String> asyncErrorHandler);
+    void addAlert(@NotNull Alert alert, @NotNull Consumer<String> asyncErrorHandler);
 
-    boolean deleteAlert(long alertId, Consumer<String> asyncErrorHandler);
+    boolean deleteAlert(long alertId, @NotNull Consumer<String> asyncErrorHandler);
 }

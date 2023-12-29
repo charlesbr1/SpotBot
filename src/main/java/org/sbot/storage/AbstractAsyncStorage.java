@@ -2,6 +2,7 @@ package org.sbot.storage;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.Alert;
 
 import java.util.List;
@@ -11,6 +12,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+
+import static java.util.Objects.requireNonNull;
 
 
 public abstract class AbstractAsyncStorage extends MemoryStorage {
@@ -29,27 +32,26 @@ public abstract class AbstractAsyncStorage extends MemoryStorage {
         LOGGER.info("Alerts loaded in {}ms", (System.currentTimeMillis() - start));
     }
 
+    @NotNull
     protected abstract List<Alert> loadAlerts();
     protected abstract boolean saveAlerts();
 
     @Override
-    public final void addAlert(Alert alert, Consumer<String> asyncErrorHandler) {
-        super.addAlert(alert, asyncErrorHandler);
+    public final void addAlert(@NotNull Alert alert, @NotNull Consumer<String> asyncErrorHandler) {
+        super.addAlert(alert, requireNonNull(asyncErrorHandler));
         doUpdate.set(true);
         flushingThread.execute(() -> syncAlerts(asyncErrorHandler));
     }
 
     @Override
-    public final boolean deleteAlert(long alertId, Consumer<String> asyncErrorHandler) {
-        try {
-            return super.deleteAlert(alertId, asyncErrorHandler);
-        } finally {
-            doUpdate.set(true);
-            flushingThread.execute(() -> syncAlerts(asyncErrorHandler));
-        }
+    public final boolean deleteAlert(long alertId, @NotNull Consumer<String> asyncErrorHandler) {
+        boolean deleted = super.deleteAlert(alertId, requireNonNull(asyncErrorHandler));
+        doUpdate.set(true);
+        flushingThread.execute(() -> syncAlerts(asyncErrorHandler));
+        return deleted;
     }
 
-    private void syncAlerts(Consumer<String> asyncErrorHandler) {
+    private void syncAlerts(@NotNull Consumer<String> asyncErrorHandler) {
         if(doUpdate.compareAndSet(true, false)) {
             LOGGER.debug("Saving alerts...");
             try {
@@ -58,11 +60,16 @@ public abstract class AbstractAsyncStorage extends MemoryStorage {
                 }
                 LOGGER.debug("Alerts saved");
             } catch (RuntimeException e) {
+                doUpdate.set(true);
                 LOGGER.error("Failed to save alerts", e);
-                asyncErrorHandler.accept("Encountered a failure while updating persistent state of alerts");
+                try {
+                    asyncErrorHandler.accept("Encountered a failure while updating persistent state of alert ");
+                } catch (RuntimeException ex) {
+                    LOGGER.error("Failed to notify about storage failure", ex);
+                }
             }
         } else {
-            LOGGER.debug("Alerts saving skipped (already done)");
+            LOGGER.debug("Saving of alerts skipped (already done)");
         }
     }
 }

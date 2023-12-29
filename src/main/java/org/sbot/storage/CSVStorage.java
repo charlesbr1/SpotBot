@@ -1,5 +1,6 @@
 package org.sbot.storage;
 
+import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.Alert;
 
 import java.util.List;
@@ -7,6 +8,7 @@ import java.util.List;
 public final class CSVStorage extends AbstractAsyncStorage {
 
     @Override
+    @NotNull
     protected List<Alert> loadAlerts() {
         //TODO
         return null;

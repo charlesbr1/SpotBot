@@ -4,6 +4,7 @@ import com.binance.api.client.BinanceApiClientFactory;
 import com.binance.api.client.BinanceApiRestClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
 import org.sbot.chart.Candlestick;
 import org.sbot.exchanges.Exchange;
 import org.sbot.chart.TimeFrame;
@@ -11,6 +12,8 @@ import org.sbot.chart.TimeFrame;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.binance.api.client.BinanceApiClientFactory.newInstance;
+import static java.util.Objects.requireNonNull;
 import static org.sbot.exchanges.binance.BinanceMapper.map;
 
 public class BinanceClient implements Exchange {
@@ -19,15 +22,15 @@ public class BinanceClient implements Exchange {
 
     private final BinanceApiRestClient binanceApiClient;
 
-    public BinanceClient(String apiKey, String apiSecret) {
+    public BinanceClient(@NotNull String apiKey, @NotNull String apiSecret) {
         LOGGER.info("Loading binance connection...");
-        BinanceApiClientFactory factory = BinanceApiClientFactory.newInstance(apiKey, apiSecret);
+        BinanceApiClientFactory factory = newInstance(requireNonNull(apiKey), requireNonNull(apiSecret));
         binanceApiClient = factory.newRestClient();
         LOGGER.info("Binance connection loaded");
     }
 
     @Override
-    public Stream<Candlestick> getCandlesticks(String pair, TimeFrame timeFrame, long limit) {
+    public Stream<Candlestick> getCandlesticks(@NotNull String pair, @NotNull TimeFrame timeFrame, long limit) {
         //TODO use limit on api call, check open/close time order of responses
         LOGGER.debug("Requesting binance candlestick for pair {} and time frame {} and limit {}...", pair, timeFrame, limit);
         var candlesticks = binanceApiClient.getCandlestickBars(pair.replace("/", ""), map(timeFrame));

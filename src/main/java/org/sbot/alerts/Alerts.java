@@ -2,6 +2,7 @@ package org.sbot.alerts;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
 import org.sbot.chart.Candlestick;
 import org.sbot.chart.TimeFrame;
 import org.sbot.discord.Discord.SpotBotChannel;
@@ -14,17 +15,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static java.util.Objects.requireNonNull;
+
 public final class Alerts {
 
     private static final Logger LOGGER = LogManager.getLogger(Alerts.class);
 
     private final SpotBotChannel spotBotChannel;
 
-    public Alerts(SpotBotChannel spotBotChannel) {
-        this.spotBotChannel = spotBotChannel;
+    public Alerts(@NotNull SpotBotChannel spotBotChannel) {
+        this.spotBotChannel = requireNonNull(spotBotChannel);
     }
 
-    public void checkPricesAndSendAlerts(AlertStorage alertStorage) {
+    public void checkPricesAndSendAlerts(@NotNull AlertStorage alertStorage) {
         try {
             alertStorage.getAlertsByPairsAndExchanges().forEach((exchangeName, alertsByPairs) -> {
                 Exchange exchange = Exchanges.get(exchangeName);
@@ -36,7 +39,7 @@ public final class Alerts {
         }
     }
 
-    private void checkPricesAndSendAlerts(Map<String, List<Alert>> alertsByPairs, Exchange exchange) {
+    private void checkPricesAndSendAlerts(@NotNull Map<String, List<Alert>> alertsByPairs, @NotNull Exchange exchange) {
         alertsByPairs.forEach((pair, alerts) -> {
             try {
                 exchange.getCandlesticks(pair, TimeFrame.HOURLY, 1) // only one call by pair
@@ -48,14 +51,15 @@ public final class Alerts {
         });
     }
 
-    private void triggerAlerts(List<Alert> alerts, Candlestick candlestick) {
+    private void triggerAlerts(@NotNull List<Alert> alerts, @NotNull Candlestick candlestick) {
         String alertsToTrigger = matchingAlerts(alerts, candlestick);
         if(!alertsToTrigger.isEmpty()) {
             spotBotChannel.sendMessage(alertsToTrigger);
         }
     }
 
-    private String matchingAlerts(List<Alert> alerts, Candlestick candlestick) {
+    @NotNull
+    private String matchingAlerts(@NotNull List<Alert> alerts, @NotNull Candlestick candlestick) {
         return alerts.stream().filter(alert -> alert.match(candlestick))
                 .map(alert -> "@sbot ALERT triggered by " + alert.notification())
                 .collect(Collectors.joining("\n"));

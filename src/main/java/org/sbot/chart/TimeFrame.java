@@ -1,6 +1,8 @@
 package org.sbot.chart;
 
-import java.util.Objects;
+import org.jetbrains.annotations.NotNull;
+
+import static java.util.Objects.requireNonNull;
 
 public enum TimeFrame {
     ONE_MINUTE("1m"),
@@ -21,7 +23,7 @@ public enum TimeFrame {
 
     public final String symbol;
 
-    TimeFrame(String symbol) {
-        this.symbol = Objects.requireNonNull(symbol);
+    TimeFrame(@NotNull String symbol) {
+        this.symbol = requireNonNull(symbol);
     }
 }

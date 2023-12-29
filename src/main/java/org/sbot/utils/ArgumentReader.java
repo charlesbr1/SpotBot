@@ -1,5 +1,7 @@
 package org.sbot.utils;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
@@ -8,35 +10,40 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static java.util.Objects.requireNonNull;
+
 public final class ArgumentReader {
     private String remainingArguments;
 
-    public ArgumentReader(String arguments) {
-        this.remainingArguments = arguments;
+    public ArgumentReader(@NotNull String arguments) {
+        this.remainingArguments = requireNonNull(arguments);
     }
 
-    public String getMandatoryString(String fieldName) {
+    @NotNull
+    public String getMandatoryString(@NotNull String fieldName) {
         return getNextString().orElseThrow(() -> new IllegalArgumentException("Missing field " + fieldName));
     }
 
-    public BigDecimal getMandatoryNumber(String fieldName) {
+    @NotNull
+    public BigDecimal getMandatoryNumber(@NotNull String fieldName) {
         return getNextNumber().orElseThrow(() -> new IllegalArgumentException("Missing figure " + fieldName));
     }
 
-    public long getMandatoryLong(String fieldName) {
+    public long getMandatoryLong(@NotNull String fieldName) {
         return getNextLong().orElseThrow(() -> new IllegalArgumentException("Missing number " + fieldName));
     }
 
-    public ZonedDateTime getMandatoryDateTime(String fieldName) {
+    @NotNull
+    public ZonedDateTime getMandatoryDateTime(@NotNull String fieldName) {
         return getNextDateTime().orElseThrow(() -> new IllegalArgumentException("Missing date " + fieldName));
     }
 
     public Optional<String> getNextString() {
-        List<String> values = null != remainingArguments ?
+        List<String> values = !remainingArguments.isBlank() ?
                 // this split arguments into two parts : the first word without spaces, then the rest of the string
                 Arrays.asList(remainingArguments.split("\\s+", 2))
                 : Collections.emptyList();
-        remainingArguments = values.size() > 1 ? values.get(1) : null;
+        remainingArguments = values.size() > 1 ? values.get(1) : "";
         return values.stream().findFirst();
     }
 
@@ -49,10 +56,10 @@ public final class ArgumentReader {
     }
 
     public Optional<ZonedDateTime> getNextDateTime() {
-        return getNext(ZonedDateTime::parse);
+        return getNext(Dates::parseUTC);
     }
 
-    private <U> Optional<U> getNext(Function<? super String, ? extends U> mapper) {
+    private <U> Optional<U> getNext(@NotNull Function<? super String, ? extends U> mapper) {
         String arguments = this.remainingArguments;
         try {
             return getNextString().map(mapper);
@@ -62,7 +69,8 @@ public final class ArgumentReader {
         }
     }
 
-    public Optional<String> getRemaining() {
-        return Optional.ofNullable(remainingArguments);
+    @NotNull
+    public String getRemaining() {
+        return remainingArguments;
     }
 }

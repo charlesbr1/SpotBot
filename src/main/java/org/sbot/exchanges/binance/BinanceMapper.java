@@ -2,6 +2,7 @@ package org.sbot.exchanges.binance;
 
 import com.binance.api.client.domain.market.Candlestick;
 import com.binance.api.client.domain.market.CandlestickInterval;
+import org.jetbrains.annotations.NotNull;
 import org.sbot.chart.TimeFrame;
 
 import java.math.BigDecimal;
@@ -10,7 +11,7 @@ import java.time.ZoneOffset;
 
 public interface BinanceMapper {
 
-    static org.sbot.chart.Candlestick map(Candlestick candlestick) {
+    static org.sbot.chart.Candlestick map(@NotNull Candlestick candlestick) {
         return new org.sbot.chart.Candlestick(
                 Instant.ofEpochMilli(candlestick.getOpenTime()).atZone(ZoneOffset.UTC),
                 Instant.ofEpochMilli(candlestick.getCloseTime()).atZone(ZoneOffset.UTC),
@@ -20,7 +21,7 @@ public interface BinanceMapper {
                 new BigDecimal(candlestick.getLow()));
     }
 
-    static CandlestickInterval map(TimeFrame timeFrame) {
+    static CandlestickInterval map(@NotNull TimeFrame timeFrame) {
         return switch (timeFrame) {
             case ONE_MINUTE -> CandlestickInterval.ONE_MINUTE;
             case THREE_MINUTES -> CandlestickInterval.THREE_MINUTES;
