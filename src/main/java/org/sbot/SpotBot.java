@@ -29,16 +29,16 @@ public enum SpotBot {
         try {
             LOGGER.info("Starting SpotBot v1");
 
-            Discord discord = new Discord(
+            AlertStorage alertStorage = setupStorage();
+
+            Discord discord = new Discord();
+            setupDiscordEvents(discord, alertStorage);
+            SpotBotChannel spotBotChannel = discord.spotBotChannel(
                     discordProperties.get(DISCORD_SERVER_ID_PROPERTY),
                     discordProperties.get(DISCORD_BOT_CHANNEL_PROPERTY));
 
-            AlertStorage alertStorage = setupStorage();
-
-            setupDiscordEvents(discord, alertStorage);
-
             LOGGER.info("Entering infinite loop to check prices and send alerts every hours...");
-            Alerts alerts = new Alerts(discord.spotBotChannel);
+            Alerts alerts = new Alerts(spotBotChannel);
             for(;;) {
                 alerts.checkPricesAndSendAlerts(alertStorage);
                 Thread.sleep(ALERTS_CHECK_PERIOD_MS);

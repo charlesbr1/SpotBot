@@ -17,6 +17,7 @@ import net.dv8tion.jda.api.utils.Compression;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.sbot.utils.ArgumentReader;
 import org.sbot.utils.PropertiesReader;
 
@@ -28,7 +29,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static java.util.Objects.requireNonNull;
 import static org.sbot.utils.PropertiesReader.loadProperties;
 import static org.sbot.utils.PropertiesReader.readFile;
 
@@ -61,16 +61,20 @@ public final class Discord {
     private static final String PLAIN_TEXT_MARKDOWN = "```";
 
     private final JDA jda;
-    private final String discordBotChannel;
-    public final SpotBotChannel spotBotChannel;
     private final Map<String, DiscordCommand> commands = new ConcurrentHashMap<>();
 
-    public Discord(@NotNull String discordServerId, @NotNull String discordBotChannel) {
-        requireNonNull(discordServerId);
-        this.discordBotChannel = requireNonNull(discordBotChannel);
+    private record SpotBotChannelMessageSender(@NotNull String channelName, @NotNull SpotBotChannel spotBotChannel) {}
+    private final Map<String, SpotBotChannelMessageSender> serverIDSpotBotChannel = new ConcurrentHashMap<>();
+
+    public Discord() {
         jda = loadDiscordConnection();
-        var channel = loadDiscordChannel(loadDiscordServer(discordServerId));
-        spotBotChannel = message -> Discord.sendMessage(channel::sendMessage, message);
+    }
+
+    public SpotBotChannel spotBotChannel(@NotNull String discordServerId, @NotNull String spotBotChannel) {
+        return serverIDSpotBotChannel.computeIfAbsent(discordServerId, id -> {
+            var channel = loadDiscordChannel(loadDiscordServer(id), spotBotChannel);
+            return new SpotBotChannelMessageSender(spotBotChannel, message -> sendMessage(channel::sendMessage, message));
+        }).spotBotChannel();
     }
 
     public static void sendMessage(@NotNull MessageSender sender, @NotNull String message) {
@@ -117,7 +121,7 @@ public final class Discord {
     }
 
     @NotNull
-    private TextChannel loadDiscordChannel(@NotNull Guild discordServer) {
+    private TextChannel loadDiscordChannel(@NotNull Guild discordServer, @NotNull String discordBotChannel) {
         return discordServer.getTextChannelsByName(discordBotChannel, true)
                 .stream().findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("channel " + discordBotChannel + " not found"));
@@ -139,7 +143,7 @@ public final class Discord {
     public boolean registerCommand(@NotNull DiscordCommand discordCommand) {
         LOGGER.info("Registering discord command: {}", discordCommand.name());
         if(null != commands.put(discordCommand.name(), discordCommand)) {
-            LOGGER.debug("Discord command {} was already registered", discordCommand.name());
+            LOGGER.warn("Discord command {} was already registered", discordCommand.name());
             return false;
         }
         return true;
@@ -148,7 +152,6 @@ public final class Discord {
     @NotNull
     public CommandData getOptions(@NotNull DiscordCommand discordCommand) {
         return Commands.slash(discordCommand.name(), discordCommand.description())
-//                .setDefaultPermissions(...)
                 .addOptions(discordCommand.options())
                 .setGuildOnly(true);
     }
@@ -158,20 +161,23 @@ public final class Discord {
         @Override
         public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
             LOGGER.debug("Discord slash command received: {}", event);
-//            if (discordBotChannel.equalsIgnoreCase(event.getChannel().getName())) {
-            try {
-                Optional.ofNullable(commands.get(event.getName()))
-                        .ifPresent(listener -> listener.onEvent(event));
-            } catch (RuntimeException e) {
-                LOGGER.warn("Error while processing discord command: " + event.getName(), e);
-                sendMessage(event.getChannel()::sendMessage, event.getUser().getAsMention() + " Execution failed with error: " + e.getMessage());
+            if (checkAccess(event.getChannelType(), event.getGuild(), event.getChannel().getName())) {
+                try {
+                    Optional.ofNullable(commands.get(event.getName()))
+                            .ifPresent(listener -> listener.onEvent(event));
+                } catch (RuntimeException e) {
+                    LOGGER.warn("Error while processing discord command: " + event.getName(), e);
+                    sendMessage(event.getChannel()::sendMessage, event.getUser().getAsMention() + " Execution failed with error: " + e.getMessage());
+                }
+            } else {
+                event.reply("Channel disabled").queue(message -> message.deleteOriginal().queue());
             }
         }
 
         @Override
         public void onMessageReceived(@NotNull MessageReceivedEvent event) {
             LOGGER.debug("Discord message received: {}", event.getMessage().getContentRaw());
-            if (discordBotChannel.equalsIgnoreCase(event.getChannel().getName()) || event.isFromType(ChannelType.PRIVATE)) {
+            if (checkAccess(event.getChannelType(), event.getGuild(), event.getChannel().getName())) {
                 ArgumentReader argumentReader = new ArgumentReader(event.getMessage().getContentRaw().trim());
                 try {
                     argumentReader.getNextString()
@@ -185,6 +191,16 @@ public final class Discord {
                             event.getAuthor().getAsMention() + " Execution failed with error: " + e.getMessage());
                 }
             }
+        }
+
+        private boolean checkAccess(@NotNull ChannelType channelType, @Nullable Guild guild, @NotNull String channelName) {
+            return ChannelType.PRIVATE.equals(channelType) ||
+                    Optional.ofNullable(guild)
+                            .map(Guild::getId)
+                            .map(serverIDSpotBotChannel::get)
+                            .map(SpotBotChannelMessageSender::channelName)
+                            .filter(channelName::equalsIgnoreCase)
+                            .isPresent();
         }
     }
 }
