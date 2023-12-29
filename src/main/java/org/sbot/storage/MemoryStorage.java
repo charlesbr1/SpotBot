@@ -49,8 +49,8 @@ public class MemoryStorage implements AlertStorage {
     }
 
     @Override
-    public boolean deleteAlert(long alertId, @NotNull Consumer<String> asyncErrorHandler) {
+    public void deleteAlert(long alertId, @NotNull Consumer<String> asyncErrorHandler) {
         LOGGER.debug("Deleting alert {}", alertId);
-        return null != alertsByPairsAndExchanges.remove(alertId);
+        alertsByPairsAndExchanges.remove(alertId);
     }
 }

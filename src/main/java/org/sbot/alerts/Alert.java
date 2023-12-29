@@ -28,6 +28,10 @@ public abstract class Alert {
         this.owner = requireNonNull(owner);
     }
 
+    public String getOwner() {
+        return owner;
+    }
+
     public String getExchange() {
         return exchange;
     }

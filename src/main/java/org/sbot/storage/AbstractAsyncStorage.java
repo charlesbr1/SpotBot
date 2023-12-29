@@ -44,11 +44,10 @@ public abstract class AbstractAsyncStorage extends MemoryStorage {
     }
 
     @Override
-    public final boolean deleteAlert(long alertId, @NotNull Consumer<String> asyncErrorHandler) {
-        boolean deleted = super.deleteAlert(alertId, requireNonNull(asyncErrorHandler));
+    public final void deleteAlert(long alertId, @NotNull Consumer<String> asyncErrorHandler) {
+        super.deleteAlert(alertId, requireNonNull(asyncErrorHandler));
         doUpdate.set(true);
         flushingThread.execute(() -> syncAlerts(asyncErrorHandler));
-        return deleted;
     }
 
     private void syncAlerts(@NotNull Consumer<String> asyncErrorHandler) {

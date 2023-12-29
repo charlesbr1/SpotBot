@@ -19,5 +19,5 @@ public interface AlertStorage {
 
     void addAlert(@NotNull Alert alert, @NotNull Consumer<String> asyncErrorHandler);
 
-    boolean deleteAlert(long alertId, @NotNull Consumer<String> asyncErrorHandler);
+    void deleteAlert(long alertId, @NotNull Consumer<String> asyncErrorHandler);
 }
