@@ -1,15 +1,19 @@
 package org.sbot.commands;
 
+import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.MessageEmbed;
+import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
-import org.sbot.discord.Discord.MessageSender;
 import org.sbot.storage.AlertStorage;
 import org.sbot.utils.ArgumentReader;
 
+import java.awt.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -41,23 +45,27 @@ public final class PairCommand extends CommandAdapter {
     @Override
     public void onEvent(@NotNull ArgumentReader argumentReader, @NotNull MessageReceivedEvent event) {
         LOGGER.debug("pair command: {}", event.getMessage().getContentRaw());
-
         String ticker = argumentReader.getMandatoryString("ticker or pair").toUpperCase();
-        pair(event.getChannel()::sendMessage, ticker);
+        event.getChannel().sendMessageEmbeds(pair(event.getAuthor(), event.getMember(), ticker)).queue();
     }
 
     @Override
     public void onEvent(@NotNull SlashCommandInteractionEvent event) {
         LOGGER.debug("pair slash command: {}", event.getOptions());
         String ticker = requireNonNull(event.getOption("ticker-pair", OptionMapping::getAsString));
-        pair(sender(event), ticker);
+        event.replyEmbeds(pair(event.getUser(), event.getMember(), ticker)).queue();
     }
 
-    private void pair(@NotNull MessageSender sender, @NotNull String ticker) {
+    private MessageEmbed pair(@NotNull User user, @Nullable Member member, @NotNull String ticker) {
+
         String alerts = alertStorage.getAlerts()
+                .filter(serverOrPrivateFilter(user, member))
                 .filter(alert -> alert.getReadablePair().contains(ticker))
                 .map(Alert::toString)
                 .collect(Collectors.joining("\n"));
-        sendResponse(sender, alerts.isEmpty() ? "No alert found for " + ticker : alerts);
+
+        String answer = alerts.isEmpty() ? "No alert found for " + ticker : alerts;
+
+        return embedBuilder(NAME, Color.green, answer).build();
     }
 }

@@ -1,5 +1,6 @@
 package org.sbot.commands;
 
+import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
@@ -7,15 +8,14 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.Alert;
-import org.sbot.discord.Discord.MessageSender;
 import org.sbot.storage.AlertStorage;
 import org.sbot.utils.ArgumentReader;
 
+import java.awt.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
-import static org.sbot.discord.Discord.MESSAGE_SECTION_DELIMITER;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 
 public final class ListCommand extends CommandAdapter {
@@ -47,29 +47,26 @@ public final class ListCommand extends CommandAdapter {
     public void onEvent(@NotNull ArgumentReader argumentReader, @NotNull MessageReceivedEvent event) {
         LOGGER.debug("list command: {}", event.getMessage().getContentRaw());
         String value = argumentReader.getMandatoryString("value");
-        list(event.getChannel()::sendMessage, value);
+        event.getChannel().sendMessageEmbeds(list(value)).queue();
     }
 
     @Override
     public void onEvent(@NotNull SlashCommandInteractionEvent event) {
         LOGGER.debug("list slash command: {}", event.getOptions());
         String value = requireNonNull(event.getOption("value", OptionMapping::getAsString));
-        list(sender(event), value);
+        event.replyEmbeds(list(value)).queue();
     }
 
-    private void list(@NotNull MessageSender sender, @NotNull String value) {
-        switch (value) {
-            case "alerts" -> {
-                String messages = alertStorage.getAlerts().map(Alert::toString).collect(Collectors.joining(MESSAGE_SECTION_DELIMITER));
-                sendResponse(sender, messages.isEmpty() ? "No record found" : messages);
+    private MessageEmbed list(@NotNull String value) {
+        String answer = switch (value) {
+            case "alerts" -> { // TODO list alert on channel or exchange
+                String messages = alertStorage.getAlerts().map(Alert::toString).collect(Collectors.joining(""));
+                yield messages.isEmpty() ? "No record found" : messages;
             }
-            case "exchanges" -> {
-                String message = String.join("\n", SUPPORTED_EXCHANGES);
-                sendResponse(sender, message);
-            }
-            case "pair" -> {
-            }
-            //TODO
-        }
+            case "exchanges" -> String.join("\n", SUPPORTED_EXCHANGES);
+            case "pair" -> "TODO";
+            default -> "bad arg";
+        };
+        return embedBuilder(NAME, Color.green, answer).build();
     }
 }

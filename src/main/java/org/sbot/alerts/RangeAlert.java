@@ -2,6 +2,7 @@ package org.sbot.alerts;
 
 import org.jetbrains.annotations.NotNull;
 import org.sbot.chart.Candlestick;
+import org.sbot.storage.IdGenerator;
 
 import java.math.BigDecimal;
 
@@ -11,14 +12,37 @@ public final class RangeAlert extends Alert {
     private final BigDecimal high;
 
 
-    public RangeAlert(@NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
-                      @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message, @NotNull String owner) {
-        super(exchange, ticker1, ticker2, message, owner);
+    public RangeAlert(long userId, long serverId,
+                      @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
+                      @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message) {
+        this(IdGenerator.newId(), userId, serverId, exchange, ticker1, ticker2, low, high, message,
+                DEFAULT_OCCURRENCE, DEFAULT_DELAY_HOURS, DEFAULT_THRESHOLD);
+    }
+    public RangeAlert(long id, long userId, long serverId,
+                      @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
+                      @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message,
+                      short occurrence, short delay, short threshold) {
+        super(id, userId, serverId, exchange, ticker1, ticker2, message, occurrence, delay, threshold);
         if(low.compareTo(high) > 0) {
             throw new IllegalArgumentException("low price is higher than high price");
         }
         this.low = low;
         this.high = high;
+    }
+
+    @Override
+    public RangeAlert withOccurrence(short occurrence) {
+        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, occurrence, delay, threshold);
+    }
+
+    @Override
+    public RangeAlert withDelay(short delay) {
+        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, occurrence, delay, threshold);
+    }
+
+    @Override
+    public RangeAlert withThreshold(short threshold) {
+        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, occurrence, delay, threshold);
     }
 
     @Override
@@ -45,7 +69,7 @@ public final class RangeAlert extends Alert {
     @NotNull
     @Override
     public String notification() {
-        return "Range Alert set by " + owner + " with id " + id + ", exchange " + exchange +
+        return "Range Alert set by <@" + userId + "> with id " + id + ", exchange " + exchange +
                 ", pair " + getReadablePair() + ", price reached box from " + low + " to " + high +
                 ".\nLast candlestick : " + lastCandlestick +
                 "\n" + message;

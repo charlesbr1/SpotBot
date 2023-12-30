@@ -2,6 +2,7 @@ package org.sbot.alerts;
 
 import org.jetbrains.annotations.NotNull;
 import org.sbot.chart.Candlestick;
+import org.sbot.storage.IdGenerator;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -18,11 +19,20 @@ public final class TrendAlert extends Alert {
     private final BigDecimal price2;
     private final ZonedDateTime date2;
 
-    public TrendAlert(@NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
+    public TrendAlert(long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
                       @NotNull BigDecimal price1, @NotNull ZonedDateTime date1,
                       @NotNull BigDecimal price2, @NotNull ZonedDateTime date2,
-                      @NotNull String message, @NotNull String owner) {
-        super(exchange, ticker1, ticker2, message, owner);
+                      @NotNull String message) {
+        this(IdGenerator.newId(), userId, serverId, exchange, ticker1, ticker2, price1, date1, price2, date2, message,
+                DEFAULT_OCCURRENCE, DEFAULT_DELAY_HOURS, DEFAULT_THRESHOLD);
+    }
+
+    public TrendAlert(long id, long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
+                      @NotNull BigDecimal price1, @NotNull ZonedDateTime date1,
+                      @NotNull BigDecimal price2, @NotNull ZonedDateTime date2,
+                      @NotNull String message,
+                      short occurrence, short delay, short threshold) {
+        super(id, userId, serverId, exchange, ticker1, ticker2, message, occurrence, delay, threshold);
         if(date1.isAfter(date2)) {
             throw new IllegalArgumentException("first date is after second date");
         }
@@ -30,6 +40,21 @@ public final class TrendAlert extends Alert {
         this.date1 = date1;
         this.price2 = requireNonNull(price2);
         this.date2 = date2;
+    }
+
+    @Override
+    public TrendAlert withOccurrence(short occurrence) {
+        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, price1, date1, price2, date2, message, occurrence, delay, threshold);
+    }
+
+    @Override
+    public TrendAlert withDelay(short delay) {
+        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, price1, date1, price2, date2, message, occurrence, delay, threshold);
+    }
+
+    @Override
+    public TrendAlert withThreshold(short threshold) {
+        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, price1, date1, price2, date2, message, occurrence, delay, threshold);
     }
 
     @Override
@@ -75,7 +100,7 @@ public final class TrendAlert extends Alert {
     @NotNull
     @Override
     public String notification() {
-        return "Trend Alert set by " + owner + " with id " + id + ", exchange " + exchange +
+        return "Trend Alert set by <@" + userId + "> with id " + id + ", exchange " + exchange +
                 ", pair " + getReadablePair() + ", price crossed trend from " + price1 + " at " + date1 +
                 " to " + price2 + " at " + date2 + ".\nLast candlestick : " + lastCandlestick +
                 "\n" + message;

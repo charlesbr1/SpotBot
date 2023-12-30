@@ -1,17 +1,20 @@
 package org.sbot.commands;
 
-import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.MessageEmbed;
+import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.commands.Command.Choice;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.RangeAlert;
-import org.sbot.discord.Discord.MessageSender;
 import org.sbot.storage.AlertStorage;
 import org.sbot.utils.ArgumentReader;
 
+import java.awt.*;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -19,6 +22,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
+import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 
 public final class RangeCommand extends CommandAdapter {
@@ -60,8 +64,7 @@ public final class RangeCommand extends CommandAdapter {
         BigDecimal high = argumentReader.getMandatoryNumber("high");
         String message = argumentReader.getRemaining();
 
-        String author = event.getAuthor().getAsMention();
-        range(event.getChannel()::sendMessage, event.getChannel(), author, exchange, ticker1, ticker2, low, high, message);
+        event.getChannel().sendMessageEmbeds(range(event.getAuthor(), event.getMember(), exchange, ticker1, ticker2, low, high, message)).queue();
     }
 
     @Override
@@ -75,24 +78,26 @@ public final class RangeCommand extends CommandAdapter {
         BigDecimal high = new BigDecimal(requireNonNull(event.getOption("high", OptionMapping::getAsString)));
         String message = event.getOption("message", "", OptionMapping::getAsString);
 
-        String author = event.getUser().getAsMention();
-        range(sender(event), event.getChannel(), author, exchange, ticker1, ticker2, low, high, message);
+        event.replyEmbeds(range(event.getUser(), event.getMember(), exchange, ticker1, ticker2, low, high, message)).queue();
     }
 
-    private void range(@NotNull MessageSender sender, @NotNull MessageChannel channel,
-                       @NotNull String author, @NotNull String exchange,
-                       @NotNull String ticker1, @NotNull String ticker2,
-                       @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message) {
+    private MessageEmbed range(@NotNull User user, @Nullable Member member, @NotNull String exchange,
+                               @NotNull String ticker1, @NotNull String ticker2,
+                               @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message) {
 
         if(low.compareTo(high) > 0) { // ensure correct order of prices
             BigDecimal swap = low;
             low = high;
             high = swap;
         }
-        RangeAlert rangeAlert = new RangeAlert(exchange, ticker1, ticker2, low, high, message, author);
-        alertStorage.addAlert(rangeAlert, asyncErrorHandler(channel, author, rangeAlert.id));
+        RangeAlert rangeAlert = new RangeAlert(user.getIdLong(),
+                null != member ? member.getGuild().getIdLong() : PRIVATE_ALERT,
+                exchange, ticker1, ticker2, low, high, message);
+        alertStorage.addAlert(rangeAlert);
 
-        sendResponse(sender, author + " New range alert added by user " + rangeAlert.owner + " with id " + rangeAlert.id +
-                " on pair " + rangeAlert.getReadablePair() + " on exchange " + exchange + ". box from " + low + " to " + high);
+        String answer = user.getAsMention() + " New range alert added with id " + rangeAlert.id +
+                " on pair " + rangeAlert.getReadablePair() + " on exchange " + exchange + ". box from " + low + " to " + high;
+
+        return embedBuilder(NAME, Color.green, answer).build();
     }
 }

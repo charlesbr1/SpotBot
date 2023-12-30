@@ -1,8 +1,8 @@
 package org.sbot.commands;
 
-import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import net.dv8tion.jda.api.entities.MessageEmbed;
+import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
@@ -10,8 +10,6 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.sbot.alerts.Alert;
-import org.sbot.discord.Discord.MessageSender;
 import org.sbot.storage.AlertStorage;
 import org.sbot.utils.ArgumentReader;
 
@@ -45,31 +43,21 @@ public final class DeleteCommand extends CommandAdapter {
     public void onEvent(@NotNull ArgumentReader argumentReader, @NotNull MessageReceivedEvent event) {
         LOGGER.debug("delete command: {}", event.getMessage().getContentRaw());
         long alertId = argumentReader.getMandatoryLong("alert_id");
-        String author = event.getAuthor().getAsMention();
-        onDelete(event.getChannel()::sendMessage, event.getChannel(), event.getMember(), author, alertId);
+        event.getChannel().sendMessageEmbeds(delete(event.getAuthor(), event.getMember(), alertId)).queue();
     }
 
     @Override
     public void onEvent(@NotNull SlashCommandInteractionEvent event) {
         LOGGER.debug("delete slash command: {}", event.getOptions());
         long alertId = requireNonNull(event.getOption("alert_id", OptionMapping::getAsLong));
-        String author = event.getUser().getAsMention();
-        onDelete(sender(event), event.getChannel(), event.getMember(), author, alertId);
+        event.replyEmbeds(delete(event.getUser(), event.getMember(), alertId)).queue();
     }
 
-    private void onDelete(@NotNull MessageSender sender, @NotNull MessageChannel channel, @Nullable Member member, @NotNull String author, long alertId) {
-        alertStorage.getAlert(alertId).ifPresentOrElse(alert -> {
-            if (checkDeleteAccess(member, author, alert)) {
-                alertStorage.deleteAlert(alertId, asyncErrorHandler(channel, author, alertId));
-                sendResponse(sender, author + " Alert " + alertId + " deleted");
-            } else {
-                sendResponse(sender, author + " Not allowed to delete alert " + alertId);
-            }
-        }, () -> sendResponse(sender, author + " Alert " + alertId + " not found"));
-    }
-
-    private boolean checkDeleteAccess(@Nullable Member member, @NotNull String author, @NotNull Alert alert) {
-        return null != member && member.hasPermission(Permission.ADMINISTRATOR)
-                || author.equals(alert.getOwner());
+    private MessageEmbed delete(@NotNull User user, @Nullable Member member, long alertId) {
+        AnswerColor answerColor = updateAlert(alertId, user, member, alert -> {
+            alertStorage.deleteAlert(alertId);
+            return user.getAsMention() + " Alert " + alertId + " deleted";
+        });
+        return embedBuilder(NAME, answerColor.color(), answerColor.answer()).build();
     }
 }

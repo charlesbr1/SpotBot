@@ -1,18 +1,21 @@
 package org.sbot.commands;
 
-import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.MessageEmbed;
+import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.commands.Command.Choice;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.TrendAlert;
-import org.sbot.discord.Discord.MessageSender;
 import org.sbot.storage.AlertStorage;
 import org.sbot.utils.ArgumentReader;
 import org.sbot.utils.Dates;
 
+import java.awt.*;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -21,6 +24,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
+import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.Dates.formatUTC;
 
@@ -69,8 +73,7 @@ public final class TrendCommand extends CommandAdapter {
         ZonedDateTime date2 = argumentReader.getMandatoryDateTime("date2");
         String message = argumentReader.getRemaining();
 
-        String author = event.getAuthor().getAsMention();
-        trend(event.getChannel()::sendMessage, event.getChannel(), author, exchange, ticker1, ticker2, price1, date1, price2, date2, message);
+        event.getChannel().sendMessageEmbeds(trend(event.getAuthor(), event.getMember(), exchange, ticker1, ticker2, price1, date1, price2, date2, message)).queue();
     }
 
     @Override
@@ -86,15 +89,13 @@ public final class TrendCommand extends CommandAdapter {
         ZonedDateTime date2 = Dates.parseUTC(requireNonNull(event.getOption("date2", OptionMapping::getAsString)));
         String message = event.getOption("message", "", OptionMapping::getAsString);
 
-        String author = event.getUser().getAsMention();
-        trend(sender(event), event.getChannel(), author, exchange, ticker1, ticker2, price1, date1, price2, date2, message);
+        event.replyEmbeds(trend(event.getUser(), event.getMember(), exchange, ticker1, ticker2, price1, date1, price2, date2, message)).queue();
     }
 
-    private void trend(@NotNull MessageSender sender, @NotNull MessageChannel channel,
-                       @NotNull String author, @NotNull String exchange,
-                       @NotNull String ticker1, @NotNull String ticker2,
-                       @NotNull BigDecimal price1, @NotNull ZonedDateTime date1,
-                       @NotNull BigDecimal price2, @NotNull ZonedDateTime date2, @NotNull String message) {
+    private MessageEmbed trend(@NotNull User user, @Nullable Member member, @NotNull String exchange,
+                               @NotNull String ticker1, @NotNull String ticker2,
+                               @NotNull BigDecimal price1, @NotNull ZonedDateTime date1,
+                               @NotNull BigDecimal price2, @NotNull ZonedDateTime date2, @NotNull String message) {
 
         if(date1.isAfter(date2)) { // ensure correct order of prices
             ZonedDateTime swap = date1;
@@ -104,11 +105,16 @@ public final class TrendCommand extends CommandAdapter {
             price1 = price2;
             price2 = value;
         }
-        TrendAlert trendAlert = new TrendAlert(exchange, ticker1, ticker2, price1, date1, price2, date2, message, author);
+        TrendAlert trendAlert = new TrendAlert(user.getIdLong(),
+                null != member ? member.getGuild().getIdLong() : PRIVATE_ALERT,
+                exchange, ticker1, ticker2, price1, date1, price2, date2, message);
 
-        alertStorage.addAlert(trendAlert, asyncErrorHandler(channel, author, trendAlert.id));
-        sendResponse(sender, "New trend alert added by user " + trendAlert.owner + " with id " + trendAlert.id +
+        alertStorage.addAlert(trendAlert);
+
+        String answer = "New trend alert added with id " + trendAlert.id +
                 " on pair " + trendAlert.getReadablePair() + " on exchange " + exchange + ". price1: " + price1 +
-                ", date1: " + formatUTC(date1) + ", price2: " + price2 + ", date2: " + formatUTC(date2));
+                ", date1: " + formatUTC(date1) + ", price2: " + price2 + ", date2: " + formatUTC(date2);
+
+        return embedBuilder(NAME, Color.green, answer).build();
     }
 }

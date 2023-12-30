@@ -9,10 +9,15 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static java.util.Objects.requireNonNull;
 
 public final class ArgumentReader {
+
+    private static final Pattern DISCORD_USER_ID = Pattern.compile("<@(\\d+)>"); // extract id from user mention
+
     private String remainingArguments;
 
     public ArgumentReader(@NotNull String arguments) {
@@ -38,6 +43,10 @@ public final class ArgumentReader {
         return getNextDateTime().orElseThrow(() -> new IllegalArgumentException("Missing date " + fieldName));
     }
 
+    public long getMandatoryUserId(@NotNull String fieldName) {
+        return getNextUserId().orElseThrow(() -> new IllegalArgumentException("Missing user mention " + fieldName));
+    }
+
     public Optional<String> getNextString() {
         List<String> values = !remainingArguments.isBlank() ?
                 // this split arguments into two parts : the first word without spaces, then the rest of the string
@@ -57,6 +66,15 @@ public final class ArgumentReader {
 
     public Optional<ZonedDateTime> getNextDateTime() {
         return getNext(Dates::parseUTC);
+    }
+
+    public Optional<Long> getNextUserId() {
+        return getNext(id -> {
+            Matcher matcher = DISCORD_USER_ID.matcher(id);
+            if(!matcher.matches())
+                throw new IllegalArgumentException();
+            return Long.parseLong(matcher.group(1));
+        });
     }
 
     private <U> Optional<U> getNext(@NotNull Function<? super String, ? extends U> mapper) {

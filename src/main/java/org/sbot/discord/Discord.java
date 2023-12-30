@@ -6,6 +6,9 @@ import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
+import net.dv8tion.jda.api.events.guild.GuildLeaveEvent;
+import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
@@ -29,6 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static net.dv8tion.jda.api.entities.MessageEmbed.TEXT_MAX_LENGTH;
 import static org.sbot.utils.PropertiesReader.loadProperties;
 import static org.sbot.utils.PropertiesReader.readFile;
 
@@ -36,6 +40,7 @@ public final class Discord {
 
     @FunctionalInterface
     public interface SpotBotChannel {
+        //TODO remplacer par class DiscordServeur qui hold le channel name
         void sendMessage(@NotNull String message);
     }
 
@@ -52,29 +57,28 @@ public final class Discord {
     public static final String DISCORD_BOT_CHANNEL_PROPERTY = "discord.bot.channel";
 
     private static final String DISCORD_BOT_TOKEN_FILE = "discord.token";
-    private static final int DISCORD_MESSAGE_MAXSIZE = discordProperties.getInt("discord.message.maxSize");
 
     private static final Object DISCORD_SEND_MESSAGE_LOCK = new Object();
 
-    public static final String MESSAGE_SECTION_DELIMITER = "\n\n";
-
-    private static final String PLAIN_TEXT_MARKDOWN = "```";
+    public static final String PLAIN_TEXT_MARKDOWN = "``` ";
+    public static final String SINGLE_LINE_BLOCK_QUOTE_MARKDOWN = "> ";
+    public static final String MULTI_LINE_BLOCK_QUOTE_MARKDOWN = ">>> ";
 
     private final JDA jda;
     private final Map<String, DiscordCommand> commands = new ConcurrentHashMap<>();
 
-    private record SpotBotChannelMessageSender(@NotNull String channelName, @NotNull SpotBotChannel spotBotChannel) {}
-    private final Map<String, SpotBotChannelMessageSender> serverIDSpotBotChannel = new ConcurrentHashMap<>();
+    private final Map<String, String> serverIDSpotBotChannel = new ConcurrentHashMap<>();
 
     public Discord() {
         jda = loadDiscordConnection();
     }
 
     public SpotBotChannel spotBotChannel(@NotNull String discordServerId, @NotNull String spotBotChannel) {
-        return serverIDSpotBotChannel.computeIfAbsent(discordServerId, id -> {
-            var channel = loadDiscordChannel(loadDiscordServer(id), spotBotChannel);
-            return new SpotBotChannelMessageSender(spotBotChannel, message -> sendMessage(channel::sendMessage, message));
-        }).spotBotChannel();
+//        return serverIDSpotBotChannel.computeIfAbsent(discordServerId, id -> {
+//            var channel = loadDiscordChannel(loadDiscordServer(id), spotBotChannel);
+//            return new SpotBotChannelMessageSender(spotBotChannel, message -> sendMessage(channel::sendMessage, message));
+//        }).spotBotChannel();
+        return s -> s.isEmpty();
     }
 
     public static void sendMessage(@NotNull MessageSender sender, @NotNull String message) {
@@ -86,13 +90,28 @@ public final class Discord {
     }
 
     // discord limit message size to 2000 chars.
-    // this split a string on double line returns, then every 2000 chars if the line is bigger
+    // this split a string on MESSAGE_SECTION_DELIMITER, then every 2000 chars if the line is bigger
     private static Stream<String> split(String message) {
-        return Arrays.stream(message.split(MESSAGE_SECTION_DELIMITER))
+/*
+
+        List<String> contents = SplitUtil.split(
+                someLargeString,  // input string of arbitrary length
+                2000,             // the split limit, can be arbitrary (>0)
+                true,             // whether to trim the strings (empty will be discarded)
+                Strategy.NEWLINE, // split on '\n' characters if possible
+                Strategy.ANYWHERE // otherwise split on the limit
+        );
+// Convert to instance of MessageCreateData (optional, you can just send strings directly!)
+        List<MessageCreateData> messages = contents.stream().map(MessageCreateData::fromContent).toList();
+
+ */
+        return Arrays.stream(message.split("MESSAGE_SECTION_DELIMITER"))
                 .flatMap(line -> IntStream
-                        .range(0, (line.length() + (2 * PLAIN_TEXT_MARKDOWN.length()) + DISCORD_MESSAGE_MAXSIZE - 1) / DISCORD_MESSAGE_MAXSIZE)
-                        .mapToObj(i -> line.substring(i * DISCORD_MESSAGE_MAXSIZE, Math.min((i + 1) * DISCORD_MESSAGE_MAXSIZE, line.length()))))
-                .map(line -> PLAIN_TEXT_MARKDOWN + line + PLAIN_TEXT_MARKDOWN);
+                        .range(0, (line.length() + TEXT_MAX_LENGTH - 1) / TEXT_MAX_LENGTH)
+                        .mapToObj(i -> line.substring(i * TEXT_MAX_LENGTH,
+                                Math.min((i + 1) * TEXT_MAX_LENGTH, line.length()))));
+
+
     }
 
     @NotNull
@@ -199,12 +218,26 @@ public final class Discord {
         }
 
         private boolean checkAccess(@Nullable Guild guild, @NotNull String channelName) {
-            return Optional.ofNullable(guild)
-                    .map(Guild::getId)
-                    .map(serverIDSpotBotChannel::get)
-                    .map(SpotBotChannelMessageSender::channelName)
-                    .filter(channelName::equalsIgnoreCase)
-                    .isPresent();
+            return true;
+            //Optional.ofNullable(guild)
+            //        .map(Guild::getId)
+              //      .map(serverIDSpotBotChannel::get)
+//                    .map(SpotBotChannelMessageSender::channelName)
+//                    .filter(channelName::equalsIgnoreCase)
+                //    .isPresent();
+        }
+
+        public void onGuildJoin(@NotNull GuildJoinEvent event) {
+            LOGGER.error("QUILD JOIN " + event);
+        }
+
+        public void onGuildMemberRemove(@NotNull GuildMemberRemoveEvent event) {
+            LOGGER.error("USER LEAVE " + event);
+
+        }
+
+        public void onGuildLeave(@NotNull GuildLeaveEvent event) {
+            LOGGER.error("QUILD LEAVE " + event);
         }
     }
 }

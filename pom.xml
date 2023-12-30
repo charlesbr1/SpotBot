@@ -23,14 +23,14 @@
 
     <dependencies>
 
-        <!-- OpenCSV -->
-        <dependency>
-            <groupId>com.opencsv</groupId>
-            <artifactId>opencsv</artifactId>
-            <version>5.5</version> <!-- Utilisez la dernière version disponible -->
-        </dependency>
-
-        <!-- JDA (Discord API for Java) -->
+        <!-- mapDB -->
+        <!--        <dependency>
+                    <groupId>org.mapdb</groupId>
+                    <artifactId>mapdb</artifactId>
+                    <version>3.0.10</version>
+                </dependency>
+        -->
+                <!-- JDA (Discord API for Java) -->
         <!-- https://mvnrepository.com/artifact/net.dv8tion/JDA -->
         <dependency>
             <groupId>net.dv8tion</groupId>
