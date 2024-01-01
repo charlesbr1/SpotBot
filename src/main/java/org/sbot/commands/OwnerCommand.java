@@ -68,7 +68,7 @@ public final class OwnerCommand extends CommandAdapter {
         }
 
         Predicate<Alert> ownerAndPair = null != pair ?
-                alert -> alert.userId == ownerId && alert.getReadablePair().contains(pair) :
+                alert -> alert.userId == ownerId && alert.getSlashPair().contains(pair) :
                 alert -> alert.userId == ownerId;
 
         String alerts = alertStorage.getAlerts()

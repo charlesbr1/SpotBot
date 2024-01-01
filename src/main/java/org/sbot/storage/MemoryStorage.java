@@ -38,7 +38,7 @@ public class MemoryStorage implements AlertStorage {
     @Override
     public Map<String, Map<String, List<Alert>>> getAlertsByPairsAndExchanges() {
         return alerts.values().stream()
-                .collect(groupingBy(Alert::getExchange, groupingBy(Alert::getReadablePair)));
+                .collect(groupingBy(Alert::getExchange, groupingBy(Alert::getSlashPair)));
     }
 
     @Override

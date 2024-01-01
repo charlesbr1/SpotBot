@@ -14,47 +14,47 @@ import static java.util.Objects.requireNonNull;
 
 public final class TrendAlert extends Alert {
 
-    private final BigDecimal price1;
-    private final ZonedDateTime date1;
-    private final BigDecimal price2;
-    private final ZonedDateTime date2;
+    private final BigDecimal fromPrice;
+    private final ZonedDateTime fromDate;
+    private final BigDecimal toPrice;
+    private final ZonedDateTime toDate;
 
     public TrendAlert(long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
-                      @NotNull BigDecimal price1, @NotNull ZonedDateTime date1,
-                      @NotNull BigDecimal price2, @NotNull ZonedDateTime date2,
+                      @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate,
+                      @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate,
                       @NotNull String message) {
-        this(IdGenerator.newId(), userId, serverId, exchange, ticker1, ticker2, price1, date1, price2, date2, message,
-                DEFAULT_OCCURRENCE, DEFAULT_DELAY_HOURS, DEFAULT_THRESHOLD);
+        this(IdGenerator.newId(), userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message,
+                DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS, DEFAULT_THRESHOLD);
     }
 
     public TrendAlert(long id, long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
-                      @NotNull BigDecimal price1, @NotNull ZonedDateTime date1,
-                      @NotNull BigDecimal price2, @NotNull ZonedDateTime date2,
+                      @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate,
+                      @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate,
                       @NotNull String message,
                       short occurrence, short delay, short threshold) {
         super(id, userId, serverId, exchange, ticker1, ticker2, message, occurrence, delay, threshold);
-        if(date1.isAfter(date2)) {
+        if(fromDate.isAfter(toDate)) {
             throw new IllegalArgumentException("first date is after second date");
         }
-        this.price1 = requireNonNull(price1);
-        this.date1 = date1;
-        this.price2 = requireNonNull(price2);
-        this.date2 = date2;
+        this.fromPrice = requireNonNull(fromPrice);
+        this.fromDate = fromDate;
+        this.toPrice = requireNonNull(toPrice);
+        this.toDate = toDate;
     }
 
     @Override
-    public TrendAlert withOccurrence(short occurrence) {
-        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, price1, date1, price2, date2, message, occurrence, delay, threshold);
+    public TrendAlert withRepeat(short repeat) {
+        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message, repeat, repeatDelay, threshold);
     }
 
     @Override
-    public TrendAlert withDelay(short delay) {
-        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, price1, date1, price2, date2, message, occurrence, delay, threshold);
+    public TrendAlert withRepeatDelay(short delay) {
+        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message, repeat, delay, threshold);
     }
 
     @Override
     public TrendAlert withThreshold(short threshold) {
-        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, price1, date1, price2, date2, message, occurrence, delay, threshold);
+        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message, repeat, repeatDelay, threshold);
     }
 
     @Override
@@ -82,27 +82,27 @@ public final class TrendAlert extends Alert {
     @NotNull
     private BigDecimal currentTrendPrice() {
         BigDecimal delta = priceDeltaByHour().multiply(hoursSinceDate1());
-        return price1.add(delta);
+        return fromPrice.add(delta);
     }
 
     @NotNull
     private BigDecimal hoursSinceDate1() {
-        BigDecimal durationSec = new BigDecimal(Duration.between(date1, Instant.now()).abs().toSeconds());
+        BigDecimal durationSec = new BigDecimal(Duration.between(fromDate, Instant.now()).abs().toSeconds());
         return durationSec.divide(new BigDecimal(3600), FLOOR);
     }
 
     @NotNull
     private BigDecimal priceDeltaByHour() {
-        BigDecimal durationSec = new BigDecimal(Duration.between(date1, date2).abs().toSeconds());
-        return price1.min(price2).divide(durationSec.divide(new BigDecimal(3600), FLOOR), FLOOR);
+        BigDecimal durationSec = new BigDecimal(Duration.between(fromDate, toDate).abs().toSeconds());
+        return fromPrice.min(toPrice).divide(durationSec.divide(new BigDecimal(3600), FLOOR), FLOOR);
     }
 
     @NotNull
     @Override
     public String notification() {
         return "Trend Alert set by <@" + userId + "> with id " + id + ", exchange " + exchange +
-                ", pair " + getReadablePair() + ", price crossed trend from " + price1 + " at " + date1 +
-                " to " + price2 + " at " + date2 + ".\nLast candlestick : " + lastCandlestick +
+                ", pair " + getSlashPair() + ", price crossed trend from " + fromPrice + " at " + fromDate +
+                " to " + toPrice + " at " + toDate + ".\nLast candlestick : " + lastCandlestick +
                 "\n" + message;
     }
 }

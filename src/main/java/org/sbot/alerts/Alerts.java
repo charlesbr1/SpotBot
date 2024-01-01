@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.chart.Candlestick;
 import org.sbot.chart.TimeFrame;
+import org.sbot.discord.Discord;
 import org.sbot.discord.Discord.SpotBotChannel;
 import org.sbot.exchanges.Exchange;
 import org.sbot.exchanges.Exchanges;
@@ -13,18 +14,19 @@ import org.sbot.storage.AlertStorage;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.groupingBy;
 
 public final class Alerts {
 
     private static final Logger LOGGER = LogManager.getLogger(Alerts.class);
 
-    private final SpotBotChannel spotBotChannel;
+    private final Discord discord;
 
-    public Alerts(@NotNull SpotBotChannel spotBotChannel) {
-        this.spotBotChannel = requireNonNull(spotBotChannel);
+    public Alerts(@NotNull Discord discord) {
+        this.discord = requireNonNull(discord);
     }
 
     public void checkPricesAndSendAlerts(@NotNull AlertStorage alertStorage) {
@@ -52,16 +54,21 @@ public final class Alerts {
     }
 
     private void triggerAlerts(@NotNull List<Alert> alerts, @NotNull Candlestick candlestick) {
-        String alertsToTrigger = matchingAlerts(alerts, candlestick);
-        if(!alertsToTrigger.isEmpty()) {
-            spotBotChannel.sendMessage(alertsToTrigger);
-        }
+        matchingAlerts(alerts, candlestick).collect(groupingBy(Alert::getServerId))
+                .forEach((serverId, alertsToTrigger) -> {
+                    try {
+                        SpotBotChannel spotBotChannel = discord.spotBotChannel(serverId);
+                        alertsToTrigger.stream()
+                                .map(alert -> "@sbot ALERT triggered by " + alert.notification())
+                                .forEach(spotBotChannel::sendMessage);
+                    } catch (IllegalStateException e) {
+                        LOGGER.error("Failed to send alert", e);
+                    }
+                });
     }
 
     @NotNull
-    private String matchingAlerts(@NotNull List<Alert> alerts, @NotNull Candlestick candlestick) {
-        return alerts.stream().filter(alert -> alert.match(candlestick))
-                .map(alert -> "@sbot ALERT triggered by " + alert.notification())
-                .collect(Collectors.joining("\n"));
+    private Stream<Alert> matchingAlerts(@NotNull List<Alert> alerts, @NotNull Candlestick candlestick) {
+        return alerts.stream().filter(alert -> alert.match(candlestick));
     }
 }

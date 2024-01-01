@@ -9,8 +9,8 @@ import static java.util.Objects.requireNonNull;
 
 public abstract class Alert {
 
-    public static final short DEFAULT_OCCURRENCE = 10;
-    public static final short DEFAULT_DELAY_HOURS = 8;
+    public static final short DEFAULT_REPEAT = 10;
+    public static final short DEFAULT_REPEAT_DELAY_HOURS = 8;
     public static final short DEFAULT_THRESHOLD = 0;
     public static final long PRIVATE_ALERT = 0;
 
@@ -24,13 +24,13 @@ public abstract class Alert {
     public final String ticker2;
     public final String message;
 
-    protected final short occurrence;
-    protected final short delay;
+    protected final short repeat;
+    protected final short repeatDelay;
     protected final short threshold;
     protected Candlestick lastCandlestick; // TODO move elsewhere
 
 
-    protected Alert(long id, long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2, @NotNull String message, short occurrence, short delay, short threshold) {
+    protected Alert(long id, long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2, @NotNull String message, short repeat, short repeatDelay, short threshold) {
         this.id = id;
         this.userId = userId;
         this.serverId = serverId;
@@ -38,9 +38,13 @@ public abstract class Alert {
         this.ticker1 = ticker1.toUpperCase().intern();
         this.ticker2 = ticker2.toUpperCase().intern();
         this.message = requireNonNull(message);
-        this.occurrence = occurrence;
-        this.delay = delay;
+        this.repeat = repeat;
+        this.repeatDelay = repeatDelay;
         this.threshold = threshold;
+    }
+
+    public long getServerId() {
+        return serverId;
     }
 
     public String getExchange() {
@@ -51,7 +55,7 @@ public abstract class Alert {
         return ticker1 + ticker2;
     }
 
-    public final String getReadablePair() {
+    public final String getSlashPair() {
         return ticker1 + '/' + ticker2;
     }
 
@@ -59,9 +63,9 @@ public abstract class Alert {
         return PRIVATE_ALERT == serverId;
     }
 
-    public abstract Alert withOccurrence(short occurrence);
+    public abstract Alert withRepeat(short repeat);
 
-    public abstract Alert withDelay(short delay);
+    public abstract Alert withRepeatDelay(short delay);
 
     public abstract Alert withThreshold(short threshold);
 

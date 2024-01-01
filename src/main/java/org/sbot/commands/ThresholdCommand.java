@@ -16,6 +16,8 @@ import org.sbot.utils.ArgumentReader;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
+import static org.sbot.utils.ArgumentValidator.requirePositive;
+import static org.sbot.utils.ArgumentValidator.requirePositiveShort;
 
 public final class ThresholdCommand extends CommandAdapter {
     //TODO add support in Alert
@@ -45,20 +47,20 @@ public final class ThresholdCommand extends CommandAdapter {
     public void onEvent(@NotNull ArgumentReader argumentReader, @NotNull MessageReceivedEvent event) {
         LOGGER.debug("threshold command: {}", event.getMessage().getContentRaw());
 
-        long alertId = argumentReader.getMandatoryLong("alert_id");
-        long threshold = argumentReader.getMandatoryLong("threshold");
+        long alertId = requirePositive(argumentReader.getMandatoryLong("alert_id"));
+        short threshold = requirePositiveShort(argumentReader.getMandatoryLong("threshold"));
 
-        event.getChannel().sendMessageEmbeds(threshold(event.getAuthor(), event.getMember(), alertId, (short)threshold)).queue();
+        event.getChannel().sendMessageEmbeds(threshold(event.getAuthor(), event.getMember(), alertId, threshold)).queue();
     }
 
     @Override
     public void onEvent(@NotNull SlashCommandInteractionEvent event) {
         LOGGER.debug("threshold slash command: {}", event.getOptions());
 
-        long alertId = requireNonNull(event.getOption("alert_id", OptionMapping::getAsLong));
-        long threshold = requireNonNull(event.getOption("threshold", OptionMapping::getAsLong));
+        long alertId = requirePositive(requireNonNull(event.getOption("alert_id", OptionMapping::getAsLong)));
+        short threshold = requirePositiveShort(requireNonNull(event.getOption("threshold", OptionMapping::getAsLong)));
 
-        event.replyEmbeds(threshold(event.getUser(), event.getMember(), alertId, (short)threshold)).queue();
+        event.replyEmbeds(threshold(event.getUser(), event.getMember(), alertId, threshold)).queue();
     }
 
     private MessageEmbed threshold(@NotNull User user, @Nullable Member member, long alertId, short threshold) {

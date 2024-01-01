@@ -26,7 +26,7 @@ public final class PairCommand extends CommandAdapter {
     static final String DESCRIPTION = "show the alerts defined on the given ticker or pair";
 
     static final List<OptionData> options = List.of(
-            new OptionData(STRING, "ticker-pair", "the ticker or pair to show alerts on", true));
+            new OptionData(STRING, "ticker_pair", "the ticker or pair to show alerts on", true));
 
     public PairCommand(@NotNull AlertStorage alertStorage) {
         super(alertStorage, NAME);
@@ -52,7 +52,7 @@ public final class PairCommand extends CommandAdapter {
     @Override
     public void onEvent(@NotNull SlashCommandInteractionEvent event) {
         LOGGER.debug("pair slash command: {}", event.getOptions());
-        String ticker = requireNonNull(event.getOption("ticker-pair", OptionMapping::getAsString));
+        String ticker = requireNonNull(event.getOption("ticker_pair", OptionMapping::getAsString));
         event.replyEmbeds(pair(event.getUser(), event.getMember(), ticker)).queue();
     }
 
@@ -60,7 +60,7 @@ public final class PairCommand extends CommandAdapter {
 
         String alerts = alertStorage.getAlerts()
                 .filter(serverOrPrivateFilter(user, member))
-                .filter(alert -> alert.getReadablePair().contains(ticker))
+                .filter(alert -> alert.getSlashPair().contains(ticker))
                 .map(Alert::toString)
                 .collect(Collectors.joining("\n"));
 

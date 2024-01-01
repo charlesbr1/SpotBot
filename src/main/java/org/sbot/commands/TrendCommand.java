@@ -26,6 +26,7 @@ import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
+import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.Dates.formatUTC;
 
 public final class TrendCommand extends CommandAdapter {
@@ -38,10 +39,10 @@ public final class TrendCommand extends CommandAdapter {
                     .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).collect(toList())),
             new OptionData(STRING, "ticker1", "the first ticker", true),
             new OptionData(STRING, "ticker2", "the second ticker", true),
-            new OptionData(NUMBER, "price1", "the first price", true),
-            new OptionData(STRING, "date1", "the date of first price, UTC expected, format: " + Dates.DATE_TIME_FORMAT, true),
-            new OptionData(NUMBER, "price2", "the second price", true),
-            new OptionData(STRING, "date2", "the date of second price, UTC expected, format: " + Dates.DATE_TIME_FORMAT, true),
+            new OptionData(NUMBER, "from_price", "the first price", true),
+            new OptionData(STRING, "from_date", "the date of first price, UTC expected, format: " + Dates.DATE_TIME_FORMAT, true),
+            new OptionData(NUMBER, "to_price", "the second price", true),
+            new OptionData(STRING, "to_date", "the date of second price, UTC expected, format: " + Dates.DATE_TIME_FORMAT, true),
             new OptionData(STRING, "message", "a message to display when the alert is triggered", false));
 
 
@@ -67,13 +68,13 @@ public final class TrendCommand extends CommandAdapter {
         String exchange = argumentReader.getMandatoryString("exchange");
         String ticker1 = argumentReader.getMandatoryString("ticker1");
         String ticker2 = argumentReader.getMandatoryString("ticker2");
-        BigDecimal price1 = argumentReader.getMandatoryNumber("price1");
-        ZonedDateTime date1 = argumentReader.getMandatoryDateTime("date1");
-        BigDecimal price2 = argumentReader.getMandatoryNumber("price2");
-        ZonedDateTime date2 = argumentReader.getMandatoryDateTime("date2");
+        BigDecimal fromPrice = requirePositive(argumentReader.getMandatoryNumber("from price"));
+        ZonedDateTime fromDate = argumentReader.getMandatoryDateTime("from date");
+        BigDecimal toPrice = requirePositive(argumentReader.getMandatoryNumber("to price"));
+        ZonedDateTime toDate = argumentReader.getMandatoryDateTime("to date");
         String message = argumentReader.getRemaining();
 
-        event.getChannel().sendMessageEmbeds(trend(event.getAuthor(), event.getMember(), exchange, ticker1, ticker2, price1, date1, price2, date2, message)).queue();
+        event.getChannel().sendMessageEmbeds(trend(event.getAuthor(), event.getMember(), exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message)).queue();
     }
 
     @Override
@@ -83,37 +84,37 @@ public final class TrendCommand extends CommandAdapter {
         String exchange = requireNonNull(event.getOption("exchange", OptionMapping::getAsString));
         String ticker1 = requireNonNull(event.getOption("ticker1", OptionMapping::getAsString));
         String ticker2 = requireNonNull(event.getOption("ticker2", OptionMapping::getAsString));
-        BigDecimal price1 = new BigDecimal(requireNonNull(event.getOption("price1", OptionMapping::getAsString)));
-        ZonedDateTime date1 = Dates.parseUTC(requireNonNull(event.getOption("date1", OptionMapping::getAsString)));
-        BigDecimal price2 = new BigDecimal(requireNonNull(event.getOption("price2", OptionMapping::getAsString)));
-        ZonedDateTime date2 = Dates.parseUTC(requireNonNull(event.getOption("date2", OptionMapping::getAsString)));
+        BigDecimal fromPrice = requirePositive(new BigDecimal(requireNonNull(event.getOption("from_price", OptionMapping::getAsString))));
+        ZonedDateTime fromDate = Dates.parseUTC(requireNonNull(event.getOption("from_date", OptionMapping::getAsString)));
+        BigDecimal toPrice = requirePositive(new BigDecimal(requireNonNull(event.getOption("to_price", OptionMapping::getAsString))));
+        ZonedDateTime toDate = Dates.parseUTC(requireNonNull(event.getOption("to_date", OptionMapping::getAsString)));
         String message = event.getOption("message", "", OptionMapping::getAsString);
 
-        event.replyEmbeds(trend(event.getUser(), event.getMember(), exchange, ticker1, ticker2, price1, date1, price2, date2, message)).queue();
+        event.replyEmbeds(trend(event.getUser(), event.getMember(), exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message)).queue();
     }
 
     private MessageEmbed trend(@NotNull User user, @Nullable Member member, @NotNull String exchange,
                                @NotNull String ticker1, @NotNull String ticker2,
-                               @NotNull BigDecimal price1, @NotNull ZonedDateTime date1,
-                               @NotNull BigDecimal price2, @NotNull ZonedDateTime date2, @NotNull String message) {
+                               @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate,
+                               @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate, @NotNull String message) {
 
-        if(date1.isAfter(date2)) { // ensure correct order of prices
-            ZonedDateTime swap = date1;
-            date1 = date2;
-            date2 = swap;
-            BigDecimal value = price1;
-            price1 = price2;
-            price2 = value;
+        if(fromDate.isAfter(toDate)) { // ensure correct order of prices
+            ZonedDateTime swap = fromDate;
+            fromDate = toDate;
+            toDate = swap;
+            BigDecimal value = fromPrice;
+            fromPrice = toPrice;
+            toPrice = value;
         }
         TrendAlert trendAlert = new TrendAlert(user.getIdLong(),
                 null != member ? member.getGuild().getIdLong() : PRIVATE_ALERT,
-                exchange, ticker1, ticker2, price1, date1, price2, date2, message);
+                exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message);
 
         alertStorage.addAlert(trendAlert);
 
         String answer = "New trend alert added with id " + trendAlert.id +
-                " on pair " + trendAlert.getReadablePair() + " on exchange " + exchange + ". price1: " + price1 +
-                ", date1: " + formatUTC(date1) + ", price2: " + price2 + ", date2: " + formatUTC(date2);
+                " on pair " + trendAlert.getSlashPair() + " on exchange " + exchange + ". From price " + fromPrice +
+                " at " + formatUTC(fromDate) + " to price: " + toPrice + " at " + formatUTC(toDate);
 
         return embedBuilder(NAME, Color.green, answer).build();
     }

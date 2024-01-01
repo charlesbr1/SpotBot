@@ -1,7 +1,6 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
 import org.apache.logging.log4j.LogManager;
@@ -17,6 +16,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static java.util.Objects.requireNonNull;
+import static net.dv8tion.jda.api.Permission.ADMINISTRATOR;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 
 public abstract class CommandAdapter implements DiscordCommand {
@@ -39,7 +39,7 @@ public abstract class CommandAdapter implements DiscordCommand {
     protected record AnswerColor(@NotNull String answer, @NotNull Color color) {}
 
     protected AnswerColor updateAlert(long alertId, @NotNull User user, @Nullable Member member,
-                                 Function<Alert, String> updateHandler) {
+                                      @NotNull Function<Alert, String> updateHandler) {
         return alertStorage.getAlert(alertId).map(alert -> {
             if (hasAccess(alert, user, member)) {
                 return new AnswerColor(updateHandler.apply(alert), Color.green);
@@ -60,7 +60,7 @@ public abstract class CommandAdapter implements DiscordCommand {
 
     protected static boolean userIsAdminAndAlertOnHisServer(@NotNull Alert alert, @Nullable Member member) {
         return !alert.isPrivate() && null != member &&
-                member.hasPermission(Permission.ADMINISTRATOR) &&
+                member.hasPermission(ADMINISTRATOR) &&
                 alert.serverId == member.getGuild().getIdLong();
     }
 

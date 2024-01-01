@@ -16,17 +16,19 @@ import org.sbot.utils.ArgumentReader;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
+import static org.sbot.utils.ArgumentValidator.requirePositive;
+import static org.sbot.utils.ArgumentValidator.requirePositiveShort;
 
-public final class OccurrenceCommand extends CommandAdapter {
+public final class RepeatCommand extends CommandAdapter {
 
-    public static final String NAME = "occurrence";
-    static final String DESCRIPTION = "update the number of time the alert will be thrown";
+    public static final String NAME = "repeat";
+    static final String DESCRIPTION = "update the number of time the alert will be rethrown";
 
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.STRING, "alert_id", "id of the alert", true),
-            new OptionData(OptionType.INTEGER, "occurrence", "number of time the specified alert will be thrown", true));
+            new OptionData(OptionType.INTEGER, "repeat", "number of time the specified alert will be rethrown", true));
 
-    public OccurrenceCommand(@NotNull AlertStorage alertStorage) {
+    public RepeatCommand(@NotNull AlertStorage alertStorage) {
         super(alertStorage, NAME);
     }
     @Override
@@ -41,27 +43,27 @@ public final class OccurrenceCommand extends CommandAdapter {
 
     @Override
     public void onEvent(@NotNull ArgumentReader argumentReader, @NotNull MessageReceivedEvent event) {
-        LOGGER.debug("occurrence command: {}", event.getMessage().getContentRaw());
+        LOGGER.debug("repeat command: {}", event.getMessage().getContentRaw());
 
-        long alertId = argumentReader.getMandatoryLong("alert_id");
-        long occurrence = argumentReader.getMandatoryLong("occurrence");
+        long alertId = requirePositive(argumentReader.getMandatoryLong("alert_id"));
+        short repeat = requirePositiveShort(argumentReader.getMandatoryLong("repeat"));
 
-        event.getChannel().sendMessageEmbeds(occurrence(event.getAuthor(), event.getMember(), alertId, (short)occurrence)).queue();
+        event.getChannel().sendMessageEmbeds(occurrence(event.getAuthor(), event.getMember(), alertId, repeat)).queue();
     }
 
     @Override
     public void onEvent(@NotNull SlashCommandInteractionEvent event) {
-        LOGGER.debug("occurrence slash command: {}", event.getOptions());
+        LOGGER.debug("repeat slash command: {}", event.getOptions());
 
-        long alertId = requireNonNull(event.getOption("alert_id", OptionMapping::getAsLong));
-        long occurrence = requireNonNull(event.getOption("occurrence", OptionMapping::getAsLong));
+        long alertId = requirePositive(requireNonNull(event.getOption("alert_id", OptionMapping::getAsLong)));
+        short repeat = requirePositiveShort(requireNonNull(event.getOption("occurrence", OptionMapping::getAsLong)));
 
-        event.replyEmbeds(occurrence(event.getUser(), event.getMember(), alertId, (short)occurrence)).queue();
+        event.replyEmbeds(occurrence(event.getUser(), event.getMember(), alertId, repeat)).queue();
     }
 
-    private MessageEmbed occurrence(@NotNull User user, @Nullable Member member, long alertId, short occurrence) {
+    private MessageEmbed occurrence(@NotNull User user, @Nullable Member member, long alertId, short repeat) {
         AnswerColor answerColor = updateAlert(alertId, user, member, alert -> {
-            alertStorage.addAlert(alert.withOccurrence(occurrence));
+            alertStorage.addAlert(alert.withRepeat(repeat));
             return user.getAsMention() + " Occurrence of alert " + alertId + " updated";
         });
         return embedBuilder(NAME, answerColor.color(), answerColor.answer()).build();

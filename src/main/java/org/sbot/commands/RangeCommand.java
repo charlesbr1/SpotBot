@@ -24,6 +24,7 @@ import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
+import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class RangeCommand extends CommandAdapter {
 
@@ -60,8 +61,8 @@ public final class RangeCommand extends CommandAdapter {
         String exchange = argumentReader.getMandatoryString("exchange");
         String ticker1 = argumentReader.getMandatoryString("ticker1");
         String ticker2 = argumentReader.getMandatoryString("ticker2");
-        BigDecimal low = argumentReader.getMandatoryNumber("low");
-        BigDecimal high = argumentReader.getMandatoryNumber("high");
+        BigDecimal low = requirePositive(argumentReader.getMandatoryNumber("low"));
+        BigDecimal high = requirePositive(argumentReader.getMandatoryNumber("high"));
         String message = argumentReader.getRemaining();
 
         event.getChannel().sendMessageEmbeds(range(event.getAuthor(), event.getMember(), exchange, ticker1, ticker2, low, high, message)).queue();
@@ -74,8 +75,8 @@ public final class RangeCommand extends CommandAdapter {
         String exchange = requireNonNull(event.getOption("exchange", OptionMapping::getAsString));
         String ticker1 = requireNonNull(event.getOption("ticker1", OptionMapping::getAsString));
         String ticker2 = requireNonNull(event.getOption("ticker2", OptionMapping::getAsString));
-        BigDecimal low = new BigDecimal(requireNonNull(event.getOption("low", OptionMapping::getAsString)));
-        BigDecimal high = new BigDecimal(requireNonNull(event.getOption("high", OptionMapping::getAsString)));
+        BigDecimal low = requirePositive(new BigDecimal(requireNonNull(event.getOption("low", OptionMapping::getAsString))));
+        BigDecimal high = requirePositive(new BigDecimal(requireNonNull(event.getOption("high", OptionMapping::getAsString))));
         String message = event.getOption("message", "", OptionMapping::getAsString);
 
         event.replyEmbeds(range(event.getUser(), event.getMember(), exchange, ticker1, ticker2, low, high, message)).queue();
@@ -96,7 +97,7 @@ public final class RangeCommand extends CommandAdapter {
         alertStorage.addAlert(rangeAlert);
 
         String answer = user.getAsMention() + " New range alert added with id " + rangeAlert.id +
-                " on pair " + rangeAlert.getReadablePair() + " on exchange " + exchange + ". box from " + low + " to " + high;
+                " on pair " + rangeAlert.getSlashPair() + " on exchange " + exchange + ". Box from " + low + " to " + high;
 
         return embedBuilder(NAME, Color.green, answer).build();
     }

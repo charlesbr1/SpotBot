@@ -4,8 +4,10 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.api.events.guild.GuildLeaveEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent;
@@ -17,48 +19,36 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.requests.RestAction;
 import net.dv8tion.jda.api.utils.Compression;
+import net.dv8tion.jda.api.utils.SplitUtil;
+import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.utils.ArgumentReader;
-import org.sbot.utils.PropertiesReader;
 
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.IntStream;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
-import static net.dv8tion.jda.api.entities.MessageEmbed.TEXT_MAX_LENGTH;
-import static org.sbot.utils.PropertiesReader.loadProperties;
+import static org.sbot.SpotBot.DISCORD_BOT_CHANNEL;
 import static org.sbot.utils.PropertiesReader.readFile;
 
 public final class Discord {
 
     @FunctionalInterface
     public interface SpotBotChannel {
-        //TODO remplacer par class DiscordServeur qui hold le channel name
         void sendMessage(@NotNull String message);
     }
 
-    @FunctionalInterface
-    public interface MessageSender {
-        RestAction<?> sendMessage(@NotNull String message);
-    }
-
-
     private static final Logger LOGGER = LogManager.getLogger(Discord.class);
 
-    public static final PropertiesReader discordProperties = loadProperties("discord.properties");
-    public static final String DISCORD_SERVER_ID_PROPERTY = "discord.server.id";
-    public static final String DISCORD_BOT_CHANNEL_PROPERTY = "discord.bot.channel";
 
     private static final String DISCORD_BOT_TOKEN_FILE = "discord.token";
-
-    private static final Object DISCORD_SEND_MESSAGE_LOCK = new Object();
 
     public static final String PLAIN_TEXT_MARKDOWN = "``` ";
     public static final String SINGLE_LINE_BLOCK_QUOTE_MARKDOWN = "> ";
@@ -67,51 +57,33 @@ public final class Discord {
     private final JDA jda;
     private final Map<String, DiscordCommand> commands = new ConcurrentHashMap<>();
 
-    private final Map<String, String> serverIDSpotBotChannel = new ConcurrentHashMap<>();
-
     public Discord() {
         jda = loadDiscordConnection();
     }
 
-    public SpotBotChannel spotBotChannel(@NotNull String discordServerId, @NotNull String spotBotChannel) {
-//        return serverIDSpotBotChannel.computeIfAbsent(discordServerId, id -> {
-//            var channel = loadDiscordChannel(loadDiscordServer(id), spotBotChannel);
-//            return new SpotBotChannelMessageSender(spotBotChannel, message -> sendMessage(channel::sendMessage, message));
-//        }).spotBotChannel();
-        return s -> s.isEmpty();
+    public SpotBotChannel spotBotChannel(long discordServerId) {
+        var channel = getSpotBotChannel(getDiscordServer(discordServerId));
+        return message -> sendMessage(channel::sendMessage, message);
     }
 
-    public static void sendMessage(@NotNull MessageSender sender, @NotNull String message) {
-        synchronized (DISCORD_SEND_MESSAGE_LOCK) {
-            split(message)
-                    .peek(line -> LOGGER.debug("Discord message sent: {}", line))
-                    .forEach(line -> sender.sendMessage(line).queue());
-        }
+    private static void sendMessage(@NotNull Function<MessageCreateData, RestAction<?>> sender, @NotNull String message) {
+        split(message) // split message if bigger than 2000 chars (discord limitation)
+                .peek(line -> LOGGER.debug("Discord message sent: {}", line))
+                .map(MessageCreateData::fromContent)
+                .map(sender)
+                .reduce((a, b) -> a.and((RestAction<?>) b)) // this ensures the messages are sent in order
+                .ifPresent(RestAction::queue);
     }
 
-    // discord limit message size to 2000 chars.
-    // this split a string on MESSAGE_SECTION_DELIMITER, then every 2000 chars if the line is bigger
-    private static Stream<String> split(String message) {
-/*
-
-        List<String> contents = SplitUtil.split(
-                someLargeString,  // input string of arbitrary length
-                2000,             // the split limit, can be arbitrary (>0)
-                true,             // whether to trim the strings (empty will be discarded)
-                Strategy.NEWLINE, // split on '\n' characters if possible
-                Strategy.ANYWHERE // otherwise split on the limit
-        );
-// Convert to instance of MessageCreateData (optional, you can just send strings directly!)
-        List<MessageCreateData> messages = contents.stream().map(MessageCreateData::fromContent).toList();
-
- */
-        return Arrays.stream(message.split("MESSAGE_SECTION_DELIMITER"))
-                .flatMap(line -> IntStream
-                        .range(0, (line.length() + TEXT_MAX_LENGTH - 1) / TEXT_MAX_LENGTH)
-                        .mapToObj(i -> line.substring(i * TEXT_MAX_LENGTH,
-                                Math.min((i + 1) * TEXT_MAX_LENGTH, line.length()))));
-
-
+    private static Stream<String> split(@NotNull String message) {
+        return SplitUtil.split(
+                message,
+                Message.MAX_CONTENT_LENGTH,
+                false,
+                SplitUtil.Strategy.NEWLINE,
+                SplitUtil.Strategy.WHITESPACE,
+                SplitUtil.Strategy.ANYWHERE
+        ).stream();
     }
 
     @NotNull
@@ -135,17 +107,17 @@ public final class Discord {
     }
 
     @NotNull
-    private Guild loadDiscordServer(@NotNull String discordServerId) {
-        LOGGER.info("Connection to discord server {}...", discordServerId);
+    private Guild getDiscordServer(long discordServerId) {
+        LOGGER.info("Retrieving discord server {}...", discordServerId);
         return Optional.ofNullable(jda.getGuildById(discordServerId))
                 .orElseThrow(() -> new IllegalStateException("Failed to load discord server " + discordServerId));
     }
 
     @NotNull
-    private TextChannel loadDiscordChannel(@NotNull Guild discordServer, @NotNull String discordBotChannel) {
-        return discordServer.getTextChannelsByName(discordBotChannel, true)
+    private TextChannel getSpotBotChannel(@NotNull Guild discordServer) {
+        return discordServer.getTextChannelsByName(DISCORD_BOT_CHANNEL, true)
                 .stream().findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("channel " + discordBotChannel + " not found"));
+                .orElseThrow(() -> new IllegalStateException("channel " + DISCORD_BOT_CHANNEL + " not found"));
     }
 
 
@@ -155,13 +127,13 @@ public final class Discord {
             var commandDescriptions = Optional.ofNullable(discordCommands).stream().flatMap(Arrays::stream)
                     .filter(Objects::nonNull)
                     .filter(this::registerCommand)
-                    .map(this::getOptions).toList();
+                    .map(Discord::getOptions).toList();
             // this call replace previous content, that's why commands was clear
             jda.updateCommands().addCommands(commandDescriptions).queue();
         }
     }
 
-    public boolean registerCommand(@NotNull DiscordCommand discordCommand) {
+    private boolean registerCommand(@NotNull DiscordCommand discordCommand) {
         LOGGER.info("Registering discord command: {}", discordCommand.name());
         if(null != commands.put(discordCommand.name(), discordCommand)) {
             LOGGER.warn("Discord command {} was already registered", discordCommand.name());
@@ -171,7 +143,7 @@ public final class Discord {
     }
 
     @NotNull
-    public CommandData getOptions(@NotNull DiscordCommand discordCommand) {
+    private static CommandData getOptions(@NotNull DiscordCommand discordCommand) {
         return Commands.slash(discordCommand.name(), discordCommand.description())
                 .addOptions(discordCommand.options());
     }
@@ -181,7 +153,7 @@ public final class Discord {
         @Override
         public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
             LOGGER.debug("Discord slash command received: {}", event);
-            if (isPrivateMessage(event.getChannelType()) || checkAccess(event.getGuild(), event.getChannel().getName())) {
+            if (isPrivateMessage(event.getChannelType()) || isSpotBotChannel(event.getChannel())) {
                 try {
                     Optional.ofNullable(commands.get(event.getName()))
                             .ifPresent(listener -> listener.onEvent(event));
@@ -197,7 +169,7 @@ public final class Discord {
         @Override
         public void onMessageReceived(@NotNull MessageReceivedEvent event) {
             LOGGER.debug("Discord message received: {}", event.getMessage().getContentRaw());
-            if (isPrivateMessage(event.getChannelType()) || checkAccess(event.getGuild(), event.getChannel().getName())) {
+            if (isPrivateMessage(event.getChannelType()) || isSpotBotChannel(event.getChannel())) {
                 ArgumentReader argumentReader = new ArgumentReader(event.getMessage().getContentRaw().trim());
                 try {
                     argumentReader.getNextString()
@@ -213,31 +185,24 @@ public final class Discord {
             }
         }
 
-        private boolean isPrivateMessage(ChannelType channelType) {
+        private boolean isPrivateMessage(@Nullable ChannelType channelType) {
             return ChannelType.PRIVATE.equals(channelType);
         }
 
-        private boolean checkAccess(@Nullable Guild guild, @NotNull String channelName) {
-            return true;
-            //Optional.ofNullable(guild)
-            //        .map(Guild::getId)
-              //      .map(serverIDSpotBotChannel::get)
-//                    .map(SpotBotChannelMessageSender::channelName)
-//                    .filter(channelName::equalsIgnoreCase)
-                //    .isPresent();
+        private boolean isSpotBotChannel(@NotNull MessageChannel channel) {
+            return DISCORD_BOT_CHANNEL.equals(channel.getName());
         }
 
         public void onGuildJoin(@NotNull GuildJoinEvent event) {
-            LOGGER.error("QUILD JOIN " + event);
+            LOGGER.error("Guild server joined : " + event.getGuild());
         }
 
         public void onGuildMemberRemove(@NotNull GuildMemberRemoveEvent event) {
-            LOGGER.error("USER LEAVE " + event);
-
+            LOGGER.error("Guild member leaved : " + event.getGuild() + " user : " + event.getUser());
         }
 
         public void onGuildLeave(@NotNull GuildLeaveEvent event) {
-            LOGGER.error("QUILD LEAVE " + event);
+            LOGGER.error("Guild server leaved : " + event.getGuild());
         }
     }
 }

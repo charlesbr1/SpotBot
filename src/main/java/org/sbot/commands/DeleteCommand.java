@@ -16,6 +16,7 @@ import org.sbot.utils.ArgumentReader;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
+import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class DeleteCommand extends CommandAdapter {
 
@@ -42,14 +43,14 @@ public final class DeleteCommand extends CommandAdapter {
     @Override
     public void onEvent(@NotNull ArgumentReader argumentReader, @NotNull MessageReceivedEvent event) {
         LOGGER.debug("delete command: {}", event.getMessage().getContentRaw());
-        long alertId = argumentReader.getMandatoryLong("alert_id");
+        long alertId = requirePositive(argumentReader.getMandatoryLong("alert_id"));
         event.getChannel().sendMessageEmbeds(delete(event.getAuthor(), event.getMember(), alertId)).queue();
     }
 
     @Override
     public void onEvent(@NotNull SlashCommandInteractionEvent event) {
         LOGGER.debug("delete slash command: {}", event.getOptions());
-        long alertId = requireNonNull(event.getOption("alert_id", OptionMapping::getAsLong));
+        long alertId = requirePositive(requireNonNull(event.getOption("alert_id", OptionMapping::getAsLong)));
         event.replyEmbeds(delete(event.getUser(), event.getMember(), alertId)).queue();
     }
 

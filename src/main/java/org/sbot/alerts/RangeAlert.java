@@ -16,7 +16,7 @@ public final class RangeAlert extends Alert {
                       @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
                       @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message) {
         this(IdGenerator.newId(), userId, serverId, exchange, ticker1, ticker2, low, high, message,
-                DEFAULT_OCCURRENCE, DEFAULT_DELAY_HOURS, DEFAULT_THRESHOLD);
+                DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS, DEFAULT_THRESHOLD);
     }
     public RangeAlert(long id, long userId, long serverId,
                       @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
@@ -31,18 +31,18 @@ public final class RangeAlert extends Alert {
     }
 
     @Override
-    public RangeAlert withOccurrence(short occurrence) {
-        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, occurrence, delay, threshold);
+    public RangeAlert withRepeat(short repeat) {
+        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, repeat, repeatDelay, threshold);
     }
 
     @Override
-    public RangeAlert withDelay(short delay) {
-        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, occurrence, delay, threshold);
+    public RangeAlert withRepeatDelay(short delay) {
+        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, repeat, delay, threshold);
     }
 
     @Override
     public RangeAlert withThreshold(short threshold) {
-        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, occurrence, delay, threshold);
+        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, repeat, repeatDelay, threshold);
     }
 
     @Override
@@ -70,7 +70,7 @@ public final class RangeAlert extends Alert {
     @Override
     public String notification() {
         return "Range Alert set by <@" + userId + "> with id " + id + ", exchange " + exchange +
-                ", pair " + getReadablePair() + ", price reached box from " + low + " to " + high +
+                ", pair " + getSlashPair() + ", price reached box from " + low + " to " + high +
                 ".\nLast candlestick : " + lastCandlestick +
                 "\n" + message;
     }

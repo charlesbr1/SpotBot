@@ -10,7 +10,6 @@ import org.sbot.storage.AlertStorage;
 import org.sbot.utils.PropertiesReader;
 
 import static java.lang.Long.parseLong;
-import static org.sbot.discord.Discord.*;
 import static org.sbot.utils.PropertiesReader.loadProperties;
 
 
@@ -21,6 +20,7 @@ public enum SpotBot {
 
     private static final PropertiesReader appProperties = loadProperties("spotbot.properties");
 
+    public static final String DISCORD_BOT_CHANNEL = appProperties.get("discord.bot.channel");
     private static final long ALERTS_CHECK_PERIOD_MS = 60L * 1000L * parseLong(appProperties.get("alerts.check.period.minutes"));
     private static final String ALERTS_STORAGE_CLASS = appProperties.get("alerts.storage.class");
 
@@ -33,18 +33,16 @@ public enum SpotBot {
 
             Discord discord = new Discord();
             setupDiscordEvents(discord, alertStorage);
-            SpotBotChannel spotBotChannel = discord.spotBotChannel(
-                    discordProperties.get(DISCORD_SERVER_ID_PROPERTY),
-                    discordProperties.get(DISCORD_BOT_CHANNEL_PROPERTY));
 
             LOGGER.info("Entering infinite loop to check prices and send alerts every hours...");
-            Alerts alerts = new Alerts(spotBotChannel);
+            Alerts alerts = new Alerts(discord);
             for(;;) {
                 alerts.checkPricesAndSendAlerts(alertStorage);
                 Thread.sleep(ALERTS_CHECK_PERIOD_MS);
             }
         } catch (Throwable t) {
             LOGGER.info("Application exit", t);
+            System.exit(1);
         }
     }
 
@@ -65,8 +63,8 @@ public enum SpotBot {
                 new ListCommand(alertStorage),
                 new OwnerCommand(alertStorage),
                 new PairCommand(alertStorage),
-                new OccurrenceCommand(alertStorage),
-                new DelayCommand(alertStorage),
+                new RepeatCommand(alertStorage),
+                new RepeatDelayCommand(alertStorage),
                 new ThresholdCommand(alertStorage),
                 new HelpCommand(alertStorage));
     }
