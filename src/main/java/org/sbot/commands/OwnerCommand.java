@@ -5,7 +5,6 @@ import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -18,10 +17,11 @@ import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.USER;
+import static org.sbot.utils.ArgumentReader.getMandatoryUserId;
+import static org.sbot.utils.ArgumentReader.getString;
 
 public final class OwnerCommand extends CommandAdapter {
 
@@ -30,7 +30,7 @@ public final class OwnerCommand extends CommandAdapter {
 
     static final List<OptionData> options = List.of(
             new OptionData(USER, "owner", "the owner of alerts to show", true),
-            new OptionData(STRING, "ticker-pair", "an optional ticker or pair to filter on", false));
+            new OptionData(STRING, "ticker_pair", "an optional ticker or pair to filter on", false));
 
     public OwnerCommand(@NotNull AlertStorage alertStorage) {
         super(alertStorage, NAME);
@@ -57,9 +57,9 @@ public final class OwnerCommand extends CommandAdapter {
     @Override
     public void onEvent(@NotNull SlashCommandInteractionEvent event) {
         LOGGER.debug("owner slash command: {}", event.getOptions());
-        User owner = requireNonNull(event.getOption("owner", OptionMapping::getAsUser));
-        String pair = event.getOption("ticker-pair", OptionMapping::getAsString);
-        event.replyEmbeds(owner(event.getUser(), event.getMember(), owner.getIdLong(), pair)).queue();
+        long ownerId = getMandatoryUserId(event, "owner");
+        String pair = getString(event, "ticker_pair");
+        event.replyEmbeds(owner(event.getUser(), event.getMember(), ownerId, pair)).queue();
     }
 
     private MessageEmbed owner(@NotNull User user, @Nullable Member member, long ownerId, @Nullable String pair) {

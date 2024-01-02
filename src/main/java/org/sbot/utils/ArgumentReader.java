@@ -1,6 +1,9 @@
 package org.sbot.utils;
 
+import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
@@ -90,5 +93,33 @@ public final class ArgumentReader {
     @NotNull
     public String getRemaining() {
         return remainingArguments;
+    }
+
+    @NotNull
+    public static String getMandatoryString(@NotNull SlashCommandInteractionEvent event, @NotNull String fieldName) {
+        return requireNonNull(event.getOption(fieldName, OptionMapping::getAsString));
+    }
+
+    @Nullable
+    public static String getString(@NotNull SlashCommandInteractionEvent event, @NotNull String fieldName) {
+        return event.getOption(fieldName, OptionMapping::getAsString);
+    }
+
+    @NotNull
+    public static BigDecimal getMandatoryNumber(@NotNull SlashCommandInteractionEvent event, @NotNull String fieldName) {
+        return new BigDecimal(requireNonNull(event.getOption(fieldName, OptionMapping::getAsString)));
+    }
+
+    public static long getMandatoryLong(@NotNull SlashCommandInteractionEvent event, @NotNull String fieldName) {
+        return requireNonNull(event.getOption(fieldName, OptionMapping::getAsLong));
+    }
+
+    @NotNull
+    public static ZonedDateTime getMandatoryDateTime(@NotNull SlashCommandInteractionEvent event, @NotNull String fieldName) {
+        return Dates.parseUTC(requireNonNull(event.getOption(fieldName, OptionMapping::getAsString)));
+    }
+
+    public static long getMandatoryUserId(@NotNull SlashCommandInteractionEvent event, @NotNull String fieldName) {
+        return requireNonNull(event.getOption(fieldName, OptionMapping::getAsUser)).getIdLong();
     }
 }

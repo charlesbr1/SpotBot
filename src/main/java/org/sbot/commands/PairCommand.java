@@ -5,7 +5,6 @@ import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -17,8 +16,8 @@ import java.awt.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static java.util.Objects.requireNonNull;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
+import static org.sbot.utils.ArgumentReader.getMandatoryString;
 
 public final class PairCommand extends CommandAdapter {
 
@@ -52,7 +51,7 @@ public final class PairCommand extends CommandAdapter {
     @Override
     public void onEvent(@NotNull SlashCommandInteractionEvent event) {
         LOGGER.debug("pair slash command: {}", event.getOptions());
-        String ticker = requireNonNull(event.getOption("ticker_pair", OptionMapping::getAsString));
+        String ticker = getMandatoryString(event, "ticker_pair");
         event.replyEmbeds(pair(event.getUser(), event.getMember(), ticker)).queue();
     }
 

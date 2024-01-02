@@ -19,7 +19,7 @@ public interface ArgumentValidator {
     }
 
     static short requirePositiveShort(long value) {
-        if (value < Short.MIN_VALUE || value > Short.MAX_VALUE) {
+        if (value < 0 || value > Short.MAX_VALUE) {
             throw new IllegalArgumentException("Not a positive short value : " + value);
         }
 

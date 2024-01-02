@@ -6,7 +6,6 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.commands.Command.Choice;
-import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -17,13 +16,14 @@ import org.sbot.utils.ArgumentReader;
 import java.awt.*;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
+import static org.sbot.utils.ArgumentReader.*;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class RangeCommand extends CommandAdapter {
@@ -72,12 +72,12 @@ public final class RangeCommand extends CommandAdapter {
     public void onEvent(@NotNull SlashCommandInteractionEvent event) {
         LOGGER.debug("range slash command: {}", event.getOptions());
 
-        String exchange = requireNonNull(event.getOption("exchange", OptionMapping::getAsString));
-        String ticker1 = requireNonNull(event.getOption("ticker1", OptionMapping::getAsString));
-        String ticker2 = requireNonNull(event.getOption("ticker2", OptionMapping::getAsString));
-        BigDecimal low = requirePositive(new BigDecimal(requireNonNull(event.getOption("low", OptionMapping::getAsString))));
-        BigDecimal high = requirePositive(new BigDecimal(requireNonNull(event.getOption("high", OptionMapping::getAsString))));
-        String message = event.getOption("message", "", OptionMapping::getAsString);
+        String exchange = getMandatoryString(event, "exchange");
+        String ticker1 = getMandatoryString(event, "ticker1");
+        String ticker2 = getMandatoryString(event, "ticker2");
+        BigDecimal low = requirePositive(getMandatoryNumber(event, "low"));
+        BigDecimal high = requirePositive(getMandatoryNumber(event, "high"));
+        String message = Optional.ofNullable(getString(event, "message")).orElse("");
 
         event.replyEmbeds(range(event.getUser(), event.getMember(), exchange, ticker1, ticker2, low, high, message)).queue();
     }

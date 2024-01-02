@@ -3,7 +3,6 @@ package org.sbot.commands;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
@@ -15,8 +14,8 @@ import java.awt.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static java.util.Objects.requireNonNull;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
+import static org.sbot.utils.ArgumentReader.getMandatoryString;
 
 public final class ListCommand extends CommandAdapter {
 
@@ -53,7 +52,7 @@ public final class ListCommand extends CommandAdapter {
     @Override
     public void onEvent(@NotNull SlashCommandInteractionEvent event) {
         LOGGER.debug("list slash command: {}", event.getOptions());
-        String value = requireNonNull(event.getOption("value", OptionMapping::getAsString));
+        String value = getMandatoryString(event, "value");
         event.replyEmbeds(list(value)).queue();
     }
 

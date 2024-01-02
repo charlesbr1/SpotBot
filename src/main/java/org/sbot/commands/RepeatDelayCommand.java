@@ -5,7 +5,6 @@ import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
@@ -15,7 +14,7 @@ import org.sbot.utils.ArgumentReader;
 
 import java.util.List;
 
-import static java.util.Objects.requireNonNull;
+import static org.sbot.utils.ArgumentReader.getMandatoryLong;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.ArgumentValidator.requirePositiveShort;
 
@@ -56,8 +55,8 @@ public final class RepeatDelayCommand extends CommandAdapter {
     public void onEvent(@NotNull SlashCommandInteractionEvent event) {
         LOGGER.debug("repeat delay slash command: {}", event.getOptions());
 
-        long alertId = requirePositive(requireNonNull(event.getOption("alert_id", OptionMapping::getAsLong)));
-        short delay = requirePositiveShort(requireNonNull(event.getOption("repeat_delay", OptionMapping::getAsLong)));
+        long alertId = requirePositive(getMandatoryLong(event, "alert_id"));
+        short delay = requirePositiveShort(getMandatoryLong(event, "repeat_delay"));
 
         event.replyEmbeds(delay(event.getUser(), event.getMember(), alertId, (short)delay)).queue();
     }

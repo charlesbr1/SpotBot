@@ -193,14 +193,17 @@ public final class Discord {
             return DISCORD_BOT_CHANNEL.equals(channel.getName());
         }
 
+        @Override
         public void onGuildJoin(@NotNull GuildJoinEvent event) {
             LOGGER.error("Guild server joined : " + event.getGuild());
         }
 
+        @Override
         public void onGuildMemberRemove(@NotNull GuildMemberRemoveEvent event) {
             LOGGER.error("Guild member leaved : " + event.getGuild() + " user : " + event.getUser());
         }
 
+        @Override
         public void onGuildLeave(@NotNull GuildLeaveEvent event) {
             LOGGER.error("Guild server leaved : " + event.getGuild());
         }

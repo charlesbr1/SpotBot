@@ -6,7 +6,6 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.commands.Command.Choice;
-import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -19,13 +18,14 @@ import java.awt.*;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
+import static org.sbot.utils.ArgumentReader.*;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.Dates.formatUTC;
 
@@ -81,14 +81,14 @@ public final class TrendCommand extends CommandAdapter {
     public void onEvent(@NotNull SlashCommandInteractionEvent event) {
         LOGGER.debug("trend slash command: {}", event.getOptions());
 
-        String exchange = requireNonNull(event.getOption("exchange", OptionMapping::getAsString));
-        String ticker1 = requireNonNull(event.getOption("ticker1", OptionMapping::getAsString));
-        String ticker2 = requireNonNull(event.getOption("ticker2", OptionMapping::getAsString));
-        BigDecimal fromPrice = requirePositive(new BigDecimal(requireNonNull(event.getOption("from_price", OptionMapping::getAsString))));
-        ZonedDateTime fromDate = Dates.parseUTC(requireNonNull(event.getOption("from_date", OptionMapping::getAsString)));
-        BigDecimal toPrice = requirePositive(new BigDecimal(requireNonNull(event.getOption("to_price", OptionMapping::getAsString))));
-        ZonedDateTime toDate = Dates.parseUTC(requireNonNull(event.getOption("to_date", OptionMapping::getAsString)));
-        String message = event.getOption("message", "", OptionMapping::getAsString);
+        String exchange = getMandatoryString(event, "exchange");
+        String ticker1 = getMandatoryString(event, "ticker1");
+        String ticker2 = getMandatoryString(event, "ticker2");
+        BigDecimal fromPrice = requirePositive(getMandatoryNumber(event, "from_price"));
+        ZonedDateTime fromDate = getMandatoryDateTime(event, "from_date");
+        BigDecimal toPrice = requirePositive(getMandatoryNumber(event, "to_price"));
+        ZonedDateTime toDate = getMandatoryDateTime(event, "to_date");
+        String message = Optional.ofNullable(getString(event, "message")).orElse("");
 
         event.replyEmbeds(trend(event.getUser(), event.getMember(), exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message)).queue();
     }
