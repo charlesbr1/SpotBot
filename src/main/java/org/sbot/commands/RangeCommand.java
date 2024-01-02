@@ -28,8 +28,8 @@ public final class RangeCommand extends CommandAdapter {
                     .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).collect(toList())),
             new OptionData(STRING, "ticker1", "the first ticker", true),
             new OptionData(STRING, "ticker2", "the second ticker", true),
-            new OptionData(NUMBER, "low", "the low range price", true),
-            new OptionData(NUMBER, "high", "the high range price", true),
+            new OptionData(NUMBER, "low", "the low range price", true).setMinValue(0d),
+            new OptionData(NUMBER, "high", "the high range price", true).setMinValue(0d),
             new OptionData(STRING, "message", "a message to display when the alert is triggered", false));
 
     public RangeCommand(@NotNull AlertStorage alertStorage) {
@@ -38,13 +38,14 @@ public final class RangeCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull Command command) {
-        LOGGER.debug("range command");
         String exchange = command.args.getMandatoryString("exchange");
         String ticker1 = command.args.getMandatoryString("ticker1");
         String ticker2 = command.args.getMandatoryString("ticker2");
         BigDecimal low = requirePositive(command.args.getMandatoryNumber("low"));
         BigDecimal high = requirePositive(command.args.getMandatoryNumber("high"));
         String message = command.args.getLastArgs("message").orElse("");
+        LOGGER.debug("range command - exchange : {}, ticker1 : {}, ticker2 : {}, low : {}, high : {}, message : {}",
+                exchange, ticker1, ticker2, low, high, message);
         command.reply(range(command, exchange, ticker1, ticker2, low, high, message));
     }
 

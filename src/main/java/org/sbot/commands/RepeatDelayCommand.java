@@ -18,7 +18,8 @@ public final class RepeatDelayCommand extends CommandAdapter {
     static final String DESCRIPTION = "update the delay between two repeats of the specified alert";
 
     static final List<OptionData> options = List.of(
-            new OptionData(OptionType.STRING, "alert_id", "id of the alert", true),
+            new OptionData(OptionType.INTEGER, "alert_id", "id of the alert", true)
+                    .setMinValue(0),
             new OptionData(OptionType.INTEGER, "repeat_delay", "new delay in hours", true)
                     .setRequiredRange(0, Short.MAX_VALUE));
 
@@ -28,9 +29,9 @@ public final class RepeatDelayCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull Command command) {
-        LOGGER.debug("repeat delay command");
         long alertId = requirePositive(command.args.getMandatoryLong("alert_id"));
         short delay = requirePositiveShort(command.args.getMandatoryLong("repeat_delay"));
+        LOGGER.debug("repeat delay command = alert_id : {}, repeat_delay : {}", alertId, delay);
         command.reply(repeatDelay(command, alertId, delay));
     }
 

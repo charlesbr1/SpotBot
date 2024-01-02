@@ -18,7 +18,8 @@ public final class RepeatCommand extends CommandAdapter {
     static final String DESCRIPTION = "update the number of time the alert will be rethrown";
 
     static final List<OptionData> options = List.of(
-            new OptionData(OptionType.STRING, "alert_id", "id of the alert", true),
+            new OptionData(OptionType.INTEGER, "alert_id", "id of the alert", true)
+                    .setMinValue(0),
             new OptionData(OptionType.INTEGER, "repeat", "number of time the specified alert will be rethrown", true)
                     .setRequiredRange(0, Short.MAX_VALUE));
 
@@ -28,16 +29,16 @@ public final class RepeatCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull Command command) {
-        LOGGER.debug("repeat command");
         long alertId = requirePositive(command.args.getMandatoryLong("alert_id"));
         short repeat = requirePositiveShort(command.args.getMandatoryLong("repeat"));
+        LOGGER.debug("repeat command = alert_id : {}, repeat : {}", alertId, repeat);
         command.reply(repeat(command, alertId, repeat));
     }
 
     private EmbedBuilder repeat(@NotNull Command command, long alertId, short repeat) {
         AnswerColor answerColor = updateAlert(alertId, command, alert -> {
             alertStorage.addAlert(alert.withRepeat(repeat));
-            return command.user.getAsMention() + " Occurrence of alert " + alertId + " updated";
+            return command.user.getAsMention() + " Repeat of alert " + alertId + " updated";
         });
         return embedBuilder(NAME, answerColor.color(), answerColor.answer());
     }

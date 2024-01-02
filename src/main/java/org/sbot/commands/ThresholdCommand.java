@@ -18,7 +18,8 @@ public final class ThresholdCommand extends CommandAdapter {
     static final String DESCRIPTION = "update the threshold of the given alert, which will be pre triggered when price reach it";
 
     static final List<OptionData> options = List.of(
-            new OptionData(OptionType.STRING, "alert_id", "id of the alert", true),
+            new OptionData(OptionType.INTEGER, "alert_id", "id of the alert", true)
+                    .setMinValue(0),
             new OptionData(OptionType.INTEGER, "threshold", "new threshold in %", true)
                     .setRequiredRange(0, Short.MAX_VALUE));
 
@@ -29,9 +30,9 @@ public final class ThresholdCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull Command command) {
-        LOGGER.debug("threshold command");
         long alertId = requirePositive(command.args.getMandatoryLong("alert_id"));
         short threshold = requirePositiveShort(command.args.getMandatoryLong("threshold"));
+        LOGGER.debug("threshold command = alert_id : {}, threshold : {}", alertId, threshold);
         command.reply(threshold(command, alertId, threshold));
     }
 

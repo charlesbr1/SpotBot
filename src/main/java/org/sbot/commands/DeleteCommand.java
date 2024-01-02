@@ -17,7 +17,7 @@ public final class DeleteCommand extends CommandAdapter {
     static final String DESCRIPTION = "delete an alert (only the alert owner or an admin is allowed to do it)";
 
     static final List<OptionData> options = List.of(
-            new OptionData(OptionType.INTEGER, "alert_id", "id of the alert to delete", true));
+            new OptionData(OptionType.INTEGER, "alert_id", "id of the alert to delete", true).setMinValue(0));
 
     public DeleteCommand(@NotNull AlertStorage alertStorage) {
         super(alertStorage, NAME, DESCRIPTION, options);
@@ -25,8 +25,8 @@ public final class DeleteCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull Command command) {
-        LOGGER.debug("delete command");
         long alertId = requirePositive(command.args.getMandatoryLong("alert_id"));
+        LOGGER.debug("delete command - alert_id : {}", alertId);
         command.reply(delete(command, alertId));
     }
 

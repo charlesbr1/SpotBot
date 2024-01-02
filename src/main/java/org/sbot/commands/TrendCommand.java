@@ -31,9 +31,9 @@ public final class TrendCommand extends CommandAdapter {
                     .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).collect(toList())),
             new OptionData(STRING, "ticker1", "the first ticker", true),
             new OptionData(STRING, "ticker2", "the second ticker", true),
-            new OptionData(NUMBER, "from_price", "the first price", true),
+            new OptionData(NUMBER, "from_price", "the first price", true).setMinValue(0d),
             new OptionData(STRING, "from_date", "the date of first price, UTC expected, format: " + Dates.DATE_TIME_FORMAT, true),
-            new OptionData(NUMBER, "to_price", "the second price", true),
+            new OptionData(NUMBER, "to_price", "the second price", true).setMinValue(0d),
             new OptionData(STRING, "to_date", "the date of second price, UTC expected, format: " + Dates.DATE_TIME_FORMAT, true),
             new OptionData(STRING, "message", "a message to display when the alert is triggered", false));
 
@@ -44,7 +44,6 @@ public final class TrendCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull Command command) {
-        LOGGER.debug("trend command");
         String exchange = command.args.getMandatoryString("exchange");
         String ticker1 = command.args.getMandatoryString("ticker1");
         String ticker2 = command.args.getMandatoryString("ticker2");
@@ -53,6 +52,8 @@ public final class TrendCommand extends CommandAdapter {
         BigDecimal toPrice = requirePositive(command.args.getMandatoryNumber("to_price"));
         ZonedDateTime toDate = command.args.getMandatoryDateTime("to_date");
         String message = command.args.getLastArgs("message").orElse("");
+        LOGGER.debug("trend command - exchange : {}, ticker1 : {}, ticker2 : {}, from_price : {}, from_date : {}, to_price : {}, to_date : {}, message : {}",
+                exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message);
         command.reply(trend(command, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message));
     }
 

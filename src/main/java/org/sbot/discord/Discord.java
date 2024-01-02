@@ -44,6 +44,8 @@ import static org.sbot.utils.PropertiesReader.readFile;
 
 public final class Discord {
 
+    public static final int MESSAGE_PAGE_SIZE = 1000; // this limit the number of messages that be sent in bulk
+
     @FunctionalInterface
     public interface BotChannel {
         void sendMessage(@NotNull String message);
@@ -84,7 +86,8 @@ public final class Discord {
 
 // this ensures the rest action are done in order
     public static void asyncOrderedSend(Stream<RestAction<?>> restActions) {
-        restActions.reduce(CompletableFuture.<Void>completedFuture(null),
+        restActions.limit(MESSAGE_PAGE_SIZE)
+                .reduce(CompletableFuture.<Void>completedFuture(null),
                         (future, nextMessage) -> future.thenRun(nextMessage::submit),
                         CompletableFuture::allOf)
                 .whenComplete((v, error) -> {

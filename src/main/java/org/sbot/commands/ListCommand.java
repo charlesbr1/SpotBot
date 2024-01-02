@@ -9,22 +9,30 @@ import org.sbot.commands.reader.Command;
 import org.sbot.storage.AlertStorage;
 
 import java.awt.*;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
+import static org.sbot.discord.Discord.MULTI_LINE_BLOCK_QUOTE_MARKDOWN;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
+import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class ListCommand extends CommandAdapter {
 
     public static final String NAME = "list";
     static final String DESCRIPTION = "list the supported exchanges, or pairs, or the alerts currently set";
 
+    private static final String ALERTS = "alerts";
+    private static final String EXCHANGES = "exchanges";
+    private static final String PAIRS = "pairs";
+
     static final List<OptionData> options = List.of(
-            new OptionData(OptionType.STRING, "value", "the data to list, one of 'exchanges', 'pair', or 'alerts'", true)
-                    .addChoice("exchanges", "exchanges")
-                    .addChoice("pair", "pair")
-                    .addChoice("alerts", "alerts"));
+            new OptionData(OptionType.STRING, "value", "the data to list, one of 'exchanges', 'pairs', 'alerts'", true)
+                    .addChoice(ALERTS, ALERTS)
+                    .addChoice(EXCHANGES, EXCHANGES)
+                    .addChoice(PAIRS, PAIRS),
+            new OptionData(INTEGER, "offset", "an optional offset to start the alerts search (results are limited to 1000 alerts)", false)
+                    .setMinValue(0));
 
     public ListCommand(@NotNull AlertStorage alertStorage) {
         super(alertStorage, NAME, DESCRIPTION, options);
@@ -32,29 +40,34 @@ public final class ListCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull Command command) {
-        LOGGER.debug("list command");
         String value = command.args.getMandatoryString("value");
-        command.reply(list(value));
+        long offset = requirePositive(command.args.getLong("offset").orElse(0L));
+        LOGGER.debug("list command - value : {}, offset : {}", value, offset);
+        command.reply(list(value, offset));
     }
 
-    private List<EmbedBuilder> list(@NotNull String value) {
+    private List<EmbedBuilder> list(@NotNull String value, long offset) {
         return switch (value) {
-            case "pair" -> {
-                var res = new ArrayList<EmbedBuilder>();
-                String vall = "1234567890".repeat(30);
-                Color color = Color.lightGray;
-                for(int i = 0; i < 233; i++) {
-                    color = color.darker();
-                    res.add(embedBuilder("test" + i, color, i + vall));
-                }
-                yield res;
-            }
-            case "alerts" -> { // TODO list alert on channel or exchange
-                String messages = alertStorage.getAlerts().map(Alert::toString).collect(Collectors.joining(""));
-                yield List.of(embedBuilder(NAME, Color.green, String.join(messages.isEmpty() ? "No record found" : messages)));
-            }
-            case "exchanges" -> List.of(embedBuilder(NAME, Color.green, String.join("\n", SUPPORTED_EXCHANGES)));
-            default -> throw new IllegalArgumentException("Unexpected value : " + value);
+            case ALERTS -> alerts(offset);
+            case EXCHANGES -> exchanges();
+            case PAIRS -> pairs();
+            default -> throw new IllegalArgumentException("Invalid argument : " + value);
         };
+    }
+
+    private List<EmbedBuilder> alerts(long offset) {
+// TODO list alert on channel or exchange
+        String messages = alertStorage.getAlerts().skip(offset) //TODO skip in dao call
+                .map(Alert::toString).collect(Collectors.joining(""));
+        return List.of(embedBuilder(ALERTS, Color.green, String.join(messages.isEmpty() ? "No record found" : messages)));
+    }
+
+    private List<EmbedBuilder> exchanges() {
+        return List.of(embedBuilder(EXCHANGES, Color.green,
+                MULTI_LINE_BLOCK_QUOTE_MARKDOWN + "* " + String.join("\n* ", SUPPORTED_EXCHANGES)));
+    }
+
+    private List<EmbedBuilder> pairs() {
+        return List.of(embedBuilder(PAIRS, Color.green, "TODO"));
     }
 }
