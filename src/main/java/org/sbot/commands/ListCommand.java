@@ -1,21 +1,18 @@
 package org.sbot.commands;
 
-import net.dv8tion.jda.api.entities.MessageEmbed;
-import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
-import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.Alert;
+import org.sbot.commands.reader.Command;
 import org.sbot.storage.AlertStorage;
-import org.sbot.utils.ArgumentReader;
 
 import java.awt.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
-import static org.sbot.utils.ArgumentReader.getMandatoryString;
 
 public final class ListCommand extends CommandAdapter {
 
@@ -29,34 +26,17 @@ public final class ListCommand extends CommandAdapter {
                     .addChoice("alerts", "alerts"));
 
     public ListCommand(@NotNull AlertStorage alertStorage) {
-        super(alertStorage, NAME);
+        super(alertStorage, NAME, DESCRIPTION, options);
     }
 
     @Override
-    public String description() {
-        return DESCRIPTION;
+    public void onCommand(@NotNull Command command) {
+        LOGGER.debug("list command");
+        String value = command.args.getMandatoryString("value");
+        command.reply(list(value));
     }
 
-    @Override
-    public List<OptionData> options() {
-        return options;
-    }
-
-    @Override
-    public void onEvent(@NotNull ArgumentReader argumentReader, @NotNull MessageReceivedEvent event) {
-        LOGGER.debug("list command: {}", event.getMessage().getContentRaw());
-        String value = argumentReader.getMandatoryString("value");
-        event.getChannel().sendMessageEmbeds(list(value)).queue();
-    }
-
-    @Override
-    public void onEvent(@NotNull SlashCommandInteractionEvent event) {
-        LOGGER.debug("list slash command: {}", event.getOptions());
-        String value = getMandatoryString(event, "value");
-        event.replyEmbeds(list(value)).queue();
-    }
-
-    private MessageEmbed list(@NotNull String value) {
+    private EmbedBuilder list(@NotNull String value) {
         String answer = switch (value) {
             case "alerts" -> { // TODO list alert on channel or exchange
                 String messages = alertStorage.getAlerts().map(Alert::toString).collect(Collectors.joining(""));
@@ -66,6 +46,6 @@ public final class ListCommand extends CommandAdapter {
             case "pair" -> "TODO";
             default -> "bad arg";
         };
-        return embedBuilder(NAME, Color.green, answer).build();
+        return embedBuilder(NAME, Color.green, answer);
     }
 }

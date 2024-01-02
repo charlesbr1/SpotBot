@@ -1,31 +1,23 @@
 package org.sbot.commands;
 
-import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.MessageEmbed;
-import net.dv8tion.jda.api.entities.User;
-import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
-import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.Command.Choice;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.TrendAlert;
+import org.sbot.commands.reader.Command;
 import org.sbot.storage.AlertStorage;
-import org.sbot.utils.ArgumentReader;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
-import static org.sbot.utils.ArgumentReader.*;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.Dates.formatUTC;
 
@@ -47,53 +39,24 @@ public final class TrendCommand extends CommandAdapter {
 
 
     public TrendCommand(@NotNull AlertStorage alertStorage) {
-        super(alertStorage, NAME);
+        super(alertStorage, NAME, DESCRIPTION, options);
     }
 
     @Override
-    public String description() {
-        return DESCRIPTION;
+    public void onCommand(@NotNull Command command) {
+        LOGGER.debug("trend command");
+        String exchange = command.args.getMandatoryString("exchange");
+        String ticker1 = command.args.getMandatoryString("ticker1");
+        String ticker2 = command.args.getMandatoryString("ticker2");
+        BigDecimal fromPrice = requirePositive(command.args.getMandatoryNumber("from_price"));
+        ZonedDateTime fromDate = command.args.getMandatoryDateTime("from_date");
+        BigDecimal toPrice = requirePositive(command.args.getMandatoryNumber("to_price"));
+        ZonedDateTime toDate = command.args.getMandatoryDateTime("to_date");
+        String message = command.args.getLastArgs("message").orElse("");
+        command.reply(trend(command, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message));
     }
 
-    @Override
-    public List<OptionData> options() {
-        return options;
-    }
-
-
-    @Override
-    public void onEvent(@NotNull ArgumentReader argumentReader, @NotNull MessageReceivedEvent event) {
-        LOGGER.debug("trend command: {}", event.getMessage().getContentRaw());
-
-        String exchange = argumentReader.getMandatoryString("exchange");
-        String ticker1 = argumentReader.getMandatoryString("ticker1");
-        String ticker2 = argumentReader.getMandatoryString("ticker2");
-        BigDecimal fromPrice = requirePositive(argumentReader.getMandatoryNumber("from price"));
-        ZonedDateTime fromDate = argumentReader.getMandatoryDateTime("from date");
-        BigDecimal toPrice = requirePositive(argumentReader.getMandatoryNumber("to price"));
-        ZonedDateTime toDate = argumentReader.getMandatoryDateTime("to date");
-        String message = argumentReader.getRemaining();
-
-        event.getChannel().sendMessageEmbeds(trend(event.getAuthor(), event.getMember(), exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message)).queue();
-    }
-
-    @Override
-    public void onEvent(@NotNull SlashCommandInteractionEvent event) {
-        LOGGER.debug("trend slash command: {}", event.getOptions());
-
-        String exchange = getMandatoryString(event, "exchange");
-        String ticker1 = getMandatoryString(event, "ticker1");
-        String ticker2 = getMandatoryString(event, "ticker2");
-        BigDecimal fromPrice = requirePositive(getMandatoryNumber(event, "from_price"));
-        ZonedDateTime fromDate = getMandatoryDateTime(event, "from_date");
-        BigDecimal toPrice = requirePositive(getMandatoryNumber(event, "to_price"));
-        ZonedDateTime toDate = getMandatoryDateTime(event, "to_date");
-        String message = Optional.ofNullable(getString(event, "message")).orElse("");
-
-        event.replyEmbeds(trend(event.getUser(), event.getMember(), exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message)).queue();
-    }
-
-    private MessageEmbed trend(@NotNull User user, @Nullable Member member, @NotNull String exchange,
+    private EmbedBuilder trend(@NotNull Command command, @NotNull String exchange,
                                @NotNull String ticker1, @NotNull String ticker2,
                                @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate,
                                @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate, @NotNull String message) {
@@ -106,8 +69,8 @@ public final class TrendCommand extends CommandAdapter {
             fromPrice = toPrice;
             toPrice = value;
         }
-        TrendAlert trendAlert = new TrendAlert(user.getIdLong(),
-                null != member ? member.getGuild().getIdLong() : PRIVATE_ALERT,
+        TrendAlert trendAlert = new TrendAlert(command.user.getIdLong(),
+                command.getServerId(),
                 exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message);
 
         alertStorage.addAlert(trendAlert);
@@ -116,6 +79,6 @@ public final class TrendCommand extends CommandAdapter {
                 " on pair " + trendAlert.getSlashPair() + " on exchange " + exchange + ". From price " + fromPrice +
                 " at " + formatUTC(fromDate) + " to price: " + toPrice + " at " + formatUTC(toDate);
 
-        return embedBuilder(NAME, Color.green, answer).build();
+        return embedBuilder(NAME, Color.green, answer);
     }
 }

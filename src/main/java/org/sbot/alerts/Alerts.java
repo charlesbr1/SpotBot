@@ -6,7 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.sbot.chart.Candlestick;
 import org.sbot.chart.TimeFrame;
 import org.sbot.discord.Discord;
-import org.sbot.discord.Discord.SpotBotChannel;
+import org.sbot.discord.Discord.BotChannel;
 import org.sbot.exchanges.Exchange;
 import org.sbot.exchanges.Exchanges;
 import org.sbot.storage.AlertStorage;
@@ -57,10 +57,11 @@ public final class Alerts {
         matchingAlerts(alerts, candlestick).collect(groupingBy(Alert::getServerId))
                 .forEach((serverId, alertsToTrigger) -> {
                     try {
-                        SpotBotChannel spotBotChannel = discord.spotBotChannel(serverId);
+                        // TODO gere le cas serveur prive PRIVATE_ALERT != serverId ?
+                        BotChannel botChannel = discord.spotBotChannel(serverId);
                         alertsToTrigger.stream()
                                 .map(alert -> "@sbot ALERT triggered by " + alert.notification())
-                                .forEach(spotBotChannel::sendMessage);
+                                .forEach(botChannel::sendMessage);
                     } catch (IllegalStateException e) {
                         LOGGER.error("Failed to send alert", e);
                     }

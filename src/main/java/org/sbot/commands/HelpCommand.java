@@ -1,14 +1,10 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.entities.MessageEmbed;
-import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
-import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.utils.FileUpload;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.storage.AlertStorage;
-import org.sbot.utils.ArgumentReader;
 
 import java.awt.*;
 import java.util.List;
@@ -55,33 +51,16 @@ public final class HelpCommand extends CommandAdapter {
             .getResourceAsStream(ALERTS_PICTURE_PATH)), ALERTS_PICTURE_FILE);
 
     public HelpCommand(@NotNull AlertStorage alertStorage) {
-        super(alertStorage, NAME);
+        super(alertStorage, NAME, DESCRIPTION, emptyList());
     }
 
     @Override
-    public String description() {
-        return DESCRIPTION;
+    public void onCommand(@NotNull org.sbot.commands.reader.Command command) {
+        LOGGER.debug("help command");
+        command.reply(help());// TODO.addFiles(alertsPicture).queue();
     }
 
-    @Override
-    public List<OptionData> options() {
-        return emptyList();
-    }
-
-
-    @Override
-    public void onEvent(@NotNull ArgumentReader argumentReader, @NotNull MessageReceivedEvent event) {
-        LOGGER.debug("help command: {}", event.getMessage().getContentRaw());
-        event.getChannel().sendMessageEmbeds(help()).addFiles(alertsPicture).queue();
-    }
-
-    @Override
-    public void onEvent(@NotNull SlashCommandInteractionEvent event) {
-        LOGGER.debug("help slash command: {}", event.getOptions());
-        event.replyEmbeds(help()).addFiles(alertsPicture).queue();
-    }
-
-    private static MessageEmbed help() {
+    private static EmbedBuilder help() {
         EmbedBuilder builder = embedBuilder(null, Color.green, HELP_HEADER);
 
         commands.forEach(command -> {
@@ -93,7 +72,7 @@ public final class HelpCommand extends CommandAdapter {
         builder.addBlankField(false);
         builder.setImage("attachment://" + ALERTS_PICTURE_FILE);
         builder.setFooter(HELP_FOOTER);
-        return builder.build();
+        return builder;
     }
 
     private static String optionsDescription(List<OptionData> options) {

@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
@@ -25,23 +26,26 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.sbot.utils.ArgumentReader;
+import org.sbot.commands.reader.Command;
 
+import java.awt.*;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.sbot.SpotBot.DISCORD_BOT_CHANNEL;
+import static org.sbot.commands.CommandAdapter.embedBuilder;
 import static org.sbot.utils.PropertiesReader.readFile;
 
 public final class Discord {
 
     @FunctionalInterface
-    public interface SpotBotChannel {
+    public interface BotChannel {
         void sendMessage(@NotNull String message);
     }
 
@@ -55,27 +59,50 @@ public final class Discord {
     public static final String MULTI_LINE_BLOCK_QUOTE_MARKDOWN = ">>> ";
 
     private final JDA jda;
-    private final Map<String, DiscordCommand> commands = new ConcurrentHashMap<>();
+    private final Map<String, CommandListener> commands = new ConcurrentHashMap<>();
 
     public Discord() {
         jda = loadDiscordConnection();
     }
 
-    public SpotBotChannel spotBotChannel(long discordServerId) {
+    public BotChannel spotBotChannel(long discordServerId) {
         var channel = getSpotBotChannel(getDiscordServer(discordServerId));
-        return message -> sendMessage(channel::sendMessage, message);
+        return message -> sendMessage(channel, message);
     }
 
-    private static void sendMessage(@NotNull Function<MessageCreateData, RestAction<?>> sender, @NotNull String message) {
+    public BotChannel userChannel(long userId) {
+        var channel = getPrivateChannel(userId);
+        return message -> sendMessage(channel, message);
+    }
+
+    private static void sendMessage(@NotNull MessageChannel channel, @NotNull String message) {
         split(message) // split message if bigger than 2000 chars (discord limitation)
                 .peek(line -> LOGGER.debug("Discord message sent: {}", line))
                 .map(MessageCreateData::fromContent)
-                .map(sender)
-                .reduce((a, b) -> a.and((RestAction<?>) b)) // this ensures the messages are sent in order
-                .ifPresent(RestAction::queue);
+                .map(channel::sendMessage)
+                .reduce(CompletableFuture.<Void>completedFuture(null),
+                        (future, nextMessage) -> future.thenRun(nextMessage::submit),
+                        CompletableFuture::allOf) // this ensures the messages are sent in order
+                .whenComplete((v, error) -> {
+                    // Handle failure if the user does not exist (or another issue appeared)
+                    if (null != error) {
+                        LOGGER.error("Exception occurred while sending message", error);
+                    }
+                });
     }
 
-    private static Stream<String> split(@NotNull String message) {
+    private static CompletableFuture<Void> asendMessage(RestAction<?> restAction) {
+                // Utilisez CompletableFuture pour transformer la RestAction en CompletableFuture
+                CompletableFuture <Object> completableFuture = new CompletableFuture<>();
+        restAction.queue(
+                completableFuture::complete,
+                completableFuture::completeExceptionally
+        );
+        // Transformez le CompletableFuture<Message> en CompletableFuture<Void>
+        return completableFuture.thenApply(result -> null);
+    }
+
+        private static Stream<String> split(@NotNull String message) {
         return SplitUtil.split(
                 message,
                 Message.MAX_CONTENT_LENGTH,
@@ -117,14 +144,20 @@ public final class Discord {
     private TextChannel getSpotBotChannel(@NotNull Guild discordServer) {
         return discordServer.getTextChannelsByName(DISCORD_BOT_CHANNEL, true)
                 .stream().findFirst()
-                .orElseThrow(() -> new IllegalStateException("channel " + DISCORD_BOT_CHANNEL + " not found"));
+                .orElseThrow(() -> new IllegalStateException("Channel " + DISCORD_BOT_CHANNEL + " not found"));
+    }
+
+    @NotNull
+    private MessageChannel getPrivateChannel(long userId) {
+        return Optional.ofNullable(jda.getPrivateChannelById(userId))
+                .orElseThrow(() -> new IllegalStateException("User " + userId + " not found"));
     }
 
 
-    public void registerCommands(DiscordCommand... discordCommands) {
+    public void registerCommands(CommandListener... commandListeners) {
         synchronized (commands) {
             commands.clear();
-            var commandDescriptions = Optional.ofNullable(discordCommands).stream().flatMap(Arrays::stream)
+            var commandDescriptions = Optional.ofNullable(commandListeners).stream().flatMap(Arrays::stream)
                     .filter(Objects::nonNull)
                     .filter(this::registerCommand)
                     .map(Discord::getOptions).toList();
@@ -133,65 +166,22 @@ public final class Discord {
         }
     }
 
-    private boolean registerCommand(@NotNull DiscordCommand discordCommand) {
-        LOGGER.info("Registering discord command: {}", discordCommand.name());
-        if(null != commands.put(discordCommand.name(), discordCommand)) {
-            LOGGER.warn("Discord command {} was already registered", discordCommand.name());
+    private boolean registerCommand(@NotNull CommandListener commandListener) {
+        LOGGER.info("Registering discord command: {}", commandListener.name());
+        if(null != commands.put(commandListener.name(), commandListener)) {
+            LOGGER.warn("Discord command {} was already registered", commandListener.name());
             return false;
         }
         return true;
     }
 
     @NotNull
-    private static CommandData getOptions(@NotNull DiscordCommand discordCommand) {
+    private static CommandData getOptions(@NotNull CommandListener discordCommand) {
         return Commands.slash(discordCommand.name(), discordCommand.description())
                 .addOptions(discordCommand.options());
     }
 
     private final class EventAdapter extends ListenerAdapter {
-
-        @Override
-        public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
-            LOGGER.debug("Discord slash command received: {}", event);
-            if (isPrivateMessage(event.getChannelType()) || isSpotBotChannel(event.getChannel())) {
-                try {
-                    Optional.ofNullable(commands.get(event.getName()))
-                            .ifPresent(listener -> listener.onEvent(event));
-                } catch (RuntimeException e) {
-                    LOGGER.warn("Error while processing discord command: " + event.getName(), e);
-                    sendMessage(event.getChannel()::sendMessage, event.getUser().getAsMention() + " Execution failed with error: " + e.getMessage());
-                }
-            } else {
-                event.reply("Channel disabled").queue(message -> message.deleteOriginal().queue());
-            }
-        }
-
-        @Override
-        public void onMessageReceived(@NotNull MessageReceivedEvent event) {
-            LOGGER.debug("Discord message received: {}", event.getMessage().getContentRaw());
-            if (isPrivateMessage(event.getChannelType()) || isSpotBotChannel(event.getChannel())) {
-                ArgumentReader argumentReader = new ArgumentReader(event.getMessage().getContentRaw().trim());
-                try {
-                    argumentReader.getNextString()
-                            .filter(command -> command.startsWith("!"))
-                            .map(command -> command.replaceFirst("!", ""))
-                            .map(commands::get)
-                            .ifPresent(listener -> listener.onEvent(argumentReader, event));
-                } catch (RuntimeException e) {
-                    LOGGER.warn("Error while processing discord command: " + event.getMessage().getContentRaw(), e);
-                    sendMessage(event.getChannel()::sendMessage,
-                            event.getAuthor().getAsMention() + " Execution failed with error: " + e.getMessage());
-                }
-            }
-        }
-
-        private boolean isPrivateMessage(@Nullable ChannelType channelType) {
-            return ChannelType.PRIVATE.equals(channelType);
-        }
-
-        private boolean isSpotBotChannel(@NotNull MessageChannel channel) {
-            return DISCORD_BOT_CHANNEL.equals(channel.getName());
-        }
 
         @Override
         public void onGuildJoin(@NotNull GuildJoinEvent event) {
@@ -206,6 +196,50 @@ public final class Discord {
         @Override
         public void onGuildLeave(@NotNull GuildLeaveEvent event) {
             LOGGER.error("Guild server leaved : " + event.getGuild());
+        }
+
+        @Override
+        public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
+            if (handleCommand(event.getUser(), event.getChannel())) {
+                LOGGER.debug("Discord slash command received : {}, with options {}", event.getName(), event.getOptions());
+                onCommand(new Command(event));
+            } else {
+                event.replyEmbeds(embedBuilder(event.getName(), Color.black,
+                                "SpotBot disabled on this channel. Use it in private or on #" + DISCORD_BOT_CHANNEL).build())
+                        .queueAfter(3, TimeUnit.SECONDS, message -> message.deleteOriginal().queue());
+            }
+        }
+
+        @Override
+        public void onMessageReceived(@NotNull MessageReceivedEvent event) {
+            if (handleCommand(event.getAuthor(), event.getChannel())) {
+                LOGGER.debug("Discord message received : {}", event.getMessage().getContentRaw());
+                onCommand(new Command(event));
+            }
+        }
+
+        private void onCommand(@NotNull Command command) {
+            try {
+                CommandListener listener = commands.get(command.name);
+                if(null != listener) {
+                    listener.onCommand(command);
+                }
+            } catch (RuntimeException e) {
+                LOGGER.warn("Error while processing discord command: " + command, e);
+                sendMessage(command.channel, command.user.getAsMention() + " Execution failed with error: " + e.getMessage());
+            }
+        }
+
+        private boolean handleCommand(@NotNull User user, @NotNull MessageChannel channel) {
+            return !user.isBot() && (isPrivateMessage(channel.getType()) || isSpotBotChannel(channel));
+        }
+
+        private boolean isPrivateMessage(@Nullable ChannelType channelType) {
+            return ChannelType.PRIVATE.equals(channelType);
+        }
+
+        private boolean isSpotBotChannel(@NotNull MessageChannel channel) {
+            return DISCORD_BOT_CHANNEL.equals(channel.getName());
         }
     }
 }

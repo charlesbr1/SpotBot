@@ -1,20 +1,14 @@
 package org.sbot.commands;
 
-import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.MessageEmbed;
-import net.dv8tion.jda.api.entities.User;
-import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
-import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.sbot.commands.reader.Command;
 import org.sbot.storage.AlertStorage;
-import org.sbot.utils.ArgumentReader;
 
 import java.util.List;
 
-import static org.sbot.utils.ArgumentReader.getMandatoryLong;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.ArgumentValidator.requirePositiveShort;
 
@@ -29,44 +23,22 @@ public final class ThresholdCommand extends CommandAdapter {
 
 
     public ThresholdCommand(@NotNull AlertStorage alertStorage) {
-        super(alertStorage, NAME);
+        super(alertStorage, NAME, DESCRIPTION, options);
     }
 
     @Override
-    public String description() {
-        return DESCRIPTION;
+    public void onCommand(@NotNull Command command) {
+        LOGGER.debug("threshold command");
+        long alertId = requirePositive(command.args.getMandatoryLong("alert_id"));
+        short threshold = requirePositiveShort(command.args.getMandatoryLong("threshold"));
+        command.reply(threshold(command, alertId, threshold));
     }
 
-    @Override
-    public List<OptionData> options() {
-        return options;
-    }
-
-    @Override
-    public void onEvent(@NotNull ArgumentReader argumentReader, @NotNull MessageReceivedEvent event) {
-        LOGGER.debug("threshold command: {}", event.getMessage().getContentRaw());
-
-        long alertId = requirePositive(argumentReader.getMandatoryLong("alert_id"));
-        short threshold = requirePositiveShort(argumentReader.getMandatoryLong("threshold"));
-
-        event.getChannel().sendMessageEmbeds(threshold(event.getAuthor(), event.getMember(), alertId, threshold)).queue();
-    }
-
-    @Override
-    public void onEvent(@NotNull SlashCommandInteractionEvent event) {
-        LOGGER.debug("threshold slash command: {}", event.getOptions());
-
-        long alertId = requirePositive(getMandatoryLong(event, "alert_id"));
-        short threshold = requirePositiveShort(getMandatoryLong(event, "threshold"));
-
-        event.replyEmbeds(threshold(event.getUser(), event.getMember(), alertId, threshold)).queue();
-    }
-
-    private MessageEmbed threshold(@NotNull User user, @Nullable Member member, long alertId, short threshold) {
-        AnswerColor answerColor = updateAlert(alertId, user, member, alert -> {
+    private EmbedBuilder threshold(@NotNull Command command, long alertId, short threshold) {
+        AnswerColor answerColor = updateAlert(alertId, command, alert -> {
             alertStorage.addAlert(alert.withThreshold(threshold));
-            return user.getAsMention() + " Threshold of alert " + alertId + " updated";
+            return command.user.getAsMention() + " Threshold of alert " + alertId + " updated";
         });
-        return embedBuilder(NAME, answerColor.color(), answerColor.answer()).build();
+        return embedBuilder(NAME, answerColor.color(), answerColor.answer());
     }
 }
