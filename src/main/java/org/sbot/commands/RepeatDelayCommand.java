@@ -19,7 +19,8 @@ public final class RepeatDelayCommand extends CommandAdapter {
 
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.STRING, "alert_id", "id of the alert", true),
-            new OptionData(OptionType.INTEGER, "repeat_delay", "new delay in hours", true));
+            new OptionData(OptionType.INTEGER, "repeat_delay", "new delay in hours", true)
+                    .setRequiredRange(0, Short.MAX_VALUE));
 
     public RepeatDelayCommand(@NotNull AlertStorage alertStorage) {
         super(alertStorage, NAME, DESCRIPTION, options);

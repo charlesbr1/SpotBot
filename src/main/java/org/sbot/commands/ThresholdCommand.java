@@ -19,7 +19,8 @@ public final class ThresholdCommand extends CommandAdapter {
 
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.STRING, "alert_id", "id of the alert", true),
-            new OptionData(OptionType.INTEGER, "threshold", "new threshold in %", true));
+            new OptionData(OptionType.INTEGER, "threshold", "new threshold in %", true)
+                    .setRequiredRange(0, Short.MAX_VALUE));
 
 
     public ThresholdCommand(@NotNull AlertStorage alertStorage) {

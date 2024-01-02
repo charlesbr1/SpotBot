@@ -9,6 +9,7 @@ import org.sbot.commands.reader.Command;
 import org.sbot.storage.AlertStorage;
 
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -36,16 +37,24 @@ public final class ListCommand extends CommandAdapter {
         command.reply(list(value));
     }
 
-    private EmbedBuilder list(@NotNull String value) {
-        String answer = switch (value) {
+    private List<EmbedBuilder> list(@NotNull String value) {
+        return switch (value) {
+            case "pair" -> {
+                var res = new ArrayList<EmbedBuilder>();
+                String vall = "1234567890".repeat(30);
+                Color color = Color.lightGray;
+                for(int i = 0; i < 233; i++) {
+                    color = color.darker();
+                    res.add(embedBuilder("test" + i, color, i + vall));
+                }
+                yield res;
+            }
             case "alerts" -> { // TODO list alert on channel or exchange
                 String messages = alertStorage.getAlerts().map(Alert::toString).collect(Collectors.joining(""));
-                yield messages.isEmpty() ? "No record found" : messages;
+                yield List.of(embedBuilder(NAME, Color.green, String.join(messages.isEmpty() ? "No record found" : messages)));
             }
-            case "exchanges" -> String.join("\n", SUPPORTED_EXCHANGES);
-            case "pair" -> "TODO";
-            default -> "bad arg";
+            case "exchanges" -> List.of(embedBuilder(NAME, Color.green, String.join("\n", SUPPORTED_EXCHANGES)));
+            default -> throw new IllegalArgumentException("Unexpected value : " + value);
         };
-        return embedBuilder(NAME, Color.green, answer);
     }
 }

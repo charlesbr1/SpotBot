@@ -76,33 +76,25 @@ public final class Discord {
     }
 
     private static void sendMessage(@NotNull MessageChannel channel, @NotNull String message) {
-        split(message) // split message if bigger than 2000 chars (discord limitation)
+        asyncOrderedSend(split(message) // split message if bigger than 2000 chars (discord limitation)
                 .peek(line -> LOGGER.debug("Discord message sent: {}", line))
                 .map(MessageCreateData::fromContent)
-                .map(channel::sendMessage)
-                .reduce(CompletableFuture.<Void>completedFuture(null),
+                .map(channel::sendMessage));
+    }
+
+// this ensures the rest action are done in order
+    public static void asyncOrderedSend(Stream<RestAction<?>> restActions) {
+        restActions.reduce(CompletableFuture.<Void>completedFuture(null),
                         (future, nextMessage) -> future.thenRun(nextMessage::submit),
-                        CompletableFuture::allOf) // this ensures the messages are sent in order
+                        CompletableFuture::allOf)
                 .whenComplete((v, error) -> {
-                    // Handle failure if the user does not exist (or another issue appeared)
                     if (null != error) {
                         LOGGER.error("Exception occurred while sending message", error);
                     }
                 });
     }
 
-    private static CompletableFuture<Void> asendMessage(RestAction<?> restAction) {
-                // Utilisez CompletableFuture pour transformer la RestAction en CompletableFuture
-                CompletableFuture <Object> completableFuture = new CompletableFuture<>();
-        restAction.queue(
-                completableFuture::complete,
-                completableFuture::completeExceptionally
-        );
-        // Transformez le CompletableFuture<Message> en CompletableFuture<Void>
-        return completableFuture.thenApply(result -> null);
-    }
-
-        private static Stream<String> split(@NotNull String message) {
+    private static Stream<String> split(@NotNull String message) {
         return SplitUtil.split(
                 message,
                 Message.MAX_CONTENT_LENGTH,
@@ -206,7 +198,7 @@ public final class Discord {
             } else {
                 event.replyEmbeds(embedBuilder(event.getName(), Color.black,
                                 "SpotBot disabled on this channel. Use it in private or on #" + DISCORD_BOT_CHANNEL).build())
-                        .queueAfter(3, TimeUnit.SECONDS, message -> message.deleteOriginal().queue());
+                        .queue(message -> message.deleteOriginal().queueAfter(3, TimeUnit.SECONDS));
             }
         }
 

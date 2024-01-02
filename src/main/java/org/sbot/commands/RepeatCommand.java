@@ -19,7 +19,8 @@ public final class RepeatCommand extends CommandAdapter {
 
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.STRING, "alert_id", "id of the alert", true),
-            new OptionData(OptionType.INTEGER, "repeat", "number of time the specified alert will be rethrown", true));
+            new OptionData(OptionType.INTEGER, "repeat", "number of time the specified alert will be rethrown", true)
+                    .setRequiredRange(0, Short.MAX_VALUE));
 
     public RepeatCommand(@NotNull AlertStorage alertStorage) {
         super(alertStorage, NAME, DESCRIPTION, options);

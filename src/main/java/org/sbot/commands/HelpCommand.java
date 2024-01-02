@@ -57,7 +57,7 @@ public final class HelpCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull org.sbot.commands.reader.Command command) {
         LOGGER.debug("help command");
-        command.reply(help());// TODO.addFiles(alertsPicture).queue();
+        command.reply(help(), message -> message.addFiles(alertsPicture));
     }
 
     private static EmbedBuilder help() {
