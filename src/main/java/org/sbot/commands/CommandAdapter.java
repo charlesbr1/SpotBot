@@ -98,10 +98,10 @@ public abstract class CommandAdapter implements CommandListener {
                 .setDescription(text);
     }
 
-    protected static EmbedBuilder toMessage(@NotNull Alert alert, @NotNull String ownerName) {
+    protected static EmbedBuilder toMessage(@NotNull Alert alert) {
         return embedBuilder('[' + alert.getSlashPair() + "] " + alert.message,
                 alert.isPrivate() ? Color.blue : (alert.isOver() ? Color.black : Color.green),
-                alert.descriptionMessage(ownerName));
+                alert.descriptionMessage());
     }
 
     //TODO doc mutation on messages argument

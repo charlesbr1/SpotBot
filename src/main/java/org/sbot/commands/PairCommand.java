@@ -12,7 +12,6 @@ import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
-import static org.sbot.discord.Discord.getEffectiveName;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class PairCommand extends CommandAdapter {
@@ -48,7 +47,7 @@ public final class PairCommand extends CommandAdapter {
                 .filter(alert -> alert.getSlashPair().contains(tickerPair))
                 .skip(offset) //TODO skip in dao call
                 .limit(MESSAGE_PAGE_SIZE + 1)
-                .map(alert -> toMessage(alert, getEffectiveName(context.channel.getJDA(), alert.userId).orElse("unknown")))
+                .map(CommandAdapter::toMessage)
                 .collect(toList());
 
         return paginatedAlerts(alerts, offset, total,

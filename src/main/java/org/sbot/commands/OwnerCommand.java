@@ -15,7 +15,6 @@ import java.util.function.Predicate;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
-import static org.sbot.discord.Discord.getEffectiveName;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class OwnerCommand extends CommandAdapter {
@@ -50,7 +49,6 @@ public final class OwnerCommand extends CommandAdapter {
         if(null == context.member && context.user.getIdLong() != ownerId) {
             return List.of(embedBuilder(NAME, Color.red, "You are not allowed to see alerts of members in a private channel"));
         }
-        String ownerName = getEffectiveName(context.channel.getJDA(), ownerId).orElse("unknown");
 
         Predicate<Alert> ownerAndPair = null != tickerPair ?
                 alert -> alert.userId == ownerId && alert.getSlashPair().contains(tickerPair) :
@@ -65,12 +63,12 @@ public final class OwnerCommand extends CommandAdapter {
                 .filter(ownerAndPair)
                 .skip(offset) //TODO skip in dao call
                 .limit(MESSAGE_PAGE_SIZE + 1)
-                .map(alert -> toMessage(alert, ownerName))
+                .map(CommandAdapter::toMessage)
                 .collect(toList());
 
         return paginatedAlerts(alerts, offset, total,
-                () -> "!owner @" + ownerName + ' ' +
-                        (null != tickerPair ? tickerPair : "") + ' ' + (offset + MESSAGE_PAGE_SIZE - 1),
-                () -> "user @" + ownerName + (null != tickerPair ? " and " + tickerPair : ""));
+                () -> "!owner <@" + ownerId + '>' +
+                        (null != tickerPair ? ' ' + tickerPair : "") + ' ' + (offset + MESSAGE_PAGE_SIZE - 1),
+                () -> "user <@" + ownerId + (null != tickerPair ? "> and " + tickerPair : ">"));
     }
 }

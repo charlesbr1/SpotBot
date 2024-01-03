@@ -71,21 +71,21 @@ public final class RangeAlert extends Alert {
     @Override
     public String triggerMessage() {
         return "Range Alert set by <@" + userId + "> with id " + id + " on " + exchange + " [" + getSlashPair() +
-                "] fired !\nprice reached box from " + low.toPlainString() + " to " + high.toPlainString() +  + ' ' + ticker2 +
+                "] fired !\n\nPrice reached box from " + low.toPlainString() + " to " + high.toPlainString() +  + ' ' + ticker2 +
                 Optional.ofNullable(lastCandlestick).map(Candlestick::close)
-                        .map(BigDecimal::toString)
+                        .map(BigDecimal::toPlainString)
                         .map("\n\nLast close : "::concat).orElse("");
     }
 
    @NotNull
     @Override
-    public String descriptionMessage(@NotNull String userName) {
-        return "Range Alert set by @" + userName + " on " + exchange +" [" + getSlashPair() +
+    public String descriptionMessage() {
+        return "Range Alert set by <@" + userId + "> on " + exchange +" [" + getSlashPair() +
                 "]\n* id :\t" + id +
                 "\n* low :\t" + low.toPlainString() + ' ' + ticker2 +
                 "\n* high :\t" + high.toPlainString() + ' ' + ticker2 +
                 Optional.ofNullable(lastCandlestick).map(Candlestick::close)
-                        .map(BigDecimal::toString)
+                        .map(BigDecimal::toPlainString)
                         .map("\n\nLast close : "::concat).orElse("");
     }
 }

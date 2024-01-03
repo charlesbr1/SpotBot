@@ -62,7 +62,7 @@ public final class ListCommand extends CommandAdapter {
                 .filter(serverOrPrivateFilter(context))
                 .skip(offset) //TODO skip in dao call
                 .limit(MESSAGE_PAGE_SIZE + 1)
-                .map(alert -> toMessage(alert, getEffectiveName(context.channel.getJDA(), alert.userId).orElse("unknown")))
+                .map(CommandAdapter::toMessage)
                 .collect(toList());
 
         return paginatedAlerts(alerts, offset, total,

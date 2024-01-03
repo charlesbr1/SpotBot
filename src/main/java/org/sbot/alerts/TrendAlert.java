@@ -103,17 +103,18 @@ public final class TrendAlert extends Alert {
     @Override
     public String triggerMessage() {
         return "Trend Alert set by <@" + userId + "> with id " + id + " on " + exchange + " [" + getSlashPair() +
-                "] fired !\nprice crossed trend from " + fromPrice.toPlainString() + ' ' + ticker2 + " at " + fromDate +
-                " to " + toPrice.toPlainString() + ' ' + ticker2 + " at " + toDate +
+                "] fired !\n\nPrice crossed trend\n\nfrom : " +
+                fromPrice.toPlainString() + ' ' + ticker2 + " at " + fromDate.format(DATE_TIME_FORMATTER) +
+                "\nto : " + toPrice.toPlainString() + ' ' + ticker2 + " at " + toDate.format(DATE_TIME_FORMATTER) +
                 Optional.ofNullable(lastCandlestick).map(Candlestick::close)
-                        .map(BigDecimal::toString)
+                        .map(BigDecimal::toPlainString)
                         .map("\n\nLast close : "::concat).orElse("");
     }
 
     @NotNull
     @Override
-    public String descriptionMessage(@NotNull String userName) {
-        return "Trend Alert set by @" + userName + " on " + exchange +" [" + getSlashPair() +
+    public String descriptionMessage() {
+        return "Trend Alert set by <@" + userId + "> on " + exchange +" [" + getSlashPair() +
                 "]\n* id :\t" + id +
                 "\n* from price :\t" + fromPrice.toPlainString() + ' ' + ticker2 +
                 "\n* from date :\t" + fromDate.format(DATE_TIME_FORMATTER) +

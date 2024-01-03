@@ -67,17 +67,19 @@ public final class Alerts {
             if(PRIVATE_ALERT == serverId) {
                 sendPrivateAlerts(alerts);
             } else {
-                discord.spotBotChannel(serverId).sendMessages(shrinkToPageSize(alerts));
+                discord.spotBotChannel(serverId).sendMessages(shrinkToPageSize(alerts),
+                        List.of(message -> message.mentionUsers(alerts.stream().mapToLong(Alert::getUserId).distinct().toArray())));
             }
-        } catch (IllegalStateException e) {
-            LOGGER.error("Failed to send alert", e);
+        } catch (RuntimeException e) {
+            LOGGER.error("Failed to send alerts", e);
         }
     }
 
     private void sendPrivateAlerts(@NotNull List<Alert> alerts) {
         alerts.stream().collect(groupingBy(Alert::getUserId))
                 .forEach((userId, userAlerts) -> discord.userChannel(userId)
-                        .sendMessages(shrinkToPageSize(userAlerts)));
+                        .ifPresent(channel -> channel.sendMessages(shrinkToPageSize(userAlerts),
+                                List.of(message -> message.mentionUsers(userId)))));
     }
 
     private List<EmbedBuilder> shrinkToPageSize(@NotNull List<Alert> alerts) {
@@ -88,7 +90,8 @@ public final class Alerts {
             while(messages.size() >= MESSAGE_PAGE_SIZE) {
                 messages.remove(messages.size() - 1);
             }
-            messages.add(embedBuilder("...", Color.red, "Limit reached ! More alerts were found but are discarded"));
+            messages.add(embedBuilder("...", Color.red, "Limit reached ! That's too much alerts.\n\n" +
+                    (alerts.size() - MESSAGE_PAGE_SIZE + 1) + " more alerts were triggered but are discarded"));
         }
         return messages;
     }

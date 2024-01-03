@@ -88,7 +88,7 @@ public abstract class Alert {
     public abstract String triggerMessage();
 
     @NotNull
-    public abstract String descriptionMessage(@NotNull String userName);
+    public abstract String descriptionMessage();
 
     protected final boolean isNewerCandleStick(@NotNull Candlestick candlestick) {
         return null == lastCandlestick ||

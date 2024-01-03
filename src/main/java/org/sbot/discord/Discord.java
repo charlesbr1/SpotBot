@@ -1,5 +1,7 @@
 package org.sbot.discord;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -37,10 +39,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static java.util.Collections.emptyList;
 import static java.util.Map.Entry.comparingByKey;
 import static java.util.stream.Collectors.*;
 import static net.dv8tion.jda.api.entities.MessageEmbed.DESCRIPTION_MAX_LENGTH;
@@ -53,11 +55,11 @@ public final class Discord {
     public static final int MESSAGE_PAGE_SIZE = 1001; // this limit the number of messages that can be sent in bulk, 1000 + 1 for the next command message
     private static final int MAX_MESSAGE_EMBEDS = 10;
 
+    private static final int PRIVATE_CHANNEL_CACHE_TLL_MIN = 10;
+
+
     @FunctionalInterface
     public interface BotChannel {
-        default void sendMessages(@NotNull List<EmbedBuilder> messages) {
-            sendMessages(messages, emptyList());
-        }
         void sendMessages(@NotNull List<EmbedBuilder> messages, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup);
     }
 
@@ -73,6 +75,12 @@ public final class Discord {
     private final JDA jda;
     private final Map<String, CommandListener> commands = new ConcurrentHashMap<>();
 
+    // we cache a supplier to be able to store null messageChannel when unavailable
+    private final Cache<Long, Supplier<MessageChannel>> privateChannelCache = Caffeine.newBuilder()
+            .expireAfterWrite(PRIVATE_CHANNEL_CACHE_TLL_MIN, TimeUnit.MINUTES)
+            .maximumSize(1024)
+            .build();
+
     public Discord() {
         jda = loadDiscordConnection();
     }
@@ -82,9 +90,9 @@ public final class Discord {
         return (messages, messageSetup) -> sendMessages(messages, channel::sendMessageEmbeds, messageSetup);
     }
 
-    public BotChannel userChannel(long userId) {
-        var channel = getPrivateChannel(userId);
-        return (messages, messageSetup) -> sendMessages(messages, channel::sendMessageEmbeds, messageSetup);
+    public Optional<BotChannel> userChannel(long userId) {
+        var channel = getPrivateChannel(userId).orElse(null);
+        return null != channel ? Optional.of((messages, messageSetup) -> sendMessages(messages, channel::sendMessageEmbeds, messageSetup)) : Optional.empty();
     }
 
     public static <T extends MessageCreateRequest<?> & FluentRestAction<?, ?>> void sendMessages(@NotNull List<EmbedBuilder> messages, @NotNull Function<List<MessageEmbed>, T> sendMessage, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
@@ -105,6 +113,8 @@ public final class Discord {
 
         var messageRequest = sendMessage.apply(embeds);
         messageSetup.forEach(setup -> setup.accept(messageRequest));
+        String mentionedUsers = messageRequest.getMentionedUsers().stream().map(str -> "<@" + str + '>').collect(joining(" "));
+        messageRequest.setContent(mentionedUsers);
         return messageRequest;
     }
 
@@ -156,16 +166,19 @@ public final class Discord {
     }
 
     @NotNull
-    private MessageChannel getPrivateChannel(long userId) {
+    private Optional<MessageChannel> getPrivateChannel(long userId) {
         LOGGER.debug("Retrieving user private channel {}...", userId);
-        return Optional.ofNullable(jda.getPrivateChannelById(userId))
-                .orElseThrow(() -> new IllegalStateException("User " + userId + " not found"));
+        return Optional.ofNullable(privateChannelCache.get(userId, this::getPrivateChannelSupplier).get());
     }
 
-    private static final Map<Long, String> userNameCache = new ConcurrentHashMap<>(); //TODO use api cache eviction
-    public static Optional<String> getEffectiveName(@NotNull JDA jda, long userId) {
-        return Optional.ofNullable(userNameCache.computeIfAbsent(userId, //TODO cache "unknown" to avoid further attempt until eviction
-                id -> Optional.ofNullable(jda.retrieveUserById(userId).complete()).map(User::getEffectiveName).orElse(null)));
+    private Supplier<MessageChannel> getPrivateChannelSupplier(long userId) {
+        try {
+            MessageChannel messageChannel = jda.retrieveUserById(userId).complete().openPrivateChannel().complete();
+            return () -> messageChannel;
+        } catch (RuntimeException e) {
+            LOGGER.warn("Failed to retrieve discord private channel for user " + userId, e);
+            return () -> null;
+        }
     }
 
     public void registerCommands(CommandListener... commandListeners) {
