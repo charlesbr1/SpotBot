@@ -4,7 +4,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.commands.reader.Command;
+import org.sbot.commands.reader.CommandContext;
 import org.sbot.storage.AlertStorage;
 
 import java.awt.*;
@@ -25,14 +25,14 @@ public final class RemainderCommand extends CommandAdapter {
     }
 
     @Override
-    public void onCommand(@NotNull Command command) {
-        ZonedDateTime date = command.args.getMandatoryDateTime("date");
-        String remainder = command.args.getLastArgs("remainder").orElseThrow(() -> new IllegalArgumentException("Missing argument 'remainder'"));
+    public void onCommand(@NotNull CommandContext context) {
+        ZonedDateTime date = context.args.getMandatoryDateTime("date");
+        String remainder = context.args.getLastArgs("remainder").orElseThrow(() -> new IllegalArgumentException("Missing argument 'remainder'"));
         LOGGER.debug("remainder command - date : {}, remainder {}", date, remainder);
-        command.reply(remainder(command, date, remainder));
+        context.reply(remainder(context, date, remainder));
     }
 
-    private EmbedBuilder remainder(@NotNull Command command, @NotNull ZonedDateTime date, @NotNull String remainder) {
+    private EmbedBuilder remainder(@NotNull CommandContext context, @NotNull ZonedDateTime date, @NotNull String remainder) {
         //TODO
         return embedBuilder(NAME, Color.red, "NOT IMPLEMENTED YET");
     }

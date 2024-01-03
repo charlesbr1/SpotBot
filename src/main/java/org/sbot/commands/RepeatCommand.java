@@ -4,7 +4,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.commands.reader.Command;
+import org.sbot.commands.reader.CommandContext;
 import org.sbot.storage.AlertStorage;
 
 import java.util.List;
@@ -28,17 +28,17 @@ public final class RepeatCommand extends CommandAdapter {
     }
 
     @Override
-    public void onCommand(@NotNull Command command) {
-        long alertId = requirePositive(command.args.getMandatoryLong("alert_id"));
-        short repeat = requirePositiveShort(command.args.getMandatoryLong("repeat"));
+    public void onCommand(@NotNull CommandContext context) {
+        long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
+        short repeat = requirePositiveShort(context.args.getMandatoryLong("repeat"));
         LOGGER.debug("repeat command - alert_id : {}, repeat : {}", alertId, repeat);
-        command.reply(repeat(command, alertId, repeat));
+        context.reply(repeat(context, alertId, repeat));
     }
 
-    private EmbedBuilder repeat(@NotNull Command command, long alertId, short repeat) {
-        AnswerColor answerColor = updateAlert(alertId, command, alert -> {
+    private EmbedBuilder repeat(@NotNull CommandContext context, long alertId, short repeat) {
+        AnswerColor answerColor = updateAlert(alertId, context, alert -> {
             alertStorage.addAlert(alert.withRepeat(repeat));
-            return command.user.getAsMention() + " Repeat of alert " + alertId + " updated";
+            return context.user.getAsMention() + " Repeat of alert " + alertId + " updated";
         });
         return embedBuilder(NAME, answerColor.color(), answerColor.answer());
     }

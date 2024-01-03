@@ -4,7 +4,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.commands.reader.Command;
+import org.sbot.commands.reader.CommandContext;
 import org.sbot.storage.AlertStorage;
 
 import java.util.List;
@@ -29,17 +29,17 @@ public final class ThresholdCommand extends CommandAdapter {
     }
 
     @Override
-    public void onCommand(@NotNull Command command) {
-        long alertId = requirePositive(command.args.getMandatoryLong("alert_id"));
-        short threshold = requirePositiveShort(command.args.getMandatoryLong("threshold"));
+    public void onCommand(@NotNull CommandContext context) {
+        long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
+        short threshold = requirePositiveShort(context.args.getMandatoryLong("threshold"));
         LOGGER.debug("threshold command - alert_id : {}, threshold : {}", alertId, threshold);
-        command.reply(threshold(command, alertId, threshold));
+        context.reply(threshold(context, alertId, threshold));
     }
 
-    private EmbedBuilder threshold(@NotNull Command command, long alertId, short threshold) {
-        AnswerColor answerColor = updateAlert(alertId, command, alert -> {
+    private EmbedBuilder threshold(@NotNull CommandContext context, long alertId, short threshold) {
+        AnswerColor answerColor = updateAlert(alertId, context, alert -> {
             alertStorage.addAlert(alert.withThreshold(threshold));
-            return command.user.getAsMention() + " Threshold of alert " + alertId + " updated";
+            return context.user.getAsMention() + " Threshold of alert " + alertId + " updated";
         });
         return embedBuilder(NAME, answerColor.color(), answerColor.answer());
     }

@@ -2,7 +2,7 @@ package org.sbot.discord;
 
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.commands.reader.Command;
+import org.sbot.commands.reader.CommandContext;
 
 import java.util.List;
 
@@ -17,5 +17,5 @@ public interface CommandListener {
     List<OptionData> options();
 
 
-    void onCommand(@NotNull Command command);
+    void onCommand(@NotNull CommandContext context);
 }

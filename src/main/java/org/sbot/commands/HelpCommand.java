@@ -4,6 +4,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.utils.FileUpload;
 import org.jetbrains.annotations.NotNull;
+import org.sbot.commands.reader.CommandContext;
 import org.sbot.storage.AlertStorage;
 
 import java.awt.*;
@@ -56,9 +57,9 @@ public final class HelpCommand extends CommandAdapter {
     }
 
     @Override
-    public void onCommand(@NotNull org.sbot.commands.reader.Command command) {
+    public void onCommand(@NotNull CommandContext context) {
         LOGGER.debug("help command");
-        command.reply(help(), message -> message.addFiles(alertsPicture));
+        context.reply(help(), message -> message.addFiles(alertsPicture));
     }
 
     private static EmbedBuilder help() {

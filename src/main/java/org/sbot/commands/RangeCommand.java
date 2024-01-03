@@ -5,7 +5,7 @@ import net.dv8tion.jda.api.interactions.commands.Command.Choice;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.RangeAlert;
-import org.sbot.commands.reader.Command;
+import org.sbot.commands.reader.CommandContext;
 import org.sbot.storage.AlertStorage;
 
 import java.awt.*;
@@ -37,19 +37,19 @@ public final class RangeCommand extends CommandAdapter {
     }
 
     @Override
-    public void onCommand(@NotNull Command command) {
-        String exchange = command.args.getMandatoryString("exchange");
-        String ticker1 = command.args.getMandatoryString("ticker1");
-        String ticker2 = command.args.getMandatoryString("ticker2");
-        BigDecimal low = requirePositive(command.args.getMandatoryNumber("low"));
-        BigDecimal high = requirePositive(command.args.getMandatoryNumber("high"));
-        String message = command.args.getLastArgs("message").orElse("");
+    public void onCommand(@NotNull CommandContext context) {
+        String exchange = context.args.getMandatoryString("exchange");
+        String ticker1 = context.args.getMandatoryString("ticker1");
+        String ticker2 = context.args.getMandatoryString("ticker2");
+        BigDecimal low = requirePositive(context.args.getMandatoryNumber("low"));
+        BigDecimal high = requirePositive(context.args.getMandatoryNumber("high"));
+        String message = context.args.getLastArgs("message").orElse("");
         LOGGER.debug("range command - exchange : {}, ticker1 : {}, ticker2 : {}, low : {}, high : {}, message : {}",
                 exchange, ticker1, ticker2, low, high, message);
-        command.reply(range(command, exchange, ticker1, ticker2, low, high, message));
+        context.reply(range(context, exchange, ticker1, ticker2, low, high, message));
     }
 
-    private EmbedBuilder range(@NotNull Command command, @NotNull String exchange,
+    private EmbedBuilder range(@NotNull CommandContext context, @NotNull String exchange,
                                @NotNull String ticker1, @NotNull String ticker2,
                                @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message) {
 
@@ -58,13 +58,13 @@ public final class RangeCommand extends CommandAdapter {
             low = high;
             high = swap;
         }
-        RangeAlert rangeAlert = new RangeAlert(command.user.getIdLong(),
-                command.getServerId(),
+        RangeAlert rangeAlert = new RangeAlert(context.user.getIdLong(),
+                context.getServerId(),
                 exchange, ticker1, ticker2, low, high, message);
 
         alertStorage.addAlert(rangeAlert);
 
-        String answer = command.user.getAsMention() + " New range alert added with id " + rangeAlert.id +
+        String answer = context.user.getAsMention() + " New range alert added with id " + rangeAlert.id +
                 " on pair " + rangeAlert.getSlashPair() + " on exchange " + exchange + ". Box from " + low + " to " + high;
 
         return embedBuilder(NAME, Color.green, answer);

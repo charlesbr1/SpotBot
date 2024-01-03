@@ -9,7 +9,7 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
-import org.sbot.commands.reader.Command;
+import org.sbot.commands.reader.CommandContext;
 import org.sbot.discord.CommandListener;
 import org.sbot.storage.AlertStorage;
 
@@ -60,20 +60,20 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected record AnswerColor(@NotNull String answer, @NotNull Color color) {}
 
-    protected AnswerColor updateAlert(long alertId, @NotNull Command command,
+    protected AnswerColor updateAlert(long alertId, @NotNull CommandContext context,
                                       @NotNull Function<Alert, String> updateHandler) {
         return alertStorage.getAlert(alertId).map(alert -> {
-            if (hasAccess(alert, command)) {
+            if (hasAccess(alert, context)) {
                 return new AnswerColor(updateHandler.apply(alert), Color.green);
             } else {
-                return new AnswerColor(command.user.getAsMention() + " Not allowed to update alert " + alertId, Color.red);
+                return new AnswerColor(context.user.getAsMention() + " Not allowed to update alert " + alertId, Color.red);
             }
-        }).orElseGet(() -> new AnswerColor(command.user.getAsMention() + " Alert " + alertId + " not found", Color.black));
+        }).orElseGet(() -> new AnswerColor(context.user.getAsMention() + " Alert " + alertId + " not found", Color.black));
     }
 
     // the alert must belong to the user, or the user must be admin of the server and the alert belong to his server
-    protected static boolean hasAccess(@NotNull Alert alert, @NotNull Command command) {
-        return alertBelongToUser(alert, command.user) || userIsAdminAndAlertOnHisServer(alert, command.member);
+    protected static boolean hasAccess(@NotNull Alert alert, @NotNull CommandContext context) {
+        return alertBelongToUser(alert, context.user) || userIsAdminAndAlertOnHisServer(alert, context.member);
     }
 
     protected static boolean alertBelongToUser(@NotNull Alert alert, @NotNull User user) {
@@ -86,10 +86,10 @@ public abstract class CommandAdapter implements CommandListener {
                 alert.serverId == member.getGuild().getIdLong();
     }
 
-    protected Predicate<Alert> serverOrPrivateFilter(@NotNull Command command) {
-        long serverId = command.getServerId();
+    protected Predicate<Alert> serverOrPrivateFilter(@NotNull CommandContext context) {
+        long serverId = context.getServerId();
         return PRIVATE_ALERT != serverId ? alert -> alert.serverId == serverId :
-                alert -> alert.userId == command.user.getIdLong();
+                alert -> alert.userId == context.user.getIdLong();
     }
     public static EmbedBuilder embedBuilder(@Nullable String title, @Nullable Color color, @Nullable String text) {
         return new EmbedBuilder()

@@ -27,11 +27,11 @@ import static java.util.stream.Collectors.*;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.discord.Discord.asyncOrdered;
 
-public final class Command {
+public final class CommandContext {
 
     private static final int MAX_MESSAGE_EMBEDS = 10;
 
-    private static final Logger LOGGER = LogManager.getLogger(Command.class);
+    private static final Logger LOGGER = LogManager.getLogger(CommandContext.class);
 
     public final @NotNull String name;
     public final @NotNull MessageChannel channel;
@@ -42,7 +42,7 @@ public final class Command {
     private @Nullable SlashCommandInteractionEvent event;
     private final @Nullable Message message;
 
-    public Command(@NotNull SlashCommandInteractionEvent event) {
+    public CommandContext(@NotNull SlashCommandInteractionEvent event) {
         this.event = event;
         this.message = null;
         this.name = event.getName();
@@ -52,7 +52,7 @@ public final class Command {
         this.args = new SlashArgumentReader(event);
     }
 
-    public Command(@NotNull MessageReceivedEvent event) {
+    public CommandContext(@NotNull MessageReceivedEvent event) {
         this.event = null;
         this.message = event.getMessage();
         this.channel = event.getChannel();

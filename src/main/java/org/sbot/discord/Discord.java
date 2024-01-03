@@ -26,7 +26,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.sbot.commands.reader.Command;
+import org.sbot.commands.reader.CommandContext;
 
 import java.awt.*;
 import java.util.Arrays;
@@ -204,7 +204,7 @@ public final class Discord {
         public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
             if (handleCommand(event.getUser(), event.getChannel())) {
                 LOGGER.debug("Discord slash command received : {}, with options {}", event.getName(), event.getOptions());
-                onCommand(new Command(event));
+                onCommand(new CommandContext(event));
             } else {
                 event.replyEmbeds(embedBuilder(event.getName(), Color.black,
                                 "SpotBot disabled on this channel. Use it in private or on #" + DISCORD_BOT_CHANNEL).build())
@@ -216,11 +216,11 @@ public final class Discord {
         public void onMessageReceived(@NotNull MessageReceivedEvent event) {
             if (handleCommand(event.getAuthor(), event.getChannel())) {
                 LOGGER.debug("Discord message received : {}", event.getMessage().getContentRaw());
-                onCommand(new Command(event));
+                onCommand(new CommandContext(event));
             }
         }
 
-        private void onCommand(@NotNull Command command) {
+        private void onCommand(@NotNull CommandContext command) {
             try {
                 CommandListener listener = commands.get(command.name);
                 if(null != listener) {

@@ -3,7 +3,7 @@ package org.sbot.commands;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.commands.reader.Command;
+import org.sbot.commands.reader.CommandContext;
 import org.sbot.storage.AlertStorage;
 
 import java.util.List;
@@ -30,25 +30,25 @@ public final class PairCommand extends CommandAdapter {
     }
 
     @Override
-    public void onCommand(@NotNull Command command) {
-        String tickerPair = command.args.getMandatoryString("ticker_pair");
-        long offset = requirePositive(command.args.getLong("offset").orElse(0L));
+    public void onCommand(@NotNull CommandContext context) {
+        String tickerPair = context.args.getMandatoryString("ticker_pair");
+        long offset = requirePositive(context.args.getLong("offset").orElse(0L));
         LOGGER.debug("pair command - ticker_pair : {}, offset : {}", tickerPair, offset);
-        command.reply(pair(command, tickerPair.toUpperCase(), offset));
+        context.reply(pair(context, tickerPair.toUpperCase(), offset));
     }
-    private List<EmbedBuilder> pair(@NotNull Command command, @NotNull String tickerPair, long offset) {
+    private List<EmbedBuilder> pair(@NotNull CommandContext context, @NotNull String tickerPair, long offset) {
 
         long total = alertStorage.getAlerts()
-                .filter(serverOrPrivateFilter(command))
+                .filter(serverOrPrivateFilter(context))
                 .filter(alert -> alert.getSlashPair().contains(tickerPair))
                 .count(); //TODO
 
         List<EmbedBuilder> alerts = alertStorage.getAlerts()
-                .filter(serverOrPrivateFilter(command))
+                .filter(serverOrPrivateFilter(context))
                 .filter(alert -> alert.getSlashPair().contains(tickerPair))
                 .skip(offset) //TODO skip in dao call
                 .limit(MESSAGE_PAGE_SIZE + 1)
-                .map(alert -> toMessage(alert, getEffectiveName(command.channel.getJDA(), alert.userId).orElse("unknown")))
+                .map(alert -> toMessage(alert, getEffectiveName(context.channel.getJDA(), alert.userId).orElse("unknown")))
                 .collect(toList());
 
         return adaptSize(alerts, offset, total,

@@ -4,7 +4,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.commands.reader.Command;
+import org.sbot.commands.reader.CommandContext;
 import org.sbot.storage.AlertStorage;
 
 import java.util.List;
@@ -28,17 +28,17 @@ public final class RepeatDelayCommand extends CommandAdapter {
     }
 
     @Override
-    public void onCommand(@NotNull Command command) {
-        long alertId = requirePositive(command.args.getMandatoryLong("alert_id"));
-        short delay = requirePositiveShort(command.args.getMandatoryLong("repeat_delay"));
+    public void onCommand(@NotNull CommandContext context) {
+        long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
+        short delay = requirePositiveShort(context.args.getMandatoryLong("repeat_delay"));
         LOGGER.debug("repeat delay command - alert_id : {}, repeat_delay : {}", alertId, delay);
-        command.reply(repeatDelay(command, alertId, delay));
+        context.reply(repeatDelay(context, alertId, delay));
     }
 
-    private EmbedBuilder repeatDelay(@NotNull Command command, long alertId, short delay) {
-        AnswerColor answerColor = updateAlert(alertId, command, alert -> {
+    private EmbedBuilder repeatDelay(@NotNull CommandContext context, long alertId, short delay) {
+        AnswerColor answerColor = updateAlert(alertId, context, alert -> {
                     alertStorage.addAlert(alert.withRepeatDelay(delay));
-                    return command.user.getAsMention() + " Delay of alert " + alertId + " updated";
+                    return context.user.getAsMention() + " Delay of alert " + alertId + " updated";
                 });
         return embedBuilder(NAME, answerColor.color(), answerColor.answer());
     }

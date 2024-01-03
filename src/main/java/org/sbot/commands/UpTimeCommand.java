@@ -2,7 +2,7 @@ package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.commands.reader.Command;
+import org.sbot.commands.reader.CommandContext;
 import org.sbot.storage.AlertStorage;
 
 import java.awt.*;
@@ -24,9 +24,9 @@ public final class UpTimeCommand extends CommandAdapter {
     }
 
     @Override
-    public void onCommand(@NotNull Command command) {
+    public void onCommand(@NotNull CommandContext context) {
         LOGGER.debug("uptime command");
-        command.reply(uptime());
+        context.reply(uptime());
     }
     private EmbedBuilder uptime() {
         Duration upTime = Duration.between(start, Instant.now());

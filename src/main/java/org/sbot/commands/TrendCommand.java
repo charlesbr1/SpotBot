@@ -5,7 +5,7 @@ import net.dv8tion.jda.api.interactions.commands.Command.Choice;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.TrendAlert;
-import org.sbot.commands.reader.Command;
+import org.sbot.commands.reader.CommandContext;
 import org.sbot.storage.AlertStorage;
 import org.sbot.utils.Dates;
 
@@ -43,21 +43,21 @@ public final class TrendCommand extends CommandAdapter {
     }
 
     @Override
-    public void onCommand(@NotNull Command command) {
-        String exchange = command.args.getMandatoryString("exchange");
-        String ticker1 = command.args.getMandatoryString("ticker1");
-        String ticker2 = command.args.getMandatoryString("ticker2");
-        BigDecimal fromPrice = requirePositive(command.args.getMandatoryNumber("from_price"));
-        ZonedDateTime fromDate = command.args.getMandatoryDateTime("from_date");
-        BigDecimal toPrice = requirePositive(command.args.getMandatoryNumber("to_price"));
-        ZonedDateTime toDate = command.args.getMandatoryDateTime("to_date");
-        String message = command.args.getLastArgs("message").orElse("");
+    public void onCommand(@NotNull CommandContext context) {
+        String exchange = context.args.getMandatoryString("exchange");
+        String ticker1 = context.args.getMandatoryString("ticker1");
+        String ticker2 = context.args.getMandatoryString("ticker2");
+        BigDecimal fromPrice = requirePositive(context.args.getMandatoryNumber("from_price"));
+        ZonedDateTime fromDate = context.args.getMandatoryDateTime("from_date");
+        BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("to_price"));
+        ZonedDateTime toDate = context.args.getMandatoryDateTime("to_date");
+        String message = context.args.getLastArgs("message").orElse("");
         LOGGER.debug("trend command - exchange : {}, ticker1 : {}, ticker2 : {}, from_price : {}, from_date : {}, to_price : {}, to_date : {}, message : {}",
                 exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message);
-        command.reply(trend(command, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message));
+        context.reply(trend(context, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message));
     }
 
-    private EmbedBuilder trend(@NotNull Command command, @NotNull String exchange,
+    private EmbedBuilder trend(@NotNull CommandContext context, @NotNull String exchange,
                                @NotNull String ticker1, @NotNull String ticker2,
                                @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate,
                                @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate, @NotNull String message) {
@@ -70,8 +70,8 @@ public final class TrendCommand extends CommandAdapter {
             fromPrice = toPrice;
             toPrice = value;
         }
-        TrendAlert trendAlert = new TrendAlert(command.user.getIdLong(),
-                command.getServerId(),
+        TrendAlert trendAlert = new TrendAlert(context.user.getIdLong(),
+                context.getServerId(),
                 exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message);
 
         alertStorage.addAlert(trendAlert);

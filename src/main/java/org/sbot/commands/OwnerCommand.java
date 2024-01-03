@@ -5,7 +5,7 @@ import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
-import org.sbot.commands.reader.Command;
+import org.sbot.commands.reader.CommandContext;
 import org.sbot.storage.AlertStorage;
 
 import java.awt.*;
@@ -34,34 +34,34 @@ public final class OwnerCommand extends CommandAdapter {
     }
 
     @Override
-    public void onCommand(@NotNull Command command) {
-        long ownerId = command.args.getMandatoryUserId("owner");
+    public void onCommand(@NotNull CommandContext context) {
+        long ownerId = context.args.getMandatoryUserId("owner");
         String tickerPair = null;
-        Long offset = command.args.getLong("offset").orElse(null);
+        Long offset = context.args.getLong("offset").orElse(null);
         if(null == offset) { // if next arg can't be parsed as a long, it's may be a string
-            tickerPair = command.args.getString("ticker_pair").map(String::toUpperCase).orElse(null);
-            offset = command.args.getLong("offset").orElse(0L);
+            tickerPair = context.args.getString("ticker_pair").map(String::toUpperCase).orElse(null);
+            offset = context.args.getLong("offset").orElse(0L);
         }
         LOGGER.debug("owner command - owner : {}, ticker_pair : {}, offset : {}", ownerId, tickerPair, offset);
-        command.reply(owner(command, tickerPair, ownerId, requirePositive(offset)));
+        context.reply(owner(context, tickerPair, ownerId, requirePositive(offset)));
     }
 
-    private List<EmbedBuilder> owner(@NotNull Command command, @Nullable String tickerPair, long ownerId, long offset) {
-        if(null == command.member && command.user.getIdLong() != ownerId) {
+    private List<EmbedBuilder> owner(@NotNull CommandContext context, @Nullable String tickerPair, long ownerId, long offset) {
+        if(null == context.member && context.user.getIdLong() != ownerId) {
             return List.of(embedBuilder(NAME, Color.red, "You are not allowed to see alerts of members in a private channel"));
         }
-        String ownerName = getEffectiveName(command.channel.getJDA(), ownerId).orElse("unknown");
+        String ownerName = getEffectiveName(context.channel.getJDA(), ownerId).orElse("unknown");
 
         Predicate<Alert> ownerAndPair = null != tickerPair ?
                 alert -> alert.userId == ownerId && alert.getSlashPair().contains(tickerPair) :
                 alert -> alert.userId == ownerId;
 
         long total = alertStorage.getAlerts()
-                .filter(serverOrPrivateFilter(command))
+                .filter(serverOrPrivateFilter(context))
                 .filter(ownerAndPair).count(); //TODO
 
         List<EmbedBuilder> alerts = alertStorage.getAlerts()
-                .filter(serverOrPrivateFilter(command))
+                .filter(serverOrPrivateFilter(context))
                 .filter(ownerAndPair)
                 .skip(offset) //TODO skip in dao call
                 .limit(MESSAGE_PAGE_SIZE + 1)

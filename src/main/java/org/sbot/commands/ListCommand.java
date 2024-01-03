@@ -5,7 +5,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.Alert;
-import org.sbot.commands.reader.Command;
+import org.sbot.commands.reader.CommandContext;
 import org.sbot.storage.AlertStorage;
 
 import java.awt.*;
@@ -39,11 +39,11 @@ public final class ListCommand extends CommandAdapter {
     }
 
     @Override
-    public void onCommand(@NotNull Command command) {
-        String value = command.args.getMandatoryString("value");
-        long offset = requirePositive(command.args.getLong("offset").orElse(0L));
+    public void onCommand(@NotNull CommandContext context) {
+        String value = context.args.getMandatoryString("value");
+        long offset = requirePositive(context.args.getLong("offset").orElse(0L));
         LOGGER.debug("list command - value : {}, offset : {}", value, offset);
-        command.reply(list(value, offset));
+        context.reply(list(value, offset));
     }
 
     private List<EmbedBuilder> list(@NotNull String value, long offset) {

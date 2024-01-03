@@ -4,7 +4,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.commands.reader.Command;
+import org.sbot.commands.reader.CommandContext;
 import org.sbot.storage.AlertStorage;
 
 import java.util.List;
@@ -24,16 +24,16 @@ public final class DeleteCommand extends CommandAdapter {
     }
 
     @Override
-    public void onCommand(@NotNull Command command) {
-        long alertId = requirePositive(command.args.getMandatoryLong("alert_id"));
+    public void onCommand(@NotNull CommandContext context) {
+        long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         LOGGER.debug("delete command - alert_id : {}", alertId);
-        command.reply(delete(command, alertId));
+        context.reply(delete(context, alertId));
     }
 
-    private EmbedBuilder delete(@NotNull Command command, long alertId) {
-        AnswerColor answerColor = updateAlert(alertId, command, alert -> {
+    private EmbedBuilder delete(@NotNull CommandContext context, long alertId) {
+        AnswerColor answerColor = updateAlert(alertId, context, alert -> {
             alertStorage.deleteAlert(alertId);
-            return command.user.getAsMention() + " Alert " + alertId + " deleted";
+            return context.user.getAsMention() + " Alert " + alertId + " deleted";
         });
         return embedBuilder(NAME, answerColor.color(), answerColor.answer());
     }
