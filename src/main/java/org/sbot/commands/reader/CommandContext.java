@@ -72,7 +72,7 @@ public final class CommandContext {
 
     @SafeVarargs
     public final void reply(@NotNull EmbedBuilder message, Consumer<MessageCreateRequest<?>>... options) {
-        toRestActions(List.of(message), options).queue();
+        toRestAction(List.of(message), options).queue();
     }
 
     @SafeVarargs
@@ -82,11 +82,11 @@ public final class CommandContext {
                 .collect(groupingBy(index -> index / MAX_MESSAGE_EMBEDS,
                         mapping(messages::get, toList())))
                 .entrySet().stream().sorted(comparingByKey())
-                .map(entry -> toRestActions(entry.getValue(), options)));
+                .map(entry -> toRestAction(entry.getValue(), options)));
     }
 
     @SafeVarargs
-    private RestAction<?> toRestActions(List<EmbedBuilder> messages, Consumer<MessageCreateRequest<?>>... options) {
+    private RestAction<?> toRestAction(List<EmbedBuilder> messages, Consumer<MessageCreateRequest<?>>... settings) {
         List<MessageEmbed> embeds = messages.stream()
                 .peek(message -> LOGGER.debug("Reply : {}", message.getDescriptionBuilder()))
                 .map(EmbedBuilder::build)
@@ -96,9 +96,9 @@ public final class CommandContext {
                 channel.sendMessageEmbeds(embeds).setMessageReference(this.message);
         event = null; // for slash commands, event.replyEmbeds must be use the first time only
 
-        Optional.ofNullable(options).stream().flatMap(Stream::of)
+        Optional.ofNullable(settings).stream().flatMap(Stream::of)
                 .filter(Objects::nonNull)
-                .forEach(option -> option.accept(restAction));
+                .forEach(setting -> setting.accept(restAction));
         return restAction;
     }
 }
