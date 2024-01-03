@@ -85,7 +85,7 @@ public final class SpotBotCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         LOGGER.debug("help command");
-        context.reply(help(), message -> message.addFiles(alertsPicture));
+        context.reply(help(), List.of(message -> message.addFiles(alertsPicture)));
     }
 
     private static EmbedBuilder help() {

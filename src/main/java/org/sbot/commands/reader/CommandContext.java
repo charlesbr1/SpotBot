@@ -3,35 +3,26 @@ package org.sbot.commands.reader;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
-import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.requests.RestAction;
+import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
 import net.dv8tion.jda.api.utils.messages.MessageCreateRequest;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.sbot.discord.Discord;
 
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Consumer;
-import java.util.stream.IntStream;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
-import static java.util.Map.Entry.comparingByKey;
-import static java.util.stream.Collectors.*;
+import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
-import static org.sbot.discord.Discord.asyncOrdered;
 
 public final class CommandContext {
-
-    private static final Logger LOGGER = LogManager.getLogger(CommandContext.class);
-
-    private static final int MAX_MESSAGE_EMBEDS = 10;
 
     public final @NotNull String name;
     public final @NotNull MessageChannel channel;
@@ -71,35 +62,36 @@ public final class CommandContext {
     }
 
 
-    @SafeVarargs
-    public final void reply(@NotNull EmbedBuilder message, Consumer<MessageCreateRequest<?>>... options) {
-        toRestAction(List.of(message), options).queue();
+    public void reply(@NotNull EmbedBuilder message) {
+        reply(message, emptyList());
+    }
+    public void reply(@NotNull EmbedBuilder message, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
+        reply(List.of(message), messageSetup);
     }
 
-    @SafeVarargs
-    public final void reply(List<EmbedBuilder> messages, Consumer<MessageCreateRequest<?>>... options) {
-        // Discord limit to 10 embeds by message
-        asyncOrdered(IntStream.range(0, messages.size()).boxed()
-                .collect(groupingBy(index -> index / MAX_MESSAGE_EMBEDS, // split this stream in lists of 10 messages
-                        mapping(messages::get, toList())))
-                .entrySet().stream().sorted(comparingByKey())
-                .map(entry -> toRestAction(entry.getValue(), options)));
+    public void reply(List<EmbedBuilder> messages) {
+        reply(messages, emptyList());
     }
 
-    @SafeVarargs
-    private RestAction<?> toRestAction(List<EmbedBuilder> messages, Consumer<MessageCreateRequest<?>>... settings) {
-        List<MessageEmbed> embeds = messages.stream()
-                .peek(message -> LOGGER.debug("Reply : {}", message.getDescriptionBuilder()))
-                .map(EmbedBuilder::build)
-                .toList(); // list of 10 messages
+    public void reply(List<EmbedBuilder> messages, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
+        if(null != event) {
+            Discord.sendMessages(messages, replySlash(event::replyEmbeds, channel::sendMessageEmbeds), requireNonNull(messageSetup));
+        } else {
+            if(null != message) {
+                messageSetup = Stream.concat(messageSetup.stream(), // add a 'reply to' to the message
+                        Stream.of(message -> ((MessageCreateAction)message).setMessageReference(this.message))).toList();
+            }
+            Discord.sendMessages(messages, channel::sendMessageEmbeds, requireNonNull(messageSetup));
+        }
+    }
 
-        var messageRequest = null != event ? event.replyEmbeds(embeds) :
-                channel.sendMessageEmbeds(embeds).setMessageReference(this.message);
-        event = null; // on slash commands, event.replyEmbeds must be used to answer and the first time only
-
-        Optional.ofNullable(settings).stream().flatMap(Stream::of)
-                .filter(Objects::nonNull)
-                .forEach(setting -> setting.accept(messageRequest));
-        return messageRequest;
+    private <T, R> Function<T, R> replySlash(@NotNull Function<T, R> replyEmbeds, @NotNull Function<T, R> sendMessageEmbeds) {
+        return message -> {
+            if (null != event) {
+                event = null; // on slash commands, event.replyEmbeds must be used to reply once, then use channel.sendMessageEmbeds
+                return replyEmbeds.apply(message);
+            }
+            return sendMessageEmbeds.apply(message);
+        };
     }
 }

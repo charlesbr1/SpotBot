@@ -1,10 +1,11 @@
 package org.sbot.discord;
 
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -17,11 +18,11 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.requests.FluentRestAction;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.requests.RestAction;
 import net.dv8tion.jda.api.utils.Compression;
-import net.dv8tion.jda.api.utils.SplitUtil;
-import net.dv8tion.jda.api.utils.messages.MessageCreateData;
+import net.dv8tion.jda.api.utils.messages.MessageCreateRequest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -29,15 +30,19 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.reader.CommandContext;
 
 import java.awt.*;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.List;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static java.util.Collections.emptyList;
+import static java.util.Map.Entry.comparingByKey;
+import static java.util.stream.Collectors.*;
 import static org.sbot.SpotBot.DISCORD_BOT_CHANNEL;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
 import static org.sbot.utils.PropertiesReader.readFile;
@@ -45,10 +50,14 @@ import static org.sbot.utils.PropertiesReader.readFile;
 public final class Discord {
 
     public static final int MESSAGE_PAGE_SIZE = 1001; // this limit the number of messages that can be sent in bulk, 1000 + 1 for the next command message
+    private static final int MAX_MESSAGE_EMBEDS = 10;
 
     @FunctionalInterface
     public interface BotChannel {
-        void sendMessage(@NotNull String message);
+        default void sendMessages(@NotNull List<EmbedBuilder> messages) {
+            sendMessages(messages, emptyList());
+        }
+        void sendMessages(@NotNull List<EmbedBuilder> messages, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup);
     }
 
     private static final Logger LOGGER = LogManager.getLogger(Discord.class);
@@ -69,23 +78,37 @@ public final class Discord {
 
     public BotChannel spotBotChannel(long discordServerId) {
         var channel = getSpotBotChannel(getDiscordServer(discordServerId));
-        return message -> sendMessage(channel, message);
+        return (messages, messageSetup) -> sendMessages(messages, channel::sendMessageEmbeds, messageSetup);
     }
 
     public BotChannel userChannel(long userId) {
         var channel = getPrivateChannel(userId);
-        return message -> sendMessage(channel, message);
+        return (messages, messageSetup) -> sendMessages(messages, channel::sendMessageEmbeds, messageSetup);
     }
 
-    private static void sendMessage(@NotNull MessageChannel channel, @NotNull String message) {
-        asyncOrdered(split(message) // split message if bigger than 2000 chars (discord limitation)
-                .peek(line -> LOGGER.debug("Discord message sent: {}", line))
-                .map(MessageCreateData::fromContent)
-                .map(channel::sendMessage));
+    public static <T extends MessageCreateRequest<?> & FluentRestAction<?, ?>> void sendMessages(@NotNull List<EmbedBuilder> messages, @NotNull Function<List<MessageEmbed>, T> sendMessage, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
+        // Discord limit to 10 embeds by message
+        asyncOrdered(IntStream.range(0, messages.size()).boxed()
+                .collect(groupingBy(index -> index / MAX_MESSAGE_EMBEDS, // split this stream into lists of 10 messages
+                        mapping(messages::get, toList())))
+                .entrySet().stream().sorted(comparingByKey())
+                .map(entry -> toMessageRequest(entry.getValue(), sendMessage, messageSetup)));
     }
 
-// this ensures the rest action are done in order
-    public static void asyncOrdered(Stream<RestAction<?>> restActions) {
+    @NotNull
+    private static <T extends MessageCreateRequest<?> & FluentRestAction<?, ?>> RestAction<?> toMessageRequest(@NotNull List<EmbedBuilder> messages, @NotNull Function<List<MessageEmbed>, T> sendMessage, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
+        List<MessageEmbed> embeds = messages.stream()
+                .peek(message -> LOGGER.debug("Sending discord message : {}", message.getDescriptionBuilder()))
+                .map(EmbedBuilder::build)
+                .toList(); // list of 10 messages
+
+        var messageRequest = sendMessage.apply(embeds);
+        messageSetup.forEach(setup -> setup.accept(messageRequest));
+        return messageRequest;
+    }
+
+    // this ensures the rest action are done in order
+    private static void asyncOrdered(@NotNull Stream<RestAction<?>> restActions) {
         restActions.limit(MESSAGE_PAGE_SIZE)
                 .reduce(CompletableFuture.<Void>completedFuture(null),
                         (future, nextMessage) -> future.thenRun(nextMessage::submit),
@@ -95,17 +118,6 @@ public final class Discord {
                         LOGGER.error("Exception occurred while sending discord message", error);
                     }
                 });
-    }
-
-    private static Stream<String> split(@NotNull String message) {
-        return SplitUtil.split(
-                message,
-                Message.MAX_CONTENT_LENGTH,
-                false,
-                SplitUtil.Strategy.NEWLINE,
-                SplitUtil.Strategy.WHITESPACE,
-                SplitUtil.Strategy.ANYWHERE
-        ).stream();
     }
 
     @NotNull
@@ -229,7 +241,9 @@ public final class Discord {
                 LOGGER.warn("Error while processing discord command: " + command, e);
                 String error = Optional.ofNullable(e.getMessage()).stream()
                         .flatMap(str ->  Stream.of(str.split("\n", 1))).findFirst()
-                        .map("\n* "::concat).orElse("");
+                        .map("\n* "::concat)
+                        .map(str -> str.substring(0, Math.min(str.length(), 1000)))
+                        .orElse("");
                 command.reply(embedBuilder("Oups !", Color.red, command.user.getAsMention() + " Something get wrong !" + error));
             }
         }

@@ -58,6 +58,10 @@ public abstract class Alert {
         return serverId;
     }
 
+    public long getUserId() {
+        return userId;
+    }
+
     public String getExchange() {
         return exchange;
     }
