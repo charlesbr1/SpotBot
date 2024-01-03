@@ -11,6 +11,9 @@ import java.awt.*;
 import java.time.ZonedDateTime;
 import java.util.List;
 
+import static org.sbot.alerts.Alert.ALERT_MESSAGE_ARG_MAX_LENGTH;
+import static org.sbot.utils.ArgumentValidator.requireMaxMessageArgLength;
+
 public final class RemainderCommand extends CommandAdapter {
 
     public static final String NAME = "remainder";
@@ -18,7 +21,9 @@ public final class RemainderCommand extends CommandAdapter {
 
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.STRING, "date", "the date to trigger the remainder", true),
-            new OptionData(OptionType.STRING, "remainder", "a message for this alert", true));
+            new OptionData(OptionType.STRING, "remainder", "a message for this alert (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
+                    .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
+
 
     public RemainderCommand(@NotNull AlertStorage alertStorage) {
         super(alertStorage, NAME, DESCRIPTION, options);
@@ -27,7 +32,7 @@ public final class RemainderCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         ZonedDateTime date = context.args.getMandatoryDateTime("date");
-        String remainder = context.args.getLastArgs("remainder").orElseThrow(() -> new IllegalArgumentException("Missing argument 'remainder'"));
+        String remainder = requireMaxMessageArgLength(context.args.getLastArgs("remainder").orElseThrow(() -> new IllegalArgumentException("Missing argument 'remainder'")));
         LOGGER.debug("remainder command - date : {}, remainder {}", date, remainder);
         context.reply(remainder(context, date, remainder));
     }

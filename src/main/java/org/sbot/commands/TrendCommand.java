@@ -17,7 +17,9 @@ import java.util.List;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
+import static org.sbot.alerts.Alert.ALERT_MESSAGE_ARG_MAX_LENGTH;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
+import static org.sbot.utils.ArgumentValidator.requireMaxMessageArgLength;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.Dates.formatUTC;
 
@@ -35,7 +37,9 @@ public final class TrendCommand extends CommandAdapter {
             new OptionData(STRING, "from_date", "the date of first price, UTC expected, format: " + Dates.DATE_TIME_FORMAT, true),
             new OptionData(NUMBER, "to_price", "the second price", true).setMinValue(0d),
             new OptionData(STRING, "to_date", "the date of second price, UTC expected, format: " + Dates.DATE_TIME_FORMAT, true),
-            new OptionData(STRING, "message", "a message to display when the alert is triggered", false));
+            new OptionData(STRING, "message", "a message to display when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
+                    .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
+
 
 
     public TrendCommand(@NotNull AlertStorage alertStorage) {
@@ -51,7 +55,7 @@ public final class TrendCommand extends CommandAdapter {
         ZonedDateTime fromDate = context.args.getMandatoryDateTime("from_date");
         BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("to_price"));
         ZonedDateTime toDate = context.args.getMandatoryDateTime("to_date");
-        String message = context.args.getLastArgs("message").orElse("");
+        String message = requireMaxMessageArgLength(context.args.getLastArgs("message").orElse(""));
         LOGGER.debug("trend command - exchange : {}, ticker1 : {}, ticker2 : {}, from_price : {}, from_date : {}, to_price : {}, to_date : {}, message : {}",
                 exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message);
         context.reply(trend(context, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message));
@@ -76,9 +80,10 @@ public final class TrendCommand extends CommandAdapter {
 
         alertStorage.addAlert(trendAlert);
 
-        String answer = "New trend alert added with id " + trendAlert.id +
-                " on pair " + trendAlert.getSlashPair() + " on exchange " + exchange + ". From price " + fromPrice +
-                " at " + formatUTC(fromDate) + " to price: " + toPrice + " at " + formatUTC(toDate);
+        String answer = context.user.getAsMention() + "\nNew trend alert added with id " + trendAlert.id +
+                "\n* pair : " + trendAlert.getSlashPair() + "\n* exchange : " + exchange +
+                "\n* from price " + formatUTC(fromDate) + "\n* from date " + fromDate +
+                "\n* to price " + toPrice + "\n* to date " + formatUTC(toDate);
 
         return embedBuilder(NAME, Color.green, answer);
     }

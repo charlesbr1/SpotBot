@@ -9,6 +9,8 @@ import static java.util.Objects.requireNonNull;
 
 public abstract class Alert {
 
+    public static final int ALERT_MESSAGE_ARG_MAX_LENGTH = 240;
+
     public static final short DEFAULT_REPEAT = 10;
     public static final short DEFAULT_REPEAT_DELAY_HOURS = 8;
     public static final short DEFAULT_THRESHOLD = 0;

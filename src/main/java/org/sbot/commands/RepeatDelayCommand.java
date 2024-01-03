@@ -15,7 +15,7 @@ import static org.sbot.utils.ArgumentValidator.requirePositiveShort;
 public final class RepeatDelayCommand extends CommandAdapter {
 
     public static final String NAME = "repeat-delay";
-    static final String DESCRIPTION = "update the delay between two repeats of the specified alert";
+    static final String DESCRIPTION = "update the delay between two repeats of the alert";
 
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.INTEGER, "alert_id", "id of the alert", true)

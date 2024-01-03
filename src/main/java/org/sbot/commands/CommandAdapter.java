@@ -76,11 +76,11 @@ public abstract class CommandAdapter implements CommandListener {
         return alertBelongToUser(alert, context.user) || userIsAdminAndAlertOnHisServer(alert, context.member);
     }
 
-    protected static boolean alertBelongToUser(@NotNull Alert alert, @NotNull User user) {
+    private static boolean alertBelongToUser(@NotNull Alert alert, @NotNull User user) {
         return alert.userId == user.getIdLong();
     }
 
-    protected static boolean userIsAdminAndAlertOnHisServer(@NotNull Alert alert, @Nullable Member member) {
+    private static boolean userIsAdminAndAlertOnHisServer(@NotNull Alert alert, @Nullable Member member) {
         return !alert.isPrivate() && null != member &&
                 member.hasPermission(ADMINISTRATOR) &&
                 alert.serverId == member.getGuild().getIdLong();
@@ -105,23 +105,27 @@ public abstract class CommandAdapter implements CommandListener {
     }
 
     //TODO doc mutation on messages argument
-    protected static List<EmbedBuilder> adaptSize(@NotNull List<EmbedBuilder> messages, long offset, long total, @NotNull Supplier<String> nextCommand, @NotNull Supplier<String> command) {
+    protected static List<EmbedBuilder> paginatedAlerts(@NotNull List<EmbedBuilder> messages, long offset, long total, @NotNull Supplier<String> nextCommand, @NotNull Supplier<String> command) {
         if(messages.isEmpty()) {
             messages.add(embedBuilder("Alerts search", Color.yellow,
                     "No alert found for " + command.get()));
         } else {
-            toPageSize(messages, offset, total, nextCommand);
+            addFooterNumber(messages, offset, total);
+            shrinkToPageSize(messages, offset, nextCommand);
         }
         return messages;
     }
 
-    private static void toPageSize(@NotNull List<EmbedBuilder> messages, long offset, long total, @NotNull Supplier<String> nextCommand) {
+    private static void addFooterNumber(@NotNull List<EmbedBuilder> messages, long offset, long total) {
+        for(int i = messages.size(); i-- != 0;) {
+            messages.get(i).setFooter("(" + (i + 1 + offset) + '/' + total + ')');
+        }
+    }
+
+    private static void shrinkToPageSize(@NotNull List<EmbedBuilder> messages, long offset, @NotNull Supplier<String> nextCommand) {
         if(messages.size() > MESSAGE_PAGE_SIZE) {
             while(messages.size() >= MESSAGE_PAGE_SIZE) {
                 messages.remove(messages.size() - 1);
-            }
-            for(int i = messages.size(); i-- != 0;) {
-                messages.get(i).setFooter("(" + (i + 1 + offset) + '/' + total + ')');
             }
             messages.add(embedBuilder("...", Color.green, "More results found, to get them type command with offset " +
                     (offset + MESSAGE_PAGE_SIZE - 1) + " : " + nextCommand.get()));

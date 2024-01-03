@@ -68,7 +68,7 @@ public final class OwnerCommand extends CommandAdapter {
                 .map(alert -> toMessage(alert, ownerName))
                 .collect(toList());
 
-        return adaptSize(alerts, offset, total,
+        return paginatedAlerts(alerts, offset, total,
                 () -> "!owner @" + ownerName + ' ' +
                         (null != tickerPair ? tickerPair : "") + ' ' + (offset + MESSAGE_PAGE_SIZE - 1),
                 () -> "user @" + ownerName + (null != tickerPair ? " and " + tickerPair : ""));

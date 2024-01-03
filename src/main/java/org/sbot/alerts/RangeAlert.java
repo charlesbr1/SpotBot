@@ -5,6 +5,7 @@ import org.sbot.chart.Candlestick;
 import org.sbot.storage.IdGenerator;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 public final class RangeAlert extends Alert {
 
@@ -21,8 +22,8 @@ public final class RangeAlert extends Alert {
     private RangeAlert(long id, long userId, long serverId,
                       @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
                       @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message,
-                      short occurrence, short delay, short threshold) {
-        super(id, userId, serverId, exchange, ticker1, ticker2, message, occurrence, delay, threshold);
+                      short repeat, short repeatDelay, short threshold) {
+        super(id, userId, serverId, exchange, ticker1, ticker2, message, repeat, repeatDelay, threshold);
         if(low.compareTo(high) > 0) {
             throw new IllegalArgumentException("low price is higher than high price");
         }
@@ -69,16 +70,22 @@ public final class RangeAlert extends Alert {
     @NotNull
     @Override
     public String triggerMessage() {
-        return "Range Alert set by <@" + userId + "> with id " + id + ", exchange " + exchange +
-                ", pair " + getSlashPair() + ", price reached box from " + low + " to " + high +
-                ".\nLast candlestick : " + lastCandlestick +
-                "\n" + message;
+        return "Range Alert set by <@" + userId + "> with id " + id + " on " + exchange + " [" + getSlashPair() +
+                "] fired !\nprice reached box from " + low.toPlainString() + " to " + high.toPlainString() +  + ' ' + ticker2 +
+                Optional.ofNullable(lastCandlestick).map(Candlestick::close)
+                        .map(BigDecimal::toString)
+                        .map("\n\nLast close : "::concat).orElse("");
     }
+
    @NotNull
     @Override
     public String descriptionMessage(@NotNull String userName) {
         return "Range Alert set by @" + userName + " on " + exchange +" [" + getSlashPair() +
-                "]\n* id :\t" + id + "\n* low :\t" + low + "\n* high :\t" + high +
-                "\n\nLast close : " + lastCandlestick.close();
+                "]\n* id :\t" + id +
+                "\n* low :\t" + low.toPlainString() + ' ' + ticker2 +
+                "\n* high :\t" + high.toPlainString() + ' ' + ticker2 +
+                Optional.ofNullable(lastCandlestick).map(Candlestick::close)
+                        .map(BigDecimal::toString)
+                        .map("\n\nLast close : "::concat).orElse("");
     }
 }

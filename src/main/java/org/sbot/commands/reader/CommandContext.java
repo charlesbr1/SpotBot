@@ -29,9 +29,9 @@ import static org.sbot.discord.Discord.asyncOrdered;
 
 public final class CommandContext {
 
-    private static final int MAX_MESSAGE_EMBEDS = 10;
-
     private static final Logger LOGGER = LogManager.getLogger(CommandContext.class);
+
+    private static final int MAX_MESSAGE_EMBEDS = 10;
 
     public final @NotNull String name;
     public final @NotNull MessageChannel channel;
@@ -63,7 +63,7 @@ public final class CommandContext {
         this.name = args.getString("")
                 .filter(command -> command.startsWith("!"))
                 .map(command -> command.replaceFirst("!", ""))
-                .orElse("\0");
+                .orElse("");
     }
 
     public long getServerId() {
@@ -80,7 +80,7 @@ public final class CommandContext {
     public final void reply(List<EmbedBuilder> messages, Consumer<MessageCreateRequest<?>>... options) {
         // Discord limit to 10 embeds by message
         asyncOrdered(IntStream.range(0, messages.size()).boxed()
-                .collect(groupingBy(index -> index / MAX_MESSAGE_EMBEDS,
+                .collect(groupingBy(index -> index / MAX_MESSAGE_EMBEDS, // split this stream in lists of 10 messages
                         mapping(messages::get, toList())))
                 .entrySet().stream().sorted(comparingByKey())
                 .map(entry -> toRestAction(entry.getValue(), options)));
@@ -93,13 +93,13 @@ public final class CommandContext {
                 .map(EmbedBuilder::build)
                 .toList(); // list of 10 messages
 
-        var restAction = null != event ? event.replyEmbeds(embeds) :
+        var messageRequest = null != event ? event.replyEmbeds(embeds) :
                 channel.sendMessageEmbeds(embeds).setMessageReference(this.message);
-        event = null; // for slash commands, event.replyEmbeds must be use the first time only
+        event = null; // on slash commands, event.replyEmbeds must be used to answer and the first time only
 
         Optional.ofNullable(settings).stream().flatMap(Stream::of)
                 .filter(Objects::nonNull)
-                .forEach(setting -> setting.accept(restAction));
-        return restAction;
+                .forEach(setting -> setting.accept(messageRequest));
+        return messageRequest;
     }
 }

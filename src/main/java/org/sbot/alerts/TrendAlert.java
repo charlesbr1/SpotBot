@@ -7,6 +7,7 @@ import org.sbot.storage.IdGenerator;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.ZonedDateTime;
+import java.util.Optional;
 
 import static java.math.RoundingMode.FLOOR;
 import static org.sbot.utils.Dates.DATE_TIME_FORMATTER;
@@ -30,8 +31,8 @@ public final class TrendAlert extends Alert {
                       @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate,
                       @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate,
                       @NotNull String message,
-                      short occurrence, short delay, short threshold) {
-        super(id, userId, serverId, exchange, ticker1, ticker2, message, occurrence, delay, threshold);
+                      short repeat, short repeatDelay, short threshold) {
+        super(id, userId, serverId, exchange, ticker1, ticker2, message, repeat, repeatDelay, threshold);
         if(fromDate.isAfter(toDate)) {
             throw new IllegalArgumentException("first date is after second date");
         }
@@ -101,18 +102,25 @@ public final class TrendAlert extends Alert {
     @NotNull
     @Override
     public String triggerMessage() {
-        return "Trend Alert set by <@" + userId + "> with id " + id + ", exchange " + exchange +
-                ", pair " + getSlashPair() + ", price crossed trend from " + fromPrice + " at " + fromDate +
-                " to " + toPrice + " at " + toDate + ".\nLast candlestick : " + lastCandlestick +
-                "\n" + message;
+        return "Trend Alert set by <@" + userId + "> with id " + id + " on " + exchange + " [" + getSlashPair() +
+                "] fired !\nprice crossed trend from " + fromPrice.toPlainString() + ' ' + ticker2 + " at " + fromDate +
+                " to " + toPrice.toPlainString() + ' ' + ticker2 + " at " + toDate +
+                Optional.ofNullable(lastCandlestick).map(Candlestick::close)
+                        .map(BigDecimal::toString)
+                        .map("\n\nLast close : "::concat).orElse("");
     }
 
     @NotNull
     @Override
     public String descriptionMessage(@NotNull String userName) {
-        return "Range Trend set by @" + userName + " on " + exchange +" [" + getSlashPair() +
-                "]\n* id :\t" + id + "\n* fromPrice :\t" + fromPrice + "\n* fromDate :\t" + fromDate.format(DATE_TIME_FORMATTER) +
-                "\n* toPrice :\t" + toPrice + "\n* toDate :\t" + toDate.format(DATE_TIME_FORMATTER) +
-                "\n\nLast close : " + lastCandlestick.close();
+        return "Trend Alert set by @" + userName + " on " + exchange +" [" + getSlashPair() +
+                "]\n* id :\t" + id +
+                "\n* from price :\t" + fromPrice.toPlainString() + ' ' + ticker2 +
+                "\n* from date :\t" + fromDate.format(DATE_TIME_FORMATTER) +
+                "\n* to price :\t" + toPrice.toPlainString() + ' ' + ticker2 +
+                "\n* to date :\t" + toDate.format(DATE_TIME_FORMATTER) +
+                Optional.ofNullable(lastCandlestick).map(Candlestick::close)
+                        .map(BigDecimal::toPlainString)
+                        .map("\n\nLast close : "::concat).orElse("");
     }
 }

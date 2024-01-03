@@ -15,7 +15,9 @@ import java.util.List;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
+import static org.sbot.alerts.Alert.ALERT_MESSAGE_ARG_MAX_LENGTH;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
+import static org.sbot.utils.ArgumentValidator.requireMaxMessageArgLength;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class RangeCommand extends CommandAdapter {
@@ -30,7 +32,8 @@ public final class RangeCommand extends CommandAdapter {
             new OptionData(STRING, "ticker2", "the second ticker", true),
             new OptionData(NUMBER, "low", "the low range price", true).setMinValue(0d),
             new OptionData(NUMBER, "high", "the high range price", true).setMinValue(0d),
-            new OptionData(STRING, "message", "a message to display when the alert is triggered", false));
+            new OptionData(STRING, "message", "a message to display when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
+                    .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
     public RangeCommand(@NotNull AlertStorage alertStorage) {
         super(alertStorage, NAME, DESCRIPTION, options);
@@ -43,7 +46,7 @@ public final class RangeCommand extends CommandAdapter {
         String ticker2 = context.args.getMandatoryString("ticker2");
         BigDecimal low = requirePositive(context.args.getMandatoryNumber("low"));
         BigDecimal high = requirePositive(context.args.getMandatoryNumber("high"));
-        String message = context.args.getLastArgs("message").orElse("");
+        String message = requireMaxMessageArgLength(context.args.getLastArgs("message").orElse(""));
         LOGGER.debug("range command - exchange : {}, ticker1 : {}, ticker2 : {}, low : {}, high : {}, message : {}",
                 exchange, ticker1, ticker2, low, high, message);
         context.reply(range(context, exchange, ticker1, ticker2, low, high, message));
@@ -64,8 +67,8 @@ public final class RangeCommand extends CommandAdapter {
 
         alertStorage.addAlert(rangeAlert);
 
-        String answer = context.user.getAsMention() + " New range alert added with id " + rangeAlert.id +
-                " on pair " + rangeAlert.getSlashPair() + " on exchange " + exchange + ". Box from " + low + " to " + high;
+        String answer = context.user.getAsMention() + "\nNew range alert added with id " + rangeAlert.id +
+                "\n* pair : " + rangeAlert.getSlashPair() + "\n* exchange : " + exchange + "\n* low " + low + "\n* high " + high;
 
         return embedBuilder(NAME, Color.green, answer);
     }

@@ -44,7 +44,7 @@ import static org.sbot.utils.PropertiesReader.readFile;
 
 public final class Discord {
 
-    public static final int MESSAGE_PAGE_SIZE = 1000; // this limit the number of messages that be sent in bulk
+    public static final int MESSAGE_PAGE_SIZE = 1001; // this limit the number of messages that can be sent in bulk, 1000 + 1 for the next command message
 
     @FunctionalInterface
     public interface BotChannel {
@@ -73,7 +73,6 @@ public final class Discord {
     }
 
     public BotChannel userChannel(long userId) {
-        LOGGER.debug("Retrieving user private channel {}...", userId);
         var channel = getPrivateChannel(userId);
         return message -> sendMessage(channel, message);
     }
@@ -93,7 +92,7 @@ public final class Discord {
                         CompletableFuture::allOf)
                 .whenComplete((v, error) -> {
                     if (null != error) {
-                        LOGGER.error("Exception occurred while sending message", error);
+                        LOGGER.error("Exception occurred while sending discord message", error);
                     }
                 });
     }
@@ -150,9 +149,9 @@ public final class Discord {
                 .orElseThrow(() -> new IllegalStateException("User " + userId + " not found"));
     }
 
-    private static final Map<Long, String> userNameCache = new ConcurrentHashMap<>(); //TODO use cache eviction
+    private static final Map<Long, String> userNameCache = new ConcurrentHashMap<>(); //TODO use api cache eviction
     public static Optional<String> getEffectiveName(@NotNull JDA jda, long userId) {
-        return Optional.ofNullable(userNameCache.computeIfAbsent(userId,
+        return Optional.ofNullable(userNameCache.computeIfAbsent(userId, //TODO cache "unknown" to avoid further attempt until eviction
                 id -> Optional.ofNullable(jda.retrieveUserById(userId).complete()).map(User::getEffectiveName).orElse(null)));
     }
 
@@ -192,7 +191,7 @@ public final class Discord {
 
         @Override
         public void onGuildMemberRemove(@NotNull GuildMemberRemoveEvent event) {
-            LOGGER.error("Guild member leaved : " + event.getGuild() + " user : " + event.getUser());
+            LOGGER.error("User " + event.getUser() + " leaved server : " + event.getGuild());
         }
 
         @Override
@@ -202,7 +201,7 @@ public final class Discord {
 
         @Override
         public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
-            if (handleCommand(event.getUser(), event.getChannel())) {
+            if (acceptCommand(event.getUser(), event.getChannel())) {
                 LOGGER.debug("Discord slash command received : {}, with options {}", event.getName(), event.getOptions());
                 onCommand(new CommandContext(event));
             } else {
@@ -214,7 +213,7 @@ public final class Discord {
 
         @Override
         public void onMessageReceived(@NotNull MessageReceivedEvent event) {
-            if (handleCommand(event.getAuthor(), event.getChannel())) {
+            if (acceptCommand(event.getAuthor(), event.getChannel())) {
                 LOGGER.debug("Discord message received : {}", event.getMessage().getContentRaw());
                 onCommand(new CommandContext(event));
             }
@@ -228,11 +227,14 @@ public final class Discord {
                 }
             } catch (RuntimeException e) {
                 LOGGER.warn("Error while processing discord command: " + command, e);
-                command.reply(embedBuilder("Error", Color.red, command.user.getAsMention() + " Execution failed with error: " + e.getMessage()));
+                String error = Optional.ofNullable(e.getMessage()).stream()
+                        .flatMap(str ->  Stream.of(str.split("\n", 1))).findFirst()
+                        .map("\n* "::concat).orElse("");
+                command.reply(embedBuilder("Oups !", Color.red, command.user.getAsMention() + " Something get wrong !" + error));
             }
         }
 
-        private boolean handleCommand(@NotNull User user, @NotNull MessageChannel channel) {
+        private boolean acceptCommand(@NotNull User user, @NotNull MessageChannel channel) {
             return !user.isBot() && (isPrivateMessage(channel.getType()) || isSpotBotChannel(channel));
         }
 

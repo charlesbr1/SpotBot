@@ -4,16 +4,15 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.alerts.Alert;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.storage.AlertStorage;
 
 import java.awt.*;
 import java.util.List;
-import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
-import static org.sbot.discord.Discord.MULTI_LINE_BLOCK_QUOTE_MARKDOWN;
+import static org.sbot.discord.Discord.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 
@@ -43,23 +42,32 @@ public final class ListCommand extends CommandAdapter {
         String value = context.args.getMandatoryString("value");
         long offset = requirePositive(context.args.getLong("offset").orElse(0L));
         LOGGER.debug("list command - value : {}, offset : {}", value, offset);
-        context.reply(list(value, offset));
+        context.reply(list(context, value, offset));
     }
 
-    private List<EmbedBuilder> list(@NotNull String value, long offset) {
+    private List<EmbedBuilder> list(@NotNull CommandContext context, @NotNull String value, long offset) {
         return switch (value) {
-            case ALERTS -> alerts(offset);
+            case ALERTS -> alerts(context, offset);
             case EXCHANGES -> exchanges();
             case PAIRS -> pairs();
             default -> throw new IllegalArgumentException("Invalid argument : " + value);
         };
     }
 
-    private List<EmbedBuilder> alerts(long offset) {
-// TODO list alert on channel or exchange
-        String messages = alertStorage.getAlerts().skip(offset) //TODO skip in dao call
-                .map(Alert::toString).collect(Collectors.joining(""));
-        return List.of(embedBuilder(ALERTS, Color.green, String.join(messages.isEmpty() ? "No record found" : messages)));
+    private List<EmbedBuilder> alerts(@NotNull CommandContext context, long offset) {
+        long total = alertStorage.getAlerts()
+                .filter(serverOrPrivateFilter(context))
+                .count(); //TODO
+        List<EmbedBuilder> alerts = alertStorage.getAlerts()
+                .filter(serverOrPrivateFilter(context))
+                .skip(offset) //TODO skip in dao call
+                .limit(MESSAGE_PAGE_SIZE + 1)
+                .map(alert -> toMessage(alert, getEffectiveName(context.channel.getJDA(), alert.userId).orElse("unknown")))
+                .collect(toList());
+
+        return paginatedAlerts(alerts, offset, total,
+                () -> "!list alerts " + (offset + MESSAGE_PAGE_SIZE - 1),
+                () -> "list alerts");
     }
 
     private List<EmbedBuilder> exchanges() {

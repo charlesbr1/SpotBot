@@ -51,7 +51,7 @@ public final class PairCommand extends CommandAdapter {
                 .map(alert -> toMessage(alert, getEffectiveName(context.channel.getJDA(), alert.userId).orElse("unknown")))
                 .collect(toList());
 
-        return adaptSize(alerts, offset, total,
+        return paginatedAlerts(alerts, offset, total,
                 () -> "!pair " + tickerPair + ' ' + (offset + MESSAGE_PAGE_SIZE - 1),
                 () -> "pair " + tickerPair);
     }

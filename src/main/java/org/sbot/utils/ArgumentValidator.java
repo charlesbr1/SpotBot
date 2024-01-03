@@ -1,6 +1,10 @@
 package org.sbot.utils;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.math.BigDecimal;
+
+import static org.sbot.alerts.Alert.ALERT_MESSAGE_ARG_MAX_LENGTH;
 
 public interface ArgumentValidator {
 
@@ -24,5 +28,13 @@ public interface ArgumentValidator {
         }
 
         return (short) value;
+    }
+
+    @NotNull
+    static String requireMaxMessageArgLength(@NotNull String value) {
+        if (value.length() > ALERT_MESSAGE_ARG_MAX_LENGTH) {
+            throw new IllegalArgumentException("Provided argument is too long : " + value.length() + " chars (max is "+ ALERT_MESSAGE_ARG_MAX_LENGTH + ")\n" + value);
+        }
+        return value;
     }
 }
