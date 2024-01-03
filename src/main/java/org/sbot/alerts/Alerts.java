@@ -14,18 +14,22 @@ import org.sbot.storage.AlertStorage;
 import java.awt.*;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Stream;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toList;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
+import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 
 public final class Alerts {
 
     private static final Logger LOGGER = LogManager.getLogger(Alerts.class);
 
+    private static final int MAX_ALERT_THREADS = 16;
+    private final Executor threadPool = Executors.newWorkStealingPool(MAX_ALERT_THREADS);
     private final Discord discord;
 
     public Alerts(@NotNull Discord discord) {
@@ -36,49 +40,57 @@ public final class Alerts {
         try {
             alertStorage.getAlertsByPairsAndExchanges().forEach((exchangeName, alertsByPairs) -> {
                 Exchange exchange = Exchanges.get(exchangeName);
-                new Thread(() -> getPricesAndTriggerAlerts(alertsByPairs, exchange),
-                        "SBOT price fetcher : " + exchange).start();
+                alertsByPairs.forEach((pair, alerts) ->
+                        threadPool.execute(() -> getPricesAndTriggerAlerts(exchange, pair, alerts)));
             });
         } catch (RuntimeException e) {
             LOGGER.warn("Exception thrown", e);
         }
     }
 
-    private void getPricesAndTriggerAlerts(@NotNull Map<String, List<Alert>> alertsByPairs, @NotNull Exchange exchange) {
-        alertsByPairs.forEach((pair, alerts) -> {
-            try {
-                exchange.getCandlesticks(pair, TimeFrame.HOURLY, 1) // only one call by pair
-                        .sorted(Comparator.comparing(Candlestick::openTime))
-                        .forEach(candlestick -> triggerAlerts(alerts, candlestick));
-            } catch(RuntimeException e) {
-                LOGGER.warn("Exception thrown while processing alerts", e);
+    private void getPricesAndTriggerAlerts(@NotNull Exchange exchange, @NotNull String pair, @NotNull List<Alert> alerts) {
+        try {
+            LOGGER.debug("Retrieving price for pair [{}] on {}...", pair, exchange);
+            List<Candlestick> prices = exchange.getCandlesticks(pair, TimeFrame.HOURLY, 1) // only one call by pair
+                    .sorted(Comparator.comparing(Candlestick::openTime)).toList();
+
+            alerts.stream().filter(alert -> prices.stream().anyMatch(alert::match))
+                    .collect(groupingBy(Alert::getServerId))
+                    .forEach(this::sendAlerts);
+        } catch(RuntimeException e) {
+            LOGGER.warn("Exception thrown while processing alerts", e);
+        }
+    }
+
+    private void sendAlerts(long serverId, @NotNull List<Alert> alerts) {
+        try {
+            if(PRIVATE_ALERT == serverId) {
+                sendPrivateAlerts(alerts);
+            } else {
+                discord.spotBotChannel(serverId).sendMessages(shrinkToPageSize(alerts));
             }
-        });
+        } catch (IllegalStateException e) {
+            LOGGER.error("Failed to send alert", e);
+        }
     }
 
-    private void triggerAlerts(@NotNull List<Alert> alerts, @NotNull Candlestick candlestick) {
-        matchingAlerts(alerts, candlestick).collect(groupingBy(Alert::getServerId))
-                .forEach((serverId, alertsToTrigger) -> {
-                    try {
-                        if(PRIVATE_ALERT == serverId) {
-                            alertsToTrigger.stream().collect(groupingBy(Alert::getUserId))
-                                    .forEach((userId, userAlerts) -> {
-                                        discord.userChannel(userId)
-                                                .sendMessages(userAlerts.stream().map(this::toMessage).toList());
-                                    });
-                        } else {
-                            discord.spotBotChannel(serverId)
-                                    .sendMessages(alertsToTrigger.stream().map(this::toMessage).toList());
-                        }
-                    } catch (IllegalStateException e) {
-                        LOGGER.error("Failed to send alert", e);
-                    }
-                });
+    private void sendPrivateAlerts(@NotNull List<Alert> alerts) {
+        alerts.stream().collect(groupingBy(Alert::getUserId))
+                .forEach((userId, userAlerts) -> discord.userChannel(userId)
+                        .sendMessages(shrinkToPageSize(userAlerts)));
     }
 
-    @NotNull
-    private Stream<Alert> matchingAlerts(@NotNull List<Alert> alerts, @NotNull Candlestick candlestick) {
-        return alerts.stream().filter(alert -> alert.match(candlestick));
+    private List<EmbedBuilder> shrinkToPageSize(@NotNull List<Alert> alerts) {
+        List<EmbedBuilder> messages = alerts.stream()
+                .limit(MESSAGE_PAGE_SIZE + 1)
+                .map(this::toMessage).collect(toList());
+        if(messages.size() > MESSAGE_PAGE_SIZE) {
+            while(messages.size() >= MESSAGE_PAGE_SIZE) {
+                messages.remove(messages.size() - 1);
+            }
+            messages.add(embedBuilder("...", Color.red, "Limit reached ! More alerts were found but are discarded"));
+        }
+        return messages;
     }
 
     @NotNull

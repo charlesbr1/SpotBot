@@ -43,6 +43,7 @@ import java.util.stream.Stream;
 import static java.util.Collections.emptyList;
 import static java.util.Map.Entry.comparingByKey;
 import static java.util.stream.Collectors.*;
+import static net.dv8tion.jda.api.entities.MessageEmbed.DESCRIPTION_MAX_LENGTH;
 import static org.sbot.SpotBot.DISCORD_BOT_CHANNEL;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
 import static org.sbot.utils.PropertiesReader.readFile;
@@ -241,10 +242,10 @@ public final class Discord {
                 LOGGER.warn("Error while processing discord command: " + command, e);
                 String error = Optional.ofNullable(e.getMessage()).stream()
                         .flatMap(str ->  Stream.of(str.split("\n", 1))).findFirst()
-                        .map("\n* "::concat)
-                        .map(str -> str.substring(0, Math.min(str.length(), 1000)))
+                        .map(str -> command.user.getAsMention() + " Something get wrong !\n* " + str)
+                        .map(str -> str.substring(0, Math.min(str.length(), DESCRIPTION_MAX_LENGTH)))
                         .orElse("");
-                command.reply(embedBuilder("Oups !", Color.red, command.user.getAsMention() + " Something get wrong !" + error));
+                command.reply(embedBuilder("Oups !", Color.red, error));
             }
         }
 
