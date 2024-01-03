@@ -104,6 +104,7 @@ public abstract class CommandAdapter implements CommandListener {
                 alert.descriptionMessage(ownerName));
     }
 
+    //TODO doc mutation on messages argument
     protected static List<EmbedBuilder> adaptSize(@NotNull List<EmbedBuilder> messages, long offset, long total, @NotNull Supplier<String> nextCommand, @NotNull Supplier<String> command) {
         if(messages.isEmpty()) {
             messages.add(embedBuilder("Alerts search", Color.yellow,

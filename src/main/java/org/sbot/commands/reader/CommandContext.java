@@ -39,6 +39,7 @@ public final class CommandContext {
     public final @Nullable Member member;
     public final @NotNull ArgumentReader args;
 
+    // mutable value set to null once used
     private @Nullable SlashCommandInteractionEvent event;
     private final @Nullable Message message;
 
