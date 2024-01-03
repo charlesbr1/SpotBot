@@ -11,14 +11,14 @@ public enum Dates {
     ;
 
     public static final String DATE_TIME_FORMAT = "dd/MM/yyyy-HH:mm";
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern(DATE_TIME_FORMAT);
+    public static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(DATE_TIME_FORMAT);
 
 
     public static ZonedDateTime parseUTC(@NotNull String dateTime) {
-        return LocalDateTime.parse(dateTime, FORMATTER).atZone(ZoneOffset.UTC);
+        return LocalDateTime.parse(dateTime, DATE_TIME_FORMATTER).atZone(ZoneOffset.UTC);
     }
 
     public static String formatUTC(@NotNull ZonedDateTime dateTime) {
-        return dateTime.withZoneSameInstant(ZoneOffset.UTC).format(FORMATTER);
+        return dateTime.withZoneSameInstant(ZoneOffset.UTC).format(DATE_TIME_FORMATTER);
     }
 }

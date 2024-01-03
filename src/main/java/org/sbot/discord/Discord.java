@@ -73,19 +73,20 @@ public final class Discord {
     }
 
     public BotChannel userChannel(long userId) {
+        LOGGER.debug("Retrieving user private channel {}...", userId);
         var channel = getPrivateChannel(userId);
         return message -> sendMessage(channel, message);
     }
 
     private static void sendMessage(@NotNull MessageChannel channel, @NotNull String message) {
-        asyncOrderedSend(split(message) // split message if bigger than 2000 chars (discord limitation)
+        asyncOrdered(split(message) // split message if bigger than 2000 chars (discord limitation)
                 .peek(line -> LOGGER.debug("Discord message sent: {}", line))
                 .map(MessageCreateData::fromContent)
                 .map(channel::sendMessage));
     }
 
 // this ensures the rest action are done in order
-    public static void asyncOrderedSend(Stream<RestAction<?>> restActions) {
+    public static void asyncOrdered(Stream<RestAction<?>> restActions) {
         restActions.limit(MESSAGE_PAGE_SIZE)
                 .reduce(CompletableFuture.<Void>completedFuture(null),
                         (future, nextMessage) -> future.thenRun(nextMessage::submit),
@@ -130,7 +131,7 @@ public final class Discord {
 
     @NotNull
     private Guild getDiscordServer(long discordServerId) {
-        LOGGER.info("Retrieving discord server {}...", discordServerId);
+        LOGGER.debug("Retrieving discord server {}...", discordServerId);
         return Optional.ofNullable(jda.getGuildById(discordServerId))
                 .orElseThrow(() -> new IllegalStateException("Failed to load discord server " + discordServerId));
     }
@@ -144,10 +145,16 @@ public final class Discord {
 
     @NotNull
     private MessageChannel getPrivateChannel(long userId) {
+        LOGGER.debug("Retrieving user private channel {}...", userId);
         return Optional.ofNullable(jda.getPrivateChannelById(userId))
                 .orElseThrow(() -> new IllegalStateException("User " + userId + " not found"));
     }
 
+    private static final Map<Long, String> userNameCache = new ConcurrentHashMap<>(); //TODO use cache eviction
+    public static Optional<String> getEffectiveName(@NotNull JDA jda, long userId) {
+        return Optional.ofNullable(userNameCache.computeIfAbsent(userId,
+                id -> Optional.ofNullable(jda.retrieveUserById(userId).complete()).map(User::getEffectiveName).orElse(null)));
+    }
 
     public void registerCommands(CommandListener... commandListeners) {
         synchronized (commands) {
@@ -221,7 +228,7 @@ public final class Discord {
                 }
             } catch (RuntimeException e) {
                 LOGGER.warn("Error while processing discord command: " + command, e);
-                sendMessage(command.channel, command.user.getAsMention() + " Execution failed with error: " + e.getMessage());
+                command.reply(embedBuilder("Error", Color.red, command.user.getAsMention() + " Execution failed with error: " + e.getMessage()));
             }
         }
 

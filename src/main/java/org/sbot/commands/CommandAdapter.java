@@ -17,10 +17,12 @@ import java.awt.*;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static net.dv8tion.jda.api.Permission.ADMINISTRATOR;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
+import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 
 public abstract class CommandAdapter implements CommandListener {
 
@@ -94,5 +96,34 @@ public abstract class CommandAdapter implements CommandListener {
                 .setTitle(title)
                 .setColor(color)
                 .setDescription(text);
+    }
+
+    protected static EmbedBuilder toMessage(@NotNull Alert alert, @NotNull String ownerName) {
+        return embedBuilder('[' + alert.getSlashPair() + "] " + alert.message,
+                alert.isPrivate() ? Color.blue : (alert.isOver() ? Color.black : Color.green),
+                alert.descriptionMessage(ownerName));
+    }
+
+    protected static List<EmbedBuilder> adaptSize(@NotNull List<EmbedBuilder> messages, long offset, long total, @NotNull Supplier<String> nextCommand, @NotNull Supplier<String> command) {
+        if(messages.isEmpty()) {
+            messages.add(embedBuilder("Alerts search", Color.yellow,
+                    "No alert found for " + command.get()));
+        } else {
+            toPageSize(messages, offset, total, nextCommand);
+        }
+        return messages;
+    }
+
+    private static void toPageSize(@NotNull List<EmbedBuilder> messages, long offset, long total, @NotNull Supplier<String> nextCommand) {
+        if(messages.size() > MESSAGE_PAGE_SIZE) {
+            while(messages.size() >= MESSAGE_PAGE_SIZE) {
+                messages.remove(messages.size() - 1);
+            }
+            for(int i = messages.size(); i-- != 0;) {
+                messages.get(i).setFooter("(" + (i + 1 + offset) + '/' + total + ')');
+            }
+            messages.add(embedBuilder("...", Color.green, "More results found, to get them type command with offset " +
+                    (offset + MESSAGE_PAGE_SIZE - 1) + " : " + nextCommand.get()));
+        }
     }
 }

@@ -18,7 +18,7 @@ public final class RangeAlert extends Alert {
         this(IdGenerator.newId(), userId, serverId, exchange, ticker1, ticker2, low, high, message,
                 DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS, DEFAULT_THRESHOLD);
     }
-    public RangeAlert(long id, long userId, long serverId,
+    private RangeAlert(long id, long userId, long serverId,
                       @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
                       @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message,
                       short occurrence, short delay, short threshold) {
@@ -26,8 +26,8 @@ public final class RangeAlert extends Alert {
         if(low.compareTo(high) > 0) {
             throw new IllegalArgumentException("low price is higher than high price");
         }
-        this.low = low;
-        this.high = high;
+        this.low = low.stripTrailingZeros();
+        this.high = high.stripTrailingZeros();
     }
 
     @Override
@@ -68,10 +68,17 @@ public final class RangeAlert extends Alert {
 
     @NotNull
     @Override
-    public String notification() {
+    public String triggerMessage() {
         return "Range Alert set by <@" + userId + "> with id " + id + ", exchange " + exchange +
                 ", pair " + getSlashPair() + ", price reached box from " + low + " to " + high +
                 ".\nLast candlestick : " + lastCandlestick +
                 "\n" + message;
+    }
+   @NotNull
+    @Override
+    public String descriptionMessage(@NotNull String userName) {
+        return "Range Alert set by @" + userName + " on " + exchange +" [" + getSlashPair() +
+                "]\n* id :\t" + id + "\n* low :\t" + low + "\n* high :\t" + high +
+                "\n\nLast close : " + lastCandlestick.close();
     }
 }

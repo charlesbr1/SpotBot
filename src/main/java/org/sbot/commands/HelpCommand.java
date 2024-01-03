@@ -45,6 +45,7 @@ public final class HelpCommand extends CommandAdapter {
             new Command(RepeatCommand.NAME, RepeatCommand.DESCRIPTION, RepeatCommand.options),
             new Command(ThresholdCommand.NAME, ThresholdCommand.DESCRIPTION, ThresholdCommand.options),
             new Command(DeleteCommand.NAME, DeleteCommand.DESCRIPTION, DeleteCommand.options),
+            new Command(RemainderCommand.NAME, RemainderCommand.DESCRIPTION, RemainderCommand.options),
             new Command(UpTimeCommand.NAME, UpTimeCommand.DESCRIPTION, emptyList()));
 
     private static final FileUpload alertsPicture = FileUpload.fromData(requireNonNull(HelpCommand.class

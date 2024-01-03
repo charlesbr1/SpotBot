@@ -43,6 +43,15 @@ public abstract class Alert {
         this.threshold = threshold;
     }
 
+    public final boolean isPrivate() {
+        return PRIVATE_ALERT == serverId;
+    }
+
+    public final boolean isOver() {
+        return 0 == repeat;
+    }
+
+
     public long getServerId() {
         return serverId;
     }
@@ -59,9 +68,6 @@ public abstract class Alert {
         return ticker1 + '/' + ticker2;
     }
 
-    public final boolean isPrivate() {
-        return PRIVATE_ALERT == serverId;
-    }
 
     public abstract Alert withRepeat(short repeat);
 
@@ -73,7 +79,10 @@ public abstract class Alert {
     public abstract boolean match(@NotNull Candlestick candlestick);
 
     @NotNull
-    public abstract String notification();
+    public abstract String triggerMessage();
+
+    @NotNull
+    public abstract String descriptionMessage(@NotNull String userName);
 
     protected final boolean isNewerCandleStick(@NotNull Candlestick candlestick) {
         return null == lastCandlestick ||

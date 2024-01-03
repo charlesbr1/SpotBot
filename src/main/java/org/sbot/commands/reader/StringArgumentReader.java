@@ -28,34 +28,6 @@ public final class StringArgumentReader implements ArgumentReader {
     }
 
     @Override
-    @NotNull
-    public String getMandatoryString(@NotNull String fieldName) {
-        return getString(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing field " + fieldName));
-    }
-
-    @Override
-    @NotNull
-    public BigDecimal getMandatoryNumber(@NotNull String fieldName) {
-        return getNumber(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing figure " + fieldName));
-    }
-
-    @Override
-    public long getMandatoryLong(@NotNull String fieldName) {
-        return getLong(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing number " + fieldName));
-    }
-
-    @Override
-    @NotNull
-    public ZonedDateTime getMandatoryDateTime(@NotNull String fieldName) {
-        return getDateTime(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing date " + fieldName));
-    }
-
-    @Override
-    public long getMandatoryUserId(@NotNull String fieldName) {
-        return getUserId(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing user mention " + fieldName));
-    }
-
-    @Override
     public Optional<String> getString(@NotNull String unused) {
         List<String> values = !remainingArguments.isBlank() ?
                 // this split arguments into two parts : the first word without spaces, then the rest of the string

@@ -66,6 +66,7 @@ public enum SpotBot {
                 new RepeatCommand(alertStorage),
                 new RepeatDelayCommand(alertStorage),
                 new ThresholdCommand(alertStorage),
+                new RemainderCommand(alertStorage),
                 new HelpCommand(alertStorage));
     }
 }

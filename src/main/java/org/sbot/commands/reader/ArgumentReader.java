@@ -8,18 +8,30 @@ import java.util.Optional;
 
 public interface ArgumentReader {
 
-    @NotNull
-    String getMandatoryString(@NotNull String fieldName);
 
     @NotNull
-    BigDecimal getMandatoryNumber(@NotNull String fieldName);
-
-    long getMandatoryLong(@NotNull String fieldName);
+    default String getMandatoryString(@NotNull String fieldName) {
+        return getString(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing field '" + fieldName + '\''));
+    }
 
     @NotNull
-    ZonedDateTime getMandatoryDateTime(@NotNull String fieldName);
+    default BigDecimal getMandatoryNumber(@NotNull String fieldName) {
+        return getNumber(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing figure '" + fieldName + '\''));
+    }
 
-    long getMandatoryUserId(@NotNull String fieldName);
+    default long getMandatoryLong(@NotNull String fieldName) {
+        return getLong(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing number '" + fieldName + '\''));
+    }
+
+    @NotNull
+    default ZonedDateTime getMandatoryDateTime(@NotNull String fieldName) {
+        return getDateTime(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing date '" + fieldName + '\''));
+    }
+
+    default long getMandatoryUserId(@NotNull String fieldName) {
+        return getUserId(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing user mention '" + fieldName + '\''));
+    }
+
 
     Optional<String> getString(@NotNull String fieldName);
 

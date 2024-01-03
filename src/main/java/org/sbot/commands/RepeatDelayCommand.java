@@ -31,7 +31,7 @@ public final class RepeatDelayCommand extends CommandAdapter {
     public void onCommand(@NotNull Command command) {
         long alertId = requirePositive(command.args.getMandatoryLong("alert_id"));
         short delay = requirePositiveShort(command.args.getMandatoryLong("repeat_delay"));
-        LOGGER.debug("repeat delay command = alert_id : {}, repeat_delay : {}", alertId, delay);
+        LOGGER.debug("repeat delay command - alert_id : {}, repeat_delay : {}", alertId, delay);
         command.reply(repeatDelay(command, alertId, delay));
     }
 

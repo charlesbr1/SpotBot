@@ -32,7 +32,7 @@ public final class ThresholdCommand extends CommandAdapter {
     public void onCommand(@NotNull Command command) {
         long alertId = requirePositive(command.args.getMandatoryLong("alert_id"));
         short threshold = requirePositiveShort(command.args.getMandatoryLong("threshold"));
-        LOGGER.debug("threshold command = alert_id : {}, threshold : {}", alertId, threshold);
+        LOGGER.debug("threshold command - alert_id : {}, threshold : {}", alertId, threshold);
         command.reply(threshold(command, alertId, threshold));
     }
 

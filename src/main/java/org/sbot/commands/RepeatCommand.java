@@ -31,7 +31,7 @@ public final class RepeatCommand extends CommandAdapter {
     public void onCommand(@NotNull Command command) {
         long alertId = requirePositive(command.args.getMandatoryLong("alert_id"));
         short repeat = requirePositiveShort(command.args.getMandatoryLong("repeat"));
-        LOGGER.debug("repeat command = alert_id : {}, repeat : {}", alertId, repeat);
+        LOGGER.debug("repeat command - alert_id : {}, repeat : {}", alertId, repeat);
         command.reply(repeat(command, alertId, repeat));
     }
 

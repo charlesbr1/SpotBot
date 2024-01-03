@@ -25,7 +25,7 @@ import java.util.stream.Stream;
 import static java.util.Map.Entry.comparingByKey;
 import static java.util.stream.Collectors.*;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
-import static org.sbot.discord.Discord.asyncOrderedSend;
+import static org.sbot.discord.Discord.asyncOrdered;
 
 public final class Command {
 
@@ -78,7 +78,7 @@ public final class Command {
     @SafeVarargs
     public final void reply(List<EmbedBuilder> messages, Consumer<MessageCreateRequest<?>>... options) {
         // Discord limit to 10 embeds by message
-        asyncOrderedSend(IntStream.range(0, messages.size()).boxed()
+        asyncOrdered(IntStream.range(0, messages.size()).boxed()
                 .collect(groupingBy(index -> index / MAX_MESSAGE_EMBEDS,
                         mapping(messages::get, toList())))
                 .entrySet().stream().sorted(comparingByKey())

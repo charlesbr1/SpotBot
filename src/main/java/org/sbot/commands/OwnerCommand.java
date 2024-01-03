@@ -11,9 +11,11 @@ import org.sbot.storage.AlertStorage;
 import java.awt.*;
 import java.util.List;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
+import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
+import static org.sbot.discord.Discord.getEffectiveName;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class OwnerCommand extends CommandAdapter {
@@ -37,30 +39,38 @@ public final class OwnerCommand extends CommandAdapter {
         String tickerPair = null;
         Long offset = command.args.getLong("offset").orElse(null);
         if(null == offset) { // if next arg can't be parsed as a long, it's may be a string
-            tickerPair = command.args.getString("ticker_pair").orElse(null);
+            tickerPair = command.args.getString("ticker_pair").map(String::toUpperCase).orElse(null);
             offset = command.args.getLong("offset").orElse(0L);
         }
         LOGGER.debug("owner command - owner : {}, ticker_pair : {}, offset : {}", ownerId, tickerPair, offset);
         command.reply(owner(command, tickerPair, ownerId, requirePositive(offset)));
     }
 
-    private EmbedBuilder owner(@NotNull Command command, @Nullable String tickerPair, long ownerId, long offset) {
+    private List<EmbedBuilder> owner(@NotNull Command command, @Nullable String tickerPair, long ownerId, long offset) {
         if(null == command.member && command.user.getIdLong() != ownerId) {
-            return embedBuilder(NAME, Color.red, "You are not allowed to see alerts of members in a private channel");
+            return List.of(embedBuilder(NAME, Color.red, "You are not allowed to see alerts of members in a private channel"));
         }
+        String ownerName = getEffectiveName(command.channel.getJDA(), ownerId).orElse("unknown");
 
         Predicate<Alert> ownerAndPair = null != tickerPair ?
                 alert -> alert.userId == ownerId && alert.getSlashPair().contains(tickerPair) :
                 alert -> alert.userId == ownerId;
 
-        String alerts = alertStorage.getAlerts().skip(offset) //TODO skip in dao call
+        long total = alertStorage.getAlerts()
                 .filter(serverOrPrivateFilter(command))
-                .filter(ownerAndPair).map(Alert::toString)
-                .collect(Collectors.joining("\n"));
+                .filter(ownerAndPair).count(); //TODO
 
-        String answer = alerts.isEmpty() ?
-                "No alert found for user <@" + ownerId + '>' + (null != tickerPair ? " and " + tickerPair : "") : alerts;
+        List<EmbedBuilder> alerts = alertStorage.getAlerts()
+                .filter(serverOrPrivateFilter(command))
+                .filter(ownerAndPair)
+                .skip(offset) //TODO skip in dao call
+                .limit(MESSAGE_PAGE_SIZE + 1)
+                .map(alert -> toMessage(alert, ownerName))
+                .collect(toList());
 
-        return embedBuilder(NAME, Color.green, answer);
+        return adaptSize(alerts, offset, total,
+                () -> "!owner @" + ownerName + ' ' +
+                        (null != tickerPair ? tickerPair : "") + ' ' + (offset + MESSAGE_PAGE_SIZE - 1),
+                () -> "user @" + ownerName + (null != tickerPair ? " and " + tickerPair : ""));
     }
 }

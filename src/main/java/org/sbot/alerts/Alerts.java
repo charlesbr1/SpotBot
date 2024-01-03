@@ -60,7 +60,7 @@ public final class Alerts {
                         // TODO gere le cas serveur prive PRIVATE_ALERT != serverId ?
                         BotChannel botChannel = discord.spotBotChannel(serverId);
                         alertsToTrigger.stream()
-                                .map(alert -> "@sbot ALERT triggered by " + alert.notification())
+                                .map(alert -> "@sbot ALERT triggered by " + alert.triggerMessage())
                                 .forEach(botChannel::sendMessage);
                     } catch (IllegalStateException e) {
                         LOGGER.error("Failed to send alert", e);

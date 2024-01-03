@@ -6,11 +6,10 @@ import org.sbot.storage.IdGenerator;
 
 import java.math.BigDecimal;
 import java.time.Duration;
-import java.time.Instant;
 import java.time.ZonedDateTime;
 
 import static java.math.RoundingMode.FLOOR;
-import static java.util.Objects.requireNonNull;
+import static org.sbot.utils.Dates.DATE_TIME_FORMATTER;
 
 public final class TrendAlert extends Alert {
 
@@ -27,7 +26,7 @@ public final class TrendAlert extends Alert {
                 DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS, DEFAULT_THRESHOLD);
     }
 
-    public TrendAlert(long id, long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
+    private TrendAlert(long id, long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
                       @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate,
                       @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate,
                       @NotNull String message,
@@ -36,9 +35,9 @@ public final class TrendAlert extends Alert {
         if(fromDate.isAfter(toDate)) {
             throw new IllegalArgumentException("first date is after second date");
         }
-        this.fromPrice = requireNonNull(fromPrice);
+        this.fromPrice = fromPrice.stripTrailingZeros();
         this.fromDate = fromDate;
-        this.toPrice = requireNonNull(toPrice);
+        this.toPrice = toPrice.stripTrailingZeros();
         this.toDate = toDate;
     }
 
@@ -87,22 +86,33 @@ public final class TrendAlert extends Alert {
 
     @NotNull
     private BigDecimal hoursSinceDate1() {
-        BigDecimal durationSec = new BigDecimal(Duration.between(fromDate, Instant.now()).abs().toSeconds());
+        BigDecimal durationSec = new BigDecimal(Duration.between(fromDate, ZonedDateTime.now()).abs().toSeconds());
         return durationSec.divide(new BigDecimal(3600), FLOOR);
     }
 
     @NotNull
     private BigDecimal priceDeltaByHour() {
+        if(true) return BigDecimal.ONE;
+        //TODO test
         BigDecimal durationSec = new BigDecimal(Duration.between(fromDate, toDate).abs().toSeconds());
         return fromPrice.min(toPrice).divide(durationSec.divide(new BigDecimal(3600), FLOOR), FLOOR);
     }
 
     @NotNull
     @Override
-    public String notification() {
+    public String triggerMessage() {
         return "Trend Alert set by <@" + userId + "> with id " + id + ", exchange " + exchange +
                 ", pair " + getSlashPair() + ", price crossed trend from " + fromPrice + " at " + fromDate +
                 " to " + toPrice + " at " + toDate + ".\nLast candlestick : " + lastCandlestick +
                 "\n" + message;
+    }
+
+    @NotNull
+    @Override
+    public String descriptionMessage(@NotNull String userName) {
+        return "Range Trend set by @" + userName + " on " + exchange +" [" + getSlashPair() +
+                "]\n* id :\t" + id + "\n* fromPrice :\t" + fromPrice + "\n* fromDate :\t" + fromDate.format(DATE_TIME_FORMATTER) +
+                "\n* toPrice :\t" + toPrice + "\n* toDate :\t" + toDate.format(DATE_TIME_FORMATTER) +
+                "\n\nLast close : " + lastCandlestick.close();
     }
 }
