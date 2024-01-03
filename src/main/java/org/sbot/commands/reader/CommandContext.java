@@ -75,20 +75,21 @@ public final class CommandContext {
 
     public void reply(List<EmbedBuilder> messages, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
         if(null != event) {
-            Discord.sendMessages(messages, replySlash(event::replyEmbeds, channel::sendMessageEmbeds), requireNonNull(messageSetup));
+            Discord.sendMessages(messages, slashReply(event::replyEmbeds, channel::sendMessageEmbeds), requireNonNull(messageSetup));
         } else {
             if(null != message) {
-                messageSetup = Stream.concat(messageSetup.stream(), // add a 'reply to' to the message
-                        Stream.of(message -> ((MessageCreateAction)message).setMessageReference(this.message))).toList();
+                messageSetup = Stream.concat( // add a 'reply to' to the message
+                        Stream.of(message -> ((MessageCreateAction)message).setMessageReference(this.message)),
+                        messageSetup.stream()).toList();
             }
             Discord.sendMessages(messages, channel::sendMessageEmbeds, requireNonNull(messageSetup));
         }
     }
 
-    private <T, R> Function<T, R> replySlash(@NotNull Function<T, R> replyEmbeds, @NotNull Function<T, R> sendMessageEmbeds) {
+    private <T, R> Function<T, R> slashReply(@NotNull Function<T, R> replyEmbeds, @NotNull Function<T, R> sendMessageEmbeds) {
         return message -> {
-            if (null != event) {
-                event = null; // on slash commands, event.replyEmbeds must be used to reply once, then use channel.sendMessageEmbeds
+            if (null != event) { // on slash commands, event.replyEmbeds must be used to reply once
+                event = null;    // then one should use channel.sendMessageEmbeds for next replies (if needed)
                 return replyEmbeds.apply(message);
             }
             return sendMessageEmbeds.apply(message);
