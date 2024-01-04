@@ -8,7 +8,6 @@ import java.util.Optional;
 
 public interface ArgumentReader {
 
-
     @NotNull
     default String getMandatoryString(@NotNull String fieldName) {
         return getString(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing field '" + fieldName + '\''));

@@ -1,6 +1,7 @@
 package org.sbot.alerts;
 
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Role;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -13,6 +14,7 @@ import org.sbot.exchanges.Exchanges;
 import org.sbot.storage.AlertStorage;
 
 import java.awt.*;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -20,8 +22,7 @@ import java.util.concurrent.Executors;
 
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.groupingBy;
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.*;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
@@ -41,11 +42,15 @@ public final class Alerts {
 
     public void checkPricesAndSendAlerts(@NotNull AlertStorage alertStorage) {
         try {
-            alertStorage.getAlertsByPairsAndExchanges().forEach((exchangeName, alertsByPairs) -> {
-                Exchange exchange = Exchanges.get(exchangeName);
-                alertsByPairs.forEach((pair, alerts) ->
-                        threadPool.execute(() -> getPricesAndTriggerAlerts(exchange, pair, alerts)));
-            });
+            alertStorage.getAlertsByPairsAndExchanges().entrySet().stream()
+                    .flatMap(e -> e.getValue().entrySet().stream() // this distributes the couples of exchange / pair
+                            .map(v -> new SimpleEntry<>(e.getKey(), v))).collect(toSet())
+                    .forEach(entry -> {
+                        Exchange exchange = Exchanges.get(entry.getKey());
+                        String pair = entry.getValue().getKey();
+                        List<Alert> alerts = entry.getValue().getValue();
+                        threadPool.execute(() -> getPricesAndTriggerAlerts(exchange, pair, alerts));
+                    });
         } catch (RuntimeException e) {
             LOGGER.warn("Exception thrown", e);
         }
@@ -68,7 +73,7 @@ public final class Alerts {
     private void sendAlerts(long serverId, @NotNull List<Alert> alerts) {
         try {
             if(PRIVATE_ALERT != serverId) {
-                sendServerAlerts(alerts, serverId);
+                sendServerAlerts(alerts, discord.getDiscordServer(serverId));
             } else {
                 sendPrivateAlerts(alerts);
             }
@@ -77,17 +82,18 @@ public final class Alerts {
         }
     }
 
-    private void sendServerAlerts(@NotNull List<Alert> alerts, long serverId) {
-        var roles = spotBotRole(discord.getDiscordServer(serverId)).map(Role::getId).stream().toList();
+    private void sendServerAlerts(@NotNull List<Alert> alerts, @NotNull Guild guild) {
+        var roles = spotBotRole(guild).map(Role::getId).stream().toList();
         var users = alerts.stream().mapToLong(Alert::getUserId).distinct().toArray();
-        discord.spotBotChannel(serverId).sendMessages(shrinkToPageSize(alerts),
-                List.of(message -> requireNonNull(message.mentionRoles(roles).mentionUsers(users))));
+        discord.spotBotChannel(guild).ifPresent(channel ->
+                channel.sendMessages(shrinkToPageSize(alerts),
+                        List.of(message -> requireNonNull(message.mentionRoles(roles).mentionUsers(users)))));
     }
 
     private void sendPrivateAlerts(@NotNull List<Alert> alerts) {
         alerts.stream().collect(groupingBy(Alert::getUserId))
-                .forEach((userId, userAlerts) -> discord.userChannel(userId)
-                        .ifPresent(channel -> channel.sendMessages(shrinkToPageSize(userAlerts), emptyList())));
+                .forEach((userId, userAlerts) -> discord.userChannel(userId).ifPresent(channel ->
+                        channel.sendMessages(shrinkToPageSize(userAlerts), emptyList())));
     }
 
     private List<EmbedBuilder> shrinkToPageSize(@NotNull List<Alert> alerts) {

@@ -61,7 +61,6 @@ public final class CommandContext {
         return null != member ? member.getGuild().getIdLong() : PRIVATE_ALERT;
     }
 
-
     public void reply(@NotNull EmbedBuilder message) {
         reply(message, emptyList());
     }

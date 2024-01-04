@@ -30,8 +30,7 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.SpotBot;
 import org.sbot.commands.reader.CommandContext;
 
-import java.awt.*;
-import java.io.File;
+import java.awt.Color;
 import java.util.List;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -79,6 +78,7 @@ public final class Discord {
     private final JDA jda;
     private final Map<String, CommandListener> commands = new ConcurrentHashMap<>();
 
+    // this allows to keep the minimum jda cache settings, user private channel may be requested by many threads in bulk
     private final Cache<Long, Optional<MessageChannel>> privateChannelCache = Caffeine.newBuilder()
             .expireAfterWrite(PRIVATE_CHANNEL_CACHE_TLL_MIN, TimeUnit.MINUTES)
             .maximumSize(1024)
@@ -88,15 +88,14 @@ public final class Discord {
         jda = loadDiscordConnection();
     }
 
-    public BotChannel spotBotChannel(long discordServerId) {
-        var channel = getSpotBotChannel(getDiscordServer(discordServerId))
-                .orElseThrow(() -> new IllegalStateException("Channel " + DISCORD_BOT_CHANNEL + " not found"));
-        return (messages, messageSetup) -> sendMessages(messages, channel::sendMessageEmbeds, messageSetup);
+    public Optional<BotChannel> spotBotChannel(@NotNull Guild guild) {
+        return getSpotBotChannel(guild).map(channel ->
+                (messages, messageSetup) -> sendMessages(messages, channel::sendMessageEmbeds, messageSetup));
     }
 
     public Optional<BotChannel> userChannel(long userId) {
-        var channel = getPrivateChannel(userId).orElse(null);
-        return null != channel ? Optional.of((messages, messageSetup) -> sendMessages(messages, channel::sendMessageEmbeds, messageSetup)) : empty();
+        return getPrivateChannel(userId).map(channel ->
+                (messages, messageSetup) -> sendMessages(messages, channel::sendMessageEmbeds, messageSetup));
     }
 
     public static Optional<Role> spotBotRole(@NotNull Guild guild) {
@@ -170,8 +169,8 @@ public final class Discord {
     }
 
     @NotNull
-    public static Optional<TextChannel> getSpotBotChannel(@NotNull Guild discordServer) {
-        return discordServer.getTextChannelsByName(DISCORD_BOT_CHANNEL, true)
+    public static Optional<TextChannel> getSpotBotChannel(@NotNull Guild guild) {
+        return guild.getTextChannelsByName(DISCORD_BOT_CHANNEL, true)
                 .stream().findFirst();
     }
 
