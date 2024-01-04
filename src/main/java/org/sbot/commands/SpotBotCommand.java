@@ -1,19 +1,26 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.utils.FileUpload;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.reader.CommandContext;
+import org.sbot.discord.Discord;
 import org.sbot.storage.AlertStorage;
 
 import java.awt.*;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
-import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
+import static org.sbot.discord.Discord.*;
 
 public final class SpotBotCommand extends CommandAdapter {
 
@@ -33,9 +40,11 @@ public final class SpotBotCommand extends CommandAdapter {
             
             The others commands let you do some searches about current alerts sets, as well as updating or deleting them.
             
-            This bot works exclusively on channel #spot, you can also use it from your private channel.
+            This bot works exclusively on channel {channel}, you can also use it from your private channel.
             
             When an alerts occurs, the owner that set it is notified in the #spot channel, or in private channel if he created it here.
+            
+            You may also want to join role {role} to get notified of each alert occurring on the channel {channel}
             
             The alerts you set using your private channel remains privates and are not visible by the others.
 
@@ -85,11 +94,12 @@ public final class SpotBotCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         LOGGER.debug("help command");
-        context.reply(help(), List.of(message -> message.addFiles(alertsPicture)));
+        context.reply(help(Optional.ofNullable(context.member).map(Member::getGuild).orElse(null)),
+                List.of(message -> message.addFiles(alertsPicture)));
     }
 
-    private static EmbedBuilder help() {
-        EmbedBuilder builder = embedBuilder(null, Color.green, HELP_HEADER);
+    private static EmbedBuilder help(@Nullable Guild guild) {
+        EmbedBuilder builder = embedBuilder(null, Color.green, formattedHeader(guild));
 
         commands.forEach(command -> {
             builder.addBlankField(false);
@@ -101,6 +111,14 @@ public final class SpotBotCommand extends CommandAdapter {
         builder.setImage("attachment://" + ALERTS_PICTURE_FILE);
         builder.setFooter(HELP_FOOTER);
         return builder;
+    }
+
+    private static String formattedHeader(@Nullable Guild guild) {
+        String channel = Optional.ofNullable(guild).flatMap(Discord::getSpotBotChannel)
+                .map(Channel::getAsMention).orElse('#' + DISCORD_BOT_CHANNEL);
+        String role = Optional.ofNullable(guild).flatMap(Discord::spotBotRole)
+                .map(Role::getAsMention).orElse('@' + DISCORD_BOT_ROLE);
+        return HELP_HEADER.replace("{channel}", channel).replace("{role}", role);
     }
 
     private static String optionsDescription(List<OptionData> options) {

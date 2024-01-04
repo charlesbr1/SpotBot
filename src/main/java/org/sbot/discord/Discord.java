@@ -5,10 +5,8 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
-import net.dv8tion.jda.api.entities.Activity;
-import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.MessageEmbed;
-import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
@@ -29,9 +27,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.sbot.SpotBot;
 import org.sbot.commands.reader.CommandContext;
 
 import java.awt.*;
+import java.io.File;
 import java.util.List;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -39,14 +39,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static java.util.Comparator.comparing;
 import static java.util.Map.Entry.comparingByKey;
+import static java.util.Optional.empty;
+import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.*;
 import static net.dv8tion.jda.api.entities.MessageEmbed.DESCRIPTION_MAX_LENGTH;
-import static org.sbot.SpotBot.DISCORD_BOT_CHANNEL;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
 import static org.sbot.utils.PropertiesReader.readFile;
 
@@ -55,7 +56,10 @@ public final class Discord {
     public static final int MESSAGE_PAGE_SIZE = 1001; // this limit the number of messages that can be sent in bulk, 1000 + 1 for the next command message
     private static final int MAX_MESSAGE_EMBEDS = 10;
 
-    private static final int PRIVATE_CHANNEL_CACHE_TLL_MIN = 10;
+    public static final String DISCORD_BOT_CHANNEL = SpotBot.appProperties.get("discord.bot.channel");
+    public static final String DISCORD_BOT_ROLE = SpotBot.appProperties.get("discord.bot.role");
+
+    private static final int PRIVATE_CHANNEL_CACHE_TLL_MIN = 5;
 
 
     @FunctionalInterface
@@ -75,8 +79,7 @@ public final class Discord {
     private final JDA jda;
     private final Map<String, CommandListener> commands = new ConcurrentHashMap<>();
 
-    // we cache a supplier to be able to store null messageChannel when unavailable
-    private final Cache<Long, Supplier<MessageChannel>> privateChannelCache = Caffeine.newBuilder()
+    private final Cache<Long, Optional<MessageChannel>> privateChannelCache = Caffeine.newBuilder()
             .expireAfterWrite(PRIVATE_CHANNEL_CACHE_TLL_MIN, TimeUnit.MINUTES)
             .maximumSize(1024)
             .build();
@@ -86,13 +89,20 @@ public final class Discord {
     }
 
     public BotChannel spotBotChannel(long discordServerId) {
-        var channel = getSpotBotChannel(getDiscordServer(discordServerId));
+        var channel = getSpotBotChannel(getDiscordServer(discordServerId))
+                .orElseThrow(() -> new IllegalStateException("Channel " + DISCORD_BOT_CHANNEL + " not found"));
         return (messages, messageSetup) -> sendMessages(messages, channel::sendMessageEmbeds, messageSetup);
     }
 
     public Optional<BotChannel> userChannel(long userId) {
         var channel = getPrivateChannel(userId).orElse(null);
-        return null != channel ? Optional.of((messages, messageSetup) -> sendMessages(messages, channel::sendMessageEmbeds, messageSetup)) : Optional.empty();
+        return null != channel ? Optional.of((messages, messageSetup) -> sendMessages(messages, channel::sendMessageEmbeds, messageSetup)) : empty();
+    }
+
+    public static Optional<Role> spotBotRole(@NotNull Guild guild) {
+        return guild.getRolesByName(DISCORD_BOT_ROLE, true).stream()
+                .filter(not(Role::isManaged))
+                .max(comparing(Role::getPositionRaw));
     }
 
     public static <T extends MessageCreateRequest<?> & FluentRestAction<?, ?>> void sendMessages(@NotNull List<EmbedBuilder> messages, @NotNull Function<List<MessageEmbed>, T> sendMessage, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
@@ -113,8 +123,9 @@ public final class Discord {
 
         var messageRequest = sendMessage.apply(embeds);
         messageSetup.forEach(setup -> setup.accept(messageRequest));
-        String mentionedUsers = messageRequest.getMentionedUsers().stream().map(str -> "<@" + str + '>').collect(joining(" "));
-        messageRequest.setContent(mentionedUsers);
+        String mentionedRolesAndUsers = Stream.concat(messageRequest.getMentionedRoles().stream().map(str -> "<@&" + str + '>'),
+                messageRequest.getMentionedUsers().stream().map(str -> "<@" + str + '>')).collect(joining(" "));
+        messageRequest.setContent(mentionedRolesAndUsers);
         return messageRequest;
     }
 
@@ -152,32 +163,30 @@ public final class Discord {
     }
 
     @NotNull
-    private Guild getDiscordServer(long discordServerId) {
+    public Guild getDiscordServer(long discordServerId) {
         LOGGER.debug("Retrieving discord server {}...", discordServerId);
         return Optional.ofNullable(jda.getGuildById(discordServerId))
                 .orElseThrow(() -> new IllegalStateException("Failed to load discord server " + discordServerId));
     }
 
     @NotNull
-    private TextChannel getSpotBotChannel(@NotNull Guild discordServer) {
+    public static Optional<TextChannel> getSpotBotChannel(@NotNull Guild discordServer) {
         return discordServer.getTextChannelsByName(DISCORD_BOT_CHANNEL, true)
-                .stream().findFirst()
-                .orElseThrow(() -> new IllegalStateException("Channel " + DISCORD_BOT_CHANNEL + " not found"));
+                .stream().findFirst();
     }
 
     @NotNull
     private Optional<MessageChannel> getPrivateChannel(long userId) {
         LOGGER.debug("Retrieving user private channel {}...", userId);
-        return Optional.ofNullable(privateChannelCache.get(userId, this::getPrivateChannelSupplier).get());
+        return privateChannelCache.get(userId, this::loadPrivateChannel);
     }
 
-    private Supplier<MessageChannel> getPrivateChannelSupplier(long userId) {
+    private Optional<MessageChannel> loadPrivateChannel(long userId) {
         try {
-            MessageChannel messageChannel = jda.retrieveUserById(userId).complete().openPrivateChannel().complete();
-            return () -> messageChannel;
+            return Optional.of(jda.retrieveUserById(userId).complete().openPrivateChannel().complete());
         } catch (RuntimeException e) {
             LOGGER.warn("Failed to retrieve discord private channel for user " + userId, e);
-            return () -> null;
+            return empty();
         }
     }
 
@@ -231,9 +240,12 @@ public final class Discord {
                 LOGGER.debug("Discord slash command received : {}, with options {}", event.getName(), event.getOptions());
                 onCommand(new CommandContext(event));
             } else {
-                event.replyEmbeds(embedBuilder(event.getName(), Color.black,
-                                "SpotBot disabled on this channel. Use it in private or on #" + DISCORD_BOT_CHANNEL).build())
-                        .queue(message -> message.deleteOriginal().queueAfter(3, TimeUnit.SECONDS));
+                event.replyEmbeds(embedBuilder("Sorry !", Color.black,
+                                "SpotBot disabled on this channel. Use it in private or on channel " +
+                                        Optional.ofNullable(event.getGuild()).flatMap(Discord::getSpotBotChannel)
+                                                .map(Channel::getAsMention).orElse('#' + DISCORD_BOT_CHANNEL)).build())
+                        .setEphemeral(true)
+                        .queue(message -> message.deleteOriginal().queueAfter(5, TimeUnit.SECONDS));
             }
         }
 
@@ -257,7 +269,7 @@ public final class Discord {
                         .flatMap(str ->  Stream.of(str.split("\n", 1))).findFirst()
                         .map(str -> command.user.getAsMention() + " Something get wrong !\n* " + str)
                         .map(str -> str.substring(0, Math.min(str.length(), DESCRIPTION_MAX_LENGTH)))
-                        .orElse("");
+                        .orElse("An unexpected error occurred, try again later...");
                 command.reply(embedBuilder("Oups !", Color.red, error));
             }
         }

@@ -18,9 +18,8 @@ public enum SpotBot {
 
     private static final Logger LOGGER = LogManager.getLogger(SpotBot.class);
 
-    private static final PropertiesReader appProperties = loadProperties("spotbot.properties");
+    public static final PropertiesReader appProperties = loadProperties("spotbot.properties");
 
-    public static final String DISCORD_BOT_CHANNEL = appProperties.get("discord.bot.channel");
     private static final long ALERTS_CHECK_PERIOD_MS = 60L * 1000L * parseLong(appProperties.get("alerts.check.period.minutes"));
     private static final String ALERTS_STORAGE_CLASS = appProperties.get("alerts.storage.class");
 

@@ -1,6 +1,7 @@
 package org.sbot.alerts;
 
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.entities.Role;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -17,12 +18,14 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
+import static org.sbot.discord.Discord.spotBotRole;
 
 public final class Alerts {
 
@@ -64,22 +67,27 @@ public final class Alerts {
 
     private void sendAlerts(long serverId, @NotNull List<Alert> alerts) {
         try {
-            if(PRIVATE_ALERT == serverId) {
-                sendPrivateAlerts(alerts);
+            if(PRIVATE_ALERT != serverId) {
+                sendServerAlerts(alerts, serverId);
             } else {
-                discord.spotBotChannel(serverId).sendMessages(shrinkToPageSize(alerts),
-                        List.of(message -> message.mentionUsers(alerts.stream().mapToLong(Alert::getUserId).distinct().toArray())));
+                sendPrivateAlerts(alerts);
             }
         } catch (RuntimeException e) {
             LOGGER.error("Failed to send alerts", e);
         }
     }
 
+    private void sendServerAlerts(@NotNull List<Alert> alerts, long serverId) {
+        var roles = spotBotRole(discord.getDiscordServer(serverId)).map(Role::getId).stream().toList();
+        var users = alerts.stream().mapToLong(Alert::getUserId).distinct().toArray();
+        discord.spotBotChannel(serverId).sendMessages(shrinkToPageSize(alerts),
+                List.of(message -> requireNonNull(message.mentionRoles(roles).mentionUsers(users))));
+    }
+
     private void sendPrivateAlerts(@NotNull List<Alert> alerts) {
         alerts.stream().collect(groupingBy(Alert::getUserId))
                 .forEach((userId, userAlerts) -> discord.userChannel(userId)
-                        .ifPresent(channel -> channel.sendMessages(shrinkToPageSize(userAlerts),
-                                List.of(message -> message.mentionUsers(userId)))));
+                        .ifPresent(channel -> channel.sendMessages(shrinkToPageSize(userAlerts), emptyList())));
     }
 
     private List<EmbedBuilder> shrinkToPageSize(@NotNull List<Alert> alerts) {
@@ -91,7 +99,8 @@ public final class Alerts {
                 messages.remove(messages.size() - 1);
             }
             messages.add(embedBuilder("...", Color.red, "Limit reached ! That's too much alerts.\n\n" +
-                    (alerts.size() - MESSAGE_PAGE_SIZE + 1) + " more alerts were triggered but are discarded"));
+                    MESSAGE_PAGE_SIZE + " triggered alerts were notified, " +
+                    (alerts.size() - MESSAGE_PAGE_SIZE + 1) + " more alerts were triggered too but are discarded"));
         }
         return messages;
     }
