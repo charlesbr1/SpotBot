@@ -7,6 +7,8 @@ import org.sbot.storage.IdGenerator;
 import java.math.BigDecimal;
 import java.util.Optional;
 
+import static org.sbot.utils.ArgumentValidator.requirePositive;
+
 public final class RangeAlert extends Alert {
 
     private final BigDecimal low;
@@ -17,33 +19,42 @@ public final class RangeAlert extends Alert {
                       @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
                       @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message) {
         this(IdGenerator.newId(), userId, serverId, exchange, ticker1, ticker2, low, high, message,
-                DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS, DEFAULT_THRESHOLD);
+                DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS, DEFAULT_MARGIN);
     }
     private RangeAlert(long id, long userId, long serverId,
                       @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
                       @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message,
-                      short repeat, short repeatDelay, short threshold) {
-        super(id, userId, serverId, exchange, ticker1, ticker2, message, repeat, repeatDelay, threshold);
+                      short repeat, short repeatDelay, short margin) {
+        super(id, userId, serverId, exchange, ticker1, ticker2, message, repeat, repeatDelay, margin);
         if(low.compareTo(high) > 0) {
             throw new IllegalArgumentException("low price is higher than high price");
         }
-        this.low = low.stripTrailingZeros();
-        this.high = high.stripTrailingZeros();
+        this.low = requirePositive(low).stripTrailingZeros();
+        this.high = requirePositive(high).stripTrailingZeros();
+    }
+
+    @NotNull
+    @Override
+    public String name() {
+        return "Range";
     }
 
     @Override
+    @NotNull
     public RangeAlert withRepeat(short repeat) {
-        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, repeat, repeatDelay, threshold);
+        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, repeat, repeatDelay, margin);
     }
 
     @Override
+    @NotNull
     public RangeAlert withRepeatDelay(short delay) {
-        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, repeat, delay, threshold);
+        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, repeat, delay, margin);
     }
 
     @Override
-    public RangeAlert withThreshold(short threshold) {
-        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, repeat, repeatDelay, threshold);
+    @NotNull
+    public RangeAlert withMargin(short margin) {
+        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, repeat, repeatDelay, margin);
     }
 
     @Override
@@ -54,6 +65,11 @@ public final class RangeAlert extends Alert {
         } finally {
             lastCandlestick = candlestick;
         }
+    }
+
+    @Override
+    public boolean inMargin(@NotNull Candlestick candlestick) {
+        return true;
     }
 
     private boolean priceInRange(@NotNull Candlestick candlestick) {
@@ -67,25 +83,14 @@ public final class RangeAlert extends Alert {
                 lastCandlestick.high().max(candlestick.high()).compareTo(low) >= 0;
     }
 
-    @NotNull
-    @Override
-    public String triggerMessage() {
-        return "Range Alert set by <@" + userId + "> with id " + id + " on " + exchange + " [" + getSlashPair() +
-                "] fired !\n\nPrice reached box from " + low.toPlainString() + " to " + high.toPlainString() +  + ' ' + ticker2 +
-                Optional.ofNullable(lastCandlestick).map(Candlestick::close)
-                        .map(BigDecimal::toPlainString)
-                        .map("\n\nLast close : "::concat).orElse("");
-    }
 
-   @NotNull
     @Override
-    public String descriptionMessage() {
-        return "Range Alert set by <@" + userId + "> on " + exchange +" [" + getSlashPair() +
-                "]\n* id :\t" + id +
-                "\n* low :\t" + low.toPlainString() + ' ' + ticker2 +
-                "\n* high :\t" + high.toPlainString() + ' ' + ticker2 +
-                Optional.ofNullable(lastCandlestick).map(Candlestick::close)
-                        .map(BigDecimal::toPlainString)
-                        .map("\n\nLast close : "::concat).orElse("");
+    @NotNull
+     protected String asMessage(boolean triggered) {
+        return header(triggered) +
+                "\n\n* id :\t" + id +
+                "\n* low :\t" + low.toPlainString() + ' ' + getSymbol(ticker2) +
+                "\n* high :\t" + high.toPlainString() + ' ' + getSymbol(ticker2) +
+                footer();
     }
 }

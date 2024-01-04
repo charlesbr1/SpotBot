@@ -17,10 +17,9 @@ import java.util.List;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.alerts.Alert.ALERT_MESSAGE_ARG_MAX_LENGTH;
+import static org.sbot.alerts.Alert.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
-import static org.sbot.utils.ArgumentValidator.requireMaxMessageArgLength;
-import static org.sbot.utils.ArgumentValidator.requirePositive;
+import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.formatUTC;
 
 public final class TrendCommand extends CommandAdapter {
@@ -31,11 +30,15 @@ public final class TrendCommand extends CommandAdapter {
     static final List<OptionData> options = List.of(
             new OptionData(STRING, "exchange", "the exchange", true)
                     .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).collect(toList())),
-            new OptionData(STRING, "ticker1", "the first ticker", true),
-            new OptionData(STRING, "ticker2", "the second ticker", true),
-            new OptionData(NUMBER, "from_price", "the first price", true).setMinValue(0d),
+            new OptionData(STRING, "ticker1", "the first ticker", true)
+                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_TICKER_LENGTH),
+            new OptionData(STRING, "ticker2", "the second ticker", true)
+                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_TICKER_LENGTH),
+            new OptionData(NUMBER, "from_price", "the first price", true)
+                    .setMinValue(0d),
             new OptionData(STRING, "from_date", "the date of first price, UTC expected, format: " + Dates.DATE_TIME_FORMAT, true),
-            new OptionData(NUMBER, "to_price", "the second price", true).setMinValue(0d),
+            new OptionData(NUMBER, "to_price", "the second price", true)
+                    .setMinValue(0d),
             new OptionData(STRING, "to_date", "the date of second price, UTC expected, format: " + Dates.DATE_TIME_FORMAT, true),
             new OptionData(STRING, "message", "a message to display when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
@@ -48,9 +51,9 @@ public final class TrendCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        String exchange = context.args.getMandatoryString("exchange");
-        String ticker1 = context.args.getMandatoryString("ticker1");
-        String ticker2 = context.args.getMandatoryString("ticker2");
+        String exchange = requireSupportedExchange(context.args.getMandatoryString("exchange"));
+        String ticker1 = requireTickerLength(context.args.getMandatoryString("ticker1"));
+        String ticker2 = requireTickerLength(context.args.getMandatoryString("ticker2"));
         BigDecimal fromPrice = requirePositive(context.args.getMandatoryNumber("from_price"));
         ZonedDateTime fromDate = context.args.getMandatoryDateTime("from_date");
         BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("to_price"));

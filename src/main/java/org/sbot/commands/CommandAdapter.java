@@ -100,11 +100,11 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected static EmbedBuilder toMessage(@NotNull Alert alert) {
         return embedBuilder('[' + alert.getSlashPair() + "] " + alert.message,
-                alert.isPrivate() ? Color.blue : (alert.isOver() ? Color.black : Color.green),
-                alert.descriptionMessage());
+                alert.isOver() ? Color.black : (alert.isPrivate() ? Color.blue : Color.green),
+                alert.asDescription());
     }
 
-    //TODO doc mutation on messages argument
+    //TODO doc mutation of list messages argument
     protected static List<EmbedBuilder> paginatedAlerts(@NotNull List<EmbedBuilder> messages, long offset, long total, @NotNull Supplier<String> nextCommand, @NotNull Supplier<String> command) {
         if(messages.isEmpty()) {
             messages.add(embedBuilder("Alerts search", Color.yellow,

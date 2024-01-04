@@ -4,7 +4,8 @@ import org.jetbrains.annotations.NotNull;
 
 import java.math.BigDecimal;
 
-import static org.sbot.alerts.Alert.ALERT_MESSAGE_ARG_MAX_LENGTH;
+import static org.sbot.alerts.Alert.*;
+import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 
 public interface ArgumentValidator {
 
@@ -31,10 +32,33 @@ public interface ArgumentValidator {
     }
 
     @NotNull
-    static String requireMaxMessageArgLength(@NotNull String value) {
-        if (value.length() > ALERT_MESSAGE_ARG_MAX_LENGTH) {
-            throw new IllegalArgumentException("Provided argument is too long : " + value.length() + " chars (max is "+ ALERT_MESSAGE_ARG_MAX_LENGTH + ")\n" + value);
+    static String requireSupportedExchange(@NotNull String exchange) {
+        if(!SUPPORTED_EXCHANGES.contains(exchange.toLowerCase())) {
+            throw new IllegalArgumentException("Provided exchange is not supported : " + exchange + " (expected [" + String.join(", ", SUPPORTED_EXCHANGES) + "])");
         }
-        return value;
+        return exchange;
+    }
+
+    @NotNull
+    static String requireTickerLength(@NotNull String ticker) {
+        if (ticker.length() > ALERT_MAX_TICKER_LENGTH || ticker.length() < ALERT_MIN_TICKER_LENGTH) {
+            throw new IllegalArgumentException("Provided ticker is invalid : " + ticker + " (expected " + ALERT_MIN_TICKER_LENGTH + " to " + ALERT_MAX_TICKER_LENGTH + " chars)");
+        }
+        return ticker;
+    }
+
+    @NotNull
+    static String requireTickerPairLength(@NotNull String tickerPair) {
+        if (tickerPair.length() > (1 + (2 * ALERT_MAX_TICKER_LENGTH)) || tickerPair.length() < ALERT_MIN_TICKER_LENGTH) {
+            throw new IllegalArgumentException("Provided ticker or pair is invalid : " + tickerPair + " (expected " + ALERT_MIN_TICKER_LENGTH + " to " + (1 + (2 * ALERT_MAX_TICKER_LENGTH)) + " chars)");
+        }
+        return tickerPair;
+    }
+
+    static String requireMaxMessageArgLength(@NotNull String message) {
+        if (message.length() > ALERT_MESSAGE_ARG_MAX_LENGTH) {
+            throw new IllegalArgumentException("Provided message is too long : " + message.length() + " chars (max is "+ ALERT_MESSAGE_ARG_MAX_LENGTH + ")\n" + message);
+        }
+        return message;
     }
 }

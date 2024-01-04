@@ -9,13 +9,14 @@ import org.sbot.storage.AlertStorage;
 
 import java.util.List;
 
+import static org.sbot.alerts.Alert.DEFAULT_REPEAT_DELAY_HOURS;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.ArgumentValidator.requirePositiveShort;
 
 public final class RepeatDelayCommand extends CommandAdapter {
 
     public static final String NAME = "repeat-delay";
-    static final String DESCRIPTION = "update the delay between two repeats of the alert";
+    static final String DESCRIPTION = "the delay to wait before a next repeat of the alert, in hours, 0 will set to default " + DEFAULT_REPEAT_DELAY_HOURS + " hours";
 
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.INTEGER, "alert_id", "id of the alert", true)
@@ -37,9 +38,10 @@ public final class RepeatDelayCommand extends CommandAdapter {
 
     private EmbedBuilder repeatDelay(@NotNull CommandContext context, long alertId, short delay) {
         AnswerColor answerColor = updateAlert(alertId, context, alert -> {
-                    alertStorage.addAlert(alert.withRepeatDelay(delay));
-                    return context.user.getAsMention() + " Delay of alert " + alertId + " updated";
-                });
+            alertStorage.addAlert(alert.withRepeatDelay(0 != delay ? delay : DEFAULT_REPEAT_DELAY_HOURS));
+            return context.user.getAsMention() + " Delay of alert " + alertId + " updated to " +
+                    (0 != delay ? delay : "default " + DEFAULT_REPEAT_DELAY_HOURS);
+        });
         return embedBuilder(NAME, answerColor.color(), answerColor.answer());
     }
 }

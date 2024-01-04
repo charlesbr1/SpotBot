@@ -12,34 +12,35 @@ import java.util.List;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.ArgumentValidator.requirePositiveShort;
 
-public final class ThresholdCommand extends CommandAdapter {
-    //TODO add support in Alert
-    public static final String NAME = "threshold";
-    static final String DESCRIPTION = "update the threshold of the given alert, which will be pre triggered when price reach it";
+public final class MarginCommand extends CommandAdapter {
+
+    public static final String NAME = "margin";
+    static final String DESCRIPTION = "set a margin for the alert that will warn once reached, then it should be set again, 0 to disable";
 
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.INTEGER, "alert_id", "id of the alert", true)
                     .setMinValue(0),
-            new OptionData(OptionType.INTEGER, "threshold", "new threshold in %", true)
+            new OptionData(OptionType.INTEGER, "margin", "new margin in alert ticker2 unit, 0 to disable", true)
                     .setRequiredRange(0, Short.MAX_VALUE));
 
 
-    public ThresholdCommand(@NotNull AlertStorage alertStorage) {
+    public MarginCommand(@NotNull AlertStorage alertStorage) {
         super(alertStorage, NAME, DESCRIPTION, options);
     }
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
-        short threshold = requirePositiveShort(context.args.getMandatoryLong("threshold"));
-        LOGGER.debug("threshold command - alert_id : {}, threshold : {}", alertId, threshold);
-        context.reply(threshold(context, alertId, threshold));
+        short margin = requirePositiveShort(context.args.getMandatoryLong("margin"));
+        LOGGER.debug("margin command - alert_id : {}, margin : {}", alertId, margin);
+        context.reply(margin(context, alertId, margin));
     }
 
-    private EmbedBuilder threshold(@NotNull CommandContext context, long alertId, short threshold) {
+    private EmbedBuilder margin(@NotNull CommandContext context, long alertId, short margin) {
         AnswerColor answerColor = updateAlert(alertId, context, alert -> {
-            alertStorage.addAlert(alert.withThreshold(threshold));
-            return context.user.getAsMention() + " Threshold of alert " + alertId + " updated";
+            alertStorage.addAlert(alert.withMargin(margin));
+            return context.user.getAsMention() + " Margin of alert " + alertId + " updated to " + margin +
+                    (margin != 0 ? "" : " (disabled)");
         });
         return embedBuilder(NAME, answerColor.color(), answerColor.answer());
     }

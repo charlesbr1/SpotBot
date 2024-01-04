@@ -11,8 +11,11 @@ import java.util.List;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
+import static org.sbot.alerts.Alert.ALERT_MAX_TICKER_LENGTH;
+import static org.sbot.alerts.Alert.ALERT_MIN_TICKER_LENGTH;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
+import static org.sbot.utils.ArgumentValidator.requireTickerPairLength;
 
 public final class PairCommand extends CommandAdapter {
 
@@ -20,7 +23,8 @@ public final class PairCommand extends CommandAdapter {
     static final String DESCRIPTION = "show the alerts defined on the given ticker or pair";
 
     static final List<OptionData> options = List.of(
-            new OptionData(STRING, "ticker_pair", "the ticker or pair to show alerts on", true),
+            new OptionData(STRING, "ticker_pair", "the ticker or pair to show alerts on", true)
+                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(1 + (2 * ALERT_MAX_TICKER_LENGTH)),
             new OptionData(INTEGER, "offset", "an optional offset to start the search (results are limited to 1000 alerts)", false)
                     .setMinValue(0));
 
@@ -30,7 +34,7 @@ public final class PairCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        String tickerPair = context.args.getMandatoryString("ticker_pair");
+        String tickerPair = requireTickerPairLength(context.args.getMandatoryString("ticker_pair"));
         long offset = requirePositive(context.args.getLong("offset").orElse(0L));
         LOGGER.debug("pair command - ticker_pair : {}, offset : {}", tickerPair, offset);
         context.reply(pair(context, tickerPair.toUpperCase(), offset));

@@ -60,7 +60,7 @@ public final class SpotBotCommand extends CommandAdapter {
             * *!trend binance eth usdt 1800 10/03/2019-12:30 1900 03/11/2021-16:00 daily uptrend tested, see https://discord.com/channels...*
             * *!repeat 123 5*
             * *!repeat-delay 123 24*
-            * *!threshold 123 3*
+            * *!margin 123 3*
             * *!delete 123*
             * *!remainder 10/03/2019-12:30 A message to receive at this date*""";
 
@@ -79,7 +79,7 @@ public final class SpotBotCommand extends CommandAdapter {
             new Command(TrendCommand.NAME, TrendCommand.DESCRIPTION, TrendCommand.options),
             new Command(RepeatCommand.NAME, RepeatCommand.DESCRIPTION, RepeatCommand.options),
             new Command(RepeatDelayCommand.NAME, RepeatDelayCommand.DESCRIPTION, RepeatDelayCommand.options),
-            new Command(ThresholdCommand.NAME, ThresholdCommand.DESCRIPTION, ThresholdCommand.options),
+            new Command(MarginCommand.NAME, MarginCommand.DESCRIPTION, MarginCommand.options),
             new Command(DeleteCommand.NAME, DeleteCommand.DESCRIPTION, DeleteCommand.options),
             new Command(RemainderCommand.NAME, RemainderCommand.DESCRIPTION, RemainderCommand.options),
             new Command(UpTimeCommand.NAME, UpTimeCommand.DESCRIPTION, emptyList()));

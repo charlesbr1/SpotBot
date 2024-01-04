@@ -15,10 +15,9 @@ import java.util.List;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.alerts.Alert.ALERT_MESSAGE_ARG_MAX_LENGTH;
+import static org.sbot.alerts.Alert.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
-import static org.sbot.utils.ArgumentValidator.requireMaxMessageArgLength;
-import static org.sbot.utils.ArgumentValidator.requirePositive;
+import static org.sbot.utils.ArgumentValidator.*;
 
 public final class RangeCommand extends CommandAdapter {
 
@@ -28,10 +27,14 @@ public final class RangeCommand extends CommandAdapter {
     static final List<OptionData> options = List.of(
             new OptionData(STRING, "exchange", "the exchange", true)
                     .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).collect(toList())),
-            new OptionData(STRING, "ticker1", "the first ticker", true),
-            new OptionData(STRING, "ticker2", "the second ticker", true),
-            new OptionData(NUMBER, "low", "the low range price", true).setMinValue(0d),
-            new OptionData(NUMBER, "high", "the high range price", true).setMinValue(0d),
+            new OptionData(STRING, "ticker1", "the first ticker", true)
+                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_TICKER_LENGTH),
+            new OptionData(STRING, "ticker2", "the second ticker", true)
+                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_TICKER_LENGTH),
+            new OptionData(NUMBER, "low", "the low range price", true)
+                    .setMinValue(0d),
+            new OptionData(NUMBER, "high", "the high range price", true)
+                    .setMinValue(0d),
             new OptionData(STRING, "message", "a message to display when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
@@ -41,9 +44,9 @@ public final class RangeCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        String exchange = context.args.getMandatoryString("exchange");
-        String ticker1 = context.args.getMandatoryString("ticker1");
-        String ticker2 = context.args.getMandatoryString("ticker2");
+        String exchange = requireSupportedExchange(context.args.getMandatoryString("exchange"));
+        String ticker1 = requireTickerLength(context.args.getMandatoryString("ticker1"));
+        String ticker2 = requireTickerLength(context.args.getMandatoryString("ticker2"));
         BigDecimal low = requirePositive(context.args.getMandatoryNumber("low"));
         BigDecimal high = requirePositive(context.args.getMandatoryNumber("high"));
         String message = requireMaxMessageArgLength(context.args.getLastArgs("message").orElse(""));

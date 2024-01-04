@@ -7,6 +7,7 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.storage.AlertStorage;
+import org.sbot.utils.ArgumentValidator;
 
 import java.awt.*;
 import java.util.List;
@@ -14,6 +15,8 @@ import java.util.function.Predicate;
 
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
+import static org.sbot.alerts.Alert.ALERT_MAX_TICKER_LENGTH;
+import static org.sbot.alerts.Alert.ALERT_MIN_TICKER_LENGTH;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 
@@ -24,7 +27,8 @@ public final class OwnerCommand extends CommandAdapter {
 
     static final List<OptionData> options = List.of(
             new OptionData(USER, "owner", "the owner of alerts to show", true),
-            new OptionData(STRING, "ticker_pair", "an optional ticker or pair to filter on", false),
+            new OptionData(STRING, "ticker_pair", "an optional ticker or pair to filter on", false)
+                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(1 + (2 * ALERT_MAX_TICKER_LENGTH)),
             new OptionData(INTEGER, "offset", "an optional offset to start the search (results are limited to 1000 alerts)", false)
                     .setMinValue(0));
 
@@ -37,8 +41,10 @@ public final class OwnerCommand extends CommandAdapter {
         long ownerId = context.args.getMandatoryUserId("owner");
         String tickerPair = null;
         Long offset = context.args.getLong("offset").orElse(null);
-        if(null == offset) { // if next arg can't be parsed as a long, it's may be a string
-            tickerPair = context.args.getString("ticker_pair").map(String::toUpperCase).orElse(null);
+        if(null == offset) { // if the next arg can't be parsed as a long, may be it's a string
+            tickerPair = context.args.getString("ticker_pair")
+                    .map(ArgumentValidator::requireTickerPairLength)
+                    .map(String::toUpperCase).orElse(null);
             offset = context.args.getLong("offset").orElse(0L);
         }
         LOGGER.debug("owner command - owner : {}, ticker_pair : {}, offset : {}", ownerId, tickerPair, offset);

@@ -15,7 +15,7 @@ import static org.sbot.utils.ArgumentValidator.requirePositiveShort;
 public final class RepeatCommand extends CommandAdapter {
 
     public static final String NAME = "repeat";
-    static final String DESCRIPTION = "update the number of time the alert will be rethrown";
+    static final String DESCRIPTION = "update the number of time the alert will be rethrown, 0 to disable";
 
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.INTEGER, "alert_id", "id of the alert", true)
@@ -38,7 +38,8 @@ public final class RepeatCommand extends CommandAdapter {
     private EmbedBuilder repeat(@NotNull CommandContext context, long alertId, short repeat) {
         AnswerColor answerColor = updateAlert(alertId, context, alert -> {
             alertStorage.addAlert(alert.withRepeat(repeat));
-            return context.user.getAsMention() + " Repeat of alert " + alertId + " updated";
+            return context.user.getAsMention() + " Repeat of alert " + alertId + " updated to " + repeat +
+                    (repeat != 0 ? "" : " (disabled)");
         });
         return embedBuilder(NAME, answerColor.color(), answerColor.answer());
     }
