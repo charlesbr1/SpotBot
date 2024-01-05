@@ -147,7 +147,7 @@ public final class Alerts {
         Alert alert = alertEvent.alert;
         return embedBuilder(title(alert.name(), alert.getSlashPair(), alert.message, alertEvent.isMargin),
                 alertEvent.isMargin ? Color.orange : Color.green,
-                alert.triggeredMessage());
+                alert.triggeredMessage(alertEvent.isMargin));
     }
 
     //TODO remove / simplify, check max ticker size, this should adapt - remove thing to fit ticker size

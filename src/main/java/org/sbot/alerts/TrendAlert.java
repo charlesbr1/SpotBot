@@ -116,8 +116,8 @@ public final class TrendAlert extends Alert {
 
     @Override
     @NotNull
-    protected String asMessage(boolean triggered) {
-        return header(triggered) +
+    protected String asMessage(boolean triggered, boolean isMargin) {
+        return header(triggered, isMargin) +
                 "\n\n* id :\t" + id +
                 "\n* from price :\t" + fromPrice.toPlainString() + ' ' + getSymbol(ticker2) +
                 "\n* from date :\t" + fromDate.format(DATE_TIME_FORMATTER) +

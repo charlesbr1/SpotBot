@@ -8,6 +8,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static org.sbot.chart.Symbol.getSymbol;
+import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.DATE_TIME_FORMATTER;
 
@@ -100,24 +101,26 @@ public abstract class Alert {
     }
 
     @NotNull
-    public final String triggeredMessage() {
-        return asMessage(true);
+    public final String triggeredMessage(boolean isMargin) {
+        return asMessage(true, isMargin);
     }
 
     @NotNull
     public final String descriptionMessage() {
-        return asMessage(false);
+        return asMessage(false, false);
     }
 
     @NotNull
-    protected abstract String asMessage(boolean triggered);
+    protected abstract String asMessage(boolean triggered, boolean isMargin);
 
     @NotNull
-    protected final String header(boolean triggered) {
+    protected final String header(boolean triggered, boolean isMargin) {
         String header = triggered ? "<@" + userId + ">\nYour " + name().toLowerCase() + " set" :
                 name() + " Alert set by <@" + userId + '>';
-        return header + " on " + exchange + " [" + getSlashPair() + ']' +
-                (triggered ? " was **tested**,\ncheck out the price !!" : "") +
+        return header + " on " + exchange + ' ' + getSlashPair() +
+                (!(isMargin || triggered) ? "" : (isMargin ? " reached **margin** threshold. Set a new one using :\n\n" +
+                        SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + "*!margin " + id + " 'amount in " + getSymbol(ticker2) + "'*" :
+                        " was **tested !**") +  "\n\n:rocket: Check out the price !!") +
                 (!triggered && isDisabled() ? "\n\n**DISABLED**\n" : "");
     }
 

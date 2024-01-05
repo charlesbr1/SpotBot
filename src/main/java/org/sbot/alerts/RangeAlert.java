@@ -86,8 +86,8 @@ public final class RangeAlert extends Alert {
 
     @Override
     @NotNull
-     protected String asMessage(boolean triggered) {
-        return header(triggered) +
+     protected String asMessage(boolean triggered, boolean isMargin) {
+        return header(triggered, isMargin) +
                 "\n\n* id :\t" + id +
                 "\n* low :\t" + low.toPlainString() + ' ' + getSymbol(ticker2) +
                 "\n* high :\t" + high.toPlainString() + ' ' + getSymbol(ticker2) +
