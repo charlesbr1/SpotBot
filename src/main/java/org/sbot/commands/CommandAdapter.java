@@ -23,6 +23,7 @@ import static java.util.Objects.requireNonNull;
 import static net.dv8tion.jda.api.Permission.ADMINISTRATOR;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
+import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
 
 public abstract class CommandAdapter implements CommandListener {
 
@@ -58,17 +59,18 @@ public abstract class CommandAdapter implements CommandListener {
         return options;
     }
 
-    protected record AnswerColor(@NotNull String answer, @NotNull Color color) {}
+    protected record AnswerColorSmiley(@NotNull String answer, @NotNull Color color, @NotNull String smiley) {}
 
-    protected AnswerColor updateAlert(long alertId, @NotNull CommandContext context,
+    protected AnswerColorSmiley updateAlert(long alertId, @NotNull CommandContext context,
                                       @NotNull Function<Alert, String> updateHandler) {
         return alertStorage.getAlert(alertId).map(alert -> {
             if (hasAccess(alert, context)) {
-                return new AnswerColor(updateHandler.apply(alert), Color.green);
+                return new AnswerColorSmiley(updateHandler.apply(alert), Color.green, ":+1:");
             } else {
-                return new AnswerColor(context.user.getAsMention() + " Not allowed to update alert " + alertId, Color.red);
+                return new AnswerColorSmiley(context.user.getAsMention() + "\nYou are not allowed to update alert " + alertId +
+                        (PRIVATE_ALERT == context.getServerId() ? ", you are on a private channel." : ""), Color.black, ":clown:");
             }
-        }).orElseGet(() -> new AnswerColor(context.user.getAsMention() + " Alert " + alertId + " not found", Color.black));
+        }).orElseGet(() -> new AnswerColorSmiley(context.user.getAsMention() + "\nAlert " + alertId + " not found", Color.red, ":ghost:"));
     }
 
     // the alert must belong to the user, or the user must be admin of the server and the alert belong to his server
@@ -120,6 +122,14 @@ public abstract class CommandAdapter implements CommandListener {
         for(int i = messages.size(); i-- != 0;) {
             messages.get(i).setFooter("(" + (i + 1 + offset) + '/' + total + ')');
         }
+    }
+
+    @NotNull
+    protected static String alertMessageTips(@NotNull String message, long alertId) {
+        return "\n\nYour message will be shown in the title of your alert notification." +
+                (message.contains("http://") || message.contains("https://") ? "" :
+                ("\n\n**Please consider adding a link in your message to your AT !!**\nYou can update it using :\n" +
+                SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + "*!message " + alertId + " 'a message with a discord link to its AT'*"));
     }
 
     private static void shrinkToPageSize(@NotNull List<EmbedBuilder> messages, long offset, @NotNull Supplier<String> nextCommand) {

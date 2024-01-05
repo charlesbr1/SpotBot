@@ -33,6 +33,8 @@ public abstract class Alert {
     public final String ticker2;
     public final String message;
 
+//    protected final ZonedDateTime lastTreshold; //TODO avec DEFAULT_MESSAGE
+
     protected final short repeat;
     protected final short repeatDelay;
     protected final short margin;
@@ -46,7 +48,7 @@ public abstract class Alert {
         this.exchange = exchange.toLowerCase().intern();
         this.ticker1 = requireTickerLength(ticker1).toUpperCase().intern();
         this.ticker2 = requireTickerLength(ticker2).toUpperCase().intern();
-        this.message = requireMaxMessageArgLength(message);
+        this.message = requireAlertMessageLength(message);
         this.repeat = requirePositiveShort(repeat);
         this.repeatDelay = requirePositiveShort(repeatDelay);
         this.margin = requirePositiveShort(margin);
@@ -82,13 +84,16 @@ public abstract class Alert {
     public abstract String name();
 
     @NotNull
+    public abstract Alert withMessage(@NotNull String message);
+
+    @NotNull
     public abstract Alert withRepeat(short repeat);
 
     @NotNull
     public abstract Alert withRepeatDelay(short delay);
 
     @NotNull
-    public abstract Alert withMargin(short margin);
+    public abstract Alert withMargin(short margin); //TODO set to Bigdecimal
 
     // SIDE EFFECT, this updates field lastCandlestick TODO doc
     public abstract boolean match(@NotNull Candlestick candlestick);

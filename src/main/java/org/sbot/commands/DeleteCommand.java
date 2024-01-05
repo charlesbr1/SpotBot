@@ -31,10 +31,10 @@ public final class DeleteCommand extends CommandAdapter {
     }
 
     private EmbedBuilder delete(@NotNull CommandContext context, long alertId) {
-        AnswerColor answerColor = updateAlert(alertId, context, alert -> {
+        AnswerColorSmiley answer = updateAlert(alertId, context, alert -> {
             alertStorage.deleteAlert(alertId);
-            return context.user.getAsMention() + " Alert " + alertId + " deleted";
+            return "Alert " + alertId + " deleted";
         });
-        return embedBuilder(NAME, answerColor.color(), answerColor.answer());
+        return embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer());
     }
 }

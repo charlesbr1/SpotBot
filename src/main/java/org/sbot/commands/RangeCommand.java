@@ -35,7 +35,7 @@ public final class RangeCommand extends CommandAdapter {
                     .setMinValue(0d),
             new OptionData(NUMBER, "high", "the high range price", true)
                     .setMinValue(0d),
-            new OptionData(STRING, "message", "a message to display when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
+            new OptionData(STRING, "message", "a message to shown when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
     public RangeCommand(@NotNull AlertStorage alertStorage) {
@@ -49,7 +49,7 @@ public final class RangeCommand extends CommandAdapter {
         String ticker2 = requireTickerLength(context.args.getMandatoryString("ticker2"));
         BigDecimal low = requirePositive(context.args.getMandatoryNumber("low"));
         BigDecimal high = requirePositive(context.args.getMandatoryNumber("high"));
-        String message = requireMaxMessageArgLength(context.args.getLastArgs("message").orElse(""));
+        String message = requireAlertMessageLength(context.args.getLastArgs("message").orElse(""));
         LOGGER.debug("range command - exchange : {}, ticker1 : {}, ticker2 : {}, low : {}, high : {}, message : {}",
                 exchange, ticker1, ticker2, low, high, message);
         context.reply(range(context, exchange, ticker1, ticker2, low, high, message));
@@ -71,7 +71,9 @@ public final class RangeCommand extends CommandAdapter {
         alertStorage.addAlert(rangeAlert);
 
         String answer = context.user.getAsMention() + "\nNew range alert added with id " + rangeAlert.id +
-                "\n* pair : " + rangeAlert.getSlashPair() + "\n* exchange : " + exchange + "\n* low " + low + "\n* high " + high;
+                "\n* pair : " + rangeAlert.getSlashPair() + "\n* exchange : " + exchange +
+                "\n* low " + low + "\n* high " + high +
+                alertMessageTips(message, rangeAlert.id);
 
         return embedBuilder(NAME, Color.green, answer);
     }

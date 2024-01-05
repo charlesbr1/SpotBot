@@ -37,11 +37,11 @@ public final class MarginCommand extends CommandAdapter {
     }
 
     private EmbedBuilder margin(@NotNull CommandContext context, long alertId, short margin) {
-        AnswerColor answerColor = updateAlert(alertId, context, alert -> {
-            alertStorage.addAlert(alert.withMargin(margin));
-            return context.user.getAsMention() + " Margin of alert " + alertId + " updated to " + margin +
+        AnswerColorSmiley answer = updateAlert(alertId, context, alert -> {
+            alertStorage.updateAlert(alert.withMargin(margin));
+            return "Margin of alert " + alertId + " updated to " + margin +
                     (margin != 0 ? "" : " (disabled)");
         });
-        return embedBuilder(NAME, answerColor.color(), answerColor.answer());
+        return embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer());
     }
 }

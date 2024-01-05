@@ -18,7 +18,10 @@ public interface AlertStorage {
 
     void addAlert(@NotNull Alert alert);
 
-    void updateAlerts(@NotNull List<Alert> alert);
+    default void updateAlert(@NotNull Alert alert) {
+        updateAlerts(List.of(alert));
+    }
+    void updateAlerts(@NotNull List<Alert> alerts);
 
     void deleteAlert(long alertId);
 }

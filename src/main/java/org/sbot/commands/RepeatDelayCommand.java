@@ -37,11 +37,12 @@ public final class RepeatDelayCommand extends CommandAdapter {
     }
 
     private EmbedBuilder repeatDelay(@NotNull CommandContext context, long alertId, short delay) {
-        AnswerColor answerColor = updateAlert(alertId, context, alert -> {
-            alertStorage.addAlert(alert.withRepeatDelay(0 != delay ? delay : DEFAULT_REPEAT_DELAY_HOURS));
-            return context.user.getAsMention() + " Delay of alert " + alertId + " updated to " +
-                    (0 != delay ? delay : "default " + DEFAULT_REPEAT_DELAY_HOURS);
+        AnswerColorSmiley answer = updateAlert(alertId, context, alert -> {
+            alertStorage.updateAlert(alert.withRepeatDelay(0 != delay ? delay : DEFAULT_REPEAT_DELAY_HOURS));
+            return "Repeat delay of alert " + alertId + " updated to " +
+                    (0 != delay ? delay : "default " + DEFAULT_REPEAT_DELAY_HOURS) +
+                    (delay > 1 ? " hours" : " hour");
         });
-        return embedBuilder(NAME, answerColor.color(), answerColor.answer());
+        return embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer());
     }
 }

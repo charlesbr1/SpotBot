@@ -55,7 +55,7 @@ public interface ArgumentValidator {
         return tickerPair;
     }
 
-    static String requireMaxMessageArgLength(@NotNull String message) {
+    static String requireAlertMessageLength(@NotNull String message) {
         if (message.length() > ALERT_MESSAGE_ARG_MAX_LENGTH) {
             throw new IllegalArgumentException("Provided message is too long : " + message.length() + " chars (max is "+ ALERT_MESSAGE_ARG_MAX_LENGTH + ")\n" + message);
         }

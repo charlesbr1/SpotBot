@@ -51,6 +51,12 @@ public final class TrendAlert extends Alert {
 
     @Override
     @NotNull
+    public Alert withMessage(@NotNull String message) {
+        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message, repeat, repeatDelay, margin);
+    }
+
+    @Override
+    @NotNull
     public TrendAlert withRepeat(short repeat) {
         return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message, repeat, repeatDelay, margin);
     }

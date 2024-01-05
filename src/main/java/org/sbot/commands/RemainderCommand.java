@@ -12,7 +12,7 @@ import java.time.ZonedDateTime;
 import java.util.List;
 
 import static org.sbot.alerts.Alert.ALERT_MESSAGE_ARG_MAX_LENGTH;
-import static org.sbot.utils.ArgumentValidator.requireMaxMessageArgLength;
+import static org.sbot.utils.ArgumentValidator.requireAlertMessageLength;
 
 public final class RemainderCommand extends CommandAdapter {
 
@@ -32,7 +32,7 @@ public final class RemainderCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         ZonedDateTime date = context.args.getMandatoryDateTime("date");
-        String remainder = requireMaxMessageArgLength(context.args.getLastArgs("remainder").orElseThrow(() -> new IllegalArgumentException("Missing argument 'remainder'")));
+        String remainder = requireAlertMessageLength(context.args.getLastArgs("remainder").orElseThrow(() -> new IllegalArgumentException("Missing argument 'remainder'")));
         LOGGER.debug("remainder command - date : {}, remainder {}", date, remainder);
         context.reply(remainder(context, date, remainder));
     }

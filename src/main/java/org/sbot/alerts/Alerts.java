@@ -14,14 +14,13 @@ import org.sbot.exchanges.Exchanges;
 import org.sbot.storage.AlertStorage;
 
 import java.awt.*;
+import java.util.*;
 import java.util.AbstractMap.SimpleEntry;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
@@ -64,7 +63,8 @@ public final class Alerts {
         }
     }
 
-    // this identity mapping of entries from a map to a set basically distributes the couples of exchange / pair,
+    // this returns an identity mapping of entries from a map to a set,
+    // to basically distributes the couples of exchange / pair,
     // to spread the rest calls between different exchanges, a little bit
     @NotNull
     private static Set<Entry<String, Entry<String, List<Alert>>>> distribute(@NotNull Map<String, Map<String, List<Alert>>> alertsByPairsAndExchanges) {
@@ -106,9 +106,9 @@ public final class Alerts {
     }
 
     private Stream<Alert> sendAlerts(@NotNull Entry<Long, List<AlertEvent>> serverAlerts) {
+        long serverId = serverAlerts.getKey();
+        var alerts = serverAlerts.getValue();
         try {
-            long serverId = serverAlerts.getKey();
-            var alerts = serverAlerts.getValue();
             if(PRIVATE_ALERT != serverId) {
                 sendServerAlerts(alerts, discord.getDiscordServer(serverId));
             } else {
@@ -116,7 +116,11 @@ public final class Alerts {
             }
             return alerts.stream().map(AlertEvent::alert);
         } catch (RuntimeException e) {
-            LOGGER.error("Failed to send alerts", e);
+            String alertIds = Optional.ofNullable(alerts).orElse(emptyList()).stream()
+                    .map(AlertEvent::alert)
+                    .map(alert -> String.valueOf(alert.id))
+                    .collect(Collectors.joining(","));
+            LOGGER.error("Failed to send alerts [" + alertIds + "], update won't be done for them", e);
             return Stream.empty();
         }
     }

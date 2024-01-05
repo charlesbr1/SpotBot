@@ -36,11 +36,11 @@ public final class RepeatCommand extends CommandAdapter {
     }
 
     private EmbedBuilder repeat(@NotNull CommandContext context, long alertId, short repeat) {
-        AnswerColor answerColor = updateAlert(alertId, context, alert -> {
-            alertStorage.addAlert(alert.withRepeat(repeat));
-            return context.user.getAsMention() + " Repeat of alert " + alertId + " updated to " + repeat +
+        AnswerColorSmiley answer = updateAlert(alertId, context, alert -> {
+            alertStorage.updateAlert(alert.withRepeat(repeat));
+            return "Repeat of alert " + alertId + " updated to " + repeat +
                     (repeat != 0 ? "" : " (disabled)");
         });
-        return embedBuilder(NAME, answerColor.color(), answerColor.answer());
+        return embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer());
     }
 }
