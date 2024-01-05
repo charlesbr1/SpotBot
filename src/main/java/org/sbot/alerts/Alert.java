@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.Optional;
 
+import static org.sbot.chart.Symbol.getSymbol;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.DATE_TIME_FORMATTER;
 
@@ -54,8 +55,8 @@ public abstract class Alert {
         return PRIVATE_ALERT == serverId;
     }
 
-    public final boolean isOver() {
-        return 0 == repeat;
+    public final boolean isDisabled() {
+        return 0 >= repeat;
     }
 
     public final boolean hasMargin() {
@@ -99,12 +100,12 @@ public abstract class Alert {
     }
 
     @NotNull
-    public final String asTriggered() {
+    public final String triggeredMessage() {
         return asMessage(true);
     }
 
     @NotNull
-    public final String asDescription() {
+    public final String descriptionMessage() {
         return asMessage(false);
     }
 
@@ -117,13 +118,13 @@ public abstract class Alert {
                 name() + " Alert set by <@" + userId + '>';
         return header + " on " + exchange + " [" + getSlashPair() + ']' +
                 (triggered ? " was **tested**,\ncheck out the price !!" : "") +
-                (!triggered && isOver() ? "\n\n**DISABLED**\n" : "");
+                (!triggered && isDisabled() ? "\n\n**DISABLED**\n" : "");
     }
 
     @NotNull
     protected final String footer() {
         return "\n* margin / repeat / delay :\t" +
-                (hasMargin() ? margin : "disabled") + " / " + (isOver() ? "disabled" : repeat) + " / " + repeatDelay +
+                (hasMargin() ? margin : "disabled") + " / " + (isDisabled() ? "disabled" : repeat) + " / " + repeatDelay +
                 Optional.ofNullable(lastCandlestick).map(Candlestick::close)
                         .map(BigDecimal::toPlainString)
                         .map(price -> "\n\nLast close : " + price + ' ' + getSymbol(ticker2) +
@@ -131,11 +132,6 @@ public abstract class Alert {
                         .orElse("");
     }
 
-    @NotNull
-    protected static String getSymbol(@NotNull String ticker) {
-        return ticker.contains("USD") ? "$" :
-                (ticker.contains("EUR") ? "€" : ticker);
-    }
     @Override
     public final boolean equals(Object o) {
         if (this == o) return true;

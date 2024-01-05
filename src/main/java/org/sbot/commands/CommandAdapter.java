@@ -100,8 +100,8 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected static EmbedBuilder toMessage(@NotNull Alert alert) {
         return embedBuilder('[' + alert.getSlashPair() + "] " + alert.message,
-                alert.isOver() ? Color.black : (alert.isPrivate() ? Color.blue : Color.green),
-                alert.asDescription());
+                alert.isDisabled() ? Color.black : (alert.isPrivate() ? Color.blue : Color.green),
+                alert.descriptionMessage());
     }
 
     //TODO doc mutation of list messages argument

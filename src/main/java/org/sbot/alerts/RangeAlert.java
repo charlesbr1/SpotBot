@@ -5,8 +5,8 @@ import org.sbot.chart.Candlestick;
 import org.sbot.storage.IdGenerator;
 
 import java.math.BigDecimal;
-import java.util.Optional;
 
+import static org.sbot.chart.Symbol.getSymbol;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class RangeAlert extends Alert {

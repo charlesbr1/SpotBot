@@ -4,7 +4,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.Alert;
+import org.sbot.alerts.RangeAlert;
+import org.sbot.alerts.TrendAlert;
 
+import java.math.BigDecimal;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +49,11 @@ public class MemoryStorage implements AlertStorage {
     public void addAlert(@NotNull Alert alert) {
         LOGGER.debug("Adding alert {}", alert);
         alerts.put(alert.id, alert);
+    }
+
+    @Override
+    public void updateAlerts(@NotNull List<Alert> alerts) {
+        alerts.forEach(this::addAlert);
     }
 
     @Override

@@ -153,6 +153,7 @@ public final class Discord {
                     .addEventListeners(new EventAdapter())
                     .setCompression(Compression.ZLIB)
                     .setAutoReconnect(true)
+                    .setRequestTimeoutRetry(true)
                     .build()
                     .awaitReady();
         } catch (Exception e) {

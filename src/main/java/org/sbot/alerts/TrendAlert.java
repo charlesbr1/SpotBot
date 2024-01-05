@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.time.ZonedDateTime;
 
 import static java.math.RoundingMode.FLOOR;
+import static org.sbot.chart.Symbol.getSymbol;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.Dates.DATE_TIME_FORMATTER;
 

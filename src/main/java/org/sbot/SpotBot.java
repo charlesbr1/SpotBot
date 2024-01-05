@@ -34,7 +34,7 @@ public enum SpotBot {
             setupDiscordEvents(discord, alertStorage);
 
             LOGGER.info("Entering infinite loop to check prices and send alerts every hours...");
-            Alerts alerts = new Alerts(discord);
+            Alerts alerts = new Alerts(discord, alertStorage);
             for(;;) {
                 alerts.checkPricesAndSendAlerts(alertStorage);
                 Thread.sleep(ALERTS_CHECK_PERIOD_MS);
