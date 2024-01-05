@@ -15,10 +15,10 @@ public interface BinanceMapper {
         return new org.sbot.chart.Candlestick(
                 Instant.ofEpochMilli(candlestick.getOpenTime()).atZone(ZoneOffset.UTC),
                 Instant.ofEpochMilli(candlestick.getCloseTime()).atZone(ZoneOffset.UTC),
-                new BigDecimal(candlestick.getOpen()).stripTrailingZeros(),
-                new BigDecimal(candlestick.getClose()).stripTrailingZeros(),
-                new BigDecimal(candlestick.getHigh()).stripTrailingZeros(),
-                new BigDecimal(candlestick.getLow()).stripTrailingZeros());
+                new BigDecimal(candlestick.getOpen()),
+                new BigDecimal(candlestick.getClose()),
+                new BigDecimal(candlestick.getHigh()),
+                new BigDecimal(candlestick.getLow()));
     }
 
     static CandlestickInterval map(@NotNull TimeFrame timeFrame) {

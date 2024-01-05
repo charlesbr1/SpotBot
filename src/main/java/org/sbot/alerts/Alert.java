@@ -1,16 +1,22 @@
 package org.sbot.alerts;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.sbot.alerts.MatchingAlert.MatchingStatus;
 import org.sbot.chart.Candlestick;
+import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
+import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static org.sbot.alerts.MatchingAlert.MatchingStatus.NOTHING;
 import static org.sbot.chart.Symbol.getSymbol;
 import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
 import static org.sbot.utils.ArgumentValidator.*;
-import static org.sbot.utils.Dates.DATE_TIME_FORMATTER;
+import static org.sbot.utils.Dates.formatUTC;
 
 public abstract class Alert {
 
@@ -18,9 +24,9 @@ public abstract class Alert {
     public static final int ALERT_MIN_TICKER_LENGTH = 3;
     public static final int ALERT_MAX_TICKER_LENGTH = 5;
 
+    public static final BigDecimal MARGIN_DISABLED = BigDecimal.ZERO;
     public static final short DEFAULT_REPEAT = 10;
     public static final short DEFAULT_REPEAT_DELAY_HOURS = 8;
-    public static final short DEFAULT_MARGIN = 0;
     public static final long PRIVATE_ALERT = 0;
 
     public final long id;
@@ -33,15 +39,15 @@ public abstract class Alert {
     public final String ticker2;
     public final String message;
 
-//    protected final ZonedDateTime lastTreshold; //TODO avec DEFAULT_MESSAGE
+    @Nullable
+    protected final ZonedDateTime lastTrigger;
 
+    protected final BigDecimal margin;
     protected final short repeat;
     protected final short repeatDelay;
-    protected final short margin;
-    protected Candlestick lastCandlestick; // TODO move elsewhere
 
 
-    protected Alert(long id, long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2, @NotNull String message, short repeat, short repeatDelay, short margin) {
+    protected Alert(long id, long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2, @NotNull String message, @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short repeatDelay) {
         this.id = id;
         this.userId = userId;
         this.serverId = serverId;
@@ -49,9 +55,10 @@ public abstract class Alert {
         this.ticker1 = requireTickerLength(ticker1).toUpperCase().intern();
         this.ticker2 = requireTickerLength(ticker2).toUpperCase().intern();
         this.message = requireAlertMessageLength(message);
+        this.lastTrigger = null != lastTrigger ? requireInPast(lastTrigger) : null;
+        this.margin = requirePositive(margin).stripTrailingZeros();
         this.repeat = requirePositiveShort(repeat);
         this.repeatDelay = requirePositiveShort(repeatDelay);
-        this.margin = requirePositiveShort(margin);
     }
 
     public final boolean isPrivate() {
@@ -63,7 +70,7 @@ public abstract class Alert {
     }
 
     public final boolean hasMargin() {
-        return 0 != margin;
+        return MARGIN_DISABLED.compareTo(margin) < 0;
     }
 
 
@@ -87,57 +94,60 @@ public abstract class Alert {
     public abstract Alert withMessage(@NotNull String message);
 
     @NotNull
+    public abstract Alert withMargin(@NotNull BigDecimal margin);
+
+    @NotNull
     public abstract Alert withRepeat(short repeat);
 
     @NotNull
     public abstract Alert withRepeatDelay(short delay);
 
     @NotNull
-    public abstract Alert withMargin(short margin); //TODO set to Bigdecimal
+    public abstract Alert withLastTriggerMarginRepeat(@NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat);
 
-    // SIDE EFFECT, this updates field lastCandlestick TODO doc
-    public abstract boolean match(@NotNull Candlestick candlestick);
-    public abstract boolean inMargin(@NotNull Candlestick candlestick);
+    @NotNull
+    public abstract MatchingAlert match(@NotNull List<Candlestick> candlesticks, @Nullable Candlestick previousCandlestick);
 
-    protected final boolean isNewerCandleStick(@NotNull Candlestick candlestick) {
-        return null == lastCandlestick ||
-                candlestick.openTime().isAfter(lastCandlestick.openTime()) ||
-                candlestick.closeTime().isBefore(lastCandlestick.closeTime());
+    protected static boolean isNewerCandleStick(@NotNull Candlestick candlestick, @Nullable Candlestick previousCandlestick) {
+        return null == previousCandlestick ||
+                candlestick.closeTime().isBefore(previousCandlestick.closeTime());
     }
 
     @NotNull
-    public final String triggeredMessage(boolean isMargin) {
-        return asMessage(true, isMargin);
+    public final String triggeredMessage(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
+        return asMessage(matchingStatus, previousCandlestick);
     }
 
     @NotNull
     public final String descriptionMessage() {
-        return asMessage(false, false);
+        return asMessage(NOTHING, null);
     }
 
     @NotNull
-    protected abstract String asMessage(boolean triggered, boolean isMargin);
+    protected abstract String asMessage(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick);
 
     @NotNull
-    protected final String header(boolean triggered, boolean isMargin) {
-        String header = triggered ? "<@" + userId + ">\nYour " + name().toLowerCase() + " set" :
-                name() + " Alert set by <@" + userId + '>';
+    protected final String header(@NotNull MatchingStatus matchingStatus) {
+        String header = matchingStatus.isNothing() ? name() + " Alert set by <@" + userId + '>' :
+                "<@" + userId + ">\nYour " + name().toLowerCase() + " set";
         return header + " on " + exchange + ' ' + getSlashPair() +
-                (!(isMargin || triggered) ? "" : (isMargin ? " reached **margin** threshold. Set a new one using :\n\n" +
+                (matchingStatus.isNothing() ? "" : (matchingStatus.isMargin() ? " reached **margin** threshold. Set a new one using :\n\n" +
                         SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + "*!margin " + id + " 'amount in " + getSymbol(ticker2) + "'*" :
                         " was **tested !**") +  "\n\n:rocket: Check out the price !!") +
-                (!triggered && isDisabled() ? "\n\n**DISABLED**\n" : "");
+                (matchingStatus.isNothing() && isDisabled() ? "\n\n**DISABLED**\n" : "");
     }
 
     @NotNull
-    protected final String footer() {
+    protected final String footer(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
         return "\n* margin / repeat / delay :\t" +
-                (hasMargin() ? margin : "disabled") + " / " + (isDisabled() ? "disabled" : repeat) + " / " + repeatDelay +
-                Optional.ofNullable(lastCandlestick).map(Candlestick::close)
+                (hasMargin() ? margin.toPlainString() + ' ' + getSymbol(ticker2) : "disabled") + " / " + (isDisabled() ? "disabled" : repeat) + " / " + repeatDelay +
+                Optional.ofNullable(previousCandlestick).map(Candlestick::close)
+                        .map(BigDecimal::stripTrailingZeros)
                         .map(BigDecimal::toPlainString)
                         .map(price -> "\n\nLast close : " + price + ' ' + getSymbol(ticker2) +
-                                " at " + lastCandlestick.closeTime().format(DATE_TIME_FORMATTER))
-                        .orElse("");
+                                " at " + formatUTC(previousCandlestick.closeTime()))
+                        .orElse("") +
+                (!matchingStatus.isNothing() ? "" : Optional.ofNullable(lastTrigger).map(Dates::formatUTC).map("\n\nLast time triggered : "::concat));
     }
 
     @Override
@@ -150,5 +160,11 @@ public abstract class Alert {
     @Override
     public final int hashCode() {
         return Objects.hash(id);
+    }
+
+    @Override
+    @NotNull
+    public String toString() {
+        return descriptionMessage();
     }
 }

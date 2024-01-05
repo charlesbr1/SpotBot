@@ -3,9 +3,11 @@ package org.sbot.utils;
 import org.jetbrains.annotations.NotNull;
 
 import java.math.BigDecimal;
+import java.time.ZonedDateTime;
 
 import static org.sbot.alerts.Alert.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
+import static org.sbot.utils.Dates.formatUTC;
 
 public interface ArgumentValidator {
 
@@ -57,8 +59,15 @@ public interface ArgumentValidator {
 
     static String requireAlertMessageLength(@NotNull String message) {
         if (message.length() > ALERT_MESSAGE_ARG_MAX_LENGTH) {
-            throw new IllegalArgumentException("Provided message is too long : " + message.length() + " chars (max is "+ ALERT_MESSAGE_ARG_MAX_LENGTH + ")\n" + message);
+            throw new IllegalArgumentException("Provided message is too long (" + message.length() + " chars, max is " + ALERT_MESSAGE_ARG_MAX_LENGTH + ") : " + message);
         }
         return message;
+    }
+
+    static ZonedDateTime requireInPast(@NotNull ZonedDateTime zonedDateTime) {
+        if (zonedDateTime.compareTo(ZonedDateTime.now()) > 0) {
+            throw new IllegalArgumentException("Provided date should be in the past : " + formatUTC(zonedDateTime));
+        }
+        return zonedDateTime;
     }
 }

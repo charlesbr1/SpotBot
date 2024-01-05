@@ -31,17 +31,17 @@ public final class RepeatDelayCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
-        short delay = requirePositiveShort(context.args.getMandatoryLong("repeat_delay"));
-        LOGGER.debug("repeat delay command - alert_id : {}, repeat_delay : {}", alertId, delay);
-        context.reply(repeatDelay(context, alertId, delay));
+        short repeatDelay = requirePositiveShort(context.args.getMandatoryLong("repeat_delay"));
+        LOGGER.debug("repeat delay command - alert_id : {}, repeat_delay : {}", alertId, repeatDelay);
+        context.reply(repeatDelay(context, alertId, repeatDelay));
     }
 
-    private EmbedBuilder repeatDelay(@NotNull CommandContext context, long alertId, short delay) {
+    private EmbedBuilder repeatDelay(@NotNull CommandContext context, long alertId, short repeatDelay) {
         AnswerColorSmiley answer = updateAlert(alertId, context, alert -> {
-            alertStorage.updateAlert(alert.withRepeatDelay(0 != delay ? delay : DEFAULT_REPEAT_DELAY_HOURS));
+            alertStorage.updateAlert(alert.withRepeatDelay(0 != repeatDelay ? repeatDelay : DEFAULT_REPEAT_DELAY_HOURS));
             return "Repeat delay of alert " + alertId + " updated to " +
-                    (0 != delay ? delay : "default " + DEFAULT_REPEAT_DELAY_HOURS) +
-                    (delay > 1 ? " hours" : " hour");
+                    (0 != repeatDelay ? repeatDelay : "default " + DEFAULT_REPEAT_DELAY_HOURS) +
+                    (repeatDelay > 1 ? " hours" : " hour");
         });
         return embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer());
     }

@@ -6,10 +6,10 @@ public interface Symbol {
 
     @NotNull
     static String getSymbol(@NotNull String ticker) {
-        return ticker.contains("USD") ? "$" :
-                (ticker.contains("EUR") ? "€" :
-                (ticker.contains("YEN") ? "¥" :
-                (ticker.contains("GBP") ? "£" :
-                (ticker.contains("BTC") ? "₿" : ticker))));
+        return ticker.length() <= 4 && ticker.contains("USD") ? "$" :
+                (ticker.equals("EUR") ? "€" :
+                (ticker.equals("YEN") ? "¥" :
+                (ticker.equals("GBP") ? "£" :
+                (ticker.equals("BTC") ? "₿" : ticker))));
     }
 }
