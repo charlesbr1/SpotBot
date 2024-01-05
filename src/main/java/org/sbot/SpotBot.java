@@ -7,29 +7,26 @@ import org.sbot.alerts.Alerts;
 import org.sbot.commands.*;
 import org.sbot.discord.Discord;
 import org.sbot.storage.AlertStorage;
+import org.sbot.storage.MemoryStorage;
 import org.sbot.utils.PropertiesReader;
 
 import static java.lang.Long.parseLong;
 import static org.sbot.utils.PropertiesReader.loadProperties;
 
 
-public enum SpotBot {
-    ;
+public class SpotBot {
 
     private static final Logger LOGGER = LogManager.getLogger(SpotBot.class);
 
     public static final PropertiesReader appProperties = loadProperties("spotbot.properties");
 
     private static final long ALERTS_CHECK_PERIOD_MS = 60L * 1000L * parseLong(appProperties.get("alerts.check.period.minutes"));
-    private static final String ALERTS_STORAGE_CLASS = appProperties.get("alerts.storage.class");
-
 
     public static void main(String[] args) {
         try {
             LOGGER.info("Starting SpotBot v1");
 
-            AlertStorage alertStorage = setupStorage();
-
+            AlertStorage alertStorage = new MemoryStorage();
             Discord discord = new Discord();
             setupDiscordEvents(discord, alertStorage);
 
@@ -41,15 +38,9 @@ public enum SpotBot {
             }
         } catch (Throwable t) {
             LOGGER.info("Application exit", t);
+            LogManager.shutdown(); // flush the logs
             System.exit(1);
         }
-    }
-
-    @NotNull
-    private static AlertStorage setupStorage() throws Exception {
-        LOGGER.info("Loading Alert storage service {}...", ALERTS_STORAGE_CLASS);
-        return (AlertStorage) Class.forName(ALERTS_STORAGE_CLASS)
-                .getDeclaredConstructor().newInstance();
     }
 
     private static void setupDiscordEvents(@NotNull Discord discord, @NotNull AlertStorage alertStorage) {

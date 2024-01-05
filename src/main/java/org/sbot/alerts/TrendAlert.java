@@ -99,7 +99,7 @@ public final class TrendAlert extends Alert {
             }
             previousCandlestick = candlestick;
         }
-        return new MatchingAlert(this, NOTHING, null);
+        return new MatchingAlert(this, NO_TRIGGER, null);
     }
 
     private static boolean priceOnTrend(@NotNull Candlestick candlestick, @NotNull BigDecimal currentTrendPrice, @NotNull BigDecimal margin) {

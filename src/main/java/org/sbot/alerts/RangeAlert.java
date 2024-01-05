@@ -90,7 +90,7 @@ public final class RangeAlert extends Alert {
             }
             previousCandlestick = candlestick;
         }
-        return new MatchingAlert(this, NOTHING, null);
+        return new MatchingAlert(this, NO_TRIGGER, null);
     }
 
     private static boolean priceInRange(@NotNull Candlestick candlestick, @NotNull BigDecimal high, @NotNull BigDecimal low, @NotNull BigDecimal margin) {

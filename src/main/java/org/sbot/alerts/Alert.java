@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static org.sbot.alerts.MatchingAlert.MatchingStatus.NOTHING;
+import static org.sbot.alerts.MatchingAlert.MatchingStatus.NO_TRIGGER;
 import static org.sbot.chart.Symbol.getSymbol;
 import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
 import static org.sbot.utils.ArgumentValidator.*;
@@ -120,7 +120,7 @@ public abstract class Alert {
 
     @NotNull
     public final String descriptionMessage() {
-        return asMessage(NOTHING, null);
+        return asMessage(NO_TRIGGER, null);
     }
 
     @NotNull
@@ -128,13 +128,13 @@ public abstract class Alert {
 
     @NotNull
     protected final String header(@NotNull MatchingStatus matchingStatus) {
-        String header = matchingStatus.isNothing() ? name() + " Alert set by <@" + userId + '>' :
+        String header = matchingStatus.noTrigger() ? name() + " Alert set by <@" + userId + '>' :
                 "<@" + userId + ">\nYour " + name().toLowerCase() + " set";
         return header + " on " + exchange + ' ' + getSlashPair() +
-                (matchingStatus.isNothing() ? "" : (matchingStatus.isMargin() ? " reached **margin** threshold. Set a new one using :\n\n" +
+                (matchingStatus.noTrigger() ? "" : (matchingStatus.isMargin() ? " reached **margin** threshold. Set a new one using :\n\n" +
                         SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + "*!margin " + id + " 'amount in " + getSymbol(ticker2) + "'*" :
                         " was **tested !**") +  "\n\n:rocket: Check out the price !!") +
-                (matchingStatus.isNothing() && isDisabled() ? "\n\n**DISABLED**\n" : "");
+                (matchingStatus.noTrigger() && isDisabled() ? "\n\n**DISABLED**\n" : "");
     }
 
     @NotNull
@@ -147,7 +147,7 @@ public abstract class Alert {
                         .map(price -> "\n\nLast close : " + price + ' ' + getSymbol(ticker2) +
                                 " at " + formatUTC(previousCandlestick.closeTime()))
                         .orElse("") +
-                (!matchingStatus.isNothing() ? "" : Optional.ofNullable(lastTrigger).map(Dates::formatUTC).map("\n\nLast time triggered : "::concat));
+                (matchingStatus.noTrigger() ? Optional.ofNullable(lastTrigger).map(Dates::formatUTC).map("\n\nLast time triggered : "::concat) : "");
     }
 
     @Override

@@ -84,7 +84,7 @@ public final class Alerts {
 
                 alertStorage.updateAlerts(alerts.stream()
                         .map(alert -> alert.match(prices, null)) //TODO previous candlestick
-                        .filter(matchingAlert -> !matchingAlert.matchingStatus().isNothing())
+                        .filter(MatchingAlert::hasMatch)
                         .collect(groupingBy(matchingAlert -> matchingAlert.alert().serverId)).entrySet().stream()
                         .flatMap(this::sendAlerts)
                         .toList());
