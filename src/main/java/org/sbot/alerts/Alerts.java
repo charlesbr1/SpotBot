@@ -20,7 +20,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.concurrent.Executors;
+import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -50,20 +50,19 @@ public final class Alerts {
 
     // this splits in tasks by exchanges and pairs, one rest call must be done by each task to retrieve the candlesticks
     public void checkPricesAndSendAlerts(@NotNull AlertStorage alertStorage) {
-        Thread.ofVirtual().name("Alert Fetcher").start(() -> {
+        try {
             //TODO query filter to retrieve enabled alerts, repeat != 0 and lastTrigger < date
             alertStorage.getAlertsByPairsAndExchanges()
                     .forEach((xchange, alertsByPair) -> { // one task by exchange / pair
-                        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-                            Exchange exchange = Exchanges.get(xchange);
-                            alertsByPair.forEach((pair, alerts) ->
-                                executor.submit(() -> getPricesAndTriggerAlerts(exchange, pair, alerts)));
-                            Thread.sleep(Duration.ofSeconds(1)); // no need to flood exchanges
-                        } catch (RuntimeException | InterruptedException e) {
-                            LOGGER.error("Exception thrown while fetching prices", e);
-                        }
+                        Exchange exchange = Exchanges.get(xchange);
+                        alertsByPair.forEach((pair, alerts) ->
+                                Thread.ofVirtual().name('[' + pair + ']')
+                                        .start(() -> getPricesAndTriggerAlerts(exchange, pair, alerts)));
+                        LockSupport.parkNanos(Duration.ofSeconds(1).toNanos()); // no need to flood the exchanges
                     });
-        });
+        } catch (RuntimeException e) {
+            LOGGER.debug("Exception thrown while fetching prices", e);
+        }
     }
 
     private void getPricesAndTriggerAlerts(@NotNull Exchange exchange, @NotNull String pair, @NotNull List<Alert> alerts) {
