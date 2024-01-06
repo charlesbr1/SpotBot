@@ -11,7 +11,7 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.discord.CommandListener;
-import org.sbot.storage.AlertStorage;
+import org.sbot.services.Alerts;
 
 import java.awt.*;
 import java.util.List;
@@ -29,13 +29,13 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected static final Logger LOGGER = LogManager.getLogger(CommandAdapter.class);
 
-    protected final AlertStorage alertStorage;
+    protected final Alerts alerts;
     private final String name;
     private final String description;
     private final List<OptionData> options;
 
-    protected CommandAdapter(@NotNull AlertStorage alertStorage, @NotNull String name, @NotNull String description, @NotNull List<OptionData> options) {
-        this.alertStorage = requireNonNull(alertStorage);
+    protected CommandAdapter(@NotNull Alerts alerts, @NotNull String name, @NotNull String description, @NotNull List<OptionData> options) {
+        this.alerts = requireNonNull(alerts);
         this.name = requireNonNull(name);
         this.description = requireNonNull(description);
         this.options = requireNonNull(options);
@@ -63,7 +63,7 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected AnswerColorSmiley updateAlert(long alertId, @NotNull CommandContext context,
                                       @NotNull Function<Alert, String> updateHandler) {
-        return alertStorage.getAlert(alertId).map(alert -> {
+        return alerts.getAlert(alertId).map(alert -> {
             if (hasAccess(alert, context)) {
                 return new AnswerColorSmiley(updateHandler.apply(alert), Color.green, ":+1:");
             } else {

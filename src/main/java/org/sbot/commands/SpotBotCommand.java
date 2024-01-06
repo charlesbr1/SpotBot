@@ -11,7 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.discord.Discord;
-import org.sbot.storage.AlertStorage;
+import org.sbot.services.Alerts;
 
 import java.awt.*;
 import java.util.List;
@@ -28,7 +28,7 @@ public final class SpotBotCommand extends CommandAdapter {
     private static final String DESCRIPTION = "about this bot";
 
     private static final String HELP_HEADER = """
-            SpotBot is a tools for setting alerts when the price of an asset reach a box or cross a trend line.
+            SpotBot is a tools for setting alertsWatcher when the price of an asset reach a box or cross a trend line.
             
             An asset is a pair of two tickers, like ETH/USDT, ADA/BTC, EUR/USD, etc.
             
@@ -36,24 +36,24 @@ public final class SpotBotCommand extends CommandAdapter {
 
             A trend is a line defined by two points on a graph price, each having a price and a date as coordinates.
 
-            Use **range** or **trend** commands to set new alerts, this bot will check every hours for price change then notify you when an alert occurs.
+            Use **range** or **trend** commands to set new alertsWatcher, this bot will check every hours for price change then notify you when an alert occurs.
             
-            The others commands let you do some searches about current alerts sets, as well as updating or deleting them.
+            The others commands let you do some searches about current alertsWatcher sets, as well as updating or deleting them.
             
             This bot works exclusively on channel {channel}, you can also use it from your private channel.
             
-            When an alerts occurs, the owner that set it is notified in the #spot channel, or in private channel if he created it here.
+            When an alertsWatcher occurs, the owner that set it is notified in the #spot channel, or in private channel if he created it here.
             
             You may also want to join role {role} to get notified of each alert occurring on the channel {channel}
             
-            The alerts you set using your private channel remains privates and are not visible by the others.
+            The alertsWatcher you set using your private channel remains privates and are not visible by the others.
 
             
             Type **/** to enter a command, or type it prefixed with char **!**
 
             examples :
 
-            * *!list alerts*
+            * *!list alertsWatcher*
             * *!owner @someone*
             * *!pair ETH/USDT*
             * *!range binance eth usdt 1800 1900 zone conso 1900 reached, see https://discord.com/channels...*
@@ -64,7 +64,7 @@ public final class SpotBotCommand extends CommandAdapter {
             * *!delete 123*
             * *!remainder 10/03/2019-12:30 A message to receive at this date*""";
 
-    private static final String HELP_FOOTER = "EXPLAIN THE range and trend alerts from picture";
+    private static final String HELP_FOOTER = "EXPLAIN THE range and trend alertsWatcher from picture";
 
     private static final String ALERTS_PICTURE_FILE = "range2.png";
     private static final String ALERTS_PICTURE_PATH = '/' + ALERTS_PICTURE_FILE;
@@ -88,8 +88,8 @@ public final class SpotBotCommand extends CommandAdapter {
     private static final FileUpload alertsPicture = FileUpload.fromData(requireNonNull(SpotBotCommand.class
             .getResourceAsStream(ALERTS_PICTURE_PATH)), ALERTS_PICTURE_FILE);
 
-    public SpotBotCommand(@NotNull AlertStorage alertStorage) {
-        super(alertStorage, NAME, DESCRIPTION, emptyList());
+    public SpotBotCommand(@NotNull Alerts alerts) {
+        super(alerts, NAME, DESCRIPTION, emptyList());
     }
 
     @Override

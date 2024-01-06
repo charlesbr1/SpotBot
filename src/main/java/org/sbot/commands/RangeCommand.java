@@ -6,7 +6,7 @@ import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.RangeAlert;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.storage.AlertStorage;
+import org.sbot.services.Alerts;
 
 import java.awt.*;
 import java.math.BigDecimal;
@@ -38,8 +38,8 @@ public final class RangeCommand extends CommandAdapter {
             new OptionData(STRING, "message", "a message to shown when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
-    public RangeCommand(@NotNull AlertStorage alertStorage) {
-        super(alertStorage, NAME, DESCRIPTION, options);
+    public RangeCommand(@NotNull Alerts alerts) {
+        super(alerts, NAME, DESCRIPTION, options);
     }
 
     @Override
@@ -68,7 +68,7 @@ public final class RangeCommand extends CommandAdapter {
                 context.getServerId(),
                 exchange, ticker1, ticker2, low, high, message);
 
-        alertStorage.addAlert(rangeAlert);
+        alerts.addAlert(rangeAlert);
 
         String answer = context.user.getAsMention() + "\nNew range alert added with id " + rangeAlert.id +
                 "\n* pair : " + rangeAlert.getSlashPair() + "\n* exchange : " + exchange +

@@ -6,6 +6,7 @@ import org.sbot.alerts.MatchingAlert.MatchingStatus;
 import org.sbot.chart.Candlestick;
 import org.sbot.storage.IdGenerator;
 
+import java.beans.ConstructorProperties;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -26,7 +27,9 @@ public final class RangeAlert extends Alert {
         this(IdGenerator.newId(), userId, serverId, exchange, ticker1, ticker2, low, high, message,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS);
     }
-    private RangeAlert(long id, long userId, long serverId,
+    @ConstructorProperties({"id", "user_id", "server_id", "exchange", "ticker1", "ticker2",
+    "low", "high", "message", "last_trigger", "margin"})
+    public RangeAlert(long id, long userId, long serverId,
                        @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
                        @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message,
                        @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin,

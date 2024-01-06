@@ -5,7 +5,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.storage.AlertStorage;
+import org.sbot.services.Alerts;
 
 import java.awt.*;
 import java.time.ZonedDateTime;
@@ -25,8 +25,8 @@ public final class RemainderCommand extends CommandAdapter {
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
 
-    public RemainderCommand(@NotNull AlertStorage alertStorage) {
-        super(alertStorage, NAME, DESCRIPTION, options);
+    public RemainderCommand(@NotNull Alerts alerts) {
+        super(alerts, NAME, DESCRIPTION, options);
     }
 
     @Override

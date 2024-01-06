@@ -4,7 +4,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.storage.AlertStorage;
+import org.sbot.services.Alerts;
 
 import java.util.List;
 
@@ -28,8 +28,8 @@ public final class PairCommand extends CommandAdapter {
             new OptionData(INTEGER, "offset", "an optional offset to start the search (results are limited to 1000 alerts)", false)
                     .setMinValue(0));
 
-    public PairCommand(@NotNull AlertStorage alertStorage) {
-        super(alertStorage, NAME, DESCRIPTION, options);
+    public PairCommand(@NotNull Alerts alerts) {
+        super(alerts, NAME, DESCRIPTION, options);
     }
 
     @Override
@@ -41,12 +41,12 @@ public final class PairCommand extends CommandAdapter {
     }
     private List<EmbedBuilder> pair(@NotNull CommandContext context, @NotNull String tickerPair, long offset) {
 
-        long total = alertStorage.getAlerts()
+        long total = alerts.getAlerts()
                 .filter(serverOrPrivateFilter(context))
                 .filter(alert -> alert.getSlashPair().contains(tickerPair))
                 .count(); //TODO
 
-        List<EmbedBuilder> alerts = alertStorage.getAlerts()
+        List<EmbedBuilder> alerts = this.alerts.getAlerts()
                 .filter(serverOrPrivateFilter(context))
                 .filter(alert -> alert.getSlashPair().contains(tickerPair))
                 .skip(offset) //TODO skip in dao call

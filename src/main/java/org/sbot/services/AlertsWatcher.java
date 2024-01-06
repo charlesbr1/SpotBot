@@ -1,4 +1,4 @@
-package org.sbot.alerts;
+package org.sbot.services;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Guild;
@@ -6,13 +6,14 @@ import net.dv8tion.jda.api.entities.Role;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.sbot.alerts.Alert;
+import org.sbot.alerts.MatchingAlert;
 import org.sbot.alerts.MatchingAlert.MatchingStatus;
 import org.sbot.chart.Candlestick;
 import org.sbot.chart.TimeFrame;
 import org.sbot.discord.Discord;
 import org.sbot.exchanges.Exchange;
 import org.sbot.exchanges.Exchanges;
-import org.sbot.storage.AlertStorage;
 
 import java.awt.*;
 import java.time.Duration;
@@ -35,21 +36,21 @@ import static org.sbot.commands.CommandAdapter.embedBuilder;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.discord.Discord.spotBotRole;
 
-public final class Alerts {
+public final class AlertsWatcher {
 
-    private static final Logger LOGGER = LogManager.getLogger(Alerts.class);
+    private static final Logger LOGGER = LogManager.getLogger(AlertsWatcher.class);
 
 
     private final Discord discord;
-    private final AlertStorage alertStorage;
+    private final Alerts alerts;
 
-    public Alerts(@NotNull Discord discord, @NotNull AlertStorage alertStorage) {
+    public AlertsWatcher(@NotNull Discord discord, @NotNull Alerts alerts) {
         this.discord = requireNonNull(discord);
-        this.alertStorage = requireNonNull(alertStorage);
+        this.alerts = requireNonNull(alerts);
     }
 
     // this splits in tasks by exchanges and pairs, one rest call must be done by each task to retrieve the candlesticks
-    public void checkPricesAndSendAlerts(@NotNull AlertStorage alertStorage) {
+    public void checkAlerts(@NotNull Alerts alertStorage) {
         try {
             //TODO query filter to retrieve enabled alerts, repeat != 0 and lastTrigger < date
             alertStorage.getAlertsByPairsAndExchanges()
@@ -61,7 +62,7 @@ public final class Alerts {
                         LockSupport.parkNanos(Duration.ofSeconds(1).toNanos()); // no need to flood the exchanges
                     });
         } catch (RuntimeException e) {
-            LOGGER.debug("Exception thrown while fetching prices", e);
+            LOGGER.error("Exception thrown while performing hourly alerts task", e);
         }
     }
 
@@ -73,7 +74,7 @@ public final class Alerts {
                 List<Candlestick> prices = exchange.getCandlesticks(pair, TimeFrame.HOURLY, 1)
                         .sorted(Comparator.comparing(Candlestick::openTime)).toList();
 
-                alertStorage.updateAlerts(alerts.stream()
+                this.alerts.updateAlerts(alerts.stream()
                         .map(alert -> alert.match(prices, null)) //TODO previous candlestick
                         .filter(MatchingAlert::hasMatch)
                         .collect(groupingBy(matchingAlert -> matchingAlert.alert().serverId)).entrySet().stream()

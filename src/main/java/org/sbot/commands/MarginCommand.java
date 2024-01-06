@@ -5,7 +5,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.storage.AlertStorage;
+import org.sbot.services.Alerts;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -24,8 +24,8 @@ public final class MarginCommand extends CommandAdapter {
                     .setMinValue(0d));
 
 
-    public MarginCommand(@NotNull AlertStorage alertStorage) {
-        super(alertStorage, NAME, DESCRIPTION, options);
+    public MarginCommand(@NotNull Alerts alerts) {
+        super(alerts, NAME, DESCRIPTION, options);
     }
 
     @Override
@@ -38,7 +38,7 @@ public final class MarginCommand extends CommandAdapter {
 
     private EmbedBuilder margin(@NotNull CommandContext context, @NotNull BigDecimal margin, long alertId) {
         AnswerColorSmiley answer = updateAlert(alertId, context, alert -> {
-            alertStorage.updateAlert(alert.withMargin(margin));
+            alerts.updateAlert(alert.withMargin(margin));
             return "Margin of alert " + alertId + " updated to " + margin +
                     (alert.hasMargin() ? "" : " (disabled)");
         });

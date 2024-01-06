@@ -1,4 +1,4 @@
-package org.sbot.storage;
+package org.sbot.services;
 
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.Alert;
@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-public interface AlertStorage {
+public interface Alerts {
 
     Stream<Alert> getAlerts();
 

@@ -6,7 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.storage.AlertStorage;
+import org.sbot.services.Alerts;
 import org.sbot.utils.ArgumentValidator;
 
 import java.awt.*;
@@ -32,8 +32,8 @@ public final class OwnerCommand extends CommandAdapter {
             new OptionData(INTEGER, "offset", "an optional offset to start the search (results are limited to 1000 alerts)", false)
                     .setMinValue(0));
 
-    public OwnerCommand(@NotNull AlertStorage alertStorage) {
-        super(alertStorage, NAME, DESCRIPTION, options);
+    public OwnerCommand(@NotNull Alerts alerts) {
+        super(alerts, NAME, DESCRIPTION, options);
     }
 
     @Override
@@ -60,11 +60,11 @@ public final class OwnerCommand extends CommandAdapter {
                 alert -> alert.userId == ownerId && alert.getSlashPair().contains(tickerPair) :
                 alert -> alert.userId == ownerId;
 
-        long total = alertStorage.getAlerts()
+        long total = alerts.getAlerts()
                 .filter(serverOrPrivateFilter(context))
                 .filter(ownerAndPair).count(); //TODO
 
-        List<EmbedBuilder> alerts = alertStorage.getAlerts()
+        List<EmbedBuilder> alerts = this.alerts.getAlerts()
                 .filter(serverOrPrivateFilter(context))
                 .filter(ownerAndPair)
                 .skip(offset) //TODO skip in dao call

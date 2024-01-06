@@ -5,7 +5,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.storage.AlertStorage;
+import org.sbot.services.Alerts;
 
 import java.awt.*;
 import java.util.List;
@@ -33,8 +33,8 @@ public final class ListCommand extends CommandAdapter {
             new OptionData(INTEGER, "offset", "an optional offset to start the alerts search (results are limited to 1000 alerts)", false)
                     .setMinValue(0));
 
-    public ListCommand(@NotNull AlertStorage alertStorage) {
-        super(alertStorage, NAME, DESCRIPTION, options);
+    public ListCommand(@NotNull Alerts alerts) {
+        super(alerts, NAME, DESCRIPTION, options);
     }
 
     @Override
@@ -55,10 +55,10 @@ public final class ListCommand extends CommandAdapter {
     }
 
     private List<EmbedBuilder> alerts(@NotNull CommandContext context, long offset) {
-        long total = alertStorage.getAlerts()
+        long total = alerts.getAlerts()
                 .filter(serverOrPrivateFilter(context))
                 .count(); //TODO
-        List<EmbedBuilder> alerts = alertStorage.getAlerts()
+        List<EmbedBuilder> alerts = this.alerts.getAlerts()
                 .filter(serverOrPrivateFilter(context))
                 .skip(offset) //TODO skip in dao call
                 .limit(MESSAGE_PAGE_SIZE + 1)
