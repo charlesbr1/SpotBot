@@ -15,18 +15,19 @@ import org.sbot.exchanges.Exchanges;
 import org.sbot.storage.AlertStorage;
 
 import java.awt.*;
-import java.util.AbstractMap.SimpleEntry;
+import java.time.Duration;
+import java.util.Comparator;
 import java.util.List;
-import java.util.*;
 import java.util.Map.Entry;
-import java.util.concurrent.Executor;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.*;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.entities.MessageEmbed.TITLE_MAX_LENGTH;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.MARGIN;
@@ -39,8 +40,6 @@ public final class Alerts {
     private static final Logger LOGGER = LogManager.getLogger(Alerts.class);
 
 
-    private static final int MAX_ALERT_THREADS = 16;
-    private final Executor threadPool = Executors.newWorkStealingPool(MAX_ALERT_THREADS);
     private final Discord discord;
     private final AlertStorage alertStorage;
 
@@ -51,27 +50,20 @@ public final class Alerts {
 
     // this splits in tasks by exchanges and pairs, one rest call must be done by each task to retrieve the candlesticks
     public void checkPricesAndSendAlerts(@NotNull AlertStorage alertStorage) {
-        try {//TODO query filter to retrieve enabled alerts, repeat != 0 and lastTrigger < date
-            distribute(alertStorage.getAlertsByPairsAndExchanges())
-                    .forEach(entry -> { // one task by exchange / pair
-                        Exchange exchange = Exchanges.get(entry.getKey());
-                        String pair = entry.getValue().getKey();
-                        List<Alert> alerts = entry.getValue().getValue();
-                        threadPool.execute(() -> getPricesAndTriggerAlerts(exchange, pair, alerts));
+        Thread.ofVirtual().name("Alert Fetcher").start(() -> {
+            //TODO query filter to retrieve enabled alerts, repeat != 0 and lastTrigger < date
+            alertStorage.getAlertsByPairsAndExchanges()
+                    .forEach((xchange, alertsByPair) -> { // one task by exchange / pair
+                        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                            Exchange exchange = Exchanges.get(xchange);
+                            alertsByPair.forEach((pair, alerts) ->
+                                executor.submit(() -> getPricesAndTriggerAlerts(exchange, pair, alerts)));
+                            Thread.sleep(Duration.ofSeconds(1)); // no need to flood exchanges
+                        } catch (RuntimeException | InterruptedException e) {
+                            LOGGER.error("Exception thrown while fetching prices", e);
+                        }
                     });
-        } catch (RuntimeException e) {
-            LOGGER.warn("Exception thrown", e);
-        }
-    }
-
-    // this returns an identity mapping of entries from a map to a set,
-    // to basically distributes the couples of exchange / pair,
-    // to spread the rest calls between different exchanges, a little bit
-    @NotNull
-    private static Set<Entry<String, Entry<String, List<Alert>>>> distribute(@NotNull Map<String, Map<String, List<Alert>>> alertsByPairsAndExchanges) {
-        return alertsByPairsAndExchanges.entrySet().stream()
-                .flatMap(e -> e.getValue().entrySet().stream()
-                        .map(v -> new SimpleEntry<>(e.getKey(), v))).collect(toSet());
+        });
     }
 
     private void getPricesAndTriggerAlerts(@NotNull Exchange exchange, @NotNull String pair, @NotNull List<Alert> alerts) {
@@ -134,7 +126,6 @@ public final class Alerts {
         return shrinkToPageSize(alerts.stream()
                 .limit(MESSAGE_PAGE_SIZE + 1)
                 .map(this::toMessage).collect(toList()), alerts.size());
-
     }
 
     private EmbedBuilder toMessage(@NotNull MatchingAlert matchingAlert) {
