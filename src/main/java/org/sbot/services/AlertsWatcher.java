@@ -18,13 +18,12 @@ import org.sbot.services.dao.AlertsDao;
 
 import java.awt.*;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
-import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
@@ -38,8 +37,6 @@ import static org.sbot.alerts.MatchingAlert.MatchingStatus.MARGIN;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.discord.Discord.spotBotRole;
-import static org.sbot.services.dao.jdbi.JDBIRepository.SQLITE_MAX_VARIABLE_NUMBER;
-import static org.sbot.utils.PartitionSpliterator.split;
 
 public final class AlertsWatcher {
 
@@ -59,13 +56,11 @@ public final class AlertsWatcher {
         try {
             //TODO query filter to retrieve enabled alerts, repeat != 0 and lastTrigger < date
             //TODO paginate
-            alertDao.transactional(alertDao::getAlertIdsByPairAndExchange)
-                    .forEach((xchange, alertsByPair) -> { // one task by exchange / pair
-                        Exchanges.get(xchange).ifPresent(exchange -> {
-                            alertsByPair.forEach((pair, alertIds) ->
-                                    Thread.ofVirtual().name('[' + pair + ']')
-                                            .start(() -> getPricesAndCheckAlerts(exchange, pair, alertIds)));
-                        });
+            alertDao.transactional(alertDao::getPairsByExchanges)
+                    .forEach((xchange, pairs) -> { // one task by exchange / pair
+                        Exchanges.get(xchange).ifPresent(exchange ->
+                                pairs.forEach(pair -> Thread.ofVirtual().name('[' + pair + ']')
+                                        .start(() -> getPricesAndCheckAlerts(exchange, pair))));
                         LockSupport.parkNanos(Duration.ofSeconds(1).toNanos()); // no need to flood the exchanges
                     });
         } catch (RuntimeException e) {
@@ -73,33 +68,27 @@ public final class AlertsWatcher {
         }
     }
 
-    private void getPricesAndCheckAlerts(@NotNull Exchange exchange, @NotNull String pair, @NotNull long[] alertIds) {
+    private void getPricesAndCheckAlerts(@NotNull Exchange exchange, @NotNull String pair) {
         try {
             LOGGER.debug("Retrieving price for pair [{}] on {}...", pair, exchange);
             // TODO récuperer l'historique depuis le last candlestick des alerts
             List<Candlestick> prices = exchange.getCandlesticks(pair, TimeFrame.HOURLY, 1)
                     .sorted(Comparator.comparing(Candlestick::openTime)).toList();
 
-            split(SQLITE_MAX_VARIABLE_NUMBER, true, false, LongStream.of(alertIds).boxed())
-                    .forEach(ids -> {
-                        // serialized transactions can be replayed and need no border effects (unlikely to happens),
-                        // this guard prevent discord message to be re-sent many times
-                        boolean[] txRetry = new boolean[1];
-                        alertDao.transactional(() -> {
-                            try {
-                                Map<Long, List<MatchingAlert>> matchingAlerts = alertDao.getAlerts(ids).stream()
-                                        .map(alert -> alert.match(prices, null)) //TODO previous candlestick
-                                        .filter(MatchingAlert::hasMatch)
-                                        .collect(groupingBy(matchingAlert -> matchingAlert.alert().serverId));
+            List<MatchingAlert> matchingAlerts = new ArrayList<>();
+            alertDao.transactional(() -> {
+                matchingAlerts.clear(); // SERIALIZABLE transaction can be replayed
+                alertDao.fetchAlertsByExchangeAndPair(exchange.name(), pair, alerts ->
+                        updateAlerts(alerts
+                                .map(alert -> alert.match(prices, null)) //TODO previous candlestick
+                                .peek(matchingAlerts::add)
+                                .filter(MatchingAlert::hasMatch)));
+            }, SERIALIZABLE);
 
-                                updateAlerts(matchingAlerts.entrySet().stream()
-                                        .map(txRetry[0] ? Entry::getValue : this::sendAlerts)
-                                        .flatMap(List::stream));
-                            } finally {
-                                txRetry[0] = true;
-                            }
-                        }, SERIALIZABLE);
-                    });
+            matchingAlerts.stream()
+                    .collect(groupingBy(matchingAlert -> matchingAlert.alert().serverId)).entrySet()
+                    .forEach(this::sendAlerts);
+
         } catch(RuntimeException e) {
             LOGGER.warn("Exception thrown while processing alerts", e);
         }
@@ -117,7 +106,7 @@ public final class AlertsWatcher {
                         })));
     }
 
-    private List<MatchingAlert> sendAlerts(@NotNull Entry<Long, List<MatchingAlert>> matchingAlerts) {
+    private void sendAlerts(@NotNull Entry<Long, List<MatchingAlert>> matchingAlerts) {
         long serverId = matchingAlerts.getKey();
         var alerts = matchingAlerts.getValue();
         try {
@@ -126,14 +115,12 @@ public final class AlertsWatcher {
             } else {
                 sendPrivateAlerts(alerts);
             }
-            return alerts;
         } catch (RuntimeException e) {
             String alertIds = alerts.stream()
                     .map(MatchingAlert::alert)
                     .map(alert -> String.valueOf(alert.id))
                     .collect(Collectors.joining(","));
-            LOGGER.error("Failed to send alerts [" + alertIds + "], update may not be done for them", e);
-            return emptyList();
+            LOGGER.error("Failed to send alerts [" + alertIds + "]", e);
         }
     }
 

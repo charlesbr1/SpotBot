@@ -17,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.*;
 
@@ -58,22 +59,19 @@ public class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    @NotNull
-    public List<Alert> getAlerts(List<Long> alertIds) {
-        LOGGER.debug("getAlerts {}", alertIds);
-        var idSet = new HashSet<>(alertIds);
-        return alerts.values().stream().filter(alert -> idSet.contains(alert.id)).toList();
+    public void fetchAlertsByExchangeAndPair(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchAlertsByExchangeAndPair {} {}", exchange, pair);
+        alertsConsumer.accept(alerts.values().stream()
+                .filter(alert -> alert.exchange.equals(exchange))
+                .filter(alert -> alert.getSlashPair().equals(pair)));
     }
 
     @Override
     @NotNull
-    public Map<String, Map<String, long[]>> getAlertIdsByPairAndExchange() {
-        LOGGER.debug("getAlertIdsByPairAndExchange");
+    public Map<String, List<String>> getPairsByExchanges() {
+        LOGGER.debug("getPairsByExchanges");
         return alerts.values().stream()
-                .collect(groupingBy(Alert::getExchange,
-                        groupingBy(Alert::getSlashPair,
-                                mapping(Alert::getId, collectingAndThen(toList(),
-                                        list -> list.stream().mapToLong(Long::longValue).toArray())))));
+                .collect(groupingBy(Alert::getExchange, mapping(Alert::getSlashPair, toList())));
     }
 
     @Override
@@ -201,12 +199,6 @@ public class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public void updateLastTriggerMarginRepeat(long alertId, @NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat) {
-        LOGGER.debug("updateLastTriggerMarginRepeat {} {} {} {}", alertId, lastTrigger, margin, repeat);
-        alerts.computeIfPresent(alertId, (id, alert) -> alert.withLastTriggerMarginRepeat(lastTrigger, margin, repeat));
-    }
-
-    @Override
     public void updateRepeat(long alertId, short repeat) {
         LOGGER.debug("updateRepeat {} {}", alertId, repeat);
         alerts.computeIfPresent(alertId, (id, alert) -> alert.withRepeat(repeat));
@@ -216,7 +208,7 @@ public class AlertsMemory implements AlertsDao {
     @Override
     public void updateRepeatDelay(long alertId, short repeatDelay) {
         LOGGER.debug("updateRepeatDelay {} {}", alertId, repeatDelay);
-        alerts.computeIfPresent(alertId, (id, alert) -> alert.withRepeat(repeatDelay));
+        alerts.computeIfPresent(alertId, (id, alert) -> alert.withRepeatDelay(repeatDelay));
 
     }
 

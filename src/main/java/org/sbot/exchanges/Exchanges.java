@@ -27,7 +27,7 @@ public enum Exchanges {
 
     private static final Map<String, Exchange> exchanges = new ConcurrentHashMap<>();
 
-    public static final List<String> SUPPORTED_EXCHANGES = List.of("binance");
+    public static final List<String> SUPPORTED_EXCHANGES = List.of(BinanceClient.NAME);
 
     public static Optional<Exchange> get(@NotNull String exchange) {
         try {

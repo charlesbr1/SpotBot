@@ -10,16 +10,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 public interface AlertsDao extends TransactionalCtx {
 
     Optional<Alert> getAlert(long id);
 
-    @NotNull
-    List<Alert> getAlerts(List<Long> alertIds);
+    void fetchAlertsByExchangeAndPair(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer);
 
     @NotNull
-    Map<String, Map<String, long[]>> getAlertIdsByPairAndExchange();
+    Map<String, List<String>> getPairsByExchanges();
 
     long countAlertsOfUser(long userId);
     long countAlertsOfServer(long serverId);
@@ -47,7 +47,6 @@ public interface AlertsDao extends TransactionalCtx {
 
     void updateMessage(long alertId, @NotNull String message);
     void updateMargin(long alertId, @NotNull BigDecimal margin);
-    void updateLastTriggerMarginRepeat(long alertId, @NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat);
     void updateRepeat(long alertId, short repeat);
     void updateRepeatDelay(long alertId, short repeatDelay);
 

@@ -20,7 +20,6 @@ import static java.util.Objects.requireNonNull;
 
 public abstract class JDBIRepository implements TransactionalCtx {
 
-    public static final int SQLITE_MAX_VARIABLE_NUMBER = 32766;
     private static final Logger LOGGER = LogManager.getLogger(JDBIRepository.class);
 
     // avoiding use of ThreadLocal for virtual threads

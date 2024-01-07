@@ -13,8 +13,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
-import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.*;
 import static org.sbot.alerts.Alert.ALERT_MAX_TICKER_LENGTH;
 import static org.sbot.alerts.Alert.ALERT_MESSAGE_ARG_MAX_LENGTH;
 
@@ -34,7 +35,7 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
                 "last_trigger DATETIME," +
                 "margin NUMBER NOT NULL," +
                 "repeat INTEGER NOT NULL," +
-                "repeatDelay INTEGER NOT NULL)";
+                "repeat_delay INTEGER NOT NULL)";
 
         String CREATE_USER_ID_INDEX = "CREATE INDEX IF NOT EXISTS user_id_index " +
                 "ON alerts (user_id)";
@@ -42,9 +43,9 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
         String CREATE_SERVER_ID_INDEX = "CREATE INDEX IF NOT EXISTS server_id_index " +
                 "ON alerts (server_id)";
 
-        String SELECT_ALL_ID_PAIR_EXCHANGE = "SELECT id, ticker1 + '/' + ticker2, exchange FROM alerts";
         String SELECT_BY_ID = "SELECT * FROM alerts WHERE id=:id";
-        String SELECT_BY_IDS_IN = "SELECT * from alerts WHERE id IN (:ids)";
+        String SELECT_BY_EXCHANGE_AND_PAIR = "SELECT * FROM alerts WHERE exchange=:exchange AND ((:pair LIKE ticker1 || '%') OR (:pair LIKE '%' || ticker2))";
+        String SELECT_PAIRS_BY_EXCHANGES = "SELECT DISTINCT exchange, ticker1 || '/' || ticker2 AS pair FROM alerts";
         String COUNT_ALERTS_OF_USER = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId";
         String ALERTS_OF_USER = "SELECT * FROM alerts WHERE user_id=:userId LIMIT :limit OFFSET :offset";
         String COUNT_ALERTS_OF_USER_AND_TICKER = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId AND (ticker1=:ticker OR ticker2=:ticker) LIMIT :limit OFFSET :offset";
@@ -66,7 +67,10 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
         String DELETE_BY_ID = "DELETE FROM alerts WHERE id=:id";
         String INSERT_ALERT = "INSERT INTO alerts (user_id,server_id,exchange,ticker1,ticker2,message,last_trigger,margin,repeat,repeatDelay) " +
                 "VALUES (:userId,:serverId,:exchange,:ticker1,:ticker2,:message,:lastTrigger,:margin,:repeat,:repeatDelay)";
+        String UPDATE_ALERTS_MESSAGE = "UPDATE alerts SET message=:message WHERE id=:id";
         String UPDATE_ALERTS_MARGIN = "UPDATE alerts SET margin=:margin WHERE id=:id";
+        String UPDATE_ALERTS_REPEAT = "UPDATE alerts SET repeat=:repeat WHERE id=:id";
+        String UPDATE_ALERTS_REPEAT_DELAY = "UPDATE alerts SET repeat_delay=:repeatDelay WHERE id=:id";
         String UPDATE_ALERTS_LAST_TRIGGER_MARGIN_REPEAT = "UPDATE alerts SET last_trigger=:lastTrigger,margin=:margin,repeat=:repeat WHERE id=:id";
     }
 
@@ -96,24 +100,25 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
     }
 
     @Override
-    @NotNull
-    public List<Alert> getAlerts(List<Long> alertIds) {
-        LOGGER.debug("getAlerts {}", alertIds);
-        return getHandle().createQuery(SQL.SELECT_BY_IDS_IN)
-                .bindList("ids", alertIds)
-                .mapTo(Alert.class)
-                .list();
+    public void fetchAlertsByExchangeAndPair(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchAlertsByExchangeAndPair {} {}", exchange, pair);
+        try (var query = getHandle().createQuery(SQL.SELECT_BY_EXCHANGE_AND_PAIR)) {
+            alertsConsumer.accept(query
+                    .bind("exchange", exchange)
+                    .bind("pair", pair)
+                    .mapTo(Alert.class).stream());
+        }
     }
 
     @Override
     @NotNull
-    public Map<String, Map<String, long[]>> getAlertIdsByPairAndExchange() {
-        LOGGER.debug("getAlertIdsByPairAndExchange");
-        getHandle().createQuery(SQL.SELECT_ALL_ID_PAIR_EXCHANGE)
-                //TODO
-                .mapTo(Alert.class)
-                .collect(groupingBy(Alert::getExchange, groupingBy(Alert::getSlashPair)));
-        return null;
+    public Map<String, List<String>> getPairsByExchanges() {
+        LOGGER.debug("getPairsByExchanges");
+        return getHandle().createQuery(SQL.SELECT_PAIRS_BY_EXCHANGES)
+                .collectRows(groupingBy(
+                        rowView -> rowView.getColumn("exchange", String.class),
+                        mapping(rowView -> rowView.getColumn("pair", String.class), toList())
+        ));
     }
 
     @Override
@@ -266,31 +271,37 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
     @Override
     public void updateMessage(long alertId, @NotNull String message) {
         LOGGER.debug("updateMessage {} {}", alertId, message);
-
+        getHandle().createUpdate(SQL.UPDATE_ALERTS_MESSAGE)
+                .bind("id", alertId)
+                .bind("message", message)
+                .execute();
     }
 
     @Override
     public void updateMargin(long alertId, @NotNull BigDecimal margin) {
         LOGGER.debug("updateMargin {} {}", alertId, margin);
-
-    }
-
-    @Override
-    public void updateLastTriggerMarginRepeat(long alertId, @NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat) {
-        LOGGER.debug("updateLastTriggerMarginRepeat {} {} {} {}", alertId, lastTrigger, margin, repeat);
-
+        getHandle().createUpdate(SQL.UPDATE_ALERTS_MARGIN)
+                .bind("id", alertId)
+                .bind("margin", margin)
+                .execute();
     }
 
     @Override
     public void updateRepeat(long alertId, short repeat) {
         LOGGER.debug("updateRepeat {} {}", alertId, repeat);
-
+        getHandle().createUpdate(SQL.UPDATE_ALERTS_REPEAT)
+                .bind("id", alertId)
+                .bind(repeat, repeat)
+                .execute();
     }
 
     @Override
     public void updateRepeatDelay(long alertId, short repeatDelay) {
         LOGGER.debug("updateRepeatDelay {} {}", alertId, repeatDelay);
-
+        getHandle().createUpdate(SQL.UPDATE_ALERTS_REPEAT_DELAY)
+                .bind("id", alertId)
+                .bind("repeatDelay", repeatDelay)
+                .execute();
     }
 
     @Override

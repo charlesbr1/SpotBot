@@ -18,6 +18,7 @@ import static org.sbot.exchanges.binance.BinanceMapper.map;
 
 public class BinanceClient implements Exchange {
 
+    public static final String NAME = "binance";
     private static final Logger LOGGER = LogManager.getLogger(BinanceClient.class);
 
     private final BinanceApiRestClient binanceApiClient;
@@ -27,6 +28,12 @@ public class BinanceClient implements Exchange {
         BinanceApiClientFactory factory = newInstance(requireNonNull(apiKey), requireNonNull(apiSecret));
         binanceApiClient = factory.newRestClient();
         LOGGER.info("Binance connection loaded");
+    }
+
+    @NotNull
+    @Override
+    public String name() {
+        return NAME;
     }
 
     @Override
