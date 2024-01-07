@@ -11,12 +11,11 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.discord.CommandListener;
-import org.sbot.services.Alerts;
+import org.sbot.services.dao.AlertsDao;
 
 import java.awt.*;
 import java.util.List;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -29,13 +28,13 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected static final Logger LOGGER = LogManager.getLogger(CommandAdapter.class);
 
-    protected final Alerts alerts;
+    protected final AlertsDao alertsDao;
     private final String name;
     private final String description;
     private final List<OptionData> options;
 
-    protected CommandAdapter(@NotNull Alerts alerts, @NotNull String name, @NotNull String description, @NotNull List<OptionData> options) {
-        this.alerts = requireNonNull(alerts);
+    protected CommandAdapter(@NotNull AlertsDao alertsDao, @NotNull String name, @NotNull String description, @NotNull List<OptionData> options) {
+        this.alertsDao = requireNonNull(alertsDao);
         this.name = requireNonNull(name);
         this.description = requireNonNull(description);
         this.options = requireNonNull(options);
@@ -63,7 +62,7 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected AnswerColorSmiley updateAlert(long alertId, @NotNull CommandContext context,
                                       @NotNull Function<Alert, String> updateHandler) {
-        return alerts.getAlert(alertId).map(alert -> {
+        return alertsDao.getAlert(alertId).map(alert -> {
             if (hasAccess(alert, context)) {
                 return new AnswerColorSmiley(updateHandler.apply(alert), Color.green, ":+1:");
             } else {
@@ -88,10 +87,8 @@ public abstract class CommandAdapter implements CommandListener {
                 alert.serverId == member.getGuild().getIdLong();
     }
 
-    protected Predicate<Alert> serverOrPrivateFilter(@NotNull CommandContext context) {
-        long serverId = context.getServerId();
-        return PRIVATE_ALERT != serverId ? alert -> alert.serverId == serverId :
-                alert -> alert.userId == context.user.getIdLong();
+    protected static boolean isPrivateChannel(@NotNull CommandContext context) {
+        return PRIVATE_ALERT == context.getServerId();
     }
     public static EmbedBuilder embedBuilder(@Nullable String title, @Nullable Color color, @Nullable String text) {
         return new EmbedBuilder()

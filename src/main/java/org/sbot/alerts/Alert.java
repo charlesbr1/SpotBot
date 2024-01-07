@@ -1,5 +1,7 @@
 package org.sbot.alerts;
 
+import org.jdbi.v3.core.mapper.reflect.ColumnName;
+import org.jdbi.v3.core.mapper.reflect.JdbiConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.MatchingAlert.MatchingStatus;
@@ -20,6 +22,15 @@ import static org.sbot.utils.Dates.formatUTC;
 
 public abstract class Alert {
 
+    @JdbiConstructor
+    public static Alert of(@ColumnName("user_id") long userId, @ColumnName("server_id") long serverId,
+                           @ColumnName("exchange") @NotNull String exchange,
+                           @ColumnName("ticker1") @NotNull String ticker1, @ColumnName("ticker1") @NotNull String ticker2,
+                           @ColumnName("message") @NotNull String message, @ColumnName("last_trigger") @Nullable ZonedDateTime lastTrigger,
+                           @ColumnName("margin") @NotNull BigDecimal margin,
+                           @ColumnName("repeat") short repeat, @ColumnName("repeatDelay") short repeatDelay) {
+        throw new UnsupportedOperationException("TODO ooooooooooooo");
+    }
     public static final int ALERT_MESSAGE_ARG_MAX_LENGTH = 210;
     public static final int ALERT_MIN_TICKER_LENGTH = 3;
     public static final int ALERT_MAX_TICKER_LENGTH = 5;
@@ -39,12 +50,12 @@ public abstract class Alert {
     public final String ticker2;
     public final String message;
 
-    @Nullable
-    protected final ZonedDateTime lastTrigger;
+    @Nullable // updated in match(..) function
+    public final ZonedDateTime lastTrigger;
 
-    protected final BigDecimal margin;
-    protected final short repeat;
-    protected final short repeatDelay;
+    public final BigDecimal margin;
+    public final short repeat;
+    public final short repeatDelay;
 
 
     protected Alert(long id, long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2, @NotNull String message, @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short repeatDelay) {
@@ -74,6 +85,10 @@ public abstract class Alert {
     }
 
 
+    public long getId() {
+        return id;
+    }
+
     public long getUserId() {
         return userId;
     }
@@ -90,6 +105,8 @@ public abstract class Alert {
     @NotNull
     public abstract String name();
 
+    @NotNull
+    public abstract Alert withId(long id);
     @NotNull
     public abstract Alert withMessage(@NotNull String message);
 

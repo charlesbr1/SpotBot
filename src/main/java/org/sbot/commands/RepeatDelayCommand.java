@@ -5,7 +5,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.Alerts;
+import org.sbot.services.dao.AlertsDao;
 
 import java.util.List;
 
@@ -24,8 +24,8 @@ public final class RepeatDelayCommand extends CommandAdapter {
             new OptionData(OptionType.INTEGER, "repeat_delay", "new delay in hours", true)
                     .setRequiredRange(0, Short.MAX_VALUE));
 
-    public RepeatDelayCommand(@NotNull Alerts alerts) {
-        super(alerts, NAME, DESCRIPTION, options);
+    public RepeatDelayCommand(@NotNull AlertsDao alertsDao) {
+        super(alertsDao, NAME, DESCRIPTION, options);
     }
 
     @Override
@@ -33,12 +33,12 @@ public final class RepeatDelayCommand extends CommandAdapter {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         short repeatDelay = requirePositiveShort(context.args.getMandatoryLong("repeat_delay"));
         LOGGER.debug("repeat delay command - alert_id : {}, repeat_delay : {}", alertId, repeatDelay);
-        context.reply(repeatDelay(context, alertId, repeatDelay));
+        alertsDao.transactional(() -> context.reply(repeatDelay(context, alertId, repeatDelay)));
     }
 
     private EmbedBuilder repeatDelay(@NotNull CommandContext context, long alertId, short repeatDelay) {
         AnswerColorSmiley answer = updateAlert(alertId, context, alert -> {
-            alerts.updateAlert(alert.withRepeatDelay(0 != repeatDelay ? repeatDelay : DEFAULT_REPEAT_DELAY_HOURS));
+            alertsDao.updateRepeatDelay(alertId, 0 != repeatDelay ? repeatDelay : DEFAULT_REPEAT_DELAY_HOURS);
             return "Repeat delay of alert " + alertId + " updated to " +
                     (0 != repeatDelay ? repeatDelay : "default " + DEFAULT_REPEAT_DELAY_HOURS) +
                     (repeatDelay > 1 ? " hours" : " hour");

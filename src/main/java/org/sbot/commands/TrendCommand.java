@@ -6,7 +6,7 @@ import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.TrendAlert;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.Alerts;
+import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
@@ -45,8 +45,8 @@ public final class TrendCommand extends CommandAdapter {
 
 
 
-    public TrendCommand(@NotNull Alerts alerts) {
-        super(alerts, NAME, DESCRIPTION, options);
+    public TrendCommand(@NotNull AlertsDao alertsDao) {
+        super(alertsDao, NAME, DESCRIPTION, options);
     }
 
     @Override
@@ -61,7 +61,7 @@ public final class TrendCommand extends CommandAdapter {
         String message = requireAlertMessageLength(context.args.getLastArgs("message").orElse(""));
         LOGGER.debug("trend command - exchange : {}, ticker1 : {}, ticker2 : {}, from_price : {}, from_date : {}, to_price : {}, to_date : {}, message : {}",
                 exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message);
-        context.reply(trend(context, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message));
+        alertsDao.transactional(() -> context.reply(trend(context, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message)));
     }
 
     private EmbedBuilder trend(@NotNull CommandContext context, @NotNull String exchange,
@@ -81,13 +81,13 @@ public final class TrendCommand extends CommandAdapter {
                 context.getServerId(),
                 exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message);
 
-        alerts.addAlert(trendAlert);
+        long alertId = alertsDao.addAlert(trendAlert);
 
-        String answer = context.user.getAsMention() + "\nNew trend alert added with id " + trendAlert.id +
+        String answer = context.user.getAsMention() + "\nNew trend alert added with id " + alertId +
                 "\n* pair : " + trendAlert.getSlashPair() + "\n* exchange : " + exchange +
                 "\n* from price " + formatUTC(fromDate) + "\n* from date " + fromDate +
                 "\n* to price " + toPrice + "\n* to date " + formatUTC(toDate) +
-                alertMessageTips(message, trendAlert.id);
+                alertMessageTips(message, alertId);
 
         return embedBuilder(NAME, Color.green, answer);
     }

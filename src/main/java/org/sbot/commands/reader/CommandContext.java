@@ -30,7 +30,7 @@ public final class CommandContext {
     public final @Nullable Member member;
     public final @NotNull ArgumentReader args;
 
-    // mutable value set to null once used
+    // mutable value set to null once used, slash commands needs one reply using event.reply(..) then next ones on the channel...
     private @Nullable SlashCommandInteractionEvent event;
     private final @Nullable Message message;
 

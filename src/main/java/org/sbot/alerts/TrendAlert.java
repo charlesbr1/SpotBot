@@ -4,7 +4,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.MatchingAlert.MatchingStatus;
 import org.sbot.chart.Candlestick;
-import org.sbot.storage.IdGenerator;
 
 import java.beans.ConstructorProperties;
 import java.math.BigDecimal;
@@ -29,7 +28,7 @@ public final class TrendAlert extends Alert {
                       @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate,
                       @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate,
                       @NotNull String message) {
-        this(IdGenerator.newId(), userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message,
+        this(0, userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS);
     }
 
@@ -54,6 +53,15 @@ public final class TrendAlert extends Alert {
     @Override
     public String name() {
         return "Trend";
+    }
+
+    @Override
+    @NotNull
+    public TrendAlert withId(long id) {
+        if(0 != this.id) {
+            throw new IllegalArgumentException("Can't update the id of an already stored alert");
+        }
+        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override

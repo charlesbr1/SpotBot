@@ -8,8 +8,10 @@ import org.sbot.utils.PropertiesReader;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static java.util.Optional.empty;
 import static org.sbot.utils.PropertiesReader.loadProperties;
 import static org.sbot.utils.PropertiesReader.readFile;
 
@@ -27,8 +29,13 @@ public enum Exchanges {
 
     public static final List<String> SUPPORTED_EXCHANGES = List.of("binance");
 
-    public static Exchange get(@NotNull String exchange) {
-        return exchanges.computeIfAbsent(exchange, Exchanges::loadExchange);
+    public static Optional<Exchange> get(@NotNull String exchange) {
+        try {
+            return Optional.of(exchanges.computeIfAbsent(exchange, Exchanges::loadExchange));
+        } catch (RuntimeException e) {
+            LOGGER.error("Unable to load exchange " + exchange, e);
+            return empty();
+        }
     }
 
     private static Exchange loadExchange(@NotNull String exchange) {

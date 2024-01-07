@@ -4,10 +4,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.chart.Candlestick;
 
-public record MatchingAlert(@NotNull Alert alert, @NotNull MatchingStatus matchingStatus, @Nullable Candlestick matchingCandlestick) {
+public record MatchingAlert(@NotNull Alert alert, @NotNull MatchingStatus status, @Nullable Candlestick matchingCandlestick) {
 
     public boolean hasMatch() {
-        return !matchingStatus.noTrigger();
+        return !status.noTrigger();
     }
 
     public enum MatchingStatus {

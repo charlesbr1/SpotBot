@@ -4,15 +4,14 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.Alerts;
+import org.sbot.services.dao.AlertsDao;
 
 import java.util.List;
 
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.alerts.Alert.ALERT_MAX_TICKER_LENGTH;
-import static org.sbot.alerts.Alert.ALERT_MIN_TICKER_LENGTH;
+import static org.sbot.alerts.Alert.*;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.ArgumentValidator.requireTickerPairLength;
@@ -28,8 +27,8 @@ public final class PairCommand extends CommandAdapter {
             new OptionData(INTEGER, "offset", "an optional offset to start the search (results are limited to 1000 alerts)", false)
                     .setMinValue(0));
 
-    public PairCommand(@NotNull Alerts alerts) {
-        super(alerts, NAME, DESCRIPTION, options);
+    public PairCommand(@NotNull AlertsDao alertsDao) {
+        super(alertsDao, NAME, DESCRIPTION, options);
     }
 
     @Override
@@ -37,24 +36,24 @@ public final class PairCommand extends CommandAdapter {
         String tickerPair = requireTickerPairLength(context.args.getMandatoryString("ticker_pair"));
         long offset = requirePositive(context.args.getLong("offset").orElse(0L));
         LOGGER.debug("pair command - ticker_pair : {}, offset : {}", tickerPair, offset);
-        context.reply(pair(context, tickerPair.toUpperCase(), offset));
+        alertsDao.transactional(() -> context.reply(pair(context, tickerPair.toUpperCase(), offset)));
     }
     private List<EmbedBuilder> pair(@NotNull CommandContext context, @NotNull String tickerPair, long offset) {
 
-        long total = alerts.getAlerts()
-                .filter(serverOrPrivateFilter(context))
-                .filter(alert -> alert.getSlashPair().contains(tickerPair))
-                .count(); //TODO
+        var split = tickerPair.split("/", 2);
+        String ticker = split.length > 0 ? split[0] : tickerPair;
+        String ticker2 = split.length > 1 ? split[1] : null;
 
-        List<EmbedBuilder> alerts = this.alerts.getAlerts()
-                .filter(serverOrPrivateFilter(context))
-                .filter(alert -> alert.getSlashPair().contains(tickerPair))
-                .skip(offset) //TODO skip in dao call
-                .limit(MESSAGE_PAGE_SIZE + 1)
-                .map(CommandAdapter::toMessage)
-                .collect(toList());
+        long total = isPrivateChannel(context) ?
+                alertsDao.countAlertsOfUserAndTickers(context.user.getIdLong(), ticker, ticker2) :
+                alertsDao.countAlertsOfServerAndTickers(context.getServerId(), ticker, ticker2);
 
-        return paginatedAlerts(alerts, offset, total,
+        List<EmbedBuilder> alertMessages = (isPrivateChannel(context) ?
+                alertsDao.getAlertsOfUserAndTickers(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE - 1, ticker, ticker2) :
+                alertsDao.getAlertsOfServerAndTickers(context.getServerId(), offset, MESSAGE_PAGE_SIZE - 1, ticker, ticker2))
+                .stream().map(CommandAdapter::toMessage).collect(toList());
+
+        return paginatedAlerts(alertMessages, offset, total,
                 () -> "!pair " + tickerPair + ' ' + (offset + MESSAGE_PAGE_SIZE - 1),
                 () -> "pair " + tickerPair);
     }

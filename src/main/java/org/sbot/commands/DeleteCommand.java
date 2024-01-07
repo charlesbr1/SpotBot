@@ -5,7 +5,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.Alerts;
+import org.sbot.services.dao.AlertsDao;
 
 import java.util.List;
 
@@ -19,20 +19,20 @@ public final class DeleteCommand extends CommandAdapter {
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.INTEGER, "alert_id", "id of the alert to delete", true).setMinValue(0));
 
-    public DeleteCommand(@NotNull Alerts alerts) {
-        super(alerts, NAME, DESCRIPTION, options);
+    public DeleteCommand(@NotNull AlertsDao alertsDao) {
+        super(alertsDao, NAME, DESCRIPTION, options);
     }
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         LOGGER.debug("delete command - alert_id : {}", alertId);
-        context.reply(delete(context, alertId));
+        alertsDao.transactional(() -> context.reply(delete(context, alertId)));
     }
 
     private EmbedBuilder delete(@NotNull CommandContext context, long alertId) {
         AnswerColorSmiley answer = updateAlert(alertId, context, alert -> {
-            alerts.deleteAlert(alertId);
+            alertsDao.deleteAlert(alertId);
             return "Alert " + alertId + " deleted";
         });
         return embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer());

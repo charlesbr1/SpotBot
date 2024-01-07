@@ -5,7 +5,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.Alerts;
+import org.sbot.services.dao.AlertsDao;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -24,8 +24,8 @@ public final class MarginCommand extends CommandAdapter {
                     .setMinValue(0d));
 
 
-    public MarginCommand(@NotNull Alerts alerts) {
-        super(alerts, NAME, DESCRIPTION, options);
+    public MarginCommand(@NotNull AlertsDao alertsDao) {
+        super(alertsDao, NAME, DESCRIPTION, options);
     }
 
     @Override
@@ -33,12 +33,12 @@ public final class MarginCommand extends CommandAdapter {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         BigDecimal margin = requirePositive(context.args.getMandatoryNumber("margin"));
         LOGGER.debug("margin command - alert_id : {}, margin : {}", alertId, margin);
-        context.reply(margin(context, margin, alertId));
+        alertsDao.transactional(() -> context.reply(margin(context, margin, alertId)));
     }
 
     private EmbedBuilder margin(@NotNull CommandContext context, @NotNull BigDecimal margin, long alertId) {
         AnswerColorSmiley answer = updateAlert(alertId, context, alert -> {
-            alerts.updateAlert(alert.withMargin(margin));
+            alertsDao.updateMargin(alertId, margin);
             return "Margin of alert " + alertId + " updated to " + margin +
                     (alert.hasMargin() ? "" : " (disabled)");
         });

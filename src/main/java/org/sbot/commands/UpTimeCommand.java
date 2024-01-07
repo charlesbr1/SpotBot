@@ -3,7 +3,7 @@ package org.sbot.commands;
 import net.dv8tion.jda.api.EmbedBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.Alerts;
+import org.sbot.services.dao.AlertsDao;
 
 import java.awt.*;
 import java.time.Duration;
@@ -19,8 +19,8 @@ public final class UpTimeCommand extends CommandAdapter {
 
     private static final Instant start = Instant.now();
 
-    public UpTimeCommand(@NotNull Alerts alerts) {
-        super(alerts, NAME, DESCRIPTION, emptyList());
+    public UpTimeCommand(@NotNull AlertsDao alertsDao) {
+        super(alertsDao, NAME, DESCRIPTION, emptyList());
     }
 
     @Override

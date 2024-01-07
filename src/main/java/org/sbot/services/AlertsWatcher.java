@@ -14,15 +14,17 @@ import org.sbot.chart.TimeFrame;
 import org.sbot.discord.Discord;
 import org.sbot.exchanges.Exchange;
 import org.sbot.exchanges.Exchanges;
+import org.sbot.services.dao.AlertsDao;
 
 import java.awt.*;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
@@ -30,11 +32,14 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.entities.MessageEmbed.TITLE_MAX_LENGTH;
+import static org.jdbi.v3.core.transaction.TransactionIsolationLevel.SERIALIZABLE;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.MARGIN;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.discord.Discord.spotBotRole;
+import static org.sbot.services.dao.jdbi.JDBIRepository.SQLITE_MAX_VARIABLE_NUMBER;
+import static org.sbot.utils.PartitionSpliterator.split;
 
 public final class AlertsWatcher {
 
@@ -42,23 +47,25 @@ public final class AlertsWatcher {
 
 
     private final Discord discord;
-    private final Alerts alerts;
+    private final AlertsDao alertDao;
 
-    public AlertsWatcher(@NotNull Discord discord, @NotNull Alerts alerts) {
+    public AlertsWatcher(@NotNull Discord discord, @NotNull AlertsDao alertsDao) {
         this.discord = requireNonNull(discord);
-        this.alerts = requireNonNull(alerts);
+        this.alertDao = requireNonNull(alertsDao);
     }
 
     // this splits in tasks by exchanges and pairs, one rest call must be done by each task to retrieve the candlesticks
-    public void checkAlerts(@NotNull Alerts alertStorage) {
+    public void checkAlerts() {
         try {
             //TODO query filter to retrieve enabled alerts, repeat != 0 and lastTrigger < date
-            alertStorage.getAlertsByPairsAndExchanges()
+            //TODO paginate
+            alertDao.transactional(alertDao::getAlertIdsByPairAndExchange)
                     .forEach((xchange, alertsByPair) -> { // one task by exchange / pair
-                        Exchange exchange = Exchanges.get(xchange);
-                        alertsByPair.forEach((pair, alerts) ->
-                                Thread.ofVirtual().name('[' + pair + ']')
-                                        .start(() -> getPricesAndTriggerAlerts(exchange, pair, alerts)));
+                        Exchanges.get(xchange).ifPresent(exchange -> {
+                            alertsByPair.forEach((pair, alertIds) ->
+                                    Thread.ofVirtual().name('[' + pair + ']')
+                                            .start(() -> getPricesAndCheckAlerts(exchange, pair, alertIds)));
+                        });
                         LockSupport.parkNanos(Duration.ofSeconds(1).toNanos()); // no need to flood the exchanges
                     });
         } catch (RuntimeException e) {
@@ -66,73 +73,97 @@ public final class AlertsWatcher {
         }
     }
 
-    private void getPricesAndTriggerAlerts(@NotNull Exchange exchange, @NotNull String pair, @NotNull List<Alert> alerts) {
+    private void getPricesAndCheckAlerts(@NotNull Exchange exchange, @NotNull String pair, @NotNull long[] alertIds) {
         try {
-            if(!alerts.isEmpty()) {
-                LOGGER.debug("Retrieving price for pair [{}] on {}...", pair, exchange);
-                // TODO récuperer l'historique depuis le last candlestick des alerts
-                List<Candlestick> prices = exchange.getCandlesticks(pair, TimeFrame.HOURLY, 1)
-                        .sorted(Comparator.comparing(Candlestick::openTime)).toList();
+            LOGGER.debug("Retrieving price for pair [{}] on {}...", pair, exchange);
+            // TODO récuperer l'historique depuis le last candlestick des alerts
+            List<Candlestick> prices = exchange.getCandlesticks(pair, TimeFrame.HOURLY, 1)
+                    .sorted(Comparator.comparing(Candlestick::openTime)).toList();
 
-                this.alerts.updateAlerts(alerts.stream()
-                        .map(alert -> alert.match(prices, null)) //TODO previous candlestick
-                        .filter(MatchingAlert::hasMatch)
-                        .collect(groupingBy(matchingAlert -> matchingAlert.alert().serverId)).entrySet().stream()
-                        .flatMap(this::sendAlerts)
-                        .toList());
-            }
+            split(SQLITE_MAX_VARIABLE_NUMBER, true, false, LongStream.of(alertIds).boxed())
+                    .forEach(ids -> {
+                        // serialized transactions can be replayed and need no border effects (unlikely to happens),
+                        // this guard prevent discord message to be re-sent many times
+                        boolean[] txRetry = new boolean[1];
+                        alertDao.transactional(() -> {
+                            try {
+                                Map<Long, List<MatchingAlert>> matchingAlerts = alertDao.getAlerts(ids).stream()
+                                        .map(alert -> alert.match(prices, null)) //TODO previous candlestick
+                                        .filter(MatchingAlert::hasMatch)
+                                        .collect(groupingBy(matchingAlert -> matchingAlert.alert().serverId));
+
+                                updateAlerts(matchingAlerts.entrySet().stream()
+                                        .map(txRetry[0] ? Entry::getValue : this::sendAlerts)
+                                        .flatMap(List::stream));
+                            } finally {
+                                txRetry[0] = true;
+                            }
+                        }, SERIALIZABLE);
+                    });
         } catch(RuntimeException e) {
             LOGGER.warn("Exception thrown while processing alerts", e);
         }
     }
 
-    private Stream<Alert> sendAlerts(@NotNull Entry<Long, List<MatchingAlert>> serverAlerts) {
-        long serverId = serverAlerts.getKey();
-        var alerts = serverAlerts.getValue();
+    private void updateAlerts(@NotNull Stream<MatchingAlert> matchingAlerts) {
+        alertDao.matchedAlertBatchUpdates(matchedUpdater ->
+                alertDao.marginAlertBatchUpdates(marginUpdater ->
+                        matchingAlerts.forEach(matchingAlert -> {
+                            Alert alert = matchingAlert.alert();
+                            switch (matchingAlert.status()) {
+                                case MATCHED -> matchedUpdater.update(alert.id, requireNonNull(alert.lastTrigger), alert.margin, alert.repeat);
+                                case MARGIN -> marginUpdater.update(alert.id, alert.margin);
+                            }
+                        })));
+    }
+
+    private List<MatchingAlert> sendAlerts(@NotNull Entry<Long, List<MatchingAlert>> matchingAlerts) {
+        long serverId = matchingAlerts.getKey();
+        var alerts = matchingAlerts.getValue();
         try {
             if(PRIVATE_ALERT != serverId) {
                 sendServerAlerts(alerts, discord.getDiscordServer(serverId));
             } else {
                 sendPrivateAlerts(alerts);
             }
-            return alerts.stream().map(MatchingAlert::alert);
+            return alerts;
         } catch (RuntimeException e) {
-            String alertIds = Optional.ofNullable(alerts).orElse(emptyList()).stream()
+            String alertIds = alerts.stream()
                     .map(MatchingAlert::alert)
                     .map(alert -> String.valueOf(alert.id))
                     .collect(Collectors.joining(","));
-            LOGGER.error("Failed to send alerts [" + alertIds + "], update won't be done for them", e);
-            return Stream.empty();
+            LOGGER.error("Failed to send alerts [" + alertIds + "], update may not be done for them", e);
+            return emptyList();
         }
     }
 
-    private void sendServerAlerts(@NotNull List<MatchingAlert> alerts, @NotNull Guild guild) {
+    private void sendServerAlerts(@NotNull List<MatchingAlert> matchingAlerts, @NotNull Guild guild) {
         var roles = spotBotRole(guild).map(Role::getId).stream().toList();
-        var users = alerts.stream().map(MatchingAlert::alert).mapToLong(Alert::getUserId).distinct().toArray();
-        //TODO user must be on server check
+        var users = matchingAlerts.stream().map(MatchingAlert::alert).mapToLong(Alert::getUserId).distinct().toArray();
+        //TODO user must be on server check, or else <@123> appears in discord
         discord.spotBotChannel(guild).ifPresent(channel ->
-                channel.sendMessages(toMessage(alerts),
+                channel.sendMessages(toMessage(matchingAlerts),
                         List.of(message -> requireNonNull(message.mentionRoles(roles).mentionUsers(users)))));
     }
 
-    private void sendPrivateAlerts(@NotNull List<MatchingAlert> alerts) {
-        alerts.stream().collect(groupingBy(matchingAlert -> matchingAlert.alert().userId))
+    private void sendPrivateAlerts(@NotNull List<MatchingAlert> matchingAlerts) {
+        matchingAlerts.stream().collect(groupingBy(matchingAlert -> matchingAlert.alert().userId))
                 .forEach((userId, userAlerts) -> discord.userChannel(userId)
                         .ifPresent(channel -> channel.sendMessages(toMessage(userAlerts), emptyList())));
     }
 
     @NotNull
-    private List<EmbedBuilder> toMessage(@NotNull List<MatchingAlert> alerts) {
-        return shrinkToPageSize(alerts.stream()
+    private List<EmbedBuilder> toMessage(@NotNull List<MatchingAlert> matchingAlerts) {
+        return shrinkToPageSize(matchingAlerts.stream()
                 .limit(MESSAGE_PAGE_SIZE + 1)
-                .map(this::toMessage).collect(toList()), alerts.size());
+                .map(this::toMessage).collect(toList()), matchingAlerts.size());
     }
 
     private EmbedBuilder toMessage(@NotNull MatchingAlert matchingAlert) {
         Alert alert = matchingAlert.alert();
-        return embedBuilder(title(alert.name(), alert.getSlashPair(), alert.message, matchingAlert.matchingStatus()),
-                MARGIN == matchingAlert.matchingStatus() ? Color.orange : Color.green,
-                alert.triggeredMessage(matchingAlert.matchingStatus(), matchingAlert.matchingCandlestick()));
+        return embedBuilder(title(alert.name(), alert.getSlashPair(), alert.message, matchingAlert.status()),
+                MARGIN == matchingAlert.status() ? Color.orange : Color.green,
+                alert.triggeredMessage(matchingAlert.status(), matchingAlert.matchingCandlestick()));
     }
 
     //TODO remove / simplify, check max ticker size, this should adapt - remove thing to fit ticker size

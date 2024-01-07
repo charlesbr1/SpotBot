@@ -3,16 +3,15 @@ package org.sbot;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.services.AlertsWatcher;
 import org.sbot.commands.*;
 import org.sbot.discord.Discord;
-import org.sbot.services.Alerts;
-import org.sbot.services.AlertsMemory;
-import org.sbot.services.jdbi.JDBIRepository;
+import org.sbot.services.dao.AlertsDao;
+import org.sbot.services.AlertsWatcher;
+import org.sbot.services.dao.AlertsSQL;
 import org.sbot.utils.PropertiesReader;
 
 import java.time.Duration;
-import java.time.LocalTime;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.locks.LockSupport;
 
@@ -36,16 +35,16 @@ public class SpotBot {
         try {
             LOGGER.info("Starting SpotBot v1");
 
-            JDBIRepository repository = new JDBIRepository(DATABASE_URL);
-            Alerts alerts = new AlertsMemory();
+            AlertsDao alertsDao = new AlertsSQL(DATABASE_URL);
+//            AlertsDao alertsDao = new AlertsMemory();
             Discord discord = new Discord();
-            setupDiscordEvents(discord, alerts);
-            AlertsWatcher alertsWatcher = new AlertsWatcher(discord, alerts);
+            setupDiscordEvents(discord, alertsDao);
+            AlertsWatcher alertsWatcher = new AlertsWatcher(discord, alertsDao);
 
             LOGGER.info("Entering infinite loop to check prices and send alerts every start of hours...");
 
             for(;;) {
-                alertsWatcher.checkAlerts(alerts);
+                alertsWatcher.checkAlerts();
                 long sleepingMinutes = minutesUntilNextHour() + ALERTS_CHECK_PERIOD_DELTA_MIN;
                 LOGGER.info("Main thread now sleeping for {} minutes...", sleepingMinutes);
                 LockSupport.parkNanos(Duration.ofMinutes(sleepingMinutes).toNanos());
@@ -58,26 +57,26 @@ public class SpotBot {
     }
 
     private static long minutesUntilNextHour() {
-        LocalTime currentTime = LocalTime.now();
-        LocalTime startOfNextHour = currentTime.truncatedTo(HOURS).plusHours(1);
+        LocalDateTime currentTime = LocalDateTime.now();
+        LocalDateTime startOfNextHour = currentTime.truncatedTo(HOURS).plusHours(1);
         return ChronoUnit.MINUTES.between(currentTime, startOfNextHour);
     }
 
-    private static void setupDiscordEvents(@NotNull Discord discord, @NotNull Alerts alerts) {
+    private static void setupDiscordEvents(@NotNull Discord discord, @NotNull AlertsDao alertsDao) {
         LOGGER.info("Registering discord events...");
         discord.registerCommands(
-                new UpTimeCommand(alerts),
-                new RangeCommand(alerts),
-                new DeleteCommand(alerts),
-                new TrendCommand(alerts),
-                new ListCommand(alerts),
-                new OwnerCommand(alerts),
-                new PairCommand(alerts),
-                new RepeatCommand(alerts),
-                new RepeatDelayCommand(alerts),
-                new MarginCommand(alerts),
-                new MessageCommand(alerts),
-                new RemainderCommand(alerts),
-                new SpotBotCommand(alerts));
+                new UpTimeCommand(alertsDao),
+                new RangeCommand(alertsDao),
+                new DeleteCommand(alertsDao),
+                new TrendCommand(alertsDao),
+                new ListCommand(alertsDao),
+                new OwnerCommand(alertsDao),
+                new PairCommand(alertsDao),
+                new RepeatCommand(alertsDao),
+                new RepeatDelayCommand(alertsDao),
+                new MarginCommand(alertsDao),
+                new MessageCommand(alertsDao),
+                new RemainderCommand(alertsDao),
+                new SpotBotCommand(alertsDao));
     }
 }

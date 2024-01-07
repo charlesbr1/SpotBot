@@ -11,7 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.discord.Discord;
-import org.sbot.services.Alerts;
+import org.sbot.services.dao.AlertsDao;
 
 import java.awt.*;
 import java.util.List;
@@ -88,8 +88,8 @@ public final class SpotBotCommand extends CommandAdapter {
     private static final FileUpload alertsPicture = FileUpload.fromData(requireNonNull(SpotBotCommand.class
             .getResourceAsStream(ALERTS_PICTURE_PATH)), ALERTS_PICTURE_FILE);
 
-    public SpotBotCommand(@NotNull Alerts alerts) {
-        super(alerts, NAME, DESCRIPTION, emptyList());
+    public SpotBotCommand(@NotNull AlertsDao alertsDao) {
+        super(alertsDao, NAME, DESCRIPTION, emptyList());
     }
 
     @Override

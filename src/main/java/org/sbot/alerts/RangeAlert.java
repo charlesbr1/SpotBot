@@ -4,7 +4,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.MatchingAlert.MatchingStatus;
 import org.sbot.chart.Candlestick;
-import org.sbot.storage.IdGenerator;
 
 import java.beans.ConstructorProperties;
 import java.math.BigDecimal;
@@ -24,7 +23,7 @@ public final class RangeAlert extends Alert {
     public RangeAlert(long userId, long serverId,
                       @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
                       @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message) {
-        this(IdGenerator.newId(), userId, serverId, exchange, ticker1, ticker2, low, high, message,
+        this(0, userId, serverId, exchange, ticker1, ticker2, low, high, message,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS);
     }
     @ConstructorProperties({"id", "user_id", "server_id", "exchange", "ticker1", "ticker2",
@@ -46,6 +45,15 @@ public final class RangeAlert extends Alert {
     @Override
     public String name() {
         return "Range";
+    }
+
+    @Override
+    @NotNull
+    public RangeAlert withId(long id) {
+        if(0 != this.id) {
+            throw new IllegalArgumentException("Can't update the id of an already stored alert");
+        }
+        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override

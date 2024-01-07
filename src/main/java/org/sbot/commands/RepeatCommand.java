@@ -5,7 +5,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.Alerts;
+import org.sbot.services.dao.AlertsDao;
 
 import java.util.List;
 
@@ -23,8 +23,8 @@ public final class RepeatCommand extends CommandAdapter {
             new OptionData(OptionType.INTEGER, "repeat", "number of time the specified alert will be rethrown", true)
                     .setRequiredRange(0, Short.MAX_VALUE));
 
-    public RepeatCommand(@NotNull Alerts alerts) {
-        super(alerts, NAME, DESCRIPTION, options);
+    public RepeatCommand(@NotNull AlertsDao alertsDao) {
+        super(alertsDao, NAME, DESCRIPTION, options);
     }
 
     @Override
@@ -32,12 +32,12 @@ public final class RepeatCommand extends CommandAdapter {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         short repeat = requirePositiveShort(context.args.getMandatoryLong("repeat"));
         LOGGER.debug("repeat command - alert_id : {}, repeat : {}", alertId, repeat);
-        context.reply(repeat(context, alertId, repeat));
+        alertsDao.transactional(() -> context.reply(repeat(context, alertId, repeat)));
     }
 
     private EmbedBuilder repeat(@NotNull CommandContext context, long alertId, short repeat) {
         AnswerColorSmiley answer = updateAlert(alertId, context, alert -> {
-            alerts.updateAlert(alert.withRepeat(repeat));
+            alertsDao.updateRepeat(alertId, repeat);
             return "Repeat of alert " + alertId + " updated to " + repeat +
                     (repeat != 0 ? "" : " (disabled)");
         });

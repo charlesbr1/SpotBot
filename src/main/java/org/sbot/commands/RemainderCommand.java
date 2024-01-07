@@ -5,7 +5,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.Alerts;
+import org.sbot.services.dao.AlertsDao;
 
 import java.awt.*;
 import java.time.ZonedDateTime;
@@ -25,8 +25,8 @@ public final class RemainderCommand extends CommandAdapter {
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
 
-    public RemainderCommand(@NotNull Alerts alerts) {
-        super(alerts, NAME, DESCRIPTION, options);
+    public RemainderCommand(@NotNull AlertsDao alertsDao) {
+        super(alertsDao, NAME, DESCRIPTION, options);
     }
 
     @Override
@@ -34,7 +34,7 @@ public final class RemainderCommand extends CommandAdapter {
         ZonedDateTime date = context.args.getMandatoryDateTime("date");
         String remainder = requireAlertMessageLength(context.args.getLastArgs("remainder").orElseThrow(() -> new IllegalArgumentException("Missing argument 'remainder'")));
         LOGGER.debug("remainder command - date : {}, remainder {}", date, remainder);
-        context.reply(remainder(context, date, remainder));
+        alertsDao.transactional(() -> context.reply(remainder(context, date, remainder)));
     }
 
     private EmbedBuilder remainder(@NotNull CommandContext context, @NotNull ZonedDateTime date, @NotNull String remainder) {

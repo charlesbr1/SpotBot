@@ -6,7 +6,7 @@ import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.RangeAlert;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.Alerts;
+import org.sbot.services.dao.AlertsDao;
 
 import java.awt.*;
 import java.math.BigDecimal;
@@ -38,8 +38,8 @@ public final class RangeCommand extends CommandAdapter {
             new OptionData(STRING, "message", "a message to shown when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
-    public RangeCommand(@NotNull Alerts alerts) {
-        super(alerts, NAME, DESCRIPTION, options);
+    public RangeCommand(@NotNull AlertsDao alertsDao) {
+        super(alertsDao, NAME, DESCRIPTION, options);
     }
 
     @Override
@@ -52,7 +52,7 @@ public final class RangeCommand extends CommandAdapter {
         String message = requireAlertMessageLength(context.args.getLastArgs("message").orElse(""));
         LOGGER.debug("range command - exchange : {}, ticker1 : {}, ticker2 : {}, low : {}, high : {}, message : {}",
                 exchange, ticker1, ticker2, low, high, message);
-        context.reply(range(context, exchange, ticker1, ticker2, low, high, message));
+        alertsDao.transactional(() -> context.reply(range(context, exchange, ticker1, ticker2, low, high, message)));
     }
 
     private EmbedBuilder range(@NotNull CommandContext context, @NotNull String exchange,
@@ -68,12 +68,12 @@ public final class RangeCommand extends CommandAdapter {
                 context.getServerId(),
                 exchange, ticker1, ticker2, low, high, message);
 
-        alerts.addAlert(rangeAlert);
+        long alertId = alertsDao.addAlert(rangeAlert);
 
-        String answer = context.user.getAsMention() + "\nNew range alert added with id " + rangeAlert.id +
+        String answer = context.user.getAsMention() + "\nNew range alert added with id " + alertId +
                 "\n* pair : " + rangeAlert.getSlashPair() + "\n* exchange : " + exchange +
                 "\n* low " + low + "\n* high " + high +
-                alertMessageTips(message, rangeAlert.id);
+                alertMessageTips(message, alertId);
 
         return embedBuilder(NAME, Color.green, answer);
     }

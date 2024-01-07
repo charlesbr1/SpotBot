@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.SpotBot;
 import org.sbot.commands.reader.CommandContext;
 
-import java.awt.Color;
+import java.awt.*;
 import java.util.List;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -38,16 +38,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static java.util.Comparator.comparing;
-import static java.util.Map.Entry.comparingByKey;
 import static java.util.Optional.empty;
 import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.*;
-import static net.dv8tion.jda.api.entities.MessageEmbed.DESCRIPTION_MAX_LENGTH;
+import static java.util.stream.Collectors.joining;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
+import static org.sbot.utils.PartitionSpliterator.split;
 import static org.sbot.utils.PropertiesReader.readFile;
 
 public final class Discord {
@@ -106,11 +104,8 @@ public final class Discord {
 
     public static <T extends MessageCreateRequest<?> & FluentRestAction<?, ?>> void sendMessages(@NotNull List<EmbedBuilder> messages, @NotNull Function<List<MessageEmbed>, T> sendMessage, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
         // Discord limit to 10 embeds by message
-        asyncOrdered(IntStream.range(0, messages.size()).boxed()
-                .collect(groupingBy(index -> index / MAX_MESSAGE_EMBEDS, // split this stream into lists of 10 messages
-                        mapping(messages::get, toList())))
-                .entrySet().stream().sorted(comparingByKey())
-                .map(entry -> toMessageRequest(entry.getValue(), sendMessage, messageSetup)));
+        asyncOrderedSubmit(split(MAX_MESSAGE_EMBEDS, messages)
+                .map(messagesList -> toMessageRequest(messagesList, sendMessage, messageSetup)));
     }
 
     @NotNull
@@ -129,7 +124,7 @@ public final class Discord {
     }
 
     // this ensures the rest action are done in order
-    private static void asyncOrdered(@NotNull Stream<RestAction<?>> restActions) {
+    private static void asyncOrderedSubmit(@NotNull Stream<RestAction<?>> restActions) {
         restActions.limit(MESSAGE_PAGE_SIZE)
                 .reduce(CompletableFuture.<Void>completedFuture(null),
                         (future, nextMessage) -> future.thenRun(nextMessage::submit),
@@ -264,13 +259,9 @@ public final class Discord {
                     listener.onCommand(command);
                 }
             } catch (RuntimeException e) {
-                LOGGER.warn("Error while processing discord command: " + command, e);
-                String error = Optional.ofNullable(e.getMessage()).stream()
-                        .flatMap(str ->  Stream.of(str.split("\n", 1))).findFirst()
-                        .map(str -> command.user.getAsMention() + " Something get wrong !\n* " + str)
-                        .map(str -> str.substring(0, Math.min(str.length(), DESCRIPTION_MAX_LENGTH)))
-                        .orElse("An unexpected error occurred, try again later...");
-                command.reply(embedBuilder("Oups !", Color.red, error));
+                LOGGER.warn("Internal error while processing discord command: " + command.name, e);
+                command.reply(embedBuilder("Oups !", Color.red,
+                        command.user.getAsMention() + " Something get wrong ! **Internal Error** "));
             }
         }
 
