@@ -88,7 +88,7 @@ public final class AlertsWatcher {
             }, SERIALIZABLE);
 
             // matching alerts has no message, they are retrieved in a second time
-            Map<Long, String> alertMessages = split(1000, matchingAlerts.stream()) // split in calls to SQL IN clause
+            Map<Long, String> alertMessages = split(1000, matchingAlerts.stream()) // split in many calls using SQL IN clause
                     .map(alerts ->
                             alertDao.transactional(() -> alertDao.getAlertMessages(alerts.stream().mapToLong(matchingAlert -> matchingAlert.alert().id).toArray())))
                     .flatMap(map -> map.entrySet().stream())
@@ -157,7 +157,7 @@ public final class AlertsWatcher {
 
     private EmbedBuilder toMessage(@NotNull MatchingAlert matchingAlert) {
         Alert alert = matchingAlert.alert();
-        return embedBuilder(title(alert.name(), alert.getSlashPair(), alert.message, matchingAlert.status()),
+        return embedBuilder(title(alert.type.name(), alert.getSlashPair(), alert.message, matchingAlert.status()),
                 MARGIN == matchingAlert.status() ? Color.orange : Color.green,
                 alert.triggeredMessage(matchingAlert.status(), matchingAlert.matchingCandlestick()));
     }

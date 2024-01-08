@@ -8,12 +8,15 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
 import org.sbot.alerts.RangeAlert;
 import org.sbot.alerts.TrendAlert;
-import org.sbot.storage.IdGenerator;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -27,6 +30,8 @@ public class AlertsMemory implements AlertsDao {
     private static final Logger LOGGER = LogManager.getLogger(AlertsMemory.class);
 
     private final Map<Long, Alert> alerts = new ConcurrentHashMap<>();
+
+    private final AtomicLong idGenerator = new AtomicLong(0L);
 
     {
         LOGGER.debug("Loading memory storage for alerts");
@@ -199,10 +204,10 @@ public class AlertsMemory implements AlertsDao {
 
     @Override
     public long addAlert(@NotNull Alert alert) {
-        long id = IdGenerator.newId();
-        LOGGER.debug("addAlert {}, new id {}", alert, id);
-        alerts.put(id, alert.withId(id));
-        return id;
+        alert = alert.withId(idGenerator::getAndIncrement);
+        LOGGER.debug("addAlert {}, with new id {}", alert, alert.id);
+        alerts.put(alert.id, alert);
+        return alert.id;
     }
 
     @Override

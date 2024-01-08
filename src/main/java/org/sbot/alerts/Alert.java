@@ -1,7 +1,6 @@
 package org.sbot.alerts;
 
 import org.jdbi.v3.core.mapper.reflect.ColumnName;
-import org.jdbi.v3.core.mapper.reflect.JdbiConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.MatchingAlert.MatchingStatus;
@@ -13,7 +12,9 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
+import static java.util.Objects.requireNonNull;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.NO_TRIGGER;
 import static org.sbot.chart.Symbol.getSymbol;
 import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
@@ -22,16 +23,11 @@ import static org.sbot.utils.Dates.formatUTC;
 
 public abstract class Alert {
 
-    @JdbiConstructor
-    public static Alert of(@ColumnName("user_id") long userId, @ColumnName("server_id") long serverId,
-                           @ColumnName("exchange") @NotNull String exchange,
-                           @ColumnName("ticker1") @NotNull String ticker1, @ColumnName("ticker1") @NotNull String ticker2,
-                           @ColumnName("message") @Nullable String message, // message can be loaded after the alert
-                           @ColumnName("last_trigger") @Nullable ZonedDateTime lastTrigger,
-                           @ColumnName("margin") @NotNull BigDecimal margin,
-                           @ColumnName("repeat") short repeat, @ColumnName("repeatDelay") short repeatDelay) {
-        throw new UnsupportedOperationException("TODO ooooooooooooo");
+    public enum Type {
+        Range,
+        Trend
     }
+
     public static final int ALERT_MESSAGE_ARG_MAX_LENGTH = 210;
     public static final int ALERT_MIN_TICKER_LENGTH = 3;
     public static final int ALERT_MAX_TICKER_LENGTH = 5;
@@ -43,7 +39,11 @@ public abstract class Alert {
 
     public final long id;
 
+    public final Type type;
+
+    @ColumnName("user_id")
     public final long userId;
+    @ColumnName("server_id")
     public final long serverId; // = PRIVATE_ALERT for private channel
 
     public final String exchange;
@@ -52,18 +52,21 @@ public abstract class Alert {
     public final String message;
 
     @Nullable // updated in match(..) function
+    @ColumnName("last_trigger")
     public final ZonedDateTime lastTrigger;
 
     public final BigDecimal margin;
     public final short repeat;
+    @ColumnName("repeat_delay")
     public final short repeatDelay;
 
 
-    protected Alert(long id, long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2, @NotNull String message, @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short repeatDelay) {
+    protected Alert(long id, @NotNull Type type, long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2, @NotNull String message, @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short repeatDelay) {
         this.id = id;
+        this.type = requireNonNull(type);
         this.userId = userId;
         this.serverId = serverId;
-        this.exchange = exchange.toLowerCase().intern();
+        this.exchange = requireSupportedExchange(exchange.toLowerCase()).intern();
         this.ticker1 = requireTickerLength(ticker1).toUpperCase().intern();
         this.ticker2 = requireTickerLength(ticker2).toUpperCase().intern();
         this.message = requireAlertMessageLength(message);
@@ -110,10 +113,7 @@ public abstract class Alert {
     }
 
     @NotNull
-    public abstract String name();
-
-    @NotNull
-    public abstract Alert withId(long id);
+    public abstract Alert withId(@NotNull Supplier<Long> idGenerator);
     @NotNull
     public abstract Alert withMessage(@NotNull String message);
 
@@ -152,8 +152,8 @@ public abstract class Alert {
 
     @NotNull
     protected final String header(@NotNull MatchingStatus matchingStatus) {
-        String header = matchingStatus.noTrigger() ? name() + " Alert set by <@" + userId + '>' :
-                "<@" + userId + ">\nYour " + name().toLowerCase() + " set";
+        String header = matchingStatus.noTrigger() ? type.name() + " Alert set by <@" + userId + '>' :
+                "<@" + userId + ">\nYour " + type.name().toLowerCase() + " set";
         return header + " on " + exchange + ' ' + getSlashPair() +
                 (matchingStatus.noTrigger() ? "" : (matchingStatus.isMargin() ? " reached **margin** threshold. Set a new one using :\n\n" +
                         SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + "*!margin " + id + " 'amount in " + getSymbol(ticker2) + "'*" :
@@ -164,14 +164,15 @@ public abstract class Alert {
     @NotNull
     protected final String footer(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
         return "\n* margin / repeat / delay :\t" +
-                (hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(ticker2) : "disabled") + " / " + (isDisabled(repeat) ? "disabled" : repeat) + " / " + repeatDelay +
+                (hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(ticker2) : "disabled") + " / " + (isDisabled(repeat) ? "disabled" : repeat) + " / " +
+                repeatDelay + (repeatDelay > 1 ? " hours" : " hour") +
                 Optional.ofNullable(previousCandlestick).map(Candlestick::close)
                         .map(BigDecimal::stripTrailingZeros)
                         .map(BigDecimal::toPlainString)
                         .map(price -> "\n\nLast close : " + price + ' ' + getSymbol(ticker2) +
                                 " at " + formatUTC(previousCandlestick.closeTime()))
                         .orElse("") +
-                (matchingStatus.noTrigger() ? Optional.ofNullable(lastTrigger).map(Dates::formatUTC).map("\n\nLast time triggered : "::concat) : "");
+                (matchingStatus.noTrigger() ? Optional.ofNullable(lastTrigger).map(Dates::formatUTC).map("\n\nLast time triggered : "::concat).orElse("") : "");
     }
 
     @Override

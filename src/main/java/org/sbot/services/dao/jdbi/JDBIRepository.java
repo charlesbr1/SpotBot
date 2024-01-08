@@ -4,7 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.core.mapper.reflect.ConstructorMapper;
+import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.services.dao.TransactionalCtx;
@@ -30,8 +30,8 @@ public abstract class JDBIRepository implements TransactionalCtx {
         this.jdbi = Jdbi.create(url);
     }
 
-    protected  <T> void registerRowMapper(@NotNull Class<T> type) {
-        jdbi.registerRowMapper(type, ConstructorMapper.of(type));
+    protected void registerRowMapper(@NotNull RowMapper<?> rowMapper) {
+        jdbi.registerRowMapper(rowMapper);
     }
 
     protected Handle getHandle() {

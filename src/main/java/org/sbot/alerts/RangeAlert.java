@@ -9,6 +9,7 @@ import java.beans.ConstructorProperties;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.*;
 import static org.sbot.chart.Symbol.getSymbol;
@@ -16,8 +17,8 @@ import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class RangeAlert extends Alert {
 
-    private final BigDecimal low;
-    private final BigDecimal high;
+    public final BigDecimal low;
+    public final BigDecimal high;
 
 
     public RangeAlert(long userId, long serverId,
@@ -33,7 +34,7 @@ public final class RangeAlert extends Alert {
                        @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message,
                        @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin,
                        short repeat, short repeatDelay) {
-        super(id, userId, serverId, exchange, ticker1, ticker2, message, lastTrigger, margin, repeat, repeatDelay);
+        super(id, Type.Range, userId, serverId, exchange, ticker1, ticker2, message, lastTrigger, margin, repeat, repeatDelay);
         if(low.compareTo(high) > 0) {
             throw new IllegalArgumentException("low price is higher than high price");
         }
@@ -41,19 +42,13 @@ public final class RangeAlert extends Alert {
         this.high = requirePositive(high).stripTrailingZeros();
     }
 
-    @NotNull
-    @Override
-    public String name() {
-        return "Range";
-    }
-
     @Override
     @NotNull
-    public RangeAlert withId(long id) {
+    public RangeAlert withId(@NotNull Supplier<Long> idGenerator) {
         if(0 != this.id) {
             throw new IllegalArgumentException("Can't update the id of an already stored alert");
         }
-        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, lastTrigger, margin, repeat, repeatDelay);
+        return new RangeAlert(idGenerator.get(), userId, serverId, exchange, ticker1, ticker2, low, high, message, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override

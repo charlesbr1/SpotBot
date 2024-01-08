@@ -5,8 +5,9 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.*;
 import org.sbot.discord.Discord;
-import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.AlertsWatcher;
+import org.sbot.services.dao.AlertsDao;
+import org.sbot.services.dao.AlertsMemory;
 import org.sbot.services.dao.AlertsSQL;
 import org.sbot.utils.PropertiesReader;
 
@@ -14,6 +15,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.locks.LockSupport;
+import java.util.stream.Stream;
 
 import static java.lang.Long.parseLong;
 import static java.time.temporal.ChronoUnit.HOURS;
@@ -35,8 +37,10 @@ public class SpotBot {
         try {
             LOGGER.info("Starting SpotBot v1");
 
-            AlertsDao alertsDao = new AlertsSQL(DATABASE_URL);
-//            AlertsDao alertsDao = new AlertsMemory();
+            boolean memoryDao = Stream.ofNullable(args).flatMap(Stream::of).findFirst()
+                    .filter("-memory"::equals).isPresent();
+
+            AlertsDao alertsDao = memoryDao ? new AlertsMemory() : new AlertsSQL(DATABASE_URL);
             Discord discord = new Discord();
             setupDiscordEvents(discord, alertsDao);
             AlertsWatcher alertsWatcher = new AlertsWatcher(discord, alertsDao);

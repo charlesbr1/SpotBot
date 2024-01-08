@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static java.math.RoundingMode.FLOOR;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.*;
@@ -19,10 +20,10 @@ import static org.sbot.utils.Dates.formatUTC;
 
 public final class TrendAlert extends Alert {
 
-    private final BigDecimal fromPrice;
-    private final ZonedDateTime fromDate;
-    private final BigDecimal toPrice;
-    private final ZonedDateTime toDate;
+    public final BigDecimal fromPrice;
+    public final ZonedDateTime fromDate;
+    public final BigDecimal toPrice;
+    public final ZonedDateTime toDate;
 
     public TrendAlert(long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
                       @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate,
@@ -39,7 +40,7 @@ public final class TrendAlert extends Alert {
                       @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate,
                       @NotNull String message, @Nullable ZonedDateTime lastTrigger,
                       @NotNull BigDecimal margin, short repeat, short repeatDelay) {
-        super(id, userId, serverId, exchange, ticker1, ticker2, message, lastTrigger, margin, repeat, repeatDelay);
+        super(id, Type.Trend, userId, serverId, exchange, ticker1, ticker2, message, lastTrigger, margin, repeat, repeatDelay);
         if(fromDate.isAfter(toDate)) {
             throw new IllegalArgumentException("first date is after second date");
         }
@@ -49,19 +50,13 @@ public final class TrendAlert extends Alert {
         this.toDate = toDate;
     }
 
-    @NotNull
-    @Override
-    public String name() {
-        return "Trend";
-    }
-
     @Override
     @NotNull
-    public TrendAlert withId(long id) {
+    public TrendAlert withId(@NotNull Supplier<Long> idGenerator) {
         if(0 != this.id) {
             throw new IllegalArgumentException("Can't update the id of an already stored alert");
         }
-        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message, lastTrigger, margin, repeat, repeatDelay);
+        return new TrendAlert(idGenerator.get(), userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
