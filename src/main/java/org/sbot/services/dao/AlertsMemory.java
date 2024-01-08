@@ -59,11 +59,12 @@ public class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public void fetchAlertsByExchangeAndPair(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+    public void fetchAlertsByExchangeAndPairHavingRepeats(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
         LOGGER.debug("fetchAlertsByExchangeAndPair {} {}", exchange, pair);
         alertsConsumer.accept(alerts.values().stream()
                 .filter(alert -> alert.exchange.equals(exchange))
-                .filter(alert -> alert.getSlashPair().equals(pair)));
+                .filter(alert -> alert.getSlashPair().equals(pair))
+                .filter(alert -> alert.repeat > 0));
     }
 
     @Override

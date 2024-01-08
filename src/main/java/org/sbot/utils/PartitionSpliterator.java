@@ -15,8 +15,8 @@ import static java.util.Optional.ofNullable;
 
 /*
     Stream wrapper that allows to split a stream (or a collection) in sub lists of given size.
-    For instance split(10, stream).forEach(subList -> ...) will perform consecutive forEach calls
-    with a sub list of maximum 10 elements.
+    For instance PartitionSpliterator.split(10, stream).forEach(subList -> ...) will perform consecutive forEach calls
+    with sub lists of maximum 10 elements.
  */
 public final class PartitionSpliterator<T> implements Spliterator<List<T>> {
 

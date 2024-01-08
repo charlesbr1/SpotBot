@@ -5,7 +5,6 @@ import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.reflect.ConstructorMapper;
-import org.jdbi.v3.core.statement.PreparedBatch;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.services.dao.TransactionalCtx;
@@ -13,7 +12,6 @@ import org.sbot.services.dao.TransactionalCtx;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -58,17 +56,5 @@ public abstract class JDBIRepository implements TransactionalCtx {
                 transactionalContexts.remove(threadId);
             }
         }
-    }
-
-    protected void batch(@NotNull String sql, @NotNull Consumer<Consumer<Consumer<PreparedBatch>>> callback) {
-        LOGGER.debug("batch with sql {}", sql);
-        PreparedBatch[] batch = new PreparedBatch[1];
-        callback.accept(updater -> {
-            if(null == batch[0]) {
-                batch[0] = getHandle().prepareBatch(sql);
-            }
-            updater.accept(batch[0]);
-        });
-        Optional.ofNullable(batch[0]).ifPresent(PreparedBatch::execute);
     }
 }

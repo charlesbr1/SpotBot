@@ -21,7 +21,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -54,13 +53,12 @@ public final class AlertsWatcher {
     // this splits in tasks by exchanges and pairs, one rest call must be done by each task to retrieve the candlesticks
     public void checkAlerts() {
         try {
-            //TODO query filter to retrieve enabled alerts, repeat != 0 and lastTrigger < date
-            //TODO paginate
             alertDao.transactional(alertDao::getPairsByExchanges)
-                    .forEach((xchange, pairs) -> { // one task by exchange / pair
+                    .forEach((xchange, pairs) -> {  // one task by exchange / pair
                         Exchanges.get(xchange).ifPresent(exchange ->
-                                pairs.forEach(pair -> Thread.ofVirtual().name('[' + pair + ']')
-                                        .start(() -> getPricesAndCheckAlerts(exchange, pair))));
+                                pairs.forEach(pair ->
+                                        Thread.ofVirtual().name('[' + pair + "] SpotBot fetcher")
+                                                .start(() -> getPricesAndCheckAlerts(exchange, pair))));
                         LockSupport.parkNanos(Duration.ofSeconds(1).toNanos()); // no need to flood the exchanges
                     });
         } catch (RuntimeException e) {
@@ -77,16 +75,17 @@ public final class AlertsWatcher {
 
             List<MatchingAlert> matchingAlerts = new ArrayList<>();
             alertDao.transactional(() -> {
-                matchingAlerts.clear(); // SERIALIZABLE transaction can be replayed
-                alertDao.fetchAlertsByExchangeAndPair(exchange.name(), pair, alerts ->
+                matchingAlerts.clear(); // SERIALIZABLE transaction that can be replayed
+                //TODO query filter to retrieve enabled alerts :  and lastTrigger < date + paginante
+                alertDao.fetchAlertsByExchangeAndPairHavingRepeats(exchange.name(), pair, alerts ->
                         updateAlerts(alerts
                                 .map(alert -> alert.match(prices, null)) //TODO previous candlestick
-                                .peek(matchingAlerts::add)
-                                .filter(MatchingAlert::hasMatch)));
+                                .filter(MatchingAlert::hasMatch)
+                                .filter(matchingAlerts::add)));
             }, SERIALIZABLE);
 
             matchingAlerts.stream()
-                    .collect(groupingBy(matchingAlert -> matchingAlert.alert().serverId)).entrySet()
+                    .collect(groupingBy(matchingAlert -> matchingAlert.alert().serverId))
                     .forEach(this::sendAlerts);
 
         } catch(RuntimeException e) {
@@ -106,19 +105,16 @@ public final class AlertsWatcher {
                         })));
     }
 
-    private void sendAlerts(@NotNull Entry<Long, List<MatchingAlert>> matchingAlerts) {
-        long serverId = matchingAlerts.getKey();
-        var alerts = matchingAlerts.getValue();
+    private void sendAlerts(@NotNull Long serverId, @NotNull List<MatchingAlert> matchingAlerts) {
         try {
             if(PRIVATE_ALERT != serverId) {
-                sendServerAlerts(alerts, discord.getDiscordServer(serverId));
+                sendServerAlerts(matchingAlerts, discord.getDiscordServer(serverId));
             } else {
-                sendPrivateAlerts(alerts);
+                sendPrivateAlerts(matchingAlerts);
             }
         } catch (RuntimeException e) {
-            String alertIds = alerts.stream()
-                    .map(MatchingAlert::alert)
-                    .map(alert -> String.valueOf(alert.id))
+            String alertIds = matchingAlerts.stream()
+                    .map(matchingAlert -> String.valueOf(matchingAlert.alert().id))
                     .collect(Collectors.joining(","));
             LOGGER.error("Failed to send alerts [" + alertIds + "]", e);
         }
