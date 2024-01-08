@@ -9,6 +9,7 @@ import org.sbot.services.dao.AlertsDao;
 
 import java.util.List;
 
+import static org.sbot.alerts.Alert.isDisabled;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.ArgumentValidator.requirePositiveShort;
 
@@ -36,10 +37,10 @@ public final class RepeatCommand extends CommandAdapter {
     }
 
     private EmbedBuilder repeat(@NotNull CommandContext context, long alertId, short repeat) {
-        AnswerColorSmiley answer = updateAlert(alertId, context, alert -> {
+        AnswerColorSmiley answer = updateAlert(alertId, context, () -> {
             alertsDao.updateRepeat(alertId, repeat);
             return "Repeat of alert " + alertId + " updated to " + repeat +
-                    (repeat != 0 ? "" : " (disabled)");
+                    (isDisabled(repeat) ? " (disabled)" : "");
         });
         return embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer());
     }

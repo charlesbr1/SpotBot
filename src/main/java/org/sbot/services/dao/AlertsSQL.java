@@ -43,8 +43,9 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
                 "ON alerts (server_id)";
 
         String SELECT_BY_ID = "SELECT * FROM alerts WHERE id=:id";
+        String SELECT_USER_ID_AND_SERVER_ID_BY_ID = "SELECT user_id,server_id FROM alerts WHERE id=:id";
         String SELECT_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS = "SELECT * FROM alerts WHERE exchange=:exchange AND repeat > 0 AND ((:pair LIKE ticker1 || '%') OR (:pair LIKE '%' || ticker2))";
-        String SELECT_PAIRS_BY_EXCHANGES = "SELECT DISTINCT exchange, ticker1 || '/' || ticker2 AS pair FROM alerts";
+        String SELECT_PAIRS_BY_EXCHANGES = "SELECT DISTINCT exchange,ticker1||'/'||ticker2 AS pair FROM alerts";
         String COUNT_ALERTS_OF_USER = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId";
         String ALERTS_OF_USER = "SELECT * FROM alerts WHERE user_id=:userId LIMIT :limit OFFSET :offset";
         String COUNT_ALERTS_OF_USER_AND_TICKER = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId AND (ticker1=:ticker OR ticker2=:ticker) LIMIT :limit OFFSET :offset";
@@ -99,6 +100,17 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
         }
     }
 
+    @Override
+    public Optional<UserIdServerId> getUserIdAndServerId(long alertId) {
+        LOGGER.debug("getUserIdAndServerId {}", alertId);
+        try (var query = getHandle().createQuery(SQL.SELECT_USER_ID_AND_SERVER_ID_BY_ID)) {
+            return query.bind("id", alertId)
+                    .map((rs, ctx) -> new UserIdServerId(
+                                    rs.getLong("user_id"),
+                                    rs.getLong("server_id")))
+                    .findOne();
+        }
+    }
     @Override
     public void fetchAlertsByExchangeAndPairHavingRepeats(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
         LOGGER.debug("fetchAlertsByExchangeAndPair {} {}", exchange, pair);

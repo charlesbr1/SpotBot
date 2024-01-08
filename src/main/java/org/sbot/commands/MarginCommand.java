@@ -10,6 +10,7 @@ import org.sbot.services.dao.AlertsDao;
 import java.math.BigDecimal;
 import java.util.List;
 
+import static org.sbot.alerts.Alert.hasMargin;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class MarginCommand extends CommandAdapter {
@@ -37,10 +38,10 @@ public final class MarginCommand extends CommandAdapter {
     }
 
     private EmbedBuilder margin(@NotNull CommandContext context, @NotNull BigDecimal margin, long alertId) {
-        AnswerColorSmiley answer = updateAlert(alertId, context, alert -> {
+        AnswerColorSmiley answer = updateAlert(alertId, context, () -> {
             alertsDao.updateMargin(alertId, margin);
             return "Margin of alert " + alertId + " updated to " + margin +
-                    (alert.hasMargin() ? "" : " (disabled)");
+                    (hasMargin(margin) ? "" : " (disabled)");
         });
         return embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer());
     }

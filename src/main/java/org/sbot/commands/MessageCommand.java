@@ -37,10 +37,10 @@ public final class MessageCommand extends CommandAdapter {
     }
 
     private EmbedBuilder message(@NotNull CommandContext context, String message, long alertId) {
-        AnswerColorSmiley answer = updateAlert(alertId, context, alert -> {
+        AnswerColorSmiley answer = updateAlert(alertId, context, () -> {
             alertsDao.updateMessage(alertId, message);
             return "Message of alert " + alertId + " updated to *" + message + "*" +
-                    alertMessageTips(message, alert.id);
+                    alertMessageTips(message, alertId);
         });
         return embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer());
     }

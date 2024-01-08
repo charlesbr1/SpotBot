@@ -16,6 +16,9 @@ public interface AlertsDao extends TransactionalCtx {
 
     Optional<Alert> getAlert(long id);
 
+    record UserIdServerId(long userId, long serverId) {}
+    Optional<UserIdServerId> getUserIdAndServerId(long alertId);
+
     void fetchAlertsByExchangeAndPairHavingRepeats(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer);
 
     @NotNull

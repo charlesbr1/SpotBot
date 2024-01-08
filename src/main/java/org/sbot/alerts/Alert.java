@@ -72,15 +72,15 @@ public abstract class Alert {
         this.repeatDelay = requirePositiveShort(repeatDelay);
     }
 
-    public final boolean isPrivate() {
+    public static boolean isPrivate(long serverId) {
         return PRIVATE_ALERT == serverId;
     }
 
-    public final boolean isDisabled() {
+    public static boolean isDisabled(long repeat) {
         return 0 >= repeat;
     }
 
-    public final boolean hasMargin() {
+    public static boolean hasMargin(@NotNull BigDecimal margin) {
         return MARGIN_DISABLED.compareTo(margin) < 0;
     }
 
@@ -157,7 +157,7 @@ public abstract class Alert {
     @NotNull
     protected final String footer(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
         return "\n* margin / repeat / delay :\t" +
-                (hasMargin() ? margin.toPlainString() + ' ' + getSymbol(ticker2) : "disabled") + " / " + (isDisabled() ? "disabled" : repeat) + " / " + repeatDelay +
+                (hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(ticker2) : "disabled") + " / " + (isDisabled() ? "disabled" : repeat) + " / " + repeatDelay +
                 Optional.ofNullable(previousCandlestick).map(Candlestick::close)
                         .map(BigDecimal::stripTrailingZeros)
                         .map(BigDecimal::toPlainString)

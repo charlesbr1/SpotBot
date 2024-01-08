@@ -12,15 +12,15 @@ import org.sbot.alerts.Alert;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.discord.CommandListener;
 import org.sbot.services.dao.AlertsDao;
+import org.sbot.services.dao.AlertsDao.UserIdServerId;
 
 import java.awt.*;
 import java.util.List;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static net.dv8tion.jda.api.Permission.ADMINISTRATOR;
-import static org.sbot.alerts.Alert.PRIVATE_ALERT;
+import static org.sbot.alerts.Alert.*;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
 
@@ -60,31 +60,30 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected record AnswerColorSmiley(@NotNull String answer, @NotNull Color color, @NotNull String smiley) {}
 
-    protected AnswerColorSmiley updateAlert(long alertId, @NotNull CommandContext context,
-                                      @NotNull Function<Alert, String> updateHandler) {
-        return alertsDao.getAlert(alertId).map(alert -> {
-            if (hasAccess(alert, context)) {
-                return new AnswerColorSmiley(updateHandler.apply(alert), Color.green, ":+1:");
+    protected AnswerColorSmiley updateAlert(long alertId, @NotNull CommandContext context, @NotNull Supplier<String> updateHandler) {
+        return alertsDao.getUserIdAndServerId(alertId).map(userIdServerId -> {
+            if (hasAccess(userIdServerId, context)) {
+                return new AnswerColorSmiley(updateHandler.get(), Color.green, ":+1:");
             } else {
                 return new AnswerColorSmiley(context.user.getAsMention() + "\nYou are not allowed to update alert " + alertId +
-                        (PRIVATE_ALERT == context.getServerId() ? ", you are on a private channel." : ""), Color.black, ":clown:");
+                        (isPrivate(context.getServerId()) ? ", you are on a private channel." : ""), Color.black, ":clown:");
             }
         }).orElseGet(() -> new AnswerColorSmiley(context.user.getAsMention() + "\nAlert " + alertId + " not found", Color.red, ":ghost:"));
     }
 
     // the alert must belong to the user, or the user must be admin of the server and the alert belong to his server
-    protected static boolean hasAccess(@NotNull Alert alert, @NotNull CommandContext context) {
-        return alertBelongToUser(alert, context.user) || userIsAdminAndAlertOnHisServer(alert, context.member);
+    protected static boolean hasAccess(@NotNull UserIdServerId userIdServerId, @NotNull CommandContext context) {
+        return alertBelongToUser(context.user, userIdServerId.userId()) || userIsAdminAndAlertOnHisServer(context.member, userIdServerId.serverId());
     }
 
-    private static boolean alertBelongToUser(@NotNull Alert alert, @NotNull User user) {
-        return alert.userId == user.getIdLong();
+    private static boolean alertBelongToUser(@NotNull User user, long userId) {
+        return  user.getIdLong() == userId;
     }
 
-    private static boolean userIsAdminAndAlertOnHisServer(@NotNull Alert alert, @Nullable Member member) {
-        return !alert.isPrivate() && null != member &&
+    private static boolean userIsAdminAndAlertOnHisServer(@Nullable Member member, long serverId) {
+        return !isPrivate(serverId) && null != member &&
                 member.hasPermission(ADMINISTRATOR) &&
-                alert.serverId == member.getGuild().getIdLong();
+                member.getGuild().getIdLong() == serverId;
     }
 
     protected static boolean isPrivateChannel(@NotNull CommandContext context) {
@@ -99,7 +98,7 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected static EmbedBuilder toMessage(@NotNull Alert alert) {
         return embedBuilder('[' + alert.getSlashPair() + "] " + alert.message,
-                alert.isDisabled() ? Color.black : (alert.isPrivate() ? Color.blue : Color.green),
+                isDisabled(alert.repeat) ? Color.black : (isPrivate(alert.serverId) ? Color.blue : Color.green),
                 alert.descriptionMessage());
     }
 

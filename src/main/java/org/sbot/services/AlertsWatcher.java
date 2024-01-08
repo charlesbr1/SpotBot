@@ -53,7 +53,7 @@ public final class AlertsWatcher {
     // this splits in tasks by exchanges and pairs, one rest call must be done by each task to retrieve the candlesticks
     public void checkAlerts() {
         try {
-            alertDao.transactional(alertDao::getPairsByExchanges)
+            alertDao.transactional(alertDao::getPairsByExchanges) //TODO filter enabled alerts
                     .forEach((xchange, pairs) -> {  // one task by exchange / pair
                         Exchanges.get(xchange).ifPresent(exchange ->
                                 pairs.forEach(pair ->

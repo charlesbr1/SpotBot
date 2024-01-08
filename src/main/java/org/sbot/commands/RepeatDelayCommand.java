@@ -37,7 +37,7 @@ public final class RepeatDelayCommand extends CommandAdapter {
     }
 
     private EmbedBuilder repeatDelay(@NotNull CommandContext context, long alertId, short repeatDelay) {
-        AnswerColorSmiley answer = updateAlert(alertId, context, alert -> {
+        AnswerColorSmiley answer = updateAlert(alertId, context, () -> {
             alertsDao.updateRepeatDelay(alertId, 0 != repeatDelay ? repeatDelay : DEFAULT_REPEAT_DELAY_HOURS);
             return "Repeat delay of alert " + alertId + " updated to " +
                     (0 != repeatDelay ? repeatDelay : "default " + DEFAULT_REPEAT_DELAY_HOURS) +
