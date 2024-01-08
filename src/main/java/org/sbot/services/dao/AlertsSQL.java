@@ -2,6 +2,7 @@ package org.sbot.services.dao;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jdbi.v3.core.generic.GenericType;
 import org.jdbi.v3.core.statement.PreparedBatch;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -44,7 +45,8 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
 
         String SELECT_BY_ID = "SELECT * FROM alerts WHERE id=:id";
         String SELECT_USER_ID_AND_SERVER_ID_BY_ID = "SELECT user_id,server_id FROM alerts WHERE id=:id";
-        String SELECT_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS = "SELECT * FROM alerts WHERE exchange=:exchange AND repeat > 0 AND ((:pair LIKE ticker1 || '%') OR (:pair LIKE '%' || ticker2))";
+        String SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS = "SELECT id,user_id,server_id,exchange,ticker1,ticker2,''AS message,last_trigger,margin,repeat,repeat_delay FROM alerts WHERE exchange=:exchange AND repeat > 0 AND ((:pair LIKE ticker1 || '%') OR (:pair LIKE '%' || ticker2))";
+        String SELECT_ALERT_ID_AND_MESSAGE_BY_ID_IN = "SELECT id,message FROM alerts WHERE id IN (:ids)";
         String SELECT_PAIRS_BY_EXCHANGES = "SELECT DISTINCT exchange,ticker1||'/'||ticker2 AS pair FROM alerts";
         String COUNT_ALERTS_OF_USER = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId";
         String ALERTS_OF_USER = "SELECT * FROM alerts WHERE user_id=:userId LIMIT :limit OFFSET :offset";
@@ -112,13 +114,25 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
         }
     }
     @Override
-    public void fetchAlertsByExchangeAndPairHavingRepeats(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
-        LOGGER.debug("fetchAlertsByExchangeAndPair {} {}", exchange, pair);
-        try (var query = getHandle().createQuery(SQL.SELECT_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS)) {
+    public void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats {} {}", exchange, pair);
+        try (var query = getHandle().createQuery(SQL.SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS)) {
             alertsConsumer.accept(query
                     .bind("exchange", exchange)
                     .bind("pair", pair)
                     .mapTo(Alert.class).stream());
+        }
+    }
+
+    @Override
+    @NotNull
+    public Map<Long, String> getAlertMessages(@NotNull long[] alertIds) {
+        LOGGER.debug("getAlertMessages {}", alertIds);
+        try (var query = getHandle().createQuery(SQL.SELECT_ALERT_ID_AND_MESSAGE_BY_ID_IN)) {
+            return query.bind("ids", alertIds)
+                    .setMapKeyColumn("id")
+                    .setMapValueColumn("message")
+                    .collectInto(new GenericType<>() {});
         }
     }
 

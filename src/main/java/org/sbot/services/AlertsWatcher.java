@@ -21,6 +21,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -36,6 +38,7 @@ import static org.sbot.alerts.MatchingAlert.MatchingStatus.MARGIN;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.discord.Discord.spotBotRole;
+import static org.sbot.utils.PartitionSpliterator.split;
 
 public final class AlertsWatcher {
 
@@ -77,14 +80,24 @@ public final class AlertsWatcher {
             alertDao.transactional(() -> {
                 matchingAlerts.clear(); // SERIALIZABLE transaction that can be replayed
                 //TODO query filter to retrieve enabled alerts :  and lastTrigger < date + paginante
-                alertDao.fetchAlertsByExchangeAndPairHavingRepeats(exchange.name(), pair, alerts ->
+                alertDao.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats(exchange.name(), pair, alerts ->
                         updateAlerts(alerts
                                 .map(alert -> alert.match(prices, null)) //TODO previous candlestick
                                 .filter(MatchingAlert::hasMatch)
                                 .filter(matchingAlerts::add)));
             }, SERIALIZABLE);
 
+            // matching alerts has no message, they are retrieved in a second time
+            Map<Long, String> alertMessages = split(1000, matchingAlerts.stream()) // split in calls to SQL IN clause
+                    .map(alerts ->
+                            alertDao.transactional(() -> alertDao.getAlertMessages(alerts.stream().mapToLong(matchingAlert -> matchingAlert.alert().id).toArray())))
+                    .flatMap(map -> map.entrySet().stream())
+                    .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+
             matchingAlerts.stream()
+                    .map(matchingAlert -> new MatchingAlert(matchingAlert.alert() // replace the alerts by ones with their messages
+                            .withMessage(alertMessages.getOrDefault(matchingAlert.alert().id, matchingAlert.alert().message)),
+                            matchingAlert.status(), matchingAlert.matchingCandlestick()))
                     .collect(groupingBy(matchingAlert -> matchingAlert.alert().serverId))
                     .forEach(this::sendAlerts);
 

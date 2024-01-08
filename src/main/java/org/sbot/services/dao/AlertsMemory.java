@@ -67,12 +67,22 @@ public class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public void fetchAlertsByExchangeAndPairHavingRepeats(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
-        LOGGER.debug("fetchAlertsByExchangeAndPair {} {}", exchange, pair);
+    public void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats {} {}", exchange, pair);
         alertsConsumer.accept(alerts.values().stream()
                 .filter(alert -> alert.exchange.equals(exchange))
                 .filter(alert -> alert.getSlashPair().equals(pair))
-                .filter(alert -> !isDisabled(alert.repeat)));
+                .filter(alert -> !isDisabled(alert.repeat))
+                .map(alert -> alert.withMessage(""))); // erase the message to simulate the SQL layer
+    }
+
+    @Override
+    @NotNull
+    public Map<Long, String> getAlertMessages(@NotNull long[] alertIds) {
+        LOGGER.debug("getAlertMessages {}", alertIds);
+        var alertIdSet = Arrays.stream(alertIds).boxed().collect(toSet());
+        return alerts.values().stream().filter(alert -> alertIdSet.contains(alert.id))
+                .collect(toMap(Alert::getId, Alert::getMessage));
     }
 
     @Override

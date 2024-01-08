@@ -26,7 +26,8 @@ public abstract class Alert {
     public static Alert of(@ColumnName("user_id") long userId, @ColumnName("server_id") long serverId,
                            @ColumnName("exchange") @NotNull String exchange,
                            @ColumnName("ticker1") @NotNull String ticker1, @ColumnName("ticker1") @NotNull String ticker2,
-                           @ColumnName("message") @NotNull String message, @ColumnName("last_trigger") @Nullable ZonedDateTime lastTrigger,
+                           @ColumnName("message") @Nullable String message, // message can be loaded after the alert
+                           @ColumnName("last_trigger") @Nullable ZonedDateTime lastTrigger,
                            @ColumnName("margin") @NotNull BigDecimal margin,
                            @ColumnName("repeat") short repeat, @ColumnName("repeatDelay") short repeatDelay) {
         throw new UnsupportedOperationException("TODO ooooooooooooo");
@@ -93,14 +94,20 @@ public abstract class Alert {
         return userId;
     }
 
+    @NotNull
     public String getExchange() {
         return exchange;
     }
 
+    @NotNull
     public final String getSlashPair() {
         return ticker1 + '/' + ticker2;
     }
 
+    @NotNull
+    public String getMessage() {
+        return message;
+    }
 
     @NotNull
     public abstract String name();
@@ -151,13 +158,13 @@ public abstract class Alert {
                 (matchingStatus.noTrigger() ? "" : (matchingStatus.isMargin() ? " reached **margin** threshold. Set a new one using :\n\n" +
                         SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + "*!margin " + id + " 'amount in " + getSymbol(ticker2) + "'*" :
                         " was **tested !**") +  "\n\n:rocket: Check out the price !!") +
-                (matchingStatus.noTrigger() && isDisabled() ? "\n\n**DISABLED**\n" : "");
+                (matchingStatus.noTrigger() && isDisabled(repeat) ? "\n\n**DISABLED**\n" : "");
     }
 
     @NotNull
     protected final String footer(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
         return "\n* margin / repeat / delay :\t" +
-                (hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(ticker2) : "disabled") + " / " + (isDisabled() ? "disabled" : repeat) + " / " + repeatDelay +
+                (hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(ticker2) : "disabled") + " / " + (isDisabled(repeat) ? "disabled" : repeat) + " / " + repeatDelay +
                 Optional.ofNullable(previousCandlestick).map(Candlestick::close)
                         .map(BigDecimal::stripTrailingZeros)
                         .map(BigDecimal::toPlainString)
