@@ -17,7 +17,7 @@ import static org.sbot.utils.ArgumentValidator.requireAlertMessageLength;
 public final class RemainderCommand extends CommandAdapter {
 
     public static final String NAME = "remainder";
-    static final String DESCRIPTION = "set a remainder alert to be triggered on provided date";
+    static final String DESCRIPTION = "set a remainder related to a pair, to be triggered on provided date, like a future airdrop event";
 
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.STRING, "date", "the date to trigger the remainder", true),

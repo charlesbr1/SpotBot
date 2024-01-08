@@ -20,6 +20,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -212,149 +213,122 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
     @Override
     public long countAlertsOfUser(long userId) {
         LOGGER.debug("countAlertsOfUser {}", userId);
-        try (var query = getHandle().createQuery(SQL.COUNT_ALERTS_OF_USER)) {
-            return query.bind("userId", userId)
-                    .mapTo(Long.class)
-                    .one();
-        }
+        return queryOneLong(SQL.COUNT_ALERTS_OF_USER,
+                Map.of("userId", userId));
     }
 
     @Override
     public long countAlertsOfUserAndTickers(long userId, @NotNull String ticker, @Nullable String ticker2) {
         LOGGER.debug("countAlertsOfUserAndTickers {} {} {}", userId, ticker, ticker2);
-        try (var query = (null != ticker2 ? getHandle().createQuery(SQL.COUNT_ALERTS_OF_USER_AND_PAIR)
-                                                .bind("ticker2", ticker2) :
-                                getHandle().createQuery(SQL.COUNT_ALERTS_OF_USER_AND_TICKER))) {
-            return query.bind("ticker", ticker)
-                    .bind("userId", userId)
-                    .mapTo(Long.class)
-                    .one();
+        var parameters = new HashMap<>(Map.of("ticker", ticker, "userId", userId));
+        var sql = SQL.COUNT_ALERTS_OF_USER_AND_TICKER;
+        if(null != ticker2) {
+            parameters.put("ticker2", ticker2);
+            sql = SQL.COUNT_ALERTS_OF_USER_AND_PAIR;
         }
+        return queryOneLong(sql, parameters);
     }
 
     @Override
     public long countAlertsOfServer(long serverId) {
         LOGGER.debug("countAlertsOfServer {}", serverId);
-        try (var query = getHandle().createQuery(SQL.COUNT_ALERTS_OF_SERVER)) {
-            return query.bind("serverId", serverId)
-                    .mapTo(Long.class)
-                    .one();
-        }
+        return queryOneLong(SQL.COUNT_ALERTS_OF_SERVER,
+                Map.of("serverId", serverId));
     }
 
     @Override
     public long countAlertsOfServerAndUser(long serverId, long userId) {
         LOGGER.debug("countAlertsOfServerAndUser {} {}", serverId, userId);
-        try (var query = getHandle().createQuery(SQL.COUNT_ALERTS_OF_SERVER_AND_USER)) {
-            return query.bind("serverId", serverId)
-                    .bind("userId", userId)
-                    .mapTo(Long.class)
-                    .one();
-        }
+        return queryOneLong(SQL.COUNT_ALERTS_OF_SERVER_AND_USER,
+                Map.of("serverId", serverId, "userId", userId));
     }
 
     @Override
     public long countAlertsOfServerAndTickers(long serverId, @NotNull String ticker, @Nullable String ticker2) {
         LOGGER.debug("countAlertsOfServerAndTickers {} {} {}", serverId, ticker, ticker2);
-        try (var query = (null != ticker2 ? getHandle().createQuery(SQL.COUNT_ALERTS_OF_SERVER_AND_PAIR)
-                                                .bind("ticker2", ticker2) :
-                                getHandle().createQuery(SQL.COUNT_ALERTS_OF_SERVER_AND_TICKER))) {
-            return query.bind("ticker", ticker)
-                    .bind("serverId", serverId)
-                    .mapTo(Long.class)
-                    .one();
+        var parameters = new HashMap<>(Map.of("ticker", ticker, "serverId", serverId));
+        var sql = SQL.COUNT_ALERTS_OF_SERVER_AND_TICKER;
+        if(null != ticker2) {
+            parameters.put("ticker2", ticker2);
+            sql = SQL.COUNT_ALERTS_OF_SERVER_AND_PAIR;
         }
+        return queryOneLong(sql, parameters);
     }
 
     @Override
     public long countAlertsOfServerAndUserAndTickers(long serverId, long userId, @NotNull String ticker, @Nullable String ticker2) {
         LOGGER.debug("countAlertsOfServerAndUserAndTickers {} {} {} {}", serverId, userId, ticker, ticker2);
-        try (var query = (null != ticker2 ? getHandle().createQuery(SQL.COUNT_ALERTS_OF_SERVER_AND_USER_AND_PAIR)
-                                                .bind("ticker2", ticker2) :
-                                getHandle().createQuery(SQL.COUNT_ALERTS_OF_SERVER_AND_USER_AND_TICKER))) {
-            return query.bind("ticker", ticker)
-                    .bind("serverId", serverId)
-                    .bind("userId", userId)
-                    .mapTo(Long.class)
-                    .one();
+        var parameters = new HashMap<>(Map.of("ticker", ticker, "serverId", serverId, "userId", userId));
+        var sql = SQL.COUNT_ALERTS_OF_SERVER_AND_USER_AND_TICKER;
+        if(null != ticker2) {
+            parameters.put("ticker2", ticker2);
+            sql = SQL.COUNT_ALERTS_OF_SERVER_AND_USER_AND_PAIR;
         }
+        return queryOneLong(sql, parameters);
     }
 
     @Override
     @NotNull
     public List<Alert> getAlertsOfUser(long userId, long offset, long limit) {
         LOGGER.debug("getAlertsOfUser {} {} {}", userId, offset, limit);
-        try (var query = getHandle().createQuery(SQL.ALERTS_OF_USER)) {
-            return query.bind("userId", userId)
-                    .bind("offset", offset)
-                    .bind("limit", limit).mapTo(Alert.class).list();
-        }
+        return queryAlerts(SQL.ALERTS_OF_USER,
+                Map.of("userId", userId, "offset", offset, "limit", limit));
     }
 
     @Override
     @NotNull
     public List<Alert> getAlertsOfUserAndTickers(long userId, long offset, long limit, @NotNull String ticker, @Nullable String ticker2) {
         LOGGER.debug("getAlertsOfUserAndTickers {} {} {} {} {}", userId, offset, limit, ticker, ticker2);
-        try (var query = (null != ticker2 ? getHandle().createQuery(SQL.ALERTS_OF_USER_AND_PAIR)
-                                            .bind("ticker2", ticker2) :
-                                getHandle().createQuery(SQL.ALERTS_OF_USER_AND_TICKER))) {
-            return query.bind("ticker", ticker)
-                    .bind("userId", userId)
-                    .bind("offset", offset)
-                    .bind("limit", limit).mapTo(Alert.class).list();
+        var parameters = new HashMap<>(Map.of("ticker", ticker, "userId", userId, "offset", offset, "limit", limit));
+        var sql = SQL.ALERTS_OF_USER_AND_TICKER;
+        if(null != ticker2) {
+            parameters.put("ticker2", ticker2);
+            sql = SQL.ALERTS_OF_USER_AND_PAIR;
         }
+        return queryAlerts(sql, parameters);
     }
 
     @Override
     @NotNull
     public List<Alert> getAlertsOfServer(long serverId, long offset, long limit) {
         LOGGER.debug("getAlertsOfServer {} {} {}", serverId, offset, limit);
-        try (var query = getHandle().createQuery(SQL.ALERTS_OF_SERVER)) {
-            return query.bind("serverId", serverId)
-                    .bind("offset", offset)
-                    .bind("limit", limit).mapTo(Alert.class).list();
-        }
+        return queryAlerts(SQL.ALERTS_OF_SERVER,
+                Map.of("serverId", serverId, "offset", offset, "limit", limit));
     }
 
     @Override
     @NotNull
     public List<Alert> getAlertsOfServerAndUser(long serverId, long userId, long offset, long limit) {
         LOGGER.debug("getAlertsOfServerAndUser {} {} {} {}", serverId, userId, offset, limit);
-        try (var query = getHandle().createQuery(SQL.ALERTS_OF_SERVER_AND_USER)) {
-            return query.bind("serverId", serverId)
-                    .bind("userId", userId)
-                    .bind("offset", offset)
-                    .bind("limit", limit).mapTo(Alert.class).list();
-        }
+        return queryAlerts(SQL.ALERTS_OF_SERVER_AND_USER,
+                Map.of("serverId", serverId, "userId", userId, "offset", offset, "limit", limit));
+
     }
 
     @Override
     @NotNull
     public List<Alert> getAlertsOfServerAndTickers(long serverId, long offset, long limit, @NotNull String ticker, @Nullable String ticker2) {
         LOGGER.debug("getAlertsOfServerAndTickers {} {} {} {} {}", serverId, offset, limit, ticker, ticker2);
-        try (var query = (null != ticker2 ? getHandle().createQuery(SQL.ALERTS_OF_SERVER_AND_PAIR)
-                                            .bind("ticker2", ticker2) :
-                               getHandle().createQuery(SQL.ALERTS_OF_SERVER_AND_TICKER))) {
-            return query.bind("ticker", ticker)
-                    .bind("serverId", serverId)
-                    .bind("offset", offset)
-                    .bind("limit", limit).mapTo(Alert.class).list();
+        var parameters = new HashMap<>(Map.of("ticker", ticker, "serverId", serverId, "offset", offset, "limit", limit));
+        var sql = SQL.ALERTS_OF_SERVER_AND_TICKER;
+        if(null != ticker2) {
+            parameters.put("ticker2", ticker2);
+            sql = SQL.ALERTS_OF_SERVER_AND_PAIR;
         }
+        return queryAlerts(sql, parameters);
     }
 
     @Override
     @NotNull
     public List<Alert> getAlertsOfServerAndUserAndTickers(long serverId, long userId, long offset, long limit, @NotNull String ticker, @Nullable String ticker2) {
         LOGGER.debug("getAlertsOfServerAndUserAndTickers {} {} {} {} {} {}", serverId, userId, offset, limit, ticker, ticker2);
-        try (var query = (null != ticker2 ? getHandle().createQuery(SQL.ALERTS_OF_SERVER_AND_USER_AND_PAIR)
-                                            .bind("ticker2", ticker2) :
-                               getHandle().createQuery(SQL.ALERTS_OF_SERVER_AND_USER_AND_TICKER))) {
-            return query.bind("ticker", ticker)
-                    .bind("serverId", serverId)
-                    .bind("userId", userId)
-                    .bind("offset", offset)
-                    .bind("limit", limit).mapTo(Alert.class).list();
+        var parameters = new HashMap<>(Map.of("ticker", ticker, "serverId", serverId, "userId", userId, "offset", offset, "limit", limit));
+        var sql = SQL.ALERTS_OF_SERVER_AND_USER_AND_TICKER;
+        if(null != ticker2) {
+            parameters.put("ticker2", ticker2);
+            sql = SQL.ALERTS_OF_SERVER_AND_USER_AND_PAIR;
         }
+        return queryAlerts(sql, parameters);
     }
 
     @Override
@@ -362,7 +336,7 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
         alert = alert.withId(idGenerator::getAndIncrement);
         LOGGER.debug("addAlert {}, with new id {}", alert, alert.id);
         try (var query = getHandle().createUpdate(SQL.INSERT_ALERT)) {
-            query.bindFields(alert);
+            query.bindFields(alert); // this bind common public fields from class Alert
             if(alert instanceof RangeAlert) {
                 query.bind("number1", ((RangeAlert) alert).low).bind("number2", ((RangeAlert) alert).high);
                 query.bind("instant1", (Long) null).bind("instant2", (Long) null); // no instant fields in RangeAlert
@@ -378,49 +352,35 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
     @Override
     public void updateMessage(long alertId, @NotNull String message) {
         LOGGER.debug("updateMessage {} {}", alertId, message);
-        try (var query = getHandle().createUpdate(SQL.UPDATE_ALERTS_MESSAGE)) {
-            query.bind("id", alertId)
-                    .bind("message", message)
-                    .execute();
-        }
+        update(SQL.UPDATE_ALERTS_MESSAGE,
+                Map.of("id", alertId, "message", message));
     }
 
     @Override
     public void updateMargin(long alertId, @NotNull BigDecimal margin) {
         LOGGER.debug("updateMargin {} {}", alertId, margin);
-        try (var query = getHandle().createUpdate(SQL.UPDATE_ALERTS_MARGIN)) {
-            query.bind("id", alertId)
-                    .bind("margin", margin)
-                    .execute();
-        }
+        update(SQL.UPDATE_ALERTS_MARGIN,
+                Map.of("id", alertId, "margin", margin));
     }
 
     @Override
     public void updateRepeat(long alertId, short repeat) {
         LOGGER.debug("updateRepeat {} {}", alertId, repeat);
-        try (var query = getHandle().createUpdate(SQL.UPDATE_ALERTS_REPEAT)) {
-            query.bind("id", alertId)
-                    .bind("repeat", repeat)
-                    .execute();
-        }
+        update(SQL.UPDATE_ALERTS_REPEAT,
+                Map.of("id", alertId, "repeat", repeat));
     }
 
     @Override
     public void updateRepeatDelay(long alertId, short repeatDelay) {
         LOGGER.debug("updateRepeatDelay {} {}", alertId, repeatDelay);
-        try (var query = getHandle().createUpdate(SQL.UPDATE_ALERTS_REPEAT_DELAY)) {
-            query.bind("id", alertId)
-                    .bind("repeatDelay", repeatDelay)
-                    .execute();
-        }
+        update(SQL.UPDATE_ALERTS_REPEAT_DELAY,
+                Map.of("id", alertId, "repeatDelay", repeatDelay));
     }
 
     @Override
     public void deleteAlert(long alertId) {
         LOGGER.debug("deleteAlert {}", alertId);
-        try (var query = getHandle().createUpdate(SQL.DELETE_BY_ID)) {
-            query.bind("id", alertId).execute();
-        }
+        update(SQL.DELETE_BY_ID, Map.of("id", alertId));
     }
 
     @Override

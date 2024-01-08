@@ -7,8 +7,10 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
+import org.sbot.alerts.Alert;
 import org.sbot.services.dao.TransactionalCtx;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -55,6 +57,25 @@ public abstract class JDBIRepository implements TransactionalCtx {
             } finally {
                 transactionalContexts.remove(threadId);
             }
+        }
+    }
+
+    protected void update(@NotNull String sql, @NotNull Map<String, ?> parameters) {
+        try (var query = getHandle().createUpdate(sql)) {
+            query.bindMap(parameters).execute();
+        }
+    }
+
+    @NotNull
+    protected List<Alert> queryAlerts(@NotNull String sql, @NotNull Map<String, ?> parameters) {
+        try (var query = getHandle().createQuery(sql)) {
+            return query.bindMap(parameters).mapTo(Alert.class).list();
+        }
+    }
+
+    protected long queryOneLong(@NotNull String sql, @NotNull Map<String, ?> parameters) {
+        try (var query = getHandle().createQuery(sql)) {
+            return query.bindMap(parameters).mapTo(Long.class).one();
         }
     }
 }

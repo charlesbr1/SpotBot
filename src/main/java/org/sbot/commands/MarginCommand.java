@@ -38,7 +38,7 @@ public final class MarginCommand extends CommandAdapter {
     }
 
     private EmbedBuilder margin(@NotNull CommandContext context, @NotNull BigDecimal margin, long alertId) {
-        AnswerColorSmiley answer = updateAlert(alertId, context, () -> {
+        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, () -> {
             alertsDao.updateMargin(alertId, margin);
             return "Margin of alert " + alertId + " updated to " + margin +
                     (hasMargin(margin) ? "" : " (disabled)");

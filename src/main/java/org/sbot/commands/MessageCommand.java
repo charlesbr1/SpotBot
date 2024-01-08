@@ -37,7 +37,7 @@ public final class MessageCommand extends CommandAdapter {
     }
 
     private EmbedBuilder message(@NotNull CommandContext context, String message, long alertId) {
-        AnswerColorSmiley answer = updateAlert(alertId, context, () -> {
+        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, () -> {
             alertsDao.updateMessage(alertId, message);
             return "Message of alert " + alertId + " updated to *" + message + "*" +
                     alertMessageTips(message, alertId);

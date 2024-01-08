@@ -37,7 +37,7 @@ public final class RepeatCommand extends CommandAdapter {
     }
 
     private EmbedBuilder repeat(@NotNull CommandContext context, long alertId, short repeat) {
-        AnswerColorSmiley answer = updateAlert(alertId, context, () -> {
+        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, () -> {
             alertsDao.updateRepeat(alertId, repeat);
             return "Repeat of alert " + alertId + " updated to " + repeat +
                     (isDisabled(repeat) ? " (disabled)" : "");

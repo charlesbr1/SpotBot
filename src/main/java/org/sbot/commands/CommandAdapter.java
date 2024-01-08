@@ -60,7 +60,7 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected record AnswerColorSmiley(@NotNull String answer, @NotNull Color color, @NotNull String smiley) {}
 
-    protected AnswerColorSmiley updateAlert(long alertId, @NotNull CommandContext context, @NotNull Supplier<String> updateHandler) {
+    protected AnswerColorSmiley securedAlertUpdate(long alertId, @NotNull CommandContext context, @NotNull Supplier<String> updateHandler) {
         return alertsDao.getUserIdAndServerId(alertId).map(userIdServerId -> {
             if (hasAccess(userIdServerId, context)) {
                 return new AnswerColorSmiley(updateHandler.get(), Color.green, ":+1:");
