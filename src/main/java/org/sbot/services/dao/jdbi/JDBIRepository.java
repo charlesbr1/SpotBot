@@ -7,9 +7,13 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
 import org.sbot.services.dao.TransactionalCtx;
 
+import java.sql.Timestamp;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -58,6 +62,12 @@ public abstract class JDBIRepository implements TransactionalCtx {
                 transactionalContexts.remove(threadId);
             }
         }
+    }
+
+    @Nullable
+    protected static ZonedDateTime parseDateTime(@Nullable Timestamp timestamp) {
+        return Optional.ofNullable(timestamp)
+                .map(dateTime -> dateTime.toLocalDateTime().atZone(ZoneOffset.UTC)).orElse(null);
     }
 
     protected void update(@NotNull String sql, @NotNull Map<String, ?> parameters) {

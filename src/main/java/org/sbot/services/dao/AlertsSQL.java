@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.generic.GenericType;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.PreparedBatch;
+import org.jdbi.v3.core.statement.SqlStatement;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -17,8 +18,6 @@ import org.sbot.services.dao.jdbi.JDBIRepository;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -28,8 +27,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
+import static org.sbot.services.dao.AlertsSQL.AlertMapper.bindFields;
 
 public class AlertsSQL extends JDBIRepository implements AlertsDao {
 
@@ -37,29 +38,29 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
 
 
     private interface SQL {
-        String CREATE_TABLE = "CREATE TABLE IF NOT EXISTS alerts (" +
-                "id INTEGER PRIMARY KEY," +
-                "type TEXT NOT NULL," +
-                "user_id INTEGER NOT NULL," +
-                "server_id INTEGER NOT NULL," +
-                "exchange TEXT NOT NULL," +
-                "ticker1 TEXT NOT NULL," +
-                "ticker2 TEXT NOT NULL," +
-                "message TEXT NOT NULL," +
-                "last_trigger INTEGER," +
-                "margin REAL NOT NULL," +
-                "repeat INTEGER NOT NULL," +
-                "repeat_delay INTEGER NOT NULL," +
-                "number1 REAL," +
-                "number2 REAL," +
-                "instant1 INTEGER," +
-                "instant2 INTEGER)";
+        String CREATE_TABLE = """
+                CREATE TABLE IF NOT EXISTS alerts (
+                id INTEGER PRIMARY KEY,
+                type TEXT NOT NULL,
+                user_id INTEGER NOT NULL,
+                server_id INTEGER NOT NULL,
+                exchange TEXT NOT NULL,
+                ticker1 TEXT NOT NULL,
+                ticker2 TEXT NOT NULL,
+                message TEXT NOT NULL,
+                last_trigger INTEGER,
+                margin TEXT NOT NULL,
+                repeat INTEGER NOT NULL,
+                repeat_delay INTEGER NOT NULL,
+                number1 TEXT,
+                number2 TEXT,
+                instant1 INTEGER,
+                instant2 INTEGER) STRICT
+                """;
 
-        String CREATE_USER_ID_INDEX = "CREATE INDEX IF NOT EXISTS user_id_index " +
-                "ON alerts (user_id)";
+        String CREATE_USER_ID_INDEX = "CREATE INDEX IF NOT EXISTS user_id_index ON alerts (user_id)";
 
-        String CREATE_SERVER_ID_INDEX = "CREATE INDEX IF NOT EXISTS server_id_index " +
-                "ON alerts (server_id)";
+        String CREATE_SERVER_ID_INDEX = "CREATE INDEX IF NOT EXISTS server_id_index ON alerts (server_id)";
 
         String SELECT_MAX_ID = "SELECT MAX(id) FROM alerts";
         String SELECT_BY_ID = "SELECT * FROM alerts WHERE id=:id";
@@ -95,14 +96,9 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
         String UPDATE_ALERTS_LAST_TRIGGER_MARGIN_REPEAT = "UPDATE alerts SET last_trigger=:lastTrigger,margin=:margin,repeat=:repeat WHERE id=:id";
     }
 
-    private static final class AlertMapper implements RowMapper<Alert> {
+    static final class AlertMapper implements RowMapper<Alert> {
 
-        @Nullable
-        private static ZonedDateTime parseDateTime(@Nullable Timestamp timestamp) {
-            return Optional.ofNullable(timestamp)
-                    .map(dateTime -> dateTime.toLocalDateTime().atZone(ZoneOffset.UTC)).orElse(null);
-        }
-        @Override
+        @Override // from SQL to Alert
         public Alert map(ResultSet rs, StatementContext ctx) throws SQLException {
             Type type = Type.valueOf(rs.getString("type"));
             long id = rs.getLong("id");
@@ -123,9 +119,24 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
             ZonedDateTime instant2 = parseDateTime(rs.getTimestamp("instant2"));
 
             return switch (type) {
-                case Range -> new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, number1, number2, message, lastTrigger, margin, repeat, repeatDelay);
-                case Trend -> new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, number1, requireNonNull(instant1), number2, requireNonNull(instant2), message, lastTrigger, margin, repeat, repeatDelay);
+                case range -> new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, number1, number2, message, lastTrigger, margin, repeat, repeatDelay);
+                case trend -> new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, number1, requireNonNull(instant1), number2, requireNonNull(instant2), message, lastTrigger, margin, repeat, repeatDelay);
             };
+        }
+
+        // from Alert to SQL
+        static void bindFields(@NotNull Alert alert, @NotNull SqlStatement<?> query) {
+            query.bindFields(alert); // this bind common public fields from class Alert
+            Map<String, ?> parameters = emptyMap();
+            if(alert instanceof RangeAlert) {
+                parameters = new HashMap<>(Map.of("number1", ((RangeAlert) alert).low, "number2", ((RangeAlert) alert).high));
+                parameters.put("instant1", null); // no instant fields in RangeAlert (Map.of(..) does not accept null values...)
+                parameters.put("instant2", null);
+            } else if(alert instanceof TrendAlert) {
+                parameters = Map.of("number1", ((TrendAlert) alert).fromPrice, "number2", ((TrendAlert) alert).toPrice,
+                        "instant1", ((TrendAlert) alert).fromDate, "instant2", ((TrendAlert) alert).toDate);
+            }
+            query.bindMap(parameters); // this bind numbers and instants fields
         }
     }
 
@@ -336,14 +347,7 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
         alert = alert.withId(idGenerator::getAndIncrement);
         LOGGER.debug("addAlert {}, with new id {}", alert, alert.id);
         try (var query = getHandle().createUpdate(SQL.INSERT_ALERT)) {
-            query.bindFields(alert); // this bind common public fields from class Alert
-            if(alert instanceof RangeAlert) {
-                query.bind("number1", ((RangeAlert) alert).low).bind("number2", ((RangeAlert) alert).high);
-                query.bind("instant1", (Long) null).bind("instant2", (Long) null); // no instant fields in RangeAlert
-            } else if(alert instanceof TrendAlert) {
-                query.bind("number1", ((TrendAlert) alert).fromPrice).bind("number2", ((TrendAlert) alert).toPrice);
-                query.bind("instant1", ((TrendAlert) alert).fromDate).bind("instant2", ((TrendAlert) alert).toDate);
-            }
+            bindFields(alert, query);
             query.execute();
             return alert.id;
         }

@@ -34,7 +34,7 @@ public final class RangeAlert extends Alert {
                        @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message,
                        @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin,
                        short repeat, short repeatDelay) {
-        super(id, Type.Range, userId, serverId, exchange, ticker1, ticker2, message, lastTrigger, margin, repeat, repeatDelay);
+        super(id, Type.range, userId, serverId, exchange, ticker1, ticker2, message, lastTrigger, margin, repeat, repeatDelay);
         if(low.compareTo(high) > 0) {
             throw new IllegalArgumentException("low price is higher than high price");
         }

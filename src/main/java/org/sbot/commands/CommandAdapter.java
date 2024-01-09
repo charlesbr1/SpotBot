@@ -125,7 +125,7 @@ public abstract class CommandAdapter implements CommandListener {
         return "\n\nYour message will be shown in the title of your alert notification." +
                 (message.contains("http://") || message.contains("https://") ? "" :
                 ("\n\n**Please consider adding a link in your message to your AT !!**\nYou can update it using :\n" +
-                SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + "*!message " + alertId + " 'a message with a discord link to its AT'*"));
+                SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + "*!message " + alertId + " 'a message with a cool link to its AT'*"));
     }
 
     private static void shrinkToPageSize(@NotNull List<EmbedBuilder> messages, long offset, @NotNull Supplier<String> nextCommand) {

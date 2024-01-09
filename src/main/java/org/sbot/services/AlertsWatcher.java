@@ -157,7 +157,7 @@ public final class AlertsWatcher {
 
     private EmbedBuilder toMessage(@NotNull MatchingAlert matchingAlert) {
         Alert alert = matchingAlert.alert();
-        return embedBuilder(title(alert.type.name(), alert.getSlashPair(), alert.message, matchingAlert.status()),
+        return embedBuilder(title(alert.type.titleName, alert.getSlashPair(), alert.message, matchingAlert.status()),
                 MARGIN == matchingAlert.status() ? Color.orange : Color.green,
                 alert.triggeredMessage(matchingAlert.status(), matchingAlert.matchingCandlestick()));
     }

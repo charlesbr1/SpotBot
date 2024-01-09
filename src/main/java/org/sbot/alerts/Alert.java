@@ -24,8 +24,14 @@ import static org.sbot.utils.Dates.formatUTC;
 public abstract class Alert {
 
     public enum Type {
-        Range,
-        Trend
+        range("Range"),
+        trend("Trend");
+
+        public final String titleName;
+
+        Type(String titleName) {
+            this.titleName = requireNonNull(titleName);
+        }
     }
 
     public static final int ALERT_MESSAGE_ARG_MAX_LENGTH = 210;
@@ -152,8 +158,8 @@ public abstract class Alert {
 
     @NotNull
     protected final String header(@NotNull MatchingStatus matchingStatus) {
-        String header = matchingStatus.noTrigger() ? type.name() + " Alert set by <@" + userId + '>' :
-                "<@" + userId + ">\nYour " + type.name().toLowerCase() + " set";
+        String header = matchingStatus.noTrigger() ? type.titleName + " Alert set by <@" + userId + '>' :
+                "<@" + userId + ">\nYour " + type.name() + " set";
         return header + " on " + exchange + ' ' + getSlashPair() +
                 (matchingStatus.noTrigger() ? "" : (matchingStatus.isMargin() ? " reached **margin** threshold. Set a new one using :\n\n" +
                         SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + "*!margin " + id + " 'amount in " + getSymbol(ticker2) + "'*" :

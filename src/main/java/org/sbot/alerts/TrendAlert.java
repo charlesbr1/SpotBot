@@ -40,7 +40,7 @@ public final class TrendAlert extends Alert {
                       @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate,
                       @NotNull String message, @Nullable ZonedDateTime lastTrigger,
                       @NotNull BigDecimal margin, short repeat, short repeatDelay) {
-        super(id, Type.Trend, userId, serverId, exchange, ticker1, ticker2, message, lastTrigger, margin, repeat, repeatDelay);
+        super(id, Type.range, userId, serverId, exchange, ticker1, ticker2, message, lastTrigger, margin, repeat, repeatDelay);
         if(fromDate.isAfter(toDate)) {
             throw new IllegalArgumentException("first date is after second date");
         }
