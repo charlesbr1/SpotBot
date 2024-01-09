@@ -169,8 +169,9 @@ public abstract class Alert {
 
     @NotNull
     protected final String footer(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
+        short nextRepeat = matchingStatus.noTrigger() ? repeat : (short) Math.max(0, repeat - 1);
         return "\n* margin / repeat / delay :\t" +
-                (hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(ticker2) : "disabled") + " / " + (isDisabled(repeat) ? "disabled" : repeat) + " / " +
+                (matchingStatus.noTrigger() && hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(ticker2) : "disabled") + " / " + (isDisabled(nextRepeat) ? "disabled" : nextRepeat) + " / " +
                 repeatDelay + (repeatDelay > 1 ? " hours" : " hour") +
                 Optional.ofNullable(previousCandlestick).map(Candlestick::close)
                         .map(BigDecimal::stripTrailingZeros)

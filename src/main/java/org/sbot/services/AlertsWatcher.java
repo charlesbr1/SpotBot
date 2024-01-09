@@ -32,7 +32,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.entities.MessageEmbed.TITLE_MAX_LENGTH;
-import static org.jdbi.v3.core.transaction.TransactionIsolationLevel.SERIALIZABLE;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.MARGIN;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
@@ -78,14 +77,13 @@ public final class AlertsWatcher {
 
             List<MatchingAlert> matchingAlerts = new ArrayList<>();
             alertDao.transactional(() -> {
-                matchingAlerts.clear(); // SERIALIZABLE transaction that can be replayed
                 //TODO query filter to retrieve enabled alerts :  and lastTrigger < date + paginante
                 alertDao.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats(exchange.name(), pair, alerts ->
                         updateAlerts(alerts
                                 .map(alert -> alert.match(prices, null)) //TODO previous candlestick
                                 .filter(MatchingAlert::hasMatch)
                                 .filter(matchingAlerts::add)));
-            }, SERIALIZABLE);
+            });
 
             // matching alerts has no message, they are retrieved in a second time
             Map<Long, String> alertMessages = split(1000, matchingAlerts.stream()) // split in many calls using SQL IN clause
@@ -112,8 +110,8 @@ public final class AlertsWatcher {
                         matchingAlerts.forEach(matchingAlert -> {
                             Alert alert = matchingAlert.alert();
                             switch (matchingAlert.status()) {
-                                case MATCHED -> matchedUpdater.update(alert.id, requireNonNull(alert.lastTrigger), alert.margin, alert.repeat);
-                                case MARGIN -> marginUpdater.update(alert.id, alert.margin);
+                                case MATCHED -> matchedUpdater.update(alert.id);
+                                case MARGIN -> marginUpdater.update(alert.id);
                             }
                         })));
     }

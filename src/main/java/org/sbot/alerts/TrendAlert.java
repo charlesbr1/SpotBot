@@ -40,7 +40,7 @@ public final class TrendAlert extends Alert {
                       @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate,
                       @NotNull String message, @Nullable ZonedDateTime lastTrigger,
                       @NotNull BigDecimal margin, short repeat, short repeatDelay) {
-        super(id, Type.range, userId, serverId, exchange, ticker1, ticker2, message, lastTrigger, margin, repeat, repeatDelay);
+        super(id, Type.trend, userId, serverId, exchange, ticker1, ticker2, message, lastTrigger, margin, repeat, repeatDelay);
         if(fromDate.isAfter(toDate)) {
             throw new IllegalArgumentException("first date is after second date");
         }
@@ -96,11 +96,9 @@ public final class TrendAlert extends Alert {
         for(Candlestick candlestick : candlesticks) {
             if(isNewerCandleStick(candlestick, previousCandlestick)) {
                 if(priceOnTrend(candlestick, currentTrendPrice, MARGIN_DISABLED) || priceCrossedTrend(candlestick, currentTrendPrice, previousCandlestick)) {
-                    return new MatchingAlert(this.withLastTriggerMarginRepeat(ZonedDateTime.now(), MARGIN_DISABLED,
-                            ((short) Math.max(0, repeat - 1))),
-                            MATCHED, candlestick);
+                    return new MatchingAlert(this, MATCHED, candlestick);
                 } else if(priceOnTrend(candlestick, currentTrendPrice, margin)) {
-                    return new MatchingAlert(this.withMargin(MARGIN_DISABLED), MARGIN, candlestick);
+                    return new MatchingAlert(this, MARGIN, candlestick);
                 }
             }
             previousCandlestick = candlestick;

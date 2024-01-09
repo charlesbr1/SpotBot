@@ -87,11 +87,9 @@ public final class RangeAlert extends Alert {
         for(Candlestick candlestick : candlesticks) {
             if(isNewerCandleStick(candlestick, previousCandlestick)) {
                 if(priceInRange(candlestick, high, low, MARGIN_DISABLED) || priceCrossedRange(candlestick, high, low, previousCandlestick)) {
-                    return new MatchingAlert(this.withLastTriggerMarginRepeat(ZonedDateTime.now(), MARGIN_DISABLED,
-                            ((short) Math.max(0, repeat - 1))),
-                            MATCHED, candlestick);
+                    return new MatchingAlert(this, MATCHED, candlestick);
                 } else if(priceInRange(candlestick, high,low, margin)) {
-                    return new MatchingAlert(this.withMargin(MARGIN_DISABLED), MARGIN, candlestick);
+                    return new MatchingAlert(this, MARGIN, candlestick);
                 }
             }
             previousCandlestick = candlestick;

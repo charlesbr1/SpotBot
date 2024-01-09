@@ -58,16 +58,10 @@ public interface AlertsDao extends TransactionalCtx {
     void deleteAlert(long alertId);
 
     @FunctionalInterface
-    interface MatchedAlertUpdater {
-        void update(long id, @NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat);
+    interface TriggeredAlertUpdater {
+        void update(long id);
     }
 
-    void matchedAlertBatchUpdates(@NotNull Consumer<MatchedAlertUpdater> updater);
-
-    @FunctionalInterface
-    interface MarginAlertUpdater {
-        void update(long id, @NotNull BigDecimal margin);
-    }
-
-    void marginAlertBatchUpdates(@NotNull Consumer<MarginAlertUpdater> updater);
+    void matchedAlertBatchUpdates(@NotNull Consumer<TriggeredAlertUpdater> updater);
+    void marginAlertBatchUpdates(@NotNull Consumer<TriggeredAlertUpdater> updater);
 }

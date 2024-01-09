@@ -65,7 +65,7 @@ public interface ArgumentValidator {
     }
 
     static ZonedDateTime requireInPast(@NotNull ZonedDateTime zonedDateTime) {
-        if (zonedDateTime.compareTo(ZonedDateTime.now()) > 0) {
+        if (zonedDateTime.isAfter(ZonedDateTime.now())) {
             throw new IllegalArgumentException("Provided date should be in the past : " + formatUTC(zonedDateTime));
         }
         return zonedDateTime;

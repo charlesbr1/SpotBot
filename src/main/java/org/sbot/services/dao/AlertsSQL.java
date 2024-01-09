@@ -91,9 +91,10 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
                 "VALUES (:id,:type,:userId,:serverId,:exchange,:ticker1,:ticker2,:message,:lastTrigger,:margin,:repeat,:repeatDelay,:number1,:number2,:instant1,:instant2)";
         String UPDATE_ALERTS_MESSAGE = "UPDATE alerts SET message=:message WHERE id=:id";
         String UPDATE_ALERTS_MARGIN = "UPDATE alerts SET margin=:margin WHERE id=:id";
+        String UPDATE_ALERTS_SET_MARGIN_ZERO = "UPDATE alerts SET margin = O WHERE id=:id";
+        String UPDATE_ALERTS_SET_MARGIN_ZERO_DECREMENT_REPEAT_SET_LAST_TRIGGER_NOW = "UPDATE alerts SET margin = 0, repeat = MAX(0, repeat - 1) , last_trigger = 1000 * unixepoch('now', 'utc') WHERE id=:id";
         String UPDATE_ALERTS_REPEAT = "UPDATE alerts SET repeat=:repeat WHERE id=:id";
         String UPDATE_ALERTS_REPEAT_DELAY = "UPDATE alerts SET repeat_delay=:repeatDelay WHERE id=:id";
-        String UPDATE_ALERTS_LAST_TRIGGER_MARGIN_REPEAT = "UPDATE alerts SET last_trigger=:lastTrigger,margin=:margin,repeat=:repeat WHERE id=:id";
     }
 
     static final class AlertMapper implements RowMapper<Alert> {
@@ -388,29 +389,23 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
     }
 
     @Override
-    public void matchedAlertBatchUpdates(@NotNull Consumer<MatchedAlertUpdater> updater) {
+    public void matchedAlertBatchUpdates(@NotNull Consumer<TriggeredAlertUpdater> updater) {
         LOGGER.debug("matchedAlertBatchUpdates");
-        PreparedBatch[] batch = new PreparedBatch[1];
-        try {
-            updater.accept((id, lastTrigger, margin, repeat) -> (null != batch[0] ? batch[0] : (batch[0] = getHandle().prepareBatch(SQL.UPDATE_ALERTS_LAST_TRIGGER_MARGIN_REPEAT)))
-                    .bind("id", id)
-                    .bind("lastTrigger", lastTrigger)
-                    .bind("margin", margin)
-                    .bind("repeat", repeat).add());
-            Optional.ofNullable(batch[0]).ifPresent(PreparedBatch::execute);
-        } finally {
-            Optional.ofNullable(batch[0]).ifPresent(PreparedBatch::close);
-        }
+        batchUpdates(updater, SQL.UPDATE_ALERTS_SET_MARGIN_ZERO_DECREMENT_REPEAT_SET_LAST_TRIGGER_NOW);
     }
 
     @Override
-    public void marginAlertBatchUpdates(@NotNull Consumer<MarginAlertUpdater> updater) {
+    public void marginAlertBatchUpdates(@NotNull Consumer<TriggeredAlertUpdater> updater) {
         LOGGER.debug("marginAlertBatchUpdates");
+        batchUpdates(updater, SQL.UPDATE_ALERTS_SET_MARGIN_ZERO);
+    }
+
+    private void batchUpdates(@NotNull Consumer<TriggeredAlertUpdater> updater, @NotNull String sql) {
         PreparedBatch[] batch = new PreparedBatch[1];
         try {
-            updater.accept((id, margin) -> (null != batch[0] ? batch[0] : (batch[0] = getHandle().prepareBatch(SQL.UPDATE_ALERTS_MARGIN)))
-                    .bind("id", id)
-                    .bind("margin", margin).add());
+            updater.accept(id -> (null != batch[0] ? batch[0] :
+                    (batch[0] = getHandle().prepareBatch(sql)))
+                    .bind("id", id).add());
             Optional.ofNullable(batch[0]).ifPresent(PreparedBatch::execute);
         } finally {
             Optional.ofNullable(batch[0]).ifPresent(PreparedBatch::close);

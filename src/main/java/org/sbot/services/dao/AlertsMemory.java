@@ -23,6 +23,7 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.*;
+import static org.sbot.alerts.Alert.MARGIN_DISABLED;
 import static org.sbot.alerts.Alert.isDisabled;
 
 public class AlertsMemory implements AlertsDao {
@@ -243,17 +244,17 @@ public class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public void matchedAlertBatchUpdates(@NotNull Consumer<MatchedAlertUpdater> updater) {
+    public void matchedAlertBatchUpdates(@NotNull Consumer<TriggeredAlertUpdater> updater) {
         LOGGER.debug("matchedAlertBatchUpdates");
-        updater.accept((alertId, lastTrigger, margin, repeat) -> alerts.computeIfPresent(alertId,
-                (id, alert) -> alert.withLastTriggerMarginRepeat(lastTrigger, margin, repeat)));
+        updater.accept(alertId -> alerts.computeIfPresent(alertId,
+                (id, alert) -> alert.withLastTriggerMarginRepeat(ZonedDateTime.now(), MARGIN_DISABLED, ((short) Math.max(0, alert.repeat - 1)))));
     }
 
     @Override
-    public void marginAlertBatchUpdates(@NotNull Consumer<MarginAlertUpdater> updater) {
+    public void marginAlertBatchUpdates(@NotNull Consumer<TriggeredAlertUpdater> updater) {
         LOGGER.debug("marginAlertBatchUpdates");
-        updater.accept((alertId, margin) -> alerts.computeIfPresent(alertId,
-                (id, alert) -> alert.withMargin(margin)));
+        updater.accept(alertId -> alerts.computeIfPresent(alertId,
+                (id, alert) -> alert.withMargin(MARGIN_DISABLED)));
     }
 
     @Override
