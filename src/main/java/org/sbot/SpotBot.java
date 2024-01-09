@@ -69,7 +69,6 @@ public class SpotBot {
     private static void setupDiscordEvents(@NotNull Discord discord, @NotNull AlertsDao alertsDao) {
         LOGGER.info("Registering discord events...");
         discord.registerCommands(
-                new UpTimeCommand(alertsDao),
                 new RangeCommand(alertsDao),
                 new DeleteCommand(alertsDao),
                 new TrendCommand(alertsDao),
@@ -81,6 +80,8 @@ public class SpotBot {
                 new MarginCommand(alertsDao),
                 new MessageCommand(alertsDao),
                 new RemainderCommand(alertsDao),
-                new SpotBotCommand(alertsDao));
+                new SpotBotCommand(alertsDao),
+                new TimeZoneCommand(alertsDao),
+                new UpTimeCommand(alertsDao));
     }
 }

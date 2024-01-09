@@ -30,7 +30,8 @@ public final class SlashArgumentReader implements ArgumentReader {
 
     @Override
     public Optional<BigDecimal> getNumber(@NotNull String fieldName) {
-        return getValue(fieldName, OptionMapping::getAsString, BigDecimal::new);
+        return getValue(fieldName, OptionMapping::getAsString,
+                number -> new BigDecimal(number.replaceFirst(",", ".")));
     }
 
     @Override

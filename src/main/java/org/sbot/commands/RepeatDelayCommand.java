@@ -16,12 +16,12 @@ import static org.sbot.utils.ArgumentValidator.requirePositiveShort;
 public final class RepeatDelayCommand extends CommandAdapter {
 
     public static final String NAME = "repeat-delay";
-    static final String DESCRIPTION = "the delay to wait before a next repeat of the alert, in hours, 0 will set to default " + DEFAULT_REPEAT_DELAY_HOURS + " hours";
+    static final String DESCRIPTION = "update the delay to wait before a next repeat of the alert, in hours, 0 will set to default " + DEFAULT_REPEAT_DELAY_HOURS + " hours";
 
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.INTEGER, "alert_id", "id of the alert", true)
                     .setMinValue(0),
-            new OptionData(OptionType.INTEGER, "repeat_delay", "new delay in hours", true)
+            new OptionData(OptionType.INTEGER, "repeat_delay", "a new delay in hours", true)
                     .setRequiredRange(0, Short.MAX_VALUE));
 
     public RepeatDelayCommand(@NotNull AlertsDao alertsDao) {

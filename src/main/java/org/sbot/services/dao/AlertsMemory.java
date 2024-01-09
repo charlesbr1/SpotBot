@@ -6,8 +6,6 @@ import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
-import org.sbot.alerts.RangeAlert;
-import org.sbot.alerts.TrendAlert;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -37,27 +35,6 @@ public class AlertsMemory implements AlertsDao {
 
     {
         LOGGER.debug("Loading memory storage for alerts");
-        fakeAlerts();
-    }
-
-    private void fakeAlerts() {
-        for (int i = 0; i < 1; i++) {
-            Alert alert = new RangeAlert(787813751151657001L, 0, "binance", "ETH", "BTC", BigDecimal.valueOf(1), BigDecimal.valueOf(2), "1".repeat(210))
-                    .withRepeat((short) 0);
-            alerts.put(alert.id, alert);
-            alert = new TrendAlert(787813751151657001L, 0, "binance", "ETH", "EUR", BigDecimal.valueOf(1), ZonedDateTime.now(), BigDecimal.valueOf(2), ZonedDateTime.now(), "zone conso 1 blabla et encore balb a voir un lien je met du test j'allonge, lalalal la, https://discord.com/channels/@me/1189726086720921670/1191938967017361508")
-                    .withRepeat((short) 0);
-            alerts.put(alert.id, alert);
-            alert = new TrendAlert(787813751151657001L, 0, "binance", "ETH", "BTC", BigDecimal.valueOf(1), ZonedDateTime.now(), BigDecimal.valueOf(2), ZonedDateTime.now(), "Dans cet exemple, stripTrailingZeros() est utilisé pour supprimer les zéros inutiles à la fin du BigDecimal. Ensuite, toString() est appelé sur le BigDecimal résultant.")
-                    .withRepeat((short) 0);
-            alerts.put(alert.id, alert);
-        }
-        for (int i = 0; i < 1; i++) {
-            Alert alert = new RangeAlert(787813751151657001L, 1189584422891163758L, "binance", "ETH", "EUR", BigDecimal.valueOf(1), BigDecimal.valueOf(2), "test");
-            alerts.put(alert.id, alert);
-            alert = new TrendAlert(787813751151657001L, 1189584422891163758L, "binance", "ETH", "BTC", BigDecimal.valueOf(1), ZonedDateTime.now(), BigDecimal.valueOf(2), ZonedDateTime.now(), "test2");
-            alerts.put(alert.id, alert);
-        }
     }
 
     @Override
@@ -81,7 +58,7 @@ public class AlertsMemory implements AlertsDao {
                 .filter(alert -> alert.exchange.equals(exchange))
                 .filter(alert -> alert.getSlashPair().equals(pair))
                 .filter(alert -> hasRepeat(alert.repeat))
-                .filter(alert -> alert.isRepeatDelayOver(nowSeconds))
+                .filter(alert -> alert.isRepeatDelayOver(nowSeconds + 300))
                 .map(alert -> alert.withMessage(""))); // erase the message to simulate the SQL layer
     }
 
@@ -101,7 +78,7 @@ public class AlertsMemory implements AlertsDao {
         long nowSeconds = Instant.now().getEpochSecond();
         return alerts.values().stream()
                 .filter(alert -> hasRepeat(alert.repeat))
-                .filter(alert -> alert.isRepeatDelayOver(nowSeconds))
+                .filter(alert -> alert.isRepeatDelayOver(nowSeconds + 300))
                 .collect(groupingBy(Alert::getExchange, mapping(Alert::getSlashPair, toList())));
     }
 

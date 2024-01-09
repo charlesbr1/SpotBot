@@ -4,12 +4,15 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.Command.Choice;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.RangeAlert;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.services.dao.AlertsDao;
+import org.sbot.utils.Dates;
 
 import java.awt.*;
 import java.math.BigDecimal;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 import static java.util.stream.Collectors.toList;
@@ -18,11 +21,12 @@ import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.alerts.Alert.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
+import static org.sbot.utils.Dates.formatUTC;
 
 public final class RangeCommand extends CommandAdapter {
 
     public static final String NAME = "range";
-    static final String DESCRIPTION = "create a new range alert on pair ticker1/ticker2, a range is defined by a low price and a high price";
+    static final String DESCRIPTION = "create a new range alert on pair ticker1/ticker2, defined by two prices and two optional dates";
 
     static final List<OptionData> options = List.of(
             new OptionData(STRING, "exchange", "the exchange", true)
@@ -35,7 +39,9 @@ public final class RangeCommand extends CommandAdapter {
                     .setMinValue(0d),
             new OptionData(NUMBER, "high", "the high range price", true)
                     .setMinValue(0d),
-            new OptionData(STRING, "message", "a message to shown when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
+            new OptionData(STRING, "from_date", "a date to start the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false),
+            new OptionData(STRING, "to_date", "a date to end the box (only if a start date is provided), UTC expected format : " + Dates.DATE_TIME_FORMAT, false),
+            new OptionData(STRING, "message", "a message to show when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
     public RangeCommand(@NotNull AlertsDao alertsDao) {
@@ -47,32 +53,43 @@ public final class RangeCommand extends CommandAdapter {
         String exchange = requireSupportedExchange(context.args.getMandatoryString("exchange"));
         String ticker1 = requireTickerLength(context.args.getMandatoryString("ticker1"));
         String ticker2 = requireTickerLength(context.args.getMandatoryString("ticker2"));
-        BigDecimal low = requirePositive(context.args.getMandatoryNumber("low"));
-        BigDecimal high = requirePositive(context.args.getMandatoryNumber("high"));
+        BigDecimal fromPrice = requirePositive(context.args.getMandatoryNumber("low"));
+        BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("high"));
+        ZonedDateTime fromDate = context.args.getDateTime("from_date").orElse(null);
+        ZonedDateTime toDate = null != fromDate ? context.args.getDateTime("to_date").orElse(null) : null;
         String message = requireAlertMessageLength(context.args.getLastArgs("message").orElse(""));
-        LOGGER.debug("range command - exchange : {}, ticker1 : {}, ticker2 : {}, low : {}, high : {}, message : {}",
-                exchange, ticker1, ticker2, low, high, message);
-        alertsDao.transactional(() -> context.reply(range(context, exchange, ticker1, ticker2, low, high, message)));
+
+        LOGGER.debug("range command - exchange : {}, ticker1 : {}, ticker2 : {}, low : {}, high : {}, from_date : {}, to_date : {}, message : {}",
+                exchange, ticker1, ticker2, fromPrice, toPrice, fromDate, toDate, message);
+        alertsDao.transactional(() -> context.reply(range(context, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate)));
     }
 
     private EmbedBuilder range(@NotNull CommandContext context, @NotNull String exchange,
-                               @NotNull String ticker1, @NotNull String ticker2,
-                               @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message) {
+                               @NotNull String ticker1, @NotNull String ticker2, @NotNull String message,
+                               @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
+                               @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate) {
 
-        if(low.compareTo(high) > 0) { // ensure correct order of prices
-            BigDecimal swap = low;
-            low = high;
-            high = swap;
+        if(fromPrice.compareTo(toPrice) > 0) { // ensure correct order of prices
+            BigDecimal swap = fromPrice;
+            fromPrice = toPrice;
+            toPrice = swap;
+        }
+        if(null != fromDate && null != toDate && fromDate.isAfter(toDate)) { // same for dates
+            ZonedDateTime swap = fromDate;
+            fromDate = toDate;
+            toDate = swap;
         }
         RangeAlert rangeAlert = new RangeAlert(context.user.getIdLong(),
                 context.getServerId(),
-                exchange, ticker1, ticker2, low, high, message);
+                exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate);
 
         long alertId = alertsDao.addAlert(rangeAlert);
 
         String answer = context.user.getAsMention() + "\nNew range alert added with id " + alertId +
                 "\n* pair : " + rangeAlert.getSlashPair() + "\n* exchange : " + exchange +
-                "\n* low " + low + "\n* high " + high +
+                "\n* low " + fromPrice + "\n* high " + toPrice +
+                (null != fromDate ? "\n* from date " + formatUTC(fromDate) : "") +
+                (null != toDate ? "\n* to date " + formatUTC(toDate) : "") +
                 alertMessageTips(message, alertId);
 
         return embedBuilder(NAME, Color.green, answer);

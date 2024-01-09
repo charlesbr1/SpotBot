@@ -22,9 +22,9 @@ public final class PairCommand extends CommandAdapter {
     static final String DESCRIPTION = "show the alerts defined on the given ticker or pair";
 
     static final List<OptionData> options = List.of(
-            new OptionData(STRING, "ticker_pair", "the ticker or pair to show alerts on", true)
+            new OptionData(STRING, "ticker_pair", "a ticker or pair to show alerts on", true)
                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(1 + (2 * ALERT_MAX_TICKER_LENGTH)),
-            new OptionData(INTEGER, "offset", "an optional offset to start the search (results are limited to 1000 alerts)", false)
+            new OptionData(INTEGER, "offset", "an offset from where to start the search (results are limited to 1000 alerts)", false)
                     .setMinValue(0));
 
     public PairCommand(@NotNull AlertsDao alertsDao) {

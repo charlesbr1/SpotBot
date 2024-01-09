@@ -57,7 +57,12 @@ public abstract class Alert {
     public final String ticker2;
     public final String message;
 
-    @Nullable // updated in match(..) function
+    public final BigDecimal fromPrice;
+    public final BigDecimal toPrice;
+    public final ZonedDateTime fromDate;
+    public final ZonedDateTime toDate;
+
+    @Nullable // updated by dao when saving updates
     @ColumnName("last_trigger")
     public final ZonedDateTime lastTrigger;
 
@@ -67,7 +72,9 @@ public abstract class Alert {
     public final short repeatDelay;
 
 
-    protected Alert(long id, @NotNull Type type, long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2, @NotNull String message, @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short repeatDelay) {
+    protected Alert(long id, @NotNull Type type, long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2, @NotNull String message,
+                    @Nullable BigDecimal fromPrice, @Nullable BigDecimal toPrice, @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate,
+                    @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short repeatDelay) {
         this.id = id;
         this.type = requireNonNull(type);
         this.userId = userId;
@@ -76,6 +83,10 @@ public abstract class Alert {
         this.ticker1 = requireTickerLength(ticker1).toUpperCase().intern();
         this.ticker2 = requireTickerLength(ticker2).toUpperCase().intern();
         this.message = requireAlertMessageLength(message);
+        this.fromPrice = Optional.ofNullable(fromPrice).map(BigDecimal::stripTrailingZeros).orElse(null);
+        this.toPrice = Optional.ofNullable(toPrice).map(BigDecimal::stripTrailingZeros).orElse(null);
+        this.fromDate = fromDate;
+        this.toDate = toDate;
         this.lastTrigger = null != lastTrigger ? requireInPast(lastTrigger) : null;
         this.margin = requirePositive(margin).stripTrailingZeros();
         this.repeat = requirePositiveShort(repeat);
@@ -173,7 +184,7 @@ public abstract class Alert {
 
     @NotNull
     protected final String footer(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
-        short nextRepeat = matchingStatus.noTrigger() ? repeat : (short) Math.max(0, repeat - 1);
+        int nextRepeat = matchingStatus.noTrigger() ? repeat : Math.max(0, repeat - 1);
         return "\n* margin / repeat / delay :\t" +
                 (matchingStatus.noTrigger() && hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(ticker2) : "disabled") +
                 " / " + (!hasRepeat(nextRepeat) ? "disabled" : nextRepeat) +

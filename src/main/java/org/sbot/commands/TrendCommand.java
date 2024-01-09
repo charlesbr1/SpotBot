@@ -36,11 +36,11 @@ public final class TrendCommand extends CommandAdapter {
                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_TICKER_LENGTH),
             new OptionData(NUMBER, "from_price", "the first price", true)
                     .setMinValue(0d),
-            new OptionData(STRING, "from_date", "the date of first price, UTC expected, format: " + Dates.DATE_TIME_FORMAT, true),
+            new OptionData(STRING, "from_date", "the date of first price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true),
             new OptionData(NUMBER, "to_price", "the second price", true)
                     .setMinValue(0d),
-            new OptionData(STRING, "to_date", "the date of second price, UTC expected, format: " + Dates.DATE_TIME_FORMAT, true),
-            new OptionData(STRING, "message", "a message to shown when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
+            new OptionData(STRING, "to_date", "the date of second price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true),
+            new OptionData(STRING, "message", "a message to show when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
 
@@ -61,13 +61,13 @@ public final class TrendCommand extends CommandAdapter {
         String message = requireAlertMessageLength(context.args.getLastArgs("message").orElse(""));
         LOGGER.debug("trend command - exchange : {}, ticker1 : {}, ticker2 : {}, from_price : {}, from_date : {}, to_price : {}, to_date : {}, message : {}",
                 exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message);
-        alertsDao.transactional(() -> context.reply(trend(context, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message)));
+        alertsDao.transactional(() -> context.reply(trend(context, exchange, ticker1, ticker2, message, fromPrice, fromDate, toPrice, toDate)));
     }
 
     private EmbedBuilder trend(@NotNull CommandContext context, @NotNull String exchange,
-                               @NotNull String ticker1, @NotNull String ticker2,
+                               @NotNull String ticker1, @NotNull String ticker2, @NotNull String message,
                                @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate,
-                               @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate, @NotNull String message) {
+                               @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate) {
 
         if(fromDate.isAfter(toDate)) { // ensure correct order of prices
             ZonedDateTime swap = fromDate;
@@ -79,13 +79,13 @@ public final class TrendCommand extends CommandAdapter {
         }
         TrendAlert trendAlert = new TrendAlert(context.user.getIdLong(),
                 context.getServerId(),
-                exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message);
+                exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate);
 
         long alertId = alertsDao.addAlert(trendAlert);
 
         String answer = context.user.getAsMention() + "\nNew trend alert added with id " + alertId +
                 "\n* pair : " + trendAlert.getSlashPair() + "\n* exchange : " + exchange +
-                "\n* from price " + formatUTC(fromDate) + "\n* from date " + fromDate +
+                "\n* from price " + fromPrice + "\n* from date " + formatUTC(fromDate) +
                 "\n* to price " + toPrice + "\n* to date " + formatUTC(toDate) +
                 alertMessageTips(message, alertId);
 

@@ -21,7 +21,7 @@ public final class MessageCommand extends CommandAdapter {
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.INTEGER, "alert_id", "id of the alert", true)
                     .setMinValue(0),
-            new OptionData(STRING, "message", "a message to shown when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
+            new OptionData(STRING, "message", "a message to show when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
     public MessageCommand(@NotNull AlertsDao alertsDao) {

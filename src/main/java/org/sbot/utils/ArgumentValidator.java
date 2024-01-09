@@ -36,7 +36,7 @@ public interface ArgumentValidator {
     @NotNull
     static String requireSupportedExchange(@NotNull String exchange) {
         if(!SUPPORTED_EXCHANGES.contains(exchange.toLowerCase())) {
-            throw new IllegalArgumentException("Provided exchange is not supported : " + exchange + " (expected [" + String.join(", ", SUPPORTED_EXCHANGES) + "])");
+            throw new IllegalArgumentException("Provided exchange is not supported : " + exchange + " (expected " + String.join(", ", SUPPORTED_EXCHANGES) + ')');
         }
         return exchange;
     }

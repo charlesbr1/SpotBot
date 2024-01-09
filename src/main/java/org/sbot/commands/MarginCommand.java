@@ -21,7 +21,7 @@ public final class MarginCommand extends CommandAdapter {
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.INTEGER, "alert_id", "id of the alert", true)
                     .setMinValue(0),
-            new OptionData(OptionType.NUMBER, "margin", "new margin for the alert, in ticker2 unit  (like USD for pair BTC/USD), 0 to disable", true)
+            new OptionData(OptionType.NUMBER, "margin", "a new margin for the alert, in ticker2 unit  (like USD for pair BTC/USD), 0 to disable", true)
                     .setMinValue(0d));
 
 

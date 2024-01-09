@@ -20,34 +20,28 @@ import static org.sbot.utils.Dates.formatUTC;
 
 public final class TrendAlert extends Alert {
 
-    public final BigDecimal fromPrice;
-    public final ZonedDateTime fromDate;
-    public final BigDecimal toPrice;
-    public final ZonedDateTime toDate;
-
-    public TrendAlert(long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
-                      @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate,
-                      @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate,
-                      @NotNull String message) {
-        this(0, userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message,
+    public TrendAlert(long userId, long serverId, @NotNull String exchange,
+                      @NotNull String ticker1, @NotNull String ticker2, @NotNull String message,
+                      @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
+                      @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate) {
+        this(0, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS);
     }
 
     @ConstructorProperties({"id", "user_id", "server_id", "exchange", "ticker1", "ticker2",
             "fromPrice", "fromDate", "toPrice", "toDate", "message", "last_trigger", "margin"})
-    public TrendAlert(long id, long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
-                      @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate,
-                      @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate,
-                      @NotNull String message, @Nullable ZonedDateTime lastTrigger,
-                      @NotNull BigDecimal margin, short repeat, short repeatDelay) {
-        super(id, Type.trend, userId, serverId, exchange, ticker1, ticker2, message, lastTrigger, margin, repeat, repeatDelay);
+    public TrendAlert(long id, long userId, long serverId, @NotNull String exchange,
+                      @NotNull String ticker1, @NotNull String ticker2, @NotNull String message,
+                      @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
+                      @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate,
+                      @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin,
+                      short repeat, short repeatDelay) {
+        super(id, Type.trend, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
         if(fromDate.isAfter(toDate)) {
             throw new IllegalArgumentException("first date is after second date");
         }
-        this.fromPrice = requirePositive(fromPrice).stripTrailingZeros();
-        this.fromDate = fromDate;
-        this.toPrice = requirePositive(toPrice).stripTrailingZeros();
-        this.toDate = toDate;
+        requirePositive(fromPrice);
+        requirePositive(toPrice);
     }
 
     @Override
@@ -56,37 +50,37 @@ public final class TrendAlert extends Alert {
         if(0 != this.id) {
             throw new IllegalArgumentException("Can't update the id of an already stored alert");
         }
-        return new TrendAlert(idGenerator.get(), userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message, lastTrigger, margin, repeat, repeatDelay);
+        return new TrendAlert(idGenerator.get(), userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public TrendAlert withMessage(@NotNull String message) {
-        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message, lastTrigger, margin, repeat, repeatDelay);
+        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public TrendAlert withMargin(@NotNull BigDecimal margin) {
-        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message, lastTrigger, margin, repeat, repeatDelay);
+        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public TrendAlert withRepeat(short repeat) {
-        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message, lastTrigger, margin, repeat, repeatDelay);
+        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public TrendAlert withRepeatDelay(short repeatDelay) {
-        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message, lastTrigger, margin, repeat, repeatDelay);
+        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public TrendAlert withLastTriggerMarginRepeat(@NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat) {
-        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message, lastTrigger, margin, repeat, repeatDelay);
+        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override

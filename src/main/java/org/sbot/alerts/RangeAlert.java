@@ -17,29 +17,27 @@ import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class RangeAlert extends Alert {
 
-    public final BigDecimal low;
-    public final BigDecimal high;
-
-
-    public RangeAlert(long userId, long serverId,
-                      @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
-                      @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message) {
-        this(0, userId, serverId, exchange, ticker1, ticker2, low, high, message,
+    public RangeAlert(long userId, long serverId, @NotNull String exchange,
+                      @NotNull String ticker1, @NotNull String ticker2, @NotNull String message,
+                      @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
+                      @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate) {
+        this(0, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS);
     }
     @ConstructorProperties({"id", "user_id", "server_id", "exchange", "ticker1", "ticker2",
     "low", "high", "message", "last_trigger", "margin"})
-    public RangeAlert(long id, long userId, long serverId,
-                       @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2,
-                       @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull String message,
-                       @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin,
-                       short repeat, short repeatDelay) {
-        super(id, Type.range, userId, serverId, exchange, ticker1, ticker2, message, lastTrigger, margin, repeat, repeatDelay);
-        if(low.compareTo(high) > 0) {
-            throw new IllegalArgumentException("low price is higher than high price");
+    public RangeAlert(long id, long userId, long serverId, @NotNull String exchange,
+                      @NotNull String ticker1, @NotNull String ticker2, @NotNull String message,
+                      @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
+                      @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate,
+                      @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin,
+                      short repeat, short repeatDelay) {
+        super(id, Type.range, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        if(fromPrice.compareTo(toPrice) > 0) {
+            throw new IllegalArgumentException("from_price is higher than to_price");
         }
-        this.low = requirePositive(low).stripTrailingZeros();
-        this.high = requirePositive(high).stripTrailingZeros();
+        requirePositive(fromPrice);
+        requirePositive(toPrice);
     }
 
     @Override
@@ -48,37 +46,37 @@ public final class RangeAlert extends Alert {
         if(0 != this.id) {
             throw new IllegalArgumentException("Can't update the id of an already stored alert");
         }
-        return new RangeAlert(idGenerator.get(), userId, serverId, exchange, ticker1, ticker2, low, high, message, lastTrigger, margin, repeat, repeatDelay);
+        return new RangeAlert(idGenerator.get(), userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public RangeAlert withMessage(@NotNull String message) {
-        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, lastTrigger, margin, repeat, repeatDelay);
+        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public RangeAlert withMargin(@NotNull BigDecimal margin) {
-        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, lastTrigger, margin, repeat, repeatDelay);
+        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public RangeAlert withRepeat(short repeat) {
-        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, lastTrigger, margin, repeat, repeatDelay);
+        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public RangeAlert withRepeatDelay(short repeatDelay) {
-        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, lastTrigger, margin, repeat, repeatDelay);
+        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public RangeAlert withLastTriggerMarginRepeat(@NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat) {
-        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, low, high, message, lastTrigger, margin, repeat, repeatDelay);
+        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
@@ -86,9 +84,9 @@ public final class RangeAlert extends Alert {
     public MatchingAlert match(@NotNull List<Candlestick> candlesticks, @Nullable Candlestick previousCandlestick) {
         for(Candlestick candlestick : candlesticks) {
             if(isNewerCandleStick(candlestick, previousCandlestick)) {
-                if(priceInRange(candlestick, high, low, MARGIN_DISABLED) || priceCrossedRange(candlestick, high, low, previousCandlestick)) {
+                if(priceInRange(candlestick, fromPrice, toPrice, MARGIN_DISABLED) || priceCrossedRange(candlestick, fromPrice, toPrice, previousCandlestick)) {
                     return new MatchingAlert(this, MATCHED, candlestick);
-                } else if(priceInRange(candlestick, high,low, margin)) {
+                } else if(priceInRange(candlestick, fromPrice,toPrice, margin)) {
                     return new MatchingAlert(this, MARGIN, candlestick);
                 }
             }
@@ -97,15 +95,15 @@ public final class RangeAlert extends Alert {
         return new MatchingAlert(this, NO_TRIGGER, null);
     }
 
-    private static boolean priceInRange(@NotNull Candlestick candlestick, @NotNull BigDecimal high, @NotNull BigDecimal low, @NotNull BigDecimal margin) {
-        return candlestick.low().compareTo(high.add(margin)) <= 0 &&
-                candlestick.high().compareTo(low.subtract(margin)) >= 0;
+    private static boolean priceInRange(@NotNull Candlestick candlestick, @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice, @NotNull BigDecimal margin) {
+        return candlestick.low().compareTo(toPrice.add(margin)) <= 0 &&
+                candlestick.high().compareTo(fromPrice.subtract(margin)) >= 0;
     }
 
-    private static boolean priceCrossedRange(@NotNull Candlestick candlestick, @NotNull BigDecimal high, @NotNull BigDecimal low, @Nullable Candlestick previousCandlestick) {
+    private static boolean priceCrossedRange(@NotNull Candlestick candlestick, @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice, @Nullable Candlestick previousCandlestick) {
         return null != previousCandlestick &&
-                previousCandlestick.low().min(candlestick.low()).compareTo(high) <= 0 &&
-                previousCandlestick.high().max(candlestick.high()).compareTo(low) >= 0;
+                previousCandlestick.low().min(candlestick.low()).compareTo(toPrice) <= 0 &&
+                previousCandlestick.high().max(candlestick.high()).compareTo(fromPrice) >= 0;
     }
 
 
@@ -114,8 +112,8 @@ public final class RangeAlert extends Alert {
      protected String asMessage(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
         return header(matchingStatus) +
                 "\n\n* id :\t" + id +
-                "\n* low :\t" + low.toPlainString() + ' ' + getSymbol(ticker2) +
-                "\n* high :\t" + high.toPlainString() + ' ' + getSymbol(ticker2) +
+                "\n* low :\t" + fromPrice.toPlainString() + ' ' + getSymbol(ticker2) +
+                "\n* high :\t" + toPrice.toPlainString() + ' ' + getSymbol(ticker2) +
                 footer(matchingStatus, previousCandlestick);
     }
 }

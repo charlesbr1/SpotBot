@@ -27,7 +27,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
 import static org.sbot.services.dao.AlertsSQL.AlertMapper.bindFields;
@@ -52,10 +51,10 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
                 margin TEXT NOT NULL,
                 repeat INTEGER NOT NULL,
                 repeat_delay INTEGER NOT NULL,
-                number1 TEXT,
-                number2 TEXT,
-                instant1 INTEGER,
-                instant2 INTEGER) STRICT
+                from_price TEXT,
+                to_price TEXT,
+                from_date INTEGER,
+                to_date INTEGER) STRICT
                 """;
 
         String CREATE_USER_ID_INDEX = "CREATE INDEX IF NOT EXISTS user_id_index ON alerts (user_id)";
@@ -65,9 +64,9 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
         String SELECT_MAX_ID = "SELECT MAX(id) FROM alerts";
         String SELECT_BY_ID = "SELECT * FROM alerts WHERE id=:id";
         String SELECT_USER_ID_AND_SERVER_ID_BY_ID = "SELECT user_id,server_id FROM alerts WHERE id=:id";
-        String SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW = "SELECT id,type,user_id,server_id,exchange,ticker1,ticker2,''AS message,last_trigger,margin,repeat,repeat_delay,number1,number2,instant1,instant2 FROM alerts WHERE exchange=:exchange AND repeat > 0 AND ((:pair LIKE ticker1 || '%') OR (:pair LIKE '%' || ticker2)) AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * repeat_delay)) <= (1000 * unixepoch('now', 'utc')))";
+        String SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW = "SELECT id,type,user_id,server_id,exchange,ticker1,ticker2,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,repeat_delay FROM alerts WHERE exchange=:exchange AND repeat > 0 AND ((:pair LIKE ticker1 || '%') OR (:pair LIKE '%' || ticker2)) AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * repeat_delay)) <= (1000 * (300 + unixepoch('now', 'utc'))))";
         String SELECT_ALERT_ID_AND_MESSAGE_BY_ID_IN = "SELECT id,message FROM alerts WHERE id IN (:ids)";
-        String SELECT_PAIRS_BY_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW = "SELECT DISTINCT exchange,ticker1||'/'||ticker2 AS pair FROM alerts WHERE repeat > 0 AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * repeat_delay)) <= (1000 * unixepoch('now', 'utc')))";
+        String SELECT_PAIRS_BY_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW = "SELECT DISTINCT exchange,ticker1||'/'||ticker2 AS pair FROM alerts WHERE repeat > 0 AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * repeat_delay)) <= (1000 * (300 + unixepoch('now', 'utc'))))";
         String COUNT_ALERTS_OF_USER = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId";
         String ALERTS_OF_USER = "SELECT * FROM alerts WHERE user_id=:userId LIMIT :limit OFFSET :offset";
         String COUNT_ALERTS_OF_USER_AND_TICKER = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId AND (ticker1=:ticker OR ticker2=:ticker) LIMIT :limit OFFSET :offset";
@@ -87,7 +86,7 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
         String COUNT_ALERTS_OF_SERVER_AND_USER_AND_PAIR = "SELECT COUNT(*) FROM alerts WHERE server_id=:serverId AND user_id=:userId AND ticker1=:ticker AND ticker2=:ticker2 LIMIT :limit OFFSET :offset";
         String ALERTS_OF_SERVER_AND_USER_AND_PAIR = "SELECT * FROM alerts WHERE server_id=:serverId AND user_id=:userId AND ticker1=:ticker AND ticker2=:ticker2 LIMIT :limit OFFSET :offset";
         String DELETE_BY_ID = "DELETE FROM alerts WHERE id=:id";
-        String INSERT_ALERT = "INSERT INTO alerts (id,type,user_id,server_id,exchange,ticker1,ticker2,message,last_trigger,margin,repeat,repeat_delay,number1,number2,instant1,instant2) VALUES (:id,:type,:userId,:serverId,:exchange,:ticker1,:ticker2,:message,:lastTrigger,:margin,:repeat,:repeatDelay,:number1,:number2,:instant1,:instant2)";
+        String INSERT_ALERT = "INSERT INTO alerts (id,type,user_id,server_id,exchange,ticker1,ticker2,message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,repeat_delay) VALUES (:id,:type,:userId,:serverId,:exchange,:ticker1,:ticker2,:message,:fromPrice,:toPrice,:fromDate,:toDate,:lastTrigger,:margin,:repeat,:repeatDelay)";
         String UPDATE_ALERTS_MESSAGE = "UPDATE alerts SET message=:message WHERE id=:id";
         String UPDATE_ALERTS_MARGIN = "UPDATE alerts SET margin=:margin WHERE id=:id";
         String UPDATE_ALERTS_SET_MARGIN_ZERO = "UPDATE alerts SET margin = O WHERE id=:id";
@@ -113,30 +112,20 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
             short repeat = rs.getShort("repeat");
             short repeatDelay = rs.getShort("repeat_delay");
 
-            BigDecimal number1 = rs.getBigDecimal("number1");
-            BigDecimal number2 = rs.getBigDecimal("number2");
-            ZonedDateTime instant1 = parseDateTime(rs.getTimestamp("instant1"));
-            ZonedDateTime instant2 = parseDateTime(rs.getTimestamp("instant2"));
+            BigDecimal fromPrice = rs.getBigDecimal("from_price");
+            BigDecimal toPrice = rs.getBigDecimal("to_price");
+            ZonedDateTime fromDate = parseDateTime(rs.getTimestamp("from_date"));
+            ZonedDateTime toDate = parseDateTime(rs.getTimestamp("to_date"));
 
             return switch (type) {
-                case range -> new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, number1, number2, message, lastTrigger, margin, repeat, repeatDelay);
-                case trend -> new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, number1, requireNonNull(instant1), number2, requireNonNull(instant2), message, lastTrigger, margin, repeat, repeatDelay);
+                case range -> new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+                case trend -> new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, requireNonNull(fromDate), requireNonNull(toDate), lastTrigger, margin, repeat, repeatDelay);
             };
         }
 
         // from Alert to SQL
         static void bindFields(@NotNull Alert alert, @NotNull SqlStatement<?> query) {
             query.bindFields(alert); // this bind common public fields from class Alert
-            Map<String, ?> parameters = emptyMap();
-            if(alert instanceof RangeAlert) {
-                parameters = new HashMap<>(Map.of("number1", ((RangeAlert) alert).low, "number2", ((RangeAlert) alert).high));
-                parameters.put("instant1", null); // no instant fields in RangeAlert (Map.of(..) does not accept null values...)
-                parameters.put("instant2", null);
-            } else if(alert instanceof TrendAlert) {
-                parameters = Map.of("number1", ((TrendAlert) alert).fromPrice, "number2", ((TrendAlert) alert).toPrice,
-                        "instant1", ((TrendAlert) alert).fromDate, "instant2", ((TrendAlert) alert).toDate);
-            }
-            query.bindMap(parameters); // this bind numbers and instants fields
         }
     }
 

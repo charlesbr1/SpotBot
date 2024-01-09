@@ -39,7 +39,7 @@ public final class StringArgumentReader implements ArgumentReader {
 
     @Override
     public Optional<BigDecimal> getNumber(@NotNull String unused) {
-        return getNext(BigDecimal::new);
+        return getNext(number -> new BigDecimal(number.replaceFirst(",", ".")));
     }
 
     @Override

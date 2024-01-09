@@ -25,9 +25,9 @@ public final class OwnerCommand extends CommandAdapter {
 
     static final List<OptionData> options = List.of(
             new OptionData(USER, "owner", "the owner of alerts to show", true),
-            new OptionData(STRING, "ticker_pair", "an optional ticker or pair to filter on", false)
+            new OptionData(STRING, "ticker_pair", "a ticker or pair to filter on", false)
                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(1 + (2 * ALERT_MAX_TICKER_LENGTH)),
-            new OptionData(INTEGER, "offset", "an optional offset to start the search (results are limited to 1000 alerts)", false)
+            new OptionData(INTEGER, "offset", "an offset from where to start the search (results are limited to 1000 alerts)", false)
                     .setMinValue(0));
 
     public OwnerCommand(@NotNull AlertsDao alertsDao) {

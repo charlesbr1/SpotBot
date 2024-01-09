@@ -12,7 +12,7 @@ public enum Dates {
 
     public static final String DATE_TIME_FORMAT = "dd/MM/yyyy-HH:mm";
 
-    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(DATE_TIME_FORMAT);
+    public static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(DATE_TIME_FORMAT);
 
 
     public static ZonedDateTime parseUTC(@NotNull String dateTime) {
