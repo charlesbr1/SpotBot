@@ -65,9 +65,9 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
         String SELECT_MAX_ID = "SELECT MAX(id) FROM alerts";
         String SELECT_BY_ID = "SELECT * FROM alerts WHERE id=:id";
         String SELECT_USER_ID_AND_SERVER_ID_BY_ID = "SELECT user_id,server_id FROM alerts WHERE id=:id";
-        String SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS = "SELECT id,type,user_id,server_id,exchange,ticker1,ticker2,''AS message,last_trigger,margin,repeat,repeat_delay,number1,number2,instant1,instant2 FROM alerts WHERE exchange=:exchange AND repeat > 0 AND ((:pair LIKE ticker1 || '%') OR (:pair LIKE '%' || ticker2))";
+        String SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW = "SELECT id,type,user_id,server_id,exchange,ticker1,ticker2,''AS message,last_trigger,margin,repeat,repeat_delay,number1,number2,instant1,instant2 FROM alerts WHERE exchange=:exchange AND repeat > 0 AND ((:pair LIKE ticker1 || '%') OR (:pair LIKE '%' || ticker2)) AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * repeat_delay)) <= (1000 * unixepoch('now', 'utc')))";
         String SELECT_ALERT_ID_AND_MESSAGE_BY_ID_IN = "SELECT id,message FROM alerts WHERE id IN (:ids)";
-        String SELECT_PAIRS_BY_EXCHANGES = "SELECT DISTINCT exchange,ticker1||'/'||ticker2 AS pair FROM alerts";
+        String SELECT_PAIRS_BY_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW = "SELECT DISTINCT exchange,ticker1||'/'||ticker2 AS pair FROM alerts WHERE repeat > 0 AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * repeat_delay)) <= (1000 * unixepoch('now', 'utc')))";
         String COUNT_ALERTS_OF_USER = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId";
         String ALERTS_OF_USER = "SELECT * FROM alerts WHERE user_id=:userId LIMIT :limit OFFSET :offset";
         String COUNT_ALERTS_OF_USER_AND_TICKER = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId AND (ticker1=:ticker OR ticker2=:ticker) LIMIT :limit OFFSET :offset";
@@ -87,8 +87,7 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
         String COUNT_ALERTS_OF_SERVER_AND_USER_AND_PAIR = "SELECT COUNT(*) FROM alerts WHERE server_id=:serverId AND user_id=:userId AND ticker1=:ticker AND ticker2=:ticker2 LIMIT :limit OFFSET :offset";
         String ALERTS_OF_SERVER_AND_USER_AND_PAIR = "SELECT * FROM alerts WHERE server_id=:serverId AND user_id=:userId AND ticker1=:ticker AND ticker2=:ticker2 LIMIT :limit OFFSET :offset";
         String DELETE_BY_ID = "DELETE FROM alerts WHERE id=:id";
-        String INSERT_ALERT = "INSERT INTO alerts (id,type,user_id,server_id,exchange,ticker1,ticker2,message,last_trigger,margin,repeat,repeat_delay,number1,number2,instant1,instant2) " +
-                "VALUES (:id,:type,:userId,:serverId,:exchange,:ticker1,:ticker2,:message,:lastTrigger,:margin,:repeat,:repeatDelay,:number1,:number2,:instant1,:instant2)";
+        String INSERT_ALERT = "INSERT INTO alerts (id,type,user_id,server_id,exchange,ticker1,ticker2,message,last_trigger,margin,repeat,repeat_delay,number1,number2,instant1,instant2) VALUES (:id,:type,:userId,:serverId,:exchange,:ticker1,:ticker2,:message,:lastTrigger,:margin,:repeat,:repeatDelay,:number1,:number2,:instant1,:instant2)";
         String UPDATE_ALERTS_MESSAGE = "UPDATE alerts SET message=:message WHERE id=:id";
         String UPDATE_ALERTS_MARGIN = "UPDATE alerts SET margin=:margin WHERE id=:id";
         String UPDATE_ALERTS_SET_MARGIN_ZERO = "UPDATE alerts SET margin = O WHERE id=:id";
@@ -189,9 +188,9 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
         }
     }
     @Override
-    public void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+    public void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOver(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
         LOGGER.debug("fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats {} {}", exchange, pair);
-        try (var query = getHandle().createQuery(SQL.SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS)) {
+        try (var query = getHandle().createQuery(SQL.SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW)) {
             alertsConsumer.accept(query
                     .bind("exchange", exchange)
                     .bind("pair", pair)
@@ -213,9 +212,9 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
 
     @Override
     @NotNull
-    public Map<String, List<String>> getPairsByExchanges() {
+    public Map<String, List<String>> getPairsByExchangesHavingRepeatAndDelayOver() {
         LOGGER.debug("getPairsByExchanges");
-        try (var query = getHandle().createQuery(SQL.SELECT_PAIRS_BY_EXCHANGES)) {
+        try (var query = getHandle().createQuery(SQL.SELECT_PAIRS_BY_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW)) {
             return query.collectRows(groupingBy(
                     rowView -> rowView.getColumn("exchange", String.class),
                     mapping(rowView -> rowView.getColumn("pair", String.class), toList())));

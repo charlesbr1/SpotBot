@@ -9,7 +9,7 @@ import org.sbot.services.dao.AlertsDao;
 
 import java.util.List;
 
-import static org.sbot.alerts.Alert.isDisabled;
+import static org.sbot.alerts.Alert.hasRepeat;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.ArgumentValidator.requirePositiveShort;
 
@@ -40,7 +40,7 @@ public final class RepeatCommand extends CommandAdapter {
         AnswerColorSmiley answer = securedAlertUpdate(alertId, context, () -> {
             alertsDao.updateRepeat(alertId, repeat);
             return "Repeat of alert " + alertId + " updated to " + repeat +
-                    (isDisabled(repeat) ? " (disabled)" : "");
+                    (!hasRepeat(repeat) ? " (disabled)" : "");
         });
         return embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer());
     }

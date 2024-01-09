@@ -86,8 +86,12 @@ public abstract class Alert {
         return PRIVATE_ALERT == serverId;
     }
 
-    public static boolean isDisabled(long repeat) {
-        return 0 >= repeat;
+    public static boolean hasRepeat(long repeat) {
+        return repeat > 0;
+    }
+
+    public boolean isRepeatDelayOver(long epochSeconds) {
+        return null == lastTrigger || (lastTrigger.toEpochSecond() + (3600L * repeatDelay)) <= epochSeconds;
     }
 
     public static boolean hasMargin(@NotNull BigDecimal margin) {
@@ -164,15 +168,16 @@ public abstract class Alert {
                 (matchingStatus.noTrigger() ? "" : (matchingStatus.isMargin() ? " reached **margin** threshold. Set a new one using :\n\n" +
                         SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + "*!margin " + id + " 'amount in " + getSymbol(ticker2) + "'*" :
                         " was **tested !**") +  "\n\n:rocket: Check out the price !!") +
-                (matchingStatus.noTrigger() && isDisabled(repeat) ? "\n\n**DISABLED**\n" : "");
+                (matchingStatus.noTrigger() && !hasRepeat(repeat) ? "\n\n**DISABLED**\n" : "");
     }
 
     @NotNull
     protected final String footer(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
         short nextRepeat = matchingStatus.noTrigger() ? repeat : (short) Math.max(0, repeat - 1);
         return "\n* margin / repeat / delay :\t" +
-                (matchingStatus.noTrigger() && hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(ticker2) : "disabled") + " / " + (isDisabled(nextRepeat) ? "disabled" : nextRepeat) + " / " +
-                repeatDelay + (repeatDelay > 1 ? " hours" : " hour") +
+                (matchingStatus.noTrigger() && hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(ticker2) : "disabled") +
+                " / " + (!hasRepeat(nextRepeat) ? "disabled" : nextRepeat) +
+                " / " + repeatDelay + (repeatDelay > 1 ? " hours" : " hour") +
                 Optional.ofNullable(previousCandlestick).map(Candlestick::close)
                         .map(BigDecimal::stripTrailingZeros)
                         .map(BigDecimal::toPlainString)

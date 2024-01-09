@@ -98,7 +98,7 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected static EmbedBuilder toMessage(@NotNull Alert alert) {
         return embedBuilder('[' + alert.getSlashPair() + "] " + alert.message,
-                isDisabled(alert.repeat) ? Color.black : (isPrivate(alert.serverId) ? Color.blue : Color.green),
+                !hasRepeat(alert.repeat) ? Color.black : (isPrivate(alert.serverId) ? Color.blue : Color.green),
                 alert.descriptionMessage());
     }
 

@@ -10,6 +10,7 @@ import org.sbot.alerts.RangeAlert;
 import org.sbot.alerts.TrendAlert;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -24,7 +25,7 @@ import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.*;
 import static org.sbot.alerts.Alert.MARGIN_DISABLED;
-import static org.sbot.alerts.Alert.isDisabled;
+import static org.sbot.alerts.Alert.hasRepeat;
 
 public class AlertsMemory implements AlertsDao {
 
@@ -73,12 +74,14 @@ public class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+    public void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOver(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
         LOGGER.debug("fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats {} {}", exchange, pair);
+        long nowSeconds = Instant.now().getEpochSecond();
         alertsConsumer.accept(alerts.values().stream()
                 .filter(alert -> alert.exchange.equals(exchange))
                 .filter(alert -> alert.getSlashPair().equals(pair))
-                .filter(alert -> !isDisabled(alert.repeat))
+                .filter(alert -> hasRepeat(alert.repeat))
+                .filter(alert -> alert.isRepeatDelayOver(nowSeconds))
                 .map(alert -> alert.withMessage(""))); // erase the message to simulate the SQL layer
     }
 
@@ -93,9 +96,12 @@ public class AlertsMemory implements AlertsDao {
 
     @Override
     @NotNull
-    public Map<String, List<String>> getPairsByExchanges() {
+    public Map<String, List<String>> getPairsByExchangesHavingRepeatAndDelayOver() {
         LOGGER.debug("getPairsByExchanges");
+        long nowSeconds = Instant.now().getEpochSecond();
         return alerts.values().stream()
+                .filter(alert -> hasRepeat(alert.repeat))
+                .filter(alert -> alert.isRepeatDelayOver(nowSeconds))
                 .collect(groupingBy(Alert::getExchange, mapping(Alert::getSlashPair, toList())));
     }
 

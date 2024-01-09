@@ -5,7 +5,6 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
 
 import java.math.BigDecimal;
-import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -19,12 +18,12 @@ public interface AlertsDao extends TransactionalCtx {
     record UserIdServerId(long userId, long serverId) {}
     Optional<UserIdServerId> getUserIdAndServerId(long alertId);
 
-    void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer);
+    void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOver(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer);
     @NotNull
     Map<Long, String> getAlertMessages(@NotNull long[] alertIds);
 
     @NotNull
-    Map<String, List<String>> getPairsByExchanges();
+    Map<String, List<String>> getPairsByExchangesHavingRepeatAndDelayOver();
 
     long countAlertsOfUser(long userId);
     long countAlertsOfServer(long serverId);

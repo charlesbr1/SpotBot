@@ -69,7 +69,6 @@ public final class Discord {
 
     private static final String DISCORD_BOT_TOKEN_FILE = "discord.token";
 
-    public static final String PLAIN_TEXT_MARKDOWN = "``` ";
     public static final String SINGLE_LINE_BLOCK_QUOTE_MARKDOWN = "> ";
     public static final String MULTI_LINE_BLOCK_QUOTE_MARKDOWN = ">>> ";
 
@@ -260,8 +259,8 @@ public final class Discord {
                 }
             } catch (RuntimeException e) {
                 LOGGER.warn("Internal error while processing discord command: " + command.name, e);
-                command.reply(embedBuilder("Oups !", Color.red,
-                        command.user.getAsMention() + " Something get wrong ! **Internal Error** "));
+                command.reply(embedBuilder(":confused: Oups !", Color.red,
+                        command.user.getAsMention() + " Something went wrong !\n\n" + e.getMessage()));
             }
         }
 

@@ -55,7 +55,7 @@ public final class AlertsWatcher {
     // this splits in tasks by exchanges and pairs, one rest call must be done by each task to retrieve the candlesticks
     public void checkAlerts() {
         try {
-            alertDao.transactional(alertDao::getPairsByExchanges) //TODO filter enabled alerts
+            alertDao.transactional(alertDao::getPairsByExchangesHavingRepeatAndDelayOver)
                     .forEach((xchange, pairs) -> {  // one task by exchange / pair
                         Exchanges.get(xchange).ifPresent(exchange ->
                                 pairs.forEach(pair ->
@@ -77,9 +77,8 @@ public final class AlertsWatcher {
 
             List<MatchingAlert> matchingAlerts = new ArrayList<>();
             alertDao.transactional(() -> {
-                //TODO query filter to retrieve enabled alerts :  and lastTrigger < date + paginante
-                alertDao.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats(exchange.name(), pair, alerts ->
-                        updateAlerts(alerts
+                alertDao.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOver(
+                        exchange.name(), pair, alerts -> updateAlerts(alerts
                                 .map(alert -> alert.match(prices, null)) //TODO previous candlestick
                                 .filter(MatchingAlert::hasMatch)
                                 .filter(matchingAlerts::add)));
@@ -134,7 +133,7 @@ public final class AlertsWatcher {
     private void sendServerAlerts(@NotNull List<MatchingAlert> matchingAlerts, @NotNull Guild guild) {
         var roles = spotBotRole(guild).map(Role::getId).stream().toList();
         var users = matchingAlerts.stream().map(MatchingAlert::alert).mapToLong(Alert::getUserId).distinct().toArray();
-        //TODO user must be on server check, or else <@123> appears in discord
+        //TODO user must still be on server check, or else <@123> appears in discord
         discord.spotBotChannel(guild).ifPresent(channel ->
                 channel.sendMessages(toMessage(matchingAlerts),
                         List.of(message -> requireNonNull(message.mentionRoles(roles).mentionUsers(users)))));
