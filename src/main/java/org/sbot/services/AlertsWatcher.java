@@ -33,6 +33,7 @@ import static org.sbot.alerts.MatchingAlert.MatchingStatus.MARGIN;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.discord.Discord.spotBotRole;
+import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
 import static org.sbot.utils.PartitionSpliterator.split;
 
 public final class AlertsWatcher {
@@ -57,7 +58,8 @@ public final class AlertsWatcher {
                         Thread.ofVirtual().start(() -> pairs.forEach(pair -> {
                             Thread.ofVirtual().name('[' + pair + "] SpotBot fetcher")
                                     .start(() -> getPricesAndRaiseAlerts(exchange, pair));
-                            LockSupport.parkNanos(Duration.ofMillis(300).toNanos()); // no need to flood the exchanges
+                            LockSupport.parkNanos(VIRTUAL_EXCHANGES.contains(xchange) ? 0 :
+                                    Duration.ofMillis(300).toNanos()); // no need to flood the exchanges
                         })));
                 LockSupport.parkNanos(Duration.ofMillis(300 / (Math.min(10, exchangePairs.size()))).toNanos());
             });

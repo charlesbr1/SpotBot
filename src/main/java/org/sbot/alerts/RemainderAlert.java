@@ -19,7 +19,7 @@ import static org.sbot.utils.Dates.formatUTC;
 
 public class RemainderAlert extends Alert {
 
-    public static final String REMAINDER_EXCHANGE = "";
+    public static final String REMAINDER_EXCHANGE = "@r";
 
     public RemainderAlert(long userId, long serverId,
                           @NotNull String ticker1, @NotNull String ticker2,

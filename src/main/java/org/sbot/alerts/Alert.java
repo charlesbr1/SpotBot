@@ -81,7 +81,7 @@ public abstract class Alert {
         this.type = requireNonNull(type, "missing Alert type");
         this.userId = userId;
         this.serverId = serverId;
-        this.exchange = REMAINDER_EXCHANGE.equals(exchange) ? exchange :requireSupportedExchange(exchange.toLowerCase()).intern();
+        this.exchange = requireSupportedExchange(exchange.toLowerCase()).intern();
         this.ticker1 = requireTickerLength(ticker1).toUpperCase().intern();
         this.ticker2 = requireTickerLength(ticker2).toUpperCase().intern();
         this.message = requireAlertMessageLength(message);

@@ -3,6 +3,9 @@ package org.sbot.exchanges;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.sbot.alerts.RemainderAlert;
+import org.sbot.chart.Candlestick;
+import org.sbot.chart.TimeFrame;
 import org.sbot.exchanges.binance.BinanceClient;
 import org.sbot.utils.PropertiesReader;
 
@@ -10,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 
 import static java.util.Optional.empty;
 import static org.sbot.utils.PropertiesReader.loadProperties;
@@ -28,7 +32,22 @@ public enum Exchanges {
     private static final Map<String, Exchange> exchanges = new ConcurrentHashMap<>();
 
     public static final List<String> SUPPORTED_EXCHANGES = List.of(BinanceClient.NAME);
+    public static final List<String> VIRTUAL_EXCHANGES = List.of(RemainderAlert.REMAINDER_EXCHANGE);
 
+    static {
+        VIRTUAL_EXCHANGES.forEach(exchange -> exchanges.put(exchange, new Exchange() {
+            @NotNull
+            @Override
+            public String name() {
+                return exchange;
+            }
+            @NotNull
+            @Override
+            public Stream<Candlestick> getCandlesticks(@NotNull String pair, @NotNull TimeFrame timeFrame, long limit) {
+                return Stream.empty();
+            }
+        }));
+    }
     public static Optional<Exchange> get(@NotNull String exchange) {
         try {
             return Optional.of(exchanges.computeIfAbsent(exchange, Exchanges::loadExchange));
@@ -41,7 +60,7 @@ public enum Exchanges {
     private static Exchange loadExchange(@NotNull String exchange) {
         LOGGER.debug("Loading exchange {}...", exchange);
         return switch (exchange) {
-            case "binance" -> new BinanceClient(BINANCE_API_KEY, readFile(BINANCE_API_SECRET_FILE));
+            case BinanceClient.NAME -> new BinanceClient(BINANCE_API_KEY, readFile(BINANCE_API_SECRET_FILE));
             default -> throw new IllegalArgumentException("Unsupported exchange : " + exchange);
         };
     }

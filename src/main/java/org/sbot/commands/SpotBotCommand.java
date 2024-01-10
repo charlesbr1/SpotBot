@@ -80,7 +80,8 @@ public final class SpotBotCommand extends CommandAdapter {
             
             **A date should be provided as UTC** date and time. Discord can't provide your time zone so you have to think about it !
 
-            The expected format is {date-format}, for instance now it is : {date-now}
+            The expected date time format is :``` {date-format}```
+            For instance now it is : {date-now} UTC
 
             > Use **range**, **trend**, or **remainder** commands to set new alerts, this bot will check every hours for price change then you'll get notified when your asset reach your price !
             
@@ -92,7 +93,7 @@ public final class SpotBotCommand extends CommandAdapter {
 
             Initially a new alert has no margin set, it should be added using the **margin** command.
 
-            Once triggered (either a margin pre alert or an alert) the alert's margin is reset to 0, that is no margin.
+            Once triggered (either a margin pre alert or an alert) the alert's margin is reset, that is no more margin.
             
             **snooze**
 
@@ -102,9 +103,9 @@ public final class SpotBotCommand extends CommandAdapter {
 
             Once an alert has been raised, it decreases in number of *repeat* and becomes ignored during *repeat-delay* hours.
             
-            A third kind of alert, **remainder** let you receive a notification with a message you can prepare in advance. This allows to you to set a remainder for events you don't want to miss.
+            A third kind of alert, **remainder**, let you receive a notification at a specified date in the future, with a message you can prepare in advance. This allows to you to set a remainder for events you don't want to miss.
             
-            For all theses alerts, including remainders, the accuracy of updates is hourly, so do not expect a notification in the micro second after the price shifted.
+            For all theses alerts, including remainders, the accuracy of updates is hourly, so do not expect a notification in the micro second after the event occurred.
             
             The others commands let you do some searches about current alerts defined, as well as updating or deleting them.
             
@@ -112,7 +113,7 @@ public final class SpotBotCommand extends CommandAdapter {
             
             **The alerts you set using your private channel remains confidential.**
 
-            You may also want to join role {role} to get notified of each alert occurring on {channel}.
+            You may also want to join role {role} to get notified of each alert occurring on the channel {channel}.
 
             Now type **/** to use a command, or type it prefixed with char **!**
             
@@ -168,9 +169,9 @@ public final class SpotBotCommand extends CommandAdapter {
 
     private static String formattedHeader(@Nullable Guild guild) {
         String channel = Optional.ofNullable(guild).flatMap(Discord::getSpotBotChannel)
-                .map(Channel::getAsMention).orElse('#' + DISCORD_BOT_CHANNEL + " of your discord server");
+                .map(Channel::getAsMention).orElse("**#" + DISCORD_BOT_CHANNEL + "** of your discord server");
         String role = Optional.ofNullable(guild).flatMap(Discord::spotBotRole)
-                .map(Role::getAsMention).orElse('@' + DISCORD_BOT_ROLE);
+                .map(Role::getAsMention).orElse("**@" + DISCORD_BOT_ROLE + "**");
         return DOC_HEADER.replace("{date-format}", Dates.DATE_TIME_FORMAT)
                 .replace("{date-now}", Dates.formatUTC(Instant.now().atZone(ZoneOffset.UTC)))
                 .replace("{repeat}", ""+DEFAULT_REPEAT)

@@ -7,6 +7,7 @@ import java.time.ZonedDateTime;
 
 import static org.sbot.alerts.Alert.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
+import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
 import static org.sbot.utils.Dates.formatUTC;
 
 public interface ArgumentValidator {
@@ -35,7 +36,7 @@ public interface ArgumentValidator {
 
     @NotNull
     static String requireSupportedExchange(@NotNull String exchange) {
-        if(!SUPPORTED_EXCHANGES.contains(exchange.toLowerCase())) {
+        if(!VIRTUAL_EXCHANGES.contains(exchange.toLowerCase()) && !SUPPORTED_EXCHANGES.contains(exchange.toLowerCase())) {
             throw new IllegalArgumentException("Provided exchange is not supported : " + exchange + " (expected " + String.join(", ", SUPPORTED_EXCHANGES) + ')');
         }
         return exchange;
