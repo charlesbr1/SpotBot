@@ -16,6 +16,7 @@ import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.NO_TRIGGER;
+import static org.sbot.alerts.RemainderAlert.REMAINDER_EXCHANGE;
 import static org.sbot.chart.Symbol.getSymbol;
 import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
 import static org.sbot.utils.ArgumentValidator.*;
@@ -25,7 +26,8 @@ public abstract class Alert {
 
     public enum Type {
         range("Range"),
-        trend("Trend");
+        trend("Trend"),
+        remainder("Remainder");
 
         public final String titleName;
 
@@ -79,7 +81,7 @@ public abstract class Alert {
         this.type = requireNonNull(type);
         this.userId = userId;
         this.serverId = serverId;
-        this.exchange = requireSupportedExchange(exchange.toLowerCase()).intern();
+        this.exchange = REMAINDER_EXCHANGE.equals(exchange) ? exchange :requireSupportedExchange(exchange.toLowerCase()).intern();
         this.ticker1 = requireTickerLength(ticker1).toUpperCase().intern();
         this.ticker2 = requireTickerLength(ticker2).toUpperCase().intern();
         this.message = requireAlertMessageLength(message);

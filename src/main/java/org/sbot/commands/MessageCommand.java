@@ -11,7 +11,9 @@ import java.util.List;
 
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.alerts.Alert.ALERT_MESSAGE_ARG_MAX_LENGTH;
-import static org.sbot.utils.ArgumentValidator.*;
+import static org.sbot.alerts.Alert.Type.remainder;
+import static org.sbot.utils.ArgumentValidator.requireAlertMessageLength;
+import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class MessageCommand extends CommandAdapter {
 
@@ -37,10 +39,10 @@ public final class MessageCommand extends CommandAdapter {
     }
 
     private EmbedBuilder message(@NotNull CommandContext context, String message, long alertId) {
-        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, () -> {
+        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, type -> {
             alertsDao.updateMessage(alertId, message);
             return "Message of alert " + alertId + " updated to *" + message + "*" +
-                    alertMessageTips(message, alertId);
+                    (remainder != type ? alertMessageTips(message, alertId) : "");
         });
         return embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer());
     }

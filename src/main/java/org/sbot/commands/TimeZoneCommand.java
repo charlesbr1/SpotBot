@@ -53,7 +53,7 @@ public final class TimeZoneCommand extends CommandAdapter {
     }
 
     private EmbedBuilder now() {
-        return embedBuilder(NAME, Color.green, "Current UTC time :\n\n> " + Dates.formatUTC(ZonedDateTime.now()));
+        return embedBuilder(NAME, Color.green, "Current UTC date time :\n\n> " + Dates.formatUTC(ZonedDateTime.now()));
     }
 
     private EmbedBuilder list() {
@@ -67,7 +67,7 @@ public final class TimeZoneCommand extends CommandAdapter {
             throw new IllegalArgumentException("Invalid time zone : " + timeZone + "\nuse *!utc list* to see the available ones");
         }
         if(null == date) {
-            throw new IllegalArgumentException("Missing date field");
+            throw new IllegalArgumentException("Missing date time field");
         }
         ZonedDateTime utcDate = LocalDateTime.parse(date, DATE_TIME_FORMATTER).atZone(ZoneId.of(SHORT_IDS.get(timeZone)));
         return embedBuilder(NAME, Color.green, Dates.formatUTC(utcDate));

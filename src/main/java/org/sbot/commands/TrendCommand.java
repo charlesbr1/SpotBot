@@ -87,6 +87,7 @@ public final class TrendCommand extends CommandAdapter {
                 "\n* pair : " + trendAlert.getSlashPair() + "\n* exchange : " + exchange +
                 "\n* from price " + fromPrice + "\n* from date " + formatUTC(fromDate) +
                 "\n* to price " + toPrice + "\n* to date " + formatUTC(toDate) +
+                "\n* message : " + message +
                 alertMessageTips(message, alertId);
 
         return embedBuilder(NAME, Color.green, answer);

@@ -85,9 +85,8 @@ public final class AlertsWatcher {
             });
 
             // matching alerts has no message, they are retrieved in a second time
-            Map<Long, String> alertMessages = split(1000, matchingAlerts.stream()) // split in many calls using SQL IN clause
-                    .map(alerts ->
-                            alertDao.transactional(() -> alertDao.getAlertMessages(alerts.stream().mapToLong(matchingAlert -> matchingAlert.alert().id).toArray())))
+            Map<Long, String> alertMessages = split(1000, matchingAlerts.stream())
+                    .map(alerts -> alertDao.transactional(() -> alertDao.getAlertMessages(alerts.stream().mapToLong(matchingAlert -> matchingAlert.alert().id).toArray())))
                     .flatMap(map -> map.entrySet().stream())
                     .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
 

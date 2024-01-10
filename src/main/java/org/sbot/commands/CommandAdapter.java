@@ -12,10 +12,11 @@ import org.sbot.alerts.Alert;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.discord.CommandListener;
 import org.sbot.services.dao.AlertsDao;
-import org.sbot.services.dao.AlertsDao.UserIdServerId;
+import org.sbot.services.dao.AlertsDao.UserIdServerIdType;
 
 import java.awt.*;
 import java.util.List;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -60,10 +61,10 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected record AnswerColorSmiley(@NotNull String answer, @NotNull Color color, @NotNull String smiley) {}
 
-    protected AnswerColorSmiley securedAlertUpdate(long alertId, @NotNull CommandContext context, @NotNull Supplier<String> updateHandler) {
-        return alertsDao.getUserIdAndServerId(alertId).map(userIdServerId -> {
-            if (hasAccess(userIdServerId, context)) {
-                return new AnswerColorSmiley(updateHandler.get(), Color.green, ":+1:");
+    protected AnswerColorSmiley securedAlertUpdate(long alertId, @NotNull CommandContext context, @NotNull Function<Type, String> updateHandler) {
+        return alertsDao.getUserIdAndServerIdAndType(alertId).map(userIdServerIdType -> {
+            if (hasAccess(userIdServerIdType, context)) {
+                return new AnswerColorSmiley(updateHandler.apply(userIdServerIdType.type()), Color.green, ":+1:");
             } else {
                 return new AnswerColorSmiley(context.user.getAsMention() + "\nYou are not allowed to update alert " + alertId +
                         (isPrivate(context.getServerId()) ? ", you are on a private channel." : ""), Color.black, ":clown:");
@@ -72,8 +73,8 @@ public abstract class CommandAdapter implements CommandListener {
     }
 
     // the alert must belong to the user, or the user must be admin of the server and the alert belong to his server
-    protected static boolean hasAccess(@NotNull UserIdServerId userIdServerId, @NotNull CommandContext context) {
-        return alertBelongToUser(context.user, userIdServerId.userId()) || userIsAdminAndAlertOnHisServer(context.member, userIdServerId.serverId());
+    protected static boolean hasAccess(@NotNull UserIdServerIdType userIdServerIdType, @NotNull CommandContext context) {
+        return alertBelongToUser(context.user, userIdServerIdType.userId()) || userIsAdminAndAlertOnHisServer(context.member, userIdServerIdType.serverId());
     }
 
     private static boolean alertBelongToUser(@NotNull User user, long userId) {

@@ -25,6 +25,7 @@ import java.util.stream.Stream;
 import static java.util.stream.Collectors.*;
 import static org.sbot.alerts.Alert.MARGIN_DISABLED;
 import static org.sbot.alerts.Alert.Type.range;
+import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.alerts.Alert.hasRepeat;
 
 public class AlertsMemory implements AlertsDao {
@@ -46,10 +47,10 @@ public class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public Optional<UserIdServerId> getUserIdAndServerId(long alertId) {
+    public Optional<UserIdServerIdType> getUserIdAndServerIdAndType(long alertId) {
         LOGGER.debug("getUserIdAndServerId {}", alertId);
         return Optional.ofNullable(alerts.get(alertId))
-                .map(alert -> new UserIdServerId(alert.userId, alert.serverId));
+                .map(alert -> new UserIdServerIdType(alert.userId, alert.serverId, alert.type));
     }
 
     @Override
@@ -64,13 +65,15 @@ public class AlertsMemory implements AlertsDao {
 
     @NotNull
     private static Stream<Alert> havingRepeatAndDelayOverWithActiveRange(@NotNull Stream<Alert> alerts) {
-        ZonedDateTime nowMinus5 = Instant.now().atZone(ZoneOffset.UTC).minusMinutes(5);
-        ZonedDateTime nowPlus5 = Instant.now().atZone(ZoneOffset.UTC).plusMinutes(5);
-        long nowSeconds = nowPlus5.toEpochSecond();
+        ZonedDateTime now = Instant.now().atZone(ZoneOffset.UTC);
+        ZonedDateTime nowMinus60 = now.minusMinutes(60);
+        ZonedDateTime nowPlus60 = now.plusMinutes(60);
+        long nowSeconds = now.plusMinutes(5).toEpochSecond();
         return alerts.filter(alert -> hasRepeat(alert.repeat))
                 .filter(alert -> alert.isRepeatDelayOver(nowSeconds))
+                .filter(alert -> alert.type != remainder || alert.fromDate.isBefore(nowPlus60) ||alert.fromDate.isAfter(nowMinus60))
                 .filter(alert -> alert.type != range || null  == alert.fromDate ||
-                        (alert.fromDate.isBefore(nowPlus5) && (null == alert.toDate || alert.toDate.isAfter(nowMinus5))));
+                        (alert.fromDate.isBefore(nowPlus60) && (null == alert.toDate || alert.toDate.isAfter(nowMinus60))));
     }
 
     @Override

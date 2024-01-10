@@ -5,7 +5,6 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.MatchingAlert.MatchingStatus;
 import org.sbot.chart.Candlestick;
 
-import java.beans.ConstructorProperties;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -24,8 +23,7 @@ public final class RangeAlert extends Alert {
         this(0, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS);
     }
-    @ConstructorProperties({"id", "user_id", "server_id", "exchange", "ticker1", "ticker2",
-    "low", "high", "message", "last_trigger", "margin"})
+
     public RangeAlert(long id, long userId, long serverId, @NotNull String exchange,
                       @NotNull String ticker1, @NotNull String ticker2, @NotNull String message,
                       @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,

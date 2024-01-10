@@ -10,6 +10,7 @@ import org.sbot.services.dao.AlertsDao;
 import java.util.List;
 
 import static org.sbot.alerts.Alert.DEFAULT_REPEAT_DELAY_HOURS;
+import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.ArgumentValidator.requirePositiveShort;
 
@@ -37,7 +38,10 @@ public final class RepeatDelayCommand extends CommandAdapter {
     }
 
     private EmbedBuilder repeatDelay(@NotNull CommandContext context, long alertId, short repeatDelay) {
-        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, () -> {
+        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, type -> {
+            if(remainder == type) {
+                throw new IllegalArgumentException("You can't set the repeat-delay of a remainder alert");
+            }
             alertsDao.updateRepeatDelay(alertId, 0 != repeatDelay ? repeatDelay : DEFAULT_REPEAT_DELAY_HOURS);
             return "Repeat delay of alert " + alertId + " updated to " +
                     (0 != repeatDelay ? repeatDelay : "default " + DEFAULT_REPEAT_DELAY_HOURS) +

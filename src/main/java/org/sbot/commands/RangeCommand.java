@@ -90,6 +90,7 @@ public final class RangeCommand extends CommandAdapter {
                 "\n* low " + fromPrice + "\n* high " + toPrice +
                 (null != fromDate ? "\n* from date " + formatUTC(fromDate) : "") +
                 (null != toDate ? "\n* to date " + formatUTC(toDate) : "") +
+                "\n* message : " + message +
                 alertMessageTips(message, alertId);
 
         return embedBuilder(NAME, Color.green, answer);

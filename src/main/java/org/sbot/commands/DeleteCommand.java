@@ -31,7 +31,7 @@ public final class DeleteCommand extends CommandAdapter {
     }
 
     private EmbedBuilder delete(@NotNull CommandContext context, long alertId) {
-        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, () -> {
+        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, type -> {
             alertsDao.deleteAlert(alertId);
             return "Alert " + alertId + " deleted";
         });

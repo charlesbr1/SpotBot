@@ -9,6 +9,7 @@ import org.sbot.services.dao.AlertsDao;
 
 import java.util.List;
 
+import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.alerts.Alert.hasRepeat;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.ArgumentValidator.requirePositiveShort;
@@ -37,7 +38,10 @@ public final class RepeatCommand extends CommandAdapter {
     }
 
     private EmbedBuilder repeat(@NotNull CommandContext context, long alertId, short repeat) {
-        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, () -> {
+        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, type -> {
+            if(remainder == type) {
+                throw new IllegalArgumentException("You can't set the repeat of a remainder alert");
+            }
             alertsDao.updateRepeat(alertId, repeat);
             return "Repeat of alert " + alertId + " updated to " + repeat +
                     (!hasRepeat(repeat) ? " (disabled)" : "");

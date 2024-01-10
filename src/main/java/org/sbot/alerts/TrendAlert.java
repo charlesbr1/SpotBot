@@ -5,7 +5,6 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.MatchingAlert.MatchingStatus;
 import org.sbot.chart.Candlestick;
 
-import java.beans.ConstructorProperties;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.ZonedDateTime;
@@ -28,8 +27,6 @@ public final class TrendAlert extends Alert {
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS);
     }
 
-    @ConstructorProperties({"id", "user_id", "server_id", "exchange", "ticker1", "ticker2",
-            "fromPrice", "fromDate", "toPrice", "toDate", "message", "last_trigger", "margin"})
     public TrendAlert(long id, long userId, long serverId, @NotNull String exchange,
                       @NotNull String ticker1, @NotNull String ticker2, @NotNull String message,
                       @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,

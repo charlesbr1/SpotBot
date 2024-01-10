@@ -12,6 +12,7 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
 import org.sbot.alerts.Alert.Type;
 import org.sbot.alerts.RangeAlert;
+import org.sbot.alerts.RemainderAlert;
 import org.sbot.alerts.TrendAlert;
 import org.sbot.services.dao.jdbi.JDBIRepository;
 
@@ -63,15 +64,17 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
 
         String SELECT_MAX_ID = "SELECT MAX(id) FROM alerts";
         String SELECT_BY_ID = "SELECT * FROM alerts WHERE id=:id";
-        String SELECT_USER_ID_AND_SERVER_ID_BY_ID = "SELECT user_id,server_id FROM alerts WHERE id=:id";
+        String SELECT_USER_ID_AND_SERVER_ID_AND_TYPE_BY_ID = "SELECT user_id,server_id,type FROM alerts WHERE id=:id";
         String SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE = "SELECT id,type,user_id,server_id,exchange,ticker1,ticker2,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,repeat_delay FROM alerts " +
                 "WHERE exchange=:exchange AND repeat > 0 AND ((:pair LIKE ticker1 || '%') OR (:pair LIKE '%' || ticker2)) " +
                 "AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * repeat_delay)) <= (1000 * (300 + unixepoch('now', 'utc')))) " +
-                "AND (type NOT LIKE 'range' OR from_date IS NULL OR (from_date < (300 + unixepoch('now', 'utc')) AND (to_date IS NULL OR to_date > (unixepoch('now', 'utc') - 300))))";
+                "AND (type NOT LIKE 'remainder' OR (from_date < (3600 + unixepoch('now', 'utc'))) OR (from_date > (unixepoch('now', 'utc') - 3600))) " +
+                "AND (type NOT LIKE 'range' OR from_date IS NULL OR (from_date < (3600 + unixepoch('now', 'utc')) AND (to_date IS NULL OR to_date > (unixepoch('now', 'utc') - 3600))))";
         String SELECT_ALERT_ID_AND_MESSAGE_BY_ID_IN = "SELECT id,message FROM alerts WHERE id IN (:ids)";
         String SELECT_PAIRS_BY_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE = "SELECT DISTINCT exchange,ticker1||'/'||ticker2 AS pair FROM alerts " +
                 "WHERE repeat > 0 AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * repeat_delay)) <= (1000 * (300 + unixepoch('now', 'utc')))) " +
-                "AND (type NOT LIKE 'range' OR from_date IS NULL OR (from_date < (300 + unixepoch('now', 'utc')) AND (to_date IS NULL OR to_date > (unixepoch('now', 'utc') - 300))))";
+                "AND (type NOT LIKE 'remainder' OR (from_date < (3600 + unixepoch('now', 'utc'))) OR (from_date > (unixepoch('now', 'utc') - 3600))) " +
+                "AND (type NOT LIKE 'range' OR from_date IS NULL OR (from_date < (3600 + unixepoch('now', 'utc')) AND (to_date IS NULL OR to_date > (unixepoch('now', 'utc') - 3600))))";
         String COUNT_ALERTS_OF_USER = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId";
         String ALERTS_OF_USER = "SELECT * FROM alerts WHERE user_id=:userId LIMIT :limit OFFSET :offset";
         String COUNT_ALERTS_OF_USER_AND_TICKER = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId AND (ticker1=:ticker OR ticker2=:ticker) LIMIT :limit OFFSET :offset";
@@ -125,6 +128,7 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
             return switch (type) {
                 case range -> new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
                 case trend -> new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, requireNonNull(fromDate), requireNonNull(toDate), lastTrigger, margin, repeat, repeatDelay);
+                case remainder -> new RemainderAlert(id, userId, serverId, ticker1, ticker2, message, requireNonNull(fromDate), lastTrigger, margin, repeat);
             };
         }
 
@@ -171,13 +175,14 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
     }
 
     @Override
-    public Optional<UserIdServerId> getUserIdAndServerId(long alertId) {
+    public Optional<UserIdServerIdType> getUserIdAndServerIdAndType(long alertId) {
         LOGGER.debug("getUserIdAndServerId {}", alertId);
-        try (var query = getHandle().createQuery(SQL.SELECT_USER_ID_AND_SERVER_ID_BY_ID)) {
+        try (var query = getHandle().createQuery(SQL.SELECT_USER_ID_AND_SERVER_ID_AND_TYPE_BY_ID)) {
             return query.bind("id", alertId)
-                    .map((rs, ctx) -> new UserIdServerId(
+                    .map((rs, ctx) -> new UserIdServerIdType(
                                     rs.getLong("user_id"),
-                                    rs.getLong("server_id")))
+                                    rs.getLong("server_id"),
+                                    Type.valueOf(rs.getString("type"))))
                     .findOne();
         }
     }

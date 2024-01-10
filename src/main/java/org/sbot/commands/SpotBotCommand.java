@@ -68,7 +68,7 @@ public final class SpotBotCommand extends CommandAdapter {
             new Command(TimeZoneCommand.NAME, TimeZoneCommand.DESCRIPTION, TimeZoneCommand.options));
 
     private static final String DOC_HEADER = """
-            SpotBot is a tools for setting alerts when the price of an asset reach a box or cross a trend line.
+            SpotBot is a discord utility for setting alerts when the price of an asset reach a box or cross a trend line, or just for a remainder in the future.
             
             An asset is a pair of two tickers, like ETH/USDT, ADA/BTC, EUR/USD, etc.
             
@@ -82,7 +82,7 @@ public final class SpotBotCommand extends CommandAdapter {
 
             The expected format is {date-format}, for instance now it is : {date-now}
 
-            > Use **range** or **trend** commands to set new alerts, this bot will check every hours for price change then you'll get notified when your asset reach your price !
+            > Use **range**, **trend**, or **remainder** commands to set new alerts, this bot will check every hours for price change then you'll get notified when your asset reach your price !
             
             **margin**
 
@@ -96,16 +96,17 @@ public final class SpotBotCommand extends CommandAdapter {
             
             **snooze**
 
-            Alerts also have two parameters, *repeat* and *repeat-delay*, that can be set using the commands of their respective names.
+            Range and margin alerts also have two parameters, *repeat* and *repeat-delay*, that can be set using the commands of their respective names.
             * **repeat** : the number of times a triggered alert will be re thrown. (default : {repeat})
             * **repeat-delay** : the time in hours to wait before the alert can be raised again. (default : {repeat-delay} hours)
 
             Once an alert has been raised, it decreases in number of *repeat* and becomes ignored during *repeat-delay* hours.
             
+            A third kind of alert, **remainder** let you receive a notification with a message you can prepare in advance. This allows to you to set a remainder for events you don't want to miss.
             
             The others commands let you do some searches about current alerts defined, as well as updating or deleting them.
             
-            This bot works exclusively on the channel {channel}, you can also use it from your private channel. When an alert occurs, the owner is notified on the channel where he created it.
+            This bot works exclusively into the channel {channel}, you can also use it from your private channel. When an alert occurs, the owner is notified on the channel where he created it.
             
             **The alerts you set using your private channel remains confidential.**
 
