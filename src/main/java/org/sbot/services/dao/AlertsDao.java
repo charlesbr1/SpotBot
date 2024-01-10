@@ -64,4 +64,5 @@ public interface AlertsDao extends TransactionalCtx {
 
     void matchedAlertBatchUpdates(@NotNull Consumer<MatchingAlertUpdater> updater);
     void marginAlertBatchUpdates(@NotNull Consumer<MatchingAlertUpdater> updater);
+    void matchedRemainderAlertBatchDeletes(@NotNull Consumer<MatchingAlertUpdater> deleter);
 }

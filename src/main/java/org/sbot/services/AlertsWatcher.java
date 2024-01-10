@@ -28,6 +28,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
 import static net.dv8tion.jda.api.entities.MessageEmbed.TITLE_MAX_LENGTH;
+import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.alerts.Alert.isPrivate;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.MARGIN;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
@@ -63,9 +64,14 @@ public final class AlertsWatcher {
                         })));
                 LockSupport.parkNanos(Duration.ofMillis(300 / (Math.min(10, exchangePairs.size()))).toNanos());
             });
+            monthlyAlertsCleanup();
         } catch (RuntimeException e) {
             LOGGER.error("Exception thrown while performing hourly alerts task", e);
         }
+    }
+
+    void monthlyAlertsCleanup() {
+        //TODO drop alerts that are disabled since 1 month, or range box alert out of time...
     }
 
     private void getPricesAndRaiseAlerts(@NotNull Exchange exchange, @NotNull String pair) {
@@ -100,13 +106,14 @@ public final class AlertsWatcher {
     private void updateAlerts(@NotNull Stream<MatchingAlert> matchingAlerts) {
         alertDao.matchedAlertBatchUpdates(matchedUpdater ->
                 alertDao.marginAlertBatchUpdates(marginUpdater ->
-                        matchingAlerts.forEach(matchingAlert -> {
-                            Alert alert = matchingAlert.alert();
-                            switch (matchingAlert.status()) {
-                                case MATCHED -> matchedUpdater.update(alert.id);
-                                case MARGIN -> marginUpdater.update(alert.id);
-                            }
-                        })));
+                        alertDao.matchedRemainderAlertBatchDeletes(remainderDelete ->
+                            matchingAlerts.forEach(matchingAlert -> {
+                                Alert alert = matchingAlert.alert();
+                                switch (matchingAlert.status()) {
+                                    case MATCHED -> (alert.type == remainder ? remainderDelete : matchedUpdater).update(alert.id);
+                                    case MARGIN -> marginUpdater.update(alert.id);
+                                }
+                        }))));
     }
 
     private void sendDiscordNotifications(@NotNull List<MatchingAlert> matchingAlerts) {

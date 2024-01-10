@@ -398,6 +398,12 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
         batchUpdates(updater, SQL.UPDATE_ALERTS_SET_MARGIN_ZERO);
     }
 
+    @Override
+    public void matchedRemainderAlertBatchDeletes(@NotNull Consumer<MatchingAlertUpdater> deleter) {
+        LOGGER.debug("matchedRemainderAlertBatchDeletes");
+        batchUpdates(deleter, SQL.DELETE_BY_ID);
+    }
+
     private void batchUpdates(@NotNull Consumer<MatchingAlertUpdater> updater, @NotNull String sql) {
         PreparedBatch[] batch = new PreparedBatch[1];
         try {

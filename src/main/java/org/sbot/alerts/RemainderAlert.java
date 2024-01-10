@@ -53,25 +53,25 @@ public class RemainderAlert extends Alert {
     @NotNull
     @Override
     public Alert withMargin(@NotNull BigDecimal margin) {
-        throw new IllegalArgumentException("You can't set the margin of a remainder alert");
+        throw new UnsupportedOperationException("You can't set the margin of a remainder alert");
     }
 
     @NotNull
     @Override
     public Alert withRepeat(short repeat) {
-        throw new IllegalArgumentException("You can't set the repeat of a remainder alert");
+        throw new UnsupportedOperationException("You can't set the repeat of a remainder alert");
     }
 
     @NotNull
     @Override
     public Alert withRepeatDelay(short delay) {
-        throw new IllegalArgumentException("You can't set the repeat-delay of a remainder alert");
+        throw new UnsupportedOperationException("You can't set the repeatDelay of a remainder alert");
     }
 
     @NotNull
     @Override
     public Alert withLastTriggerMarginRepeat(@NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat) {
-        return new RemainderAlert(id, userId, serverId, ticker1, ticker2, message, fromDate, lastTrigger, margin, repeat);
+        throw new UnsupportedOperationException("You can't update a remainder alert");
     }
 
     @NotNull

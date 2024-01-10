@@ -81,7 +81,7 @@ public final class SpotBotCommand extends CommandAdapter {
             **A date should be provided as UTC** date and time. Discord can't provide your time zone so you have to think about it !
 
             The expected date time format is :``` {date-format}```
-            For instance now it is : {date-now} UTC
+            For instance now it's {date-now} UTC
 
             > Use **range**, **trend**, or **remainder** commands to set new alerts, this bot will check every hours for price change then you'll get notified when your asset reach your price !
             
@@ -102,8 +102,13 @@ public final class SpotBotCommand extends CommandAdapter {
             * **repeat-delay** : the time in hours to wait before the alert can be raised again. (default : {repeat-delay} hours)
 
             Once an alert has been raised, it decreases in number of *repeat* and becomes ignored during *repeat-delay* hours.
+            If it's number of repeat reach 0, the alert is disabled and will be deleted one month later, this let time to enable it again, if never.
             
-            A third kind of alert, **remainder**, let you receive a notification at a specified date in the future, with a message you can prepare in advance. This allows to you to set a remainder for events you don't want to miss.
+            **remainder**
+            
+            This third kind of alert let you receive a notification at a specified date in the future, with a message you can prepare in advance. This allows to you to set a remainder for events you don't want to miss.
+            A remainder alert is always deleted after it has been raise, as there is no margin or repeat for them.
+
             
             For all theses alerts, including remainders, the accuracy of updates is hourly, so do not expect a notification in the micro second after the event occurred.
             

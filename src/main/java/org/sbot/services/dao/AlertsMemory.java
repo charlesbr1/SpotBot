@@ -252,6 +252,12 @@ public class AlertsMemory implements AlertsDao {
     }
 
     @Override
+    public void matchedRemainderAlertBatchDeletes(@NotNull Consumer<MatchingAlertUpdater> deleter) {
+        LOGGER.debug("matchedRemainderAlertBatchDeletes");
+        deleter.accept(alerts::remove);
+    }
+
+    @Override
     public <T> T transactional(@NotNull Supplier<T> callback, @NotNull TransactionIsolationLevel isolationLevel) {
         return callback.get(); // no transaction support in memory
     }
