@@ -22,6 +22,7 @@ Remainder Alerts
 ----------------
 
 Remainder alerts allow you to receive a notification with a pre-prepared message. This is useful for setting reminders for events you don't want to miss.
+
 Price Format
 ------------
 
