@@ -64,13 +64,11 @@ You may join the role @SpotBot to get notified of each alert occurring on #test 
 
 For a description of available commands, use:
 
-bashCopy code
 
 `/spotbot commands`
 
 For example usages of these commands, use:
 
-bashCopy code
 
 `/spotbot examples`
 
@@ -89,7 +87,6 @@ bashCopy code
 Uptime
 ------
 
-bashCopy code
 
 `/uptime`
 
@@ -98,7 +95,6 @@ Returns the time since this bot is up.
 Timezone Conversion
 -------------------
 
-bashCopy code
 
 `/timezone`
 
