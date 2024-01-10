@@ -9,6 +9,7 @@ import org.sbot.alerts.Alert;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -23,6 +24,7 @@ import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.*;
 import static org.sbot.alerts.Alert.MARGIN_DISABLED;
+import static org.sbot.alerts.Alert.Type.range;
 import static org.sbot.alerts.Alert.hasRepeat;
 
 public class AlertsMemory implements AlertsDao {
@@ -51,15 +53,24 @@ public class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOver(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+    public void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
         LOGGER.debug("fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats {} {}", exchange, pair);
-        long nowSeconds = Instant.now().getEpochSecond();
-        alertsConsumer.accept(alerts.values().stream()
+        alertsConsumer.accept(havingRepeatAndDelayOverWithActiveRange(
+                alerts.values().stream()
                 .filter(alert -> alert.exchange.equals(exchange))
-                .filter(alert -> alert.getSlashPair().equals(pair))
-                .filter(alert -> hasRepeat(alert.repeat))
-                .filter(alert -> alert.isRepeatDelayOver(nowSeconds + 300))
+                .filter(alert -> alert.getSlashPair().equals(pair)))
                 .map(alert -> alert.withMessage(""))); // erase the message to simulate the SQL layer
+    }
+
+    @NotNull
+    private static Stream<Alert> havingRepeatAndDelayOverWithActiveRange(@NotNull Stream<Alert> alerts) {
+        ZonedDateTime nowMinus5 = Instant.now().atZone(ZoneOffset.UTC).minusMinutes(5);
+        ZonedDateTime nowPlus5 = Instant.now().atZone(ZoneOffset.UTC).plusMinutes(5);
+        long nowSeconds = nowPlus5.toEpochSecond();
+        return alerts.filter(alert -> hasRepeat(alert.repeat))
+                .filter(alert -> alert.isRepeatDelayOver(nowSeconds))
+                .filter(alert -> alert.type != range || null  == alert.fromDate ||
+                        (alert.fromDate.isBefore(nowPlus5) && (null == alert.toDate || alert.toDate.isAfter(nowMinus5))));
     }
 
     @Override
@@ -73,12 +84,9 @@ public class AlertsMemory implements AlertsDao {
 
     @Override
     @NotNull
-    public Map<String, List<String>> getPairsByExchangesHavingRepeatAndDelayOver() {
+    public Map<String, List<String>> getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange() {
         LOGGER.debug("getPairsByExchanges");
-        long nowSeconds = Instant.now().getEpochSecond();
-        return alerts.values().stream()
-                .filter(alert -> hasRepeat(alert.repeat))
-                .filter(alert -> alert.isRepeatDelayOver(nowSeconds + 300))
+        return havingRepeatAndDelayOverWithActiveRange(alerts.values().stream())
                 .collect(groupingBy(Alert::getExchange, mapping(Alert::getSlashPair, toList())));
     }
 

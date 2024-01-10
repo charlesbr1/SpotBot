@@ -18,12 +18,12 @@ public interface AlertsDao extends TransactionalCtx {
     record UserIdServerId(long userId, long serverId) {}
     Optional<UserIdServerId> getUserIdAndServerId(long alertId);
 
-    void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOver(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer);
+    void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer);
     @NotNull
     Map<Long, String> getAlertMessages(@NotNull long[] alertIds);
 
     @NotNull
-    Map<String, List<String>> getPairsByExchangesHavingRepeatAndDelayOver();
+    Map<String, List<String>> getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange();
 
     long countAlertsOfUser(long userId);
     long countAlertsOfServer(long serverId);

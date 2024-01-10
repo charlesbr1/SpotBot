@@ -55,7 +55,7 @@ public final class AlertsWatcher {
     // this splits in tasks by exchanges and pairs, one rest call must be done by each task to retrieve the candlesticks
     public void checkAlerts() {
         try {
-            alertDao.transactional(alertDao::getPairsByExchangesHavingRepeatAndDelayOver)
+            alertDao.transactional(alertDao::getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange)
                     .forEach((xchange, pairs) -> {  // one task by exchange / pair
                         Exchanges.get(xchange).ifPresent(exchange ->
                                 pairs.forEach(pair ->
@@ -77,7 +77,7 @@ public final class AlertsWatcher {
 
             List<MatchingAlert> matchingAlerts = new ArrayList<>();
             alertDao.transactional(() -> {
-                alertDao.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOver(
+                alertDao.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(
                         exchange.name(), pair, alerts -> updateAlerts(alerts
                                 .map(alert -> alert.match(prices, null)) //TODO previous candlestick
                                 .filter(MatchingAlert::hasMatch)
