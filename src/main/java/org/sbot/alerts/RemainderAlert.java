@@ -77,7 +77,8 @@ public class RemainderAlert extends Alert {
     @NotNull
     @Override
     public MatchingAlert match(@NotNull List<Candlestick> candlesticks, @Nullable Candlestick previousCandlestick) {
-        if(fromDate.isAfter(Instant.now().atZone(ZoneOffset.UTC).minusMinutes(5))) {
+        ZonedDateTime now = Instant.now().atZone(ZoneOffset.UTC);
+        if(fromDate.isBefore(now.plusMinutes(60)) || fromDate.isAfter(now.minusMinutes(60))) {
             return new MatchingAlert(this, MATCHED, null);
         }
         return new MatchingAlert(this, NO_TRIGGER, null);
@@ -89,6 +90,6 @@ public class RemainderAlert extends Alert {
         return (matchingStatus.noTrigger() ? type.titleName + " set by <@" + userId + "> on " + getSlashPair() :
                 "<@" + userId + ">\nYour " + type.name() + " set on " + getSlashPair() + " was raised !") +
                 "\n\n* id :\t" + id +
-                "\n* at date :\t" + formatUTC(fromDate);
+                "\n* date :\t" + formatUTC(fromDate);
     }
 }

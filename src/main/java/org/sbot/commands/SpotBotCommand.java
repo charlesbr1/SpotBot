@@ -104,6 +104,8 @@ public final class SpotBotCommand extends CommandAdapter {
             
             A third kind of alert, **remainder** let you receive a notification with a message you can prepare in advance. This allows to you to set a remainder for events you don't want to miss.
             
+            For all theses alerts, including remainders, the accuracy of updates is hourly, so do not expect a notification in the micro second after the price shifted.
+            
             The others commands let you do some searches about current alerts defined, as well as updating or deleting them.
             
             This bot works exclusively into the channel {channel}, you can also use it from your private channel. When an alert occurs, the owner is notified on the channel where he created it.

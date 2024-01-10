@@ -23,4 +23,8 @@ public record MatchingAlert(@NotNull Alert alert, @NotNull MatchingStatus status
             return this == NO_TRIGGER;
         }
     }
+
+    public MatchingAlert withAlert(@NotNull Alert alert) {
+        return new MatchingAlert(alert, status, matchingCandlestick);
+    }
 }

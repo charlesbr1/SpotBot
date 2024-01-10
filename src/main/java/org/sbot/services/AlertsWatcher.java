@@ -21,18 +21,14 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.locks.LockSupport;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.groupingBy;
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.*;
 import static net.dv8tion.jda.api.entities.MessageEmbed.TITLE_MAX_LENGTH;
-import static org.sbot.alerts.Alert.PRIVATE_ALERT;
+import static org.sbot.alerts.Alert.isPrivate;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.MARGIN;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
@@ -75,31 +71,26 @@ public final class AlertsWatcher {
             List<Candlestick> prices = exchange.getCandlesticks(pair, TimeFrame.HOURLY, 1)
                     .sorted(Comparator.comparing(Candlestick::openTime)).toList();
 
-            List<MatchingAlert> matchingAlerts = new ArrayList<>();
-            alertDao.transactional(() -> {
-                alertDao.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(
-                        exchange.name(), pair, alerts -> updateAlerts(alerts
-                                .map(alert -> alert.match(prices, null)) //TODO previous candlestick
-                                .filter(MatchingAlert::hasMatch)
-                                .filter(matchingAlerts::add)));
-            });
+            // load and update alerts that matches, their message attribute has to be loaded next
+            List<MatchingAlert> matchingAlerts = updateMatchingAlerts(exchange, pair, prices, null);
 
-            // matching alerts has no message, they are retrieved in a second time
-            Map<Long, String> alertMessages = split(1000, matchingAlerts.stream())
-                    .map(alerts -> alertDao.transactional(() -> alertDao.getAlertMessages(alerts.stream().mapToLong(matchingAlert -> matchingAlert.alert().id).toArray())))
-                    .flatMap(map -> map.entrySet().stream())
-                    .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-
-            matchingAlerts.stream()
-                    .map(matchingAlert -> new MatchingAlert(matchingAlert.alert() // replace the alerts by ones with their messages
-                            .withMessage(alertMessages.getOrDefault(matchingAlert.alert().id, matchingAlert.alert().message)),
-                            matchingAlert.status(), matchingAlert.matchingCandlestick()))
-                    .collect(groupingBy(matchingAlert -> matchingAlert.alert().serverId))
-                    .forEach(this::sendAlerts);
+            // load message of alerts that matches then send discord notifications on each related guild or private channels
+            sendDiscordNotifications(matchingAlerts);
 
         } catch(RuntimeException e) {
             LOGGER.warn("Exception thrown while processing alerts", e);
         }
+    }
+
+    private List<MatchingAlert> updateMatchingAlerts(@NotNull Exchange exchange, @NotNull String pair, @NotNull List<Candlestick> prices, @NotNull Candlestick previousPrice) {
+        List<MatchingAlert> matchingAlerts = new ArrayList<>();
+        alertDao.transactional(() -> alertDao
+                .fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(exchange.name(), pair,
+                alerts -> updateAlerts(alerts
+                        .map(alert -> alert.match(prices, previousPrice))
+                        .filter(MatchingAlert::hasMatch)
+                        .filter(matchingAlerts::add))));
+        return matchingAlerts;
     }
 
     private void updateAlerts(@NotNull Stream<MatchingAlert> matchingAlerts) {
@@ -114,17 +105,26 @@ public final class AlertsWatcher {
                         })));
     }
 
+    private void sendDiscordNotifications(@NotNull List<MatchingAlert> matchingAlerts) {
+        split(1000, matchingAlerts).flatMap(alertList -> { // splitting for SQL IN clause getAlertMessages(..)
+                    long[] alertIds = alertList.stream().mapToLong(matchingAlert -> matchingAlert.alert().id).toArray();
+                    var alertIdMessages = alertDao.transactional(() -> alertDao.getAlertMessages(alertIds));
+                    return alertList.stream().map(matchingAlert -> matchingAlert.withAlert(matchingAlert.alert() // replace the alerts by ones with their messages
+                            .withMessage(alertIdMessages.getOrDefault(matchingAlert.alert().id, matchingAlert.alert().message))));
+                }).collect(groupingBy(matchingAlert -> matchingAlert.alert().serverId))
+                .forEach(this::sendAlerts);
+    }
+
     private void sendAlerts(@NotNull Long serverId, @NotNull List<MatchingAlert> matchingAlerts) {
         try {
-            if(PRIVATE_ALERT != serverId) {
-                sendServerAlerts(matchingAlerts, discord.getDiscordServer(serverId));
-            } else {
+            if(isPrivate(serverId)) {
                 sendPrivateAlerts(matchingAlerts);
+            } else {
+                sendServerAlerts(matchingAlerts, discord.getDiscordServer(serverId));
             }
         } catch (RuntimeException e) {
             String alertIds = matchingAlerts.stream()
-                    .map(matchingAlert -> String.valueOf(matchingAlert.alert().id))
-                    .collect(Collectors.joining(","));
+                    .map(matchingAlert -> String.valueOf(matchingAlert.alert().id)).collect(joining(","));
             LOGGER.error("Failed to send alerts [" + alertIds + "]", e);
         }
     }
@@ -153,22 +153,22 @@ public final class AlertsWatcher {
 
     private EmbedBuilder toMessage(@NotNull MatchingAlert matchingAlert) {
         Alert alert = matchingAlert.alert();
-        return embedBuilder(title(alert.type.titleName, alert.getSlashPair(), alert.message, matchingAlert.status()),
+        return embedBuilder(title(alert, matchingAlert.status()),
                 MARGIN == matchingAlert.status() ? Color.orange : Color.green,
                 alert.triggeredMessage(matchingAlert.status(), matchingAlert.matchingCandlestick()));
     }
 
-    private static String title(@NotNull String alertName, @NotNull String slashPair, @NotNull String message, MatchingStatus matchingStatus) {
-        String title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + alertName + " ALERT !!! - [" + slashPair + "] ";
-        if(TITLE_MAX_LENGTH - message.length() < title.length()) {
-            LOGGER.warn("Alert name '{}' will be truncated from alert title because it is too long : {}", alertName, title);
-            title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + "ALERT !!! - [" + slashPair + "] ";
-            if(TITLE_MAX_LENGTH - message.length() < title.length()) {
-                LOGGER.warn("Pair '{}' will be truncated from alert title because it is too long : {}", slashPair, title);
+    private static String title(@NotNull Alert alert, @NotNull MatchingStatus matchingStatus) {
+        String title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + alert.type.titleName + " ALERT !!! - [" + alert.getSlashPair() + "] ";
+        if(TITLE_MAX_LENGTH - alert.message.length() < title.length()) {
+            LOGGER.warn("Alert name '{}' will be truncated from the title because it is too long : {}", alert.type.titleName, title);
+            title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + "ALERT !!! - [" + alert.getSlashPair() + "] ";
+            if(TITLE_MAX_LENGTH - alert.message.length() < title.length()) {
+                LOGGER.warn("Pair '{}' will be truncated from the title because it is too long : {}", alert.getSlashPair(), title);
                 title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + " ALERT !!! - ";
             }
         }
-        return title + message;
+        return title + alert.message;
     }
 
     private List<EmbedBuilder> shrinkToPageSize(@NotNull List<EmbedBuilder> alerts, int total) {
@@ -178,7 +178,7 @@ public final class AlertsWatcher {
             }
             alerts.add(embedBuilder("...", Color.red, "Limit reached ! That's too much alerts.\n\n* " +
                     total + " alerts were triggered\n* " + MESSAGE_PAGE_SIZE + " alerts were notified\n* " +
-                    (total - MESSAGE_PAGE_SIZE + 1) + " remaining alerts are discarded"));
+                    (total - MESSAGE_PAGE_SIZE + 1) + " remaining alerts are discarded, sorry."));
         }
         return alerts;
     }

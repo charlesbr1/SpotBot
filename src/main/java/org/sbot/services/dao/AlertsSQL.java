@@ -387,18 +387,18 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
     }
 
     @Override
-    public void matchedAlertBatchUpdates(@NotNull Consumer<TriggeredAlertUpdater> updater) {
+    public void matchedAlertBatchUpdates(@NotNull Consumer<MatchingAlertUpdater> updater) {
         LOGGER.debug("matchedAlertBatchUpdates");
         batchUpdates(updater, SQL.UPDATE_ALERTS_SET_MARGIN_ZERO_DECREMENT_REPEAT_SET_LAST_TRIGGER_NOW);
     }
 
     @Override
-    public void marginAlertBatchUpdates(@NotNull Consumer<TriggeredAlertUpdater> updater) {
+    public void marginAlertBatchUpdates(@NotNull Consumer<MatchingAlertUpdater> updater) {
         LOGGER.debug("marginAlertBatchUpdates");
         batchUpdates(updater, SQL.UPDATE_ALERTS_SET_MARGIN_ZERO);
     }
 
-    private void batchUpdates(@NotNull Consumer<TriggeredAlertUpdater> updater, @NotNull String sql) {
+    private void batchUpdates(@NotNull Consumer<MatchingAlertUpdater> updater, @NotNull String sql) {
         PreparedBatch[] batch = new PreparedBatch[1];
         try {
             updater.accept(id -> (null != batch[0] ? batch[0] :

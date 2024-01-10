@@ -238,14 +238,14 @@ public class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public void matchedAlertBatchUpdates(@NotNull Consumer<TriggeredAlertUpdater> updater) {
+    public void matchedAlertBatchUpdates(@NotNull Consumer<MatchingAlertUpdater> updater) {
         LOGGER.debug("matchedAlertBatchUpdates");
         updater.accept(alertId -> alerts.computeIfPresent(alertId,
                 (id, alert) -> alert.withLastTriggerMarginRepeat(ZonedDateTime.now(), MARGIN_DISABLED, ((short) Math.max(0, alert.repeat - 1)))));
     }
 
     @Override
-    public void marginAlertBatchUpdates(@NotNull Consumer<TriggeredAlertUpdater> updater) {
+    public void marginAlertBatchUpdates(@NotNull Consumer<MatchingAlertUpdater> updater) {
         LOGGER.debug("marginAlertBatchUpdates");
         updater.accept(alertId -> alerts.computeIfPresent(alertId,
                 (id, alert) -> alert.withMargin(MARGIN_DISABLED)));
