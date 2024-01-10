@@ -51,14 +51,16 @@ public final class AlertsWatcher {
     // this splits in tasks by exchanges and pairs, one rest call must be done by each task to retrieve the candlesticks
     public void checkAlerts() {
         try {
-            alertDao.transactional(alertDao::getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange)
-                    .forEach((xchange, pairs) -> {  // one task by exchange / pair
-                        Exchanges.get(xchange).ifPresent(exchange ->
-                                pairs.forEach(pair ->
-                                        Thread.ofVirtual().name('[' + pair + "] SpotBot fetcher")
-                                                .start(() -> getPricesAndRaiseAlerts(exchange, pair))));
-                        LockSupport.parkNanos(Duration.ofSeconds(1).toNanos()); // no need to flood the exchanges
-                    });
+            var exchangePairs = alertDao.transactional(alertDao::getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange);
+            exchangePairs.forEach((xchange, pairs) -> {  // one task by exchange / pair
+                Exchanges.get(xchange).ifPresent(exchange ->
+                        Thread.ofVirtual().start(() -> pairs.forEach(pair -> {
+                            Thread.ofVirtual().name('[' + pair + "] SpotBot fetcher")
+                                    .start(() -> getPricesAndRaiseAlerts(exchange, pair));
+                            LockSupport.parkNanos(Duration.ofMillis(300).toNanos()); // no need to flood the exchanges
+                        })));
+                LockSupport.parkNanos(Duration.ofMillis(300 / (Math.min(10, exchangePairs.size()))).toNanos());
+            });
         } catch (RuntimeException e) {
             LOGGER.error("Exception thrown while performing hourly alerts task", e);
         }

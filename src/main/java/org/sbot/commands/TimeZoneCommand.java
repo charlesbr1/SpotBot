@@ -22,7 +22,7 @@ import static org.sbot.utils.Dates.DATE_TIME_FORMATTER;
 public final class TimeZoneCommand extends CommandAdapter {
 
     public static final String NAME = "timezone";
-    static final String DESCRIPTION = "convert a date time into the utc time zone, this can help for commands that expect a date in UTC";
+    static final String DESCRIPTION = "convert a date time into the utc time zone, helping with commands that expect a date in UTC";
 
 
     private static final String CHOICE_NOW = "now";
