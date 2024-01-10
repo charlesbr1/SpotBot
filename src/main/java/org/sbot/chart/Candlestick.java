@@ -12,11 +12,11 @@ public record Candlestick(@NotNull ZonedDateTime openTime, @NotNull ZonedDateTim
                           @NotNull BigDecimal high, @NotNull BigDecimal low) {
 
     public Candlestick {
-        requireNonNull(openTime);
-        requireNonNull(closeTime);
-        requireNonNull(open);
-        requireNonNull(close);
-        requireNonNull(high);
-        requireNonNull(low);
+        requireNonNull(openTime, "missing Candlestick openTime");
+        requireNonNull(closeTime, "missing Candlestick closeTime");
+        requireNonNull(open, "missing Candlestick open");
+        requireNonNull(close, "missing Candlestick close");
+        requireNonNull(high, "missing Candlestick high");
+        requireNonNull(low, "missing Candlestick low");
     }
 }

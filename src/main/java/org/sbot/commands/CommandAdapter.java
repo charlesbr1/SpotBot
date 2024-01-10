@@ -35,10 +35,10 @@ public abstract class CommandAdapter implements CommandListener {
     private final List<OptionData> options;
 
     protected CommandAdapter(@NotNull AlertsDao alertsDao, @NotNull String name, @NotNull String description, @NotNull List<OptionData> options) {
-        this.alertsDao = requireNonNull(alertsDao);
-        this.name = requireNonNull(name);
-        this.description = requireNonNull(description);
-        this.options = requireNonNull(options);
+        this.alertsDao = requireNonNull(alertsDao, "missing CommandAdapter alertDao");
+        this.name = requireNonNull(name, "missing CommandAdapter name");
+        this.description = requireNonNull(description, "missing CommandAdapter description");
+        this.options = requireNonNull(options, "missing CommandAdapter options");
     }
 
     @Override

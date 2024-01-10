@@ -24,7 +24,7 @@ public interface PropertiesReader {
     @NotNull
     static PropertiesReader loadProperties(@NotNull String filePath) {
         LogManager.getLogger(PropertiesReader.class).debug("Loading properties file {}", filePath);
-        try (InputStream input = new FileInputStream(requireNonNull(filePath))) {
+        try (InputStream input = new FileInputStream(requireNonNull(filePath, "missing properties file path"))) {
             Properties properties = new Properties();
             properties.load(input);
             return name -> readProperty(name, properties);
@@ -44,7 +44,7 @@ public interface PropertiesReader {
     @NotNull
     static String readFile(@NotNull String filePath) {
         try {
-            return Files.readString(Paths.get(requireNonNull(filePath)));
+            return Files.readString(Paths.get(requireNonNull(filePath, "missing properties file path")));
         } catch (IOException e) {
             LogManager.getLogger(PropertiesReader.class).debug("Failed to read file {}", filePath);
             throw new RuntimeException(e);

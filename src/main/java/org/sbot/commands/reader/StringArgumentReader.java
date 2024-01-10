@@ -24,7 +24,7 @@ public final class StringArgumentReader implements ArgumentReader {
     private String remainingArguments;
 
     public StringArgumentReader(@NotNull String arguments) {
-        this.remainingArguments = requireNonNull(arguments);
+        this.remainingArguments = requireNonNull(arguments, "missing StringArgumentReader arguments");
     }
 
     @Override

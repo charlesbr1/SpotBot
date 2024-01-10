@@ -20,7 +20,7 @@ public final class SlashArgumentReader implements ArgumentReader {
     private final SlashCommandInteractionEvent event;
 
     public SlashArgumentReader(@NotNull SlashCommandInteractionEvent event) {
-        this.event = requireNonNull(event);
+        this.event = requireNonNull(event, "missing SlashCommandInteractionEvent event");
     }
 
     @Override

@@ -56,7 +56,7 @@ public final class AlertsWatcher {
                         Exchanges.get(xchange).ifPresent(exchange ->
                                 pairs.forEach(pair ->
                                         Thread.ofVirtual().name('[' + pair + "] SpotBot fetcher")
-                                                .start(() -> getPricesAndCheckAlerts(exchange, pair))));
+                                                .start(() -> getPricesAndRaiseAlerts(exchange, pair))));
                         LockSupport.parkNanos(Duration.ofSeconds(1).toNanos()); // no need to flood the exchanges
                     });
         } catch (RuntimeException e) {
@@ -64,7 +64,7 @@ public final class AlertsWatcher {
         }
     }
 
-    private void getPricesAndCheckAlerts(@NotNull Exchange exchange, @NotNull String pair) {
+    private void getPricesAndRaiseAlerts(@NotNull Exchange exchange, @NotNull String pair) {
         try {
             LOGGER.debug("Retrieving price for pair [{}] on {}...", pair, exchange);
             // TODO récuperer l'historique depuis le last candlestick des alerts

@@ -14,7 +14,7 @@ import java.util.function.Supplier;
 import static java.util.Objects.requireNonNull;
 import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.MATCHED;
-import static org.sbot.alerts.MatchingAlert.MatchingStatus.NO_TRIGGER;
+import static org.sbot.alerts.MatchingAlert.MatchingStatus.NOT_MATCHING;
 import static org.sbot.utils.Dates.formatUTC;
 
 public class RemainderAlert extends Alert {
@@ -32,7 +32,7 @@ public class RemainderAlert extends Alert {
                           @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime lastTrigger,
                           @NotNull BigDecimal margin, short repeat) {
         super(id, remainder, userId, serverId, REMAINDER_EXCHANGE, ticker1, ticker2, message, null, null, fromDate, null, lastTrigger, margin, repeat, DEFAULT_REPEAT_DELAY_HOURS);
-        requireNonNull(fromDate);
+        requireNonNull(fromDate, "missing RemainderAlert fromDate");
     }
 
     @NotNull
@@ -81,13 +81,13 @@ public class RemainderAlert extends Alert {
         if(fromDate.isBefore(now.plusMinutes(60)) || fromDate.isAfter(now.minusMinutes(60))) {
             return new MatchingAlert(this, MATCHED, null);
         }
-        return new MatchingAlert(this, NO_TRIGGER, null);
+        return new MatchingAlert(this, NOT_MATCHING, null);
     }
 
     @NotNull
     @Override
     protected String asMessage(@NotNull MatchingAlert.MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
-        return (matchingStatus.noTrigger() ? type.titleName + " set by <@" + userId + "> on " + getSlashPair() :
+        return (matchingStatus.notMatching() ? type.titleName + " set by <@" + userId + "> on " + getSlashPair() :
                 "<@" + userId + ">\nYour " + type.name() + " set on " + getSlashPair() + " was raised !") +
                 "\n\n* id :\t" + id +
                 "\n* date :\t" + formatUTC(fromDate);

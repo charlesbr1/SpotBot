@@ -127,8 +127,8 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
 
             return switch (type) {
                 case range -> new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
-                case trend -> new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, requireNonNull(fromDate), requireNonNull(toDate), lastTrigger, margin, repeat, repeatDelay);
-                case remainder -> new RemainderAlert(id, userId, serverId, ticker1, ticker2, message, requireNonNull(fromDate), lastTrigger, margin, repeat);
+                case trend -> new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, requireNonNull(fromDate, "missing from_date on trend alert " + id), requireNonNull(toDate, "missing to_date on a trend alert " + id), lastTrigger, margin, repeat, repeatDelay);
+                case remainder -> new RemainderAlert(id, userId, serverId, ticker1, ticker2, message, requireNonNull(fromDate, "missing from_date on a remainder alert " + id), lastTrigger, margin, repeat);
             };
         }
 

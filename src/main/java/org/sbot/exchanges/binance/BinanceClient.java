@@ -25,7 +25,8 @@ public class BinanceClient implements Exchange {
 
     public BinanceClient(@NotNull String apiKey, @NotNull String apiSecret) {
         LOGGER.info("Loading binance connection...");
-        BinanceApiClientFactory factory = newInstance(requireNonNull(apiKey), requireNonNull(apiSecret));
+        BinanceApiClientFactory factory = newInstance(requireNonNull(apiKey, "missing binance api key"),
+                requireNonNull(apiSecret, "missing binance api secret"));
         binanceApiClient = factory.newRestClient();
         LOGGER.info("Binance connection loaded");
     }

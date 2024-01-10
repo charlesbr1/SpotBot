@@ -15,7 +15,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
-import static org.sbot.alerts.MatchingAlert.MatchingStatus.NO_TRIGGER;
+import static org.sbot.alerts.MatchingAlert.MatchingStatus.NOT_MATCHING;
 import static org.sbot.alerts.RemainderAlert.REMAINDER_EXCHANGE;
 import static org.sbot.chart.Symbol.getSymbol;
 import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
@@ -78,7 +78,7 @@ public abstract class Alert {
                     @Nullable BigDecimal fromPrice, @Nullable BigDecimal toPrice, @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate,
                     @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short repeatDelay) {
         this.id = id;
-        this.type = requireNonNull(type);
+        this.type = requireNonNull(type, "missing Alert type");
         this.userId = userId;
         this.serverId = serverId;
         this.exchange = REMAINDER_EXCHANGE.equals(exchange) ? exchange :requireSupportedExchange(exchange.toLowerCase()).intern();
@@ -167,7 +167,7 @@ public abstract class Alert {
 
     @NotNull
     public final String descriptionMessage() {
-        return asMessage(NO_TRIGGER, null);
+        return asMessage(NOT_MATCHING, null);
     }
 
     @NotNull
@@ -175,20 +175,20 @@ public abstract class Alert {
 
     @NotNull
     protected final String header(@NotNull MatchingStatus matchingStatus) {
-        String header = matchingStatus.noTrigger() ? type.titleName + " Alert set by <@" + userId + '>' :
+        String header = matchingStatus.notMatching() ? type.titleName + " Alert set by <@" + userId + '>' :
                 "<@" + userId + ">\nYour " + type.name() + " set";
         return header + " on " + exchange + ' ' + getSlashPair() +
-                (matchingStatus.noTrigger() ? "" : (matchingStatus.isMargin() ? " reached **margin** threshold. Set a new one using :\n\n" +
+                (matchingStatus.notMatching() ? "" : (matchingStatus.isMargin() ? " reached **margin** threshold. Set a new one using :\n\n" +
                         SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + "*!margin " + id + " 'amount in " + getSymbol(ticker2) + "'*" :
                         " was **tested !**") +  "\n\n:rocket: Check out the price !!") +
-                (matchingStatus.noTrigger() && !hasRepeat(repeat) ? "\n\n**DISABLED**\n" : "");
+                (matchingStatus.notMatching() && !hasRepeat(repeat) ? "\n\n**DISABLED**\n" : "");
     }
 
     @NotNull
     protected final String footer(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
-        int nextRepeat = matchingStatus.noTrigger() ? repeat : Math.max(0, repeat - 1);
+        int nextRepeat = matchingStatus.notMatching() ? repeat : Math.max(0, repeat - 1);
         return "\n* margin / repeat / delay :\t" +
-                (matchingStatus.noTrigger() && hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(ticker2) : "disabled") +
+                (matchingStatus.notMatching() && hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(ticker2) : "disabled") +
                 " / " + (!hasRepeat(nextRepeat) ? "disabled" : nextRepeat) +
                 " / " + repeatDelay + (repeatDelay > 1 ? " hours" : " hour") +
                 Optional.ofNullable(previousCandlestick).map(Candlestick::close)
@@ -197,7 +197,7 @@ public abstract class Alert {
                         .map(price -> "\n\nLast close : " + price + ' ' + getSymbol(ticker2) +
                                 " at " + formatUTC(previousCandlestick.closeTime()))
                         .orElse("") +
-                (matchingStatus.noTrigger() ? Optional.ofNullable(lastTrigger).map(Dates::formatUTC).map("\n\nLast time triggered : "::concat).orElse("") : "");
+                (matchingStatus.notMatching() ? Optional.ofNullable(lastTrigger).map(Dates::formatUTC).map("\n\nLast time triggered : "::concat).orElse("") : "");
     }
 
     @Override

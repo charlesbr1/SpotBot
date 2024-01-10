@@ -7,20 +7,20 @@ import org.sbot.chart.Candlestick;
 public record MatchingAlert(@NotNull Alert alert, @NotNull MatchingStatus status, @Nullable Candlestick matchingCandlestick) {
 
     public boolean hasMatch() {
-        return !status.noTrigger();
+        return !status.notMatching();
     }
 
     public enum MatchingStatus {
         MATCHED,
         MARGIN,
-        NO_TRIGGER;
+        NOT_MATCHING;
 
         public boolean isMargin() {
             return this == MARGIN;
         }
 
-        public boolean noTrigger() {
-            return this == NO_TRIGGER;
+        public boolean notMatching() {
+            return this == NOT_MATCHING;
         }
     }
 
