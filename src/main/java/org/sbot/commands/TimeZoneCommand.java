@@ -38,7 +38,7 @@ public final class TimeZoneCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        String choice = context.args.getMandatoryString("choice");
+        String choice = context.args.getMandatoryString("zone");
         String date = context.args.getString("date").orElse(null);
         LOGGER.debug("timezone command - choice : {}, date : {}", choice, date);
         context.reply(timezone(choice, date));
