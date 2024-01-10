@@ -158,15 +158,15 @@ public final class AlertsWatcher {
                 alert.triggeredMessage(matchingAlert.status(), matchingAlert.matchingCandlestick()));
     }
 
-    //TODO remove / simplify, check max ticker size, this should adapt - remove thing to fit ticker size
     private static String title(@NotNull String alertName, @NotNull String slashPair, @NotNull String message, MatchingStatus matchingStatus) {
         String title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + alertName + " ALERT !!! - [" + slashPair + "] ";
-        if(!alertName.isEmpty() && TITLE_MAX_LENGTH - message.length() < title.length()) {
-            LOGGER.warn("Alert name '{}' truncated because alert title is too long : {}", alertName, title);
-            return title(alertName.substring(0,
-                            Math.max(0, Math.min(alertName.length(),
-                                    (TITLE_MAX_LENGTH - message.length() - title.length() + alertName.length())))),
-                    slashPair, message, matchingStatus);
+        if(TITLE_MAX_LENGTH - message.length() < title.length()) {
+            LOGGER.warn("Alert name '{}' will be truncated from alert title because it is too long : {}", alertName, title);
+            title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + "ALERT !!! - [" + slashPair + "] ";
+            if(TITLE_MAX_LENGTH - message.length() < title.length()) {
+                LOGGER.warn("Pair '{}' will be truncated from alert title because it is too long : {}", slashPair, title);
+                title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + " ALERT !!! - ";
+            }
         }
         return title + message;
     }

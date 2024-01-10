@@ -58,14 +58,14 @@ public final class SpotBotCommand extends CommandAdapter {
             new Command(PairCommand.NAME, PairCommand.DESCRIPTION, PairCommand.options),
             new Command(RangeCommand.NAME, RangeCommand.DESCRIPTION, RangeCommand.options),
             new Command(TrendCommand.NAME, TrendCommand.DESCRIPTION, TrendCommand.options),
+            new Command(RemainderCommand.NAME, RemainderCommand.DESCRIPTION, RemainderCommand.options),
             new Command(RepeatCommand.NAME, RepeatCommand.DESCRIPTION, RepeatCommand.options),
             new Command(RepeatDelayCommand.NAME, RepeatDelayCommand.DESCRIPTION, RepeatDelayCommand.options),
             new Command(MarginCommand.NAME, MarginCommand.DESCRIPTION, MarginCommand.options),
             new Command(MessageCommand.NAME, MessageCommand.DESCRIPTION, MessageCommand.options),
             new Command(DeleteCommand.NAME, DeleteCommand.DESCRIPTION, DeleteCommand.options),
-            new Command(RemainderCommand.NAME, RemainderCommand.DESCRIPTION, RemainderCommand.options),
-            new Command(UpTimeCommand.NAME, UpTimeCommand.DESCRIPTION, emptyList()),
-            new Command(TimeZoneCommand.NAME, TimeZoneCommand.DESCRIPTION, TimeZoneCommand.options));
+            new Command(TimeZoneCommand.NAME, TimeZoneCommand.DESCRIPTION, TimeZoneCommand.options),
+            new Command(UpTimeCommand.NAME, UpTimeCommand.DESCRIPTION, emptyList()));
 
     private static final String DOC_HEADER = """
             SpotBot is a discord utility for setting alerts when the price of an asset reach a box or cross a trend line, or just for a remainder in the future.
