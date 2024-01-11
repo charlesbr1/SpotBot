@@ -98,7 +98,7 @@ public abstract class CommandAdapter implements CommandListener {
     }
 
     protected static EmbedBuilder toMessage(@NotNull Alert alert) {
-        return embedBuilder('[' + alert.getSlashPair() + "] " + alert.message,
+        return embedBuilder('[' + alert.pair + "] " + alert.message,
                 !hasRepeat(alert.repeat) ? Color.black : (isPrivate(alert.serverId) ? Color.blue : Color.green),
                 alert.descriptionMessage());
     }
@@ -107,7 +107,7 @@ public abstract class CommandAdapter implements CommandListener {
     protected static List<EmbedBuilder> paginatedAlerts(@NotNull List<EmbedBuilder> messages, long offset, long total, @NotNull Supplier<String> nextCommand, @NotNull Supplier<String> command) {
         if(messages.isEmpty()) {
             messages.add(embedBuilder("Alerts search", Color.yellow,
-                    "No alert found for " + command.get()));
+                    "No alert found" + command.get()));
         } else {
             addFooterNumber(messages, offset, total);
             shrinkToPageSize(messages, offset, nextCommand);

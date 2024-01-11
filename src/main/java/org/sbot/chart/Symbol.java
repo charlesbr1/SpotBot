@@ -10,6 +10,6 @@ public interface Symbol {
                 (ticker.equals("EUR") ? "€" :
                 (ticker.equals("YEN") ? "¥" :
                 (ticker.equals("GBP") ? "£" :
-                (ticker.equals("BTC") ? "₿" : ticker))));
+                (ticker.equals("BTC") ? "₿" : ticker.toLowerCase()))));
     }
 }

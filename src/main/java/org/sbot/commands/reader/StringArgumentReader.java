@@ -18,7 +18,7 @@ import static java.util.function.Predicate.not;
 
 public final class StringArgumentReader implements ArgumentReader {
 
-    private static final Pattern DISCORD_USER_ID = Pattern.compile("<@(\\d+)>"); // extract id from discord user mention
+    private static final Pattern DISCORD_USER_ID_PATTERN = Pattern.compile("<@(\\d+)>"); // extract id from discord user mention
 
     @NotNull
     private String remainingArguments;
@@ -55,7 +55,7 @@ public final class StringArgumentReader implements ArgumentReader {
     @Override
     public Optional<Long> getUserId(@NotNull String unused) {
         return getNext(id -> {
-            Matcher matcher = DISCORD_USER_ID.matcher(id);
+            Matcher matcher = DISCORD_USER_ID_PATTERN.matcher(id);
             if(!matcher.matches())
                 throw new IllegalArgumentException();
             return Long.parseLong(matcher.group(1));

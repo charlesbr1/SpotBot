@@ -20,20 +20,20 @@ import static org.sbot.utils.Dates.formatUTC;
 public final class TrendAlert extends Alert {
 
     public TrendAlert(long userId, long serverId, @NotNull String exchange,
-                      @NotNull String ticker1, @NotNull String ticker2, @NotNull String message,
+                      @NotNull String pair, @NotNull String message,
                       @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
                       @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate) {
-        this(0, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate,
+        this(0, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS);
     }
 
     public TrendAlert(long id, long userId, long serverId, @NotNull String exchange,
-                      @NotNull String ticker1, @NotNull String ticker2, @NotNull String message,
+                      @NotNull String pair, @NotNull String message,
                       @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
                       @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate,
                       @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin,
                       short repeat, short repeatDelay) {
-        super(id, Type.trend, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        super(id, Type.trend, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
         if(fromDate.isAfter(toDate)) {
             throw new IllegalArgumentException("first date is after second date");
         }
@@ -47,37 +47,37 @@ public final class TrendAlert extends Alert {
         if(0 != this.id) {
             throw new IllegalArgumentException("Can't update the id of an already stored alert");
         }
-        return new TrendAlert(idGenerator.get(), userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return new TrendAlert(idGenerator.get(), userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public TrendAlert withMessage(@NotNull String message) {
-        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public TrendAlert withMargin(@NotNull BigDecimal margin) {
-        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public TrendAlert withRepeat(short repeat) {
-        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public TrendAlert withRepeatDelay(short repeatDelay) {
-        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public TrendAlert withLastTriggerMarginRepeat(@NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat) {
-        return new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
@@ -133,9 +133,9 @@ public final class TrendAlert extends Alert {
     protected String asMessage(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
         return header(matchingStatus) +
                 "\n\n* id :\t" + id +
-                "\n* from price :\t" + fromPrice.toPlainString() + ' ' + getSymbol(ticker2) +
+                "\n* from price :\t" + fromPrice.toPlainString() + ' ' + getSymbol(getTicker2()) +
                 "\n* from date :\t" + formatUTC(fromDate) +
-                "\n* to price :\t" + toPrice.toPlainString() + ' ' + getSymbol(ticker2) +
+                "\n* to price :\t" + toPrice.toPlainString() + ' ' + getSymbol(getTicker2()) +
                 "\n* to date :\t" + formatUTC(toDate) +
                 footer(matchingStatus, previousCandlestick);
     }

@@ -4,6 +4,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
+import java.util.regex.Pattern;
 
 import static org.sbot.alerts.Alert.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
@@ -42,18 +43,20 @@ public interface ArgumentValidator {
         return exchange;
     }
 
+    Pattern PAIR_PATTERN = Pattern.compile("^[A-Z]+/[A-Z]+$+"); // TICKER1/TICKER2 format
+
     @NotNull
-    static String requireTickerLength(@NotNull String ticker) {
-        if (ticker.length() > ALERT_MAX_TICKER_LENGTH || ticker.length() < ALERT_MIN_TICKER_LENGTH) {
-            throw new IllegalArgumentException("Provided ticker is invalid : " + ticker + " (expected " + ALERT_MIN_TICKER_LENGTH + " to " + ALERT_MAX_TICKER_LENGTH + " chars)");
+    static String requirePairFormat(@NotNull String pair) {
+        if(!PAIR_PATTERN.matcher(pair).matches()) {
+            throw new IllegalArgumentException("Invalid pair : " + pair  + ", should be like EUR/USD");
         }
-        return ticker;
+        return pair;
     }
 
     @NotNull
     static String requireTickerPairLength(@NotNull String tickerPair) {
-        if (tickerPair.length() > (1 + (2 * ALERT_MAX_TICKER_LENGTH)) || tickerPair.length() < ALERT_MIN_TICKER_LENGTH) {
-            throw new IllegalArgumentException("Provided ticker or pair is invalid : " + tickerPair + " (expected " + ALERT_MIN_TICKER_LENGTH + " to " + (1 + (2 * ALERT_MAX_TICKER_LENGTH)) + " chars)");
+        if (tickerPair.length() > ALERT_MAX_PAIR_LENGTH || tickerPair.length() < ALERT_MIN_TICKER_LENGTH) {
+            throw new IllegalArgumentException("Provided ticker or pair is invalid : " + tickerPair + " (expected " + ALERT_MIN_TICKER_LENGTH + " to " + ALERT_MAX_PAIR_LENGTH + " chars)");
         }
         return tickerPair;
     }

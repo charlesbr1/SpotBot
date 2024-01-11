@@ -4,20 +4,21 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.*;
+import org.sbot.discord.CommandListener;
 import org.sbot.discord.Discord;
 import org.sbot.services.AlertsWatcher;
-import org.sbot.services.dao.AlertsDao;
-import org.sbot.services.dao.AlertsMemory;
-import org.sbot.services.dao.AlertsSQL;
+import org.sbot.services.MarketDataService;
+import org.sbot.services.dao.*;
+import org.sbot.services.dao.jdbi.JDBIRepository;
 import org.sbot.utils.PropertiesReader;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Stream;
 
-import static java.lang.Long.parseLong;
 import static java.time.temporal.ChronoUnit.HOURS;
 import static org.sbot.utils.PropertiesReader.loadProperties;
 
@@ -30,20 +31,22 @@ public class SpotBot {
 
     private static final String DATABASE_URL = appProperties.get("database.url");
 
-    private static final long ALERTS_CHECK_PERIOD_DELTA_MIN = parseLong(appProperties.get("alerts.check.period.delta"));
+    private static final int ALERTS_CHECK_PERIOD_DELTA_MIN = appProperties.getInt("alerts.check.period.delta");
 
 
     public static void main(String[] args) {
         try {
-            LOGGER.info("Starting SpotBot v1");
-
             boolean memoryDao = Stream.ofNullable(args).flatMap(Stream::of).findFirst()
                     .filter("-memory"::equals).isPresent();
 
-            AlertsDao alertsDao = memoryDao ? new AlertsMemory() : new AlertsSQL(DATABASE_URL);
-            Discord discord = new Discord();
-            setupDiscordEvents(discord, alertsDao);
-            AlertsWatcher alertsWatcher = new AlertsWatcher(discord, alertsDao);
+            LOGGER.info("Starting SpotBot v1 with {} storage", memoryDao ? "memory" : "SQLite");
+
+            JDBIRepository repository = new JDBIRepository(DATABASE_URL);
+            AlertsDao alertsDao = memoryDao ? new AlertsMemory() : new AlertsSQLite(repository);
+            LastCandlesticksDao lastCandlestickDao = memoryDao ? new LastCandlesticksMemory() : new LastCandlesticksSQLite(repository);
+
+            Discord discord = new Discord(loadDiscordCommands(alertsDao));
+            AlertsWatcher alertsWatcher = new AlertsWatcher(discord, alertsDao, new MarketDataService(lastCandlestickDao));
 
             LOGGER.info("Entering infinite loop to check prices and send alerts every start of hours...");
 
@@ -66,9 +69,9 @@ public class SpotBot {
         return ChronoUnit.MINUTES.between(currentTime, startOfNextHour);
     }
 
-    private static void setupDiscordEvents(@NotNull Discord discord, @NotNull AlertsDao alertsDao) {
-        LOGGER.info("Registering discord events...");
-        discord.registerCommands(
+    @NotNull
+    private static List<CommandListener> loadDiscordCommands(@NotNull AlertsDao alertsDao) {
+        return List.of(
                 new RangeCommand(alertsDao),
                 new DeleteCommand(alertsDao),
                 new TrendCommand(alertsDao),

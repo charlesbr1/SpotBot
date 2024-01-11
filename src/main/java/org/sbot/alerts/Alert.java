@@ -16,7 +16,6 @@ import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.NOT_MATCHING;
-import static org.sbot.alerts.RemainderAlert.REMAINDER_EXCHANGE;
 import static org.sbot.chart.Symbol.getSymbol;
 import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
 import static org.sbot.utils.ArgumentValidator.*;
@@ -38,7 +37,8 @@ public abstract class Alert {
 
     public static final int ALERT_MESSAGE_ARG_MAX_LENGTH = 210;
     public static final int ALERT_MIN_TICKER_LENGTH = 3;
-    public static final int ALERT_MAX_TICKER_LENGTH = 5;
+    public static final int ALERT_MIN_PAIR_LENGTH = 7;
+    public static final int ALERT_MAX_PAIR_LENGTH = 11;
 
     public static final BigDecimal MARGIN_DISABLED = BigDecimal.ZERO;
     public static final short DEFAULT_REPEAT = 10;
@@ -55,8 +55,7 @@ public abstract class Alert {
     public final long serverId; // = PRIVATE_ALERT for private channel
 
     public final String exchange;
-    public final String ticker1;
-    public final String ticker2;
+    public final String pair;
     public final String message;
 
     public final BigDecimal fromPrice;
@@ -74,7 +73,7 @@ public abstract class Alert {
     public final short repeatDelay;
 
 
-    protected Alert(long id, @NotNull Type type, long userId, long serverId, @NotNull String exchange, @NotNull String ticker1, @NotNull String ticker2, @NotNull String message,
+    protected Alert(long id, @NotNull Type type, long userId, long serverId, @NotNull String exchange, @NotNull String pair, @NotNull String message,
                     @Nullable BigDecimal fromPrice, @Nullable BigDecimal toPrice, @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate,
                     @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short repeatDelay) {
         this.id = id;
@@ -82,8 +81,7 @@ public abstract class Alert {
         this.userId = userId;
         this.serverId = serverId;
         this.exchange = requireSupportedExchange(exchange.toLowerCase()).intern();
-        this.ticker1 = requireTickerLength(ticker1).toUpperCase().intern();
-        this.ticker2 = requireTickerLength(ticker2).toUpperCase().intern();
+        this.pair = requirePairFormat(pair.toUpperCase()).intern();
         this.message = requireAlertMessageLength(message);
         this.fromPrice = Optional.ofNullable(fromPrice).map(BigDecimal::stripTrailingZeros).orElse(null);
         this.toPrice = Optional.ofNullable(toPrice).map(BigDecimal::stripTrailingZeros).orElse(null);
@@ -126,13 +124,18 @@ public abstract class Alert {
     }
 
     @NotNull
-    public final String getSlashPair() {
-        return ticker1 + '/' + ticker2;
+    public String getMessage() {
+        return message;
     }
 
     @NotNull
-    public String getMessage() {
-        return message;
+    public String getPair() {
+        return pair;
+    }
+
+    @NotNull
+    public String getTicker2() {
+        return pair.substring(pair.indexOf('/'));
     }
 
     @NotNull
@@ -177,9 +180,9 @@ public abstract class Alert {
     protected final String header(@NotNull MatchingStatus matchingStatus) {
         String header = matchingStatus.notMatching() ? type.titleName + " Alert set by <@" + userId + '>' :
                 "<@" + userId + ">\nYour " + type.name() + " set";
-        return header + " on " + exchange + ' ' + getSlashPair() +
+        return header + " on " + exchange + ' ' + pair +
                 (matchingStatus.notMatching() ? "" : (matchingStatus.isMargin() ? " reached **margin** threshold. Set a new one using :\n\n" +
-                        SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + "*!margin " + id + " 'amount in " + getSymbol(ticker2) + "'*" :
+                        SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + "*!margin " + id + " 'amount in " + getSymbol(getTicker2()) + "'*" :
                         " was **tested !**") +  "\n\n:rocket: Check out the price !!") +
                 (matchingStatus.notMatching() && !hasRepeat(repeat) ? "\n\n**DISABLED**\n" : "");
     }
@@ -188,13 +191,13 @@ public abstract class Alert {
     protected final String footer(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
         int nextRepeat = matchingStatus.notMatching() ? repeat : Math.max(0, repeat - 1);
         return "\n* margin / repeat / delay :\t" +
-                (matchingStatus.notMatching() && hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(ticker2) : "disabled") +
+                (matchingStatus.notMatching() && hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(getTicker2()) : "disabled") +
                 " / " + (!hasRepeat(nextRepeat) ? "disabled" : nextRepeat) +
                 " / " + repeatDelay + (repeatDelay > 1 ? " hours" : " hour") +
                 Optional.ofNullable(previousCandlestick).map(Candlestick::close)
                         .map(BigDecimal::stripTrailingZeros)
                         .map(BigDecimal::toPlainString)
-                        .map(price -> "\n\nLast close : " + price + ' ' + getSymbol(ticker2) +
+                        .map(price -> "\n\nLast close : " + price + ' ' + getSymbol(getTicker2()) +
                                 " at " + formatUTC(previousCandlestick.closeTime()))
                         .orElse("") +
                 (matchingStatus.notMatching() ? Optional.ofNullable(lastTrigger).map(Dates::formatUTC).map("\n\nLast time triggered : "::concat).orElse("") : "");

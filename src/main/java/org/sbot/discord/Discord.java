@@ -83,8 +83,9 @@ public final class Discord {
             .maximumSize(1024)
             .build();
 
-    public Discord() {
+    public Discord(@NotNull List<CommandListener> commandListeners) {
         jda = loadDiscordConnection();
+        registerCommands(commandListeners);
     }
 
     public Optional<BotChannel> spotBotChannel(@NotNull Guild guild) {
@@ -131,8 +132,8 @@ public final class Discord {
                                 ((ReplyCallbackAction) nextMessage).submit()
                                         .thenApply(m -> m.deleteOriginal().queueAfter(ttlSeconds, TimeUnit.SECONDS));
                             } else if(ttlSeconds > 0 && nextMessage instanceof MessageCreateAction) {
-                            ((MessageCreateAction) nextMessage).submit()
-                                .thenApply(m -> m.delete().queueAfter(ttlSeconds, TimeUnit.SECONDS));
+                                ((MessageCreateAction) nextMessage).submit()
+                                        .thenApply(m -> m.delete().queueAfter(ttlSeconds, TimeUnit.SECONDS));
                             } else {
                                 nextMessage.submit();
                             }
@@ -194,16 +195,10 @@ public final class Discord {
         }
     }
 
-    public void registerCommands(CommandListener... commandListeners) {
-        synchronized (commands) {
-            commands.clear();
-            var commandDescriptions = Optional.ofNullable(commandListeners).stream().flatMap(Arrays::stream)
-                    .filter(Objects::nonNull)
-                    .filter(this::registerCommand)
-                    .map(Discord::getOptions).toList();
-            // this call replace previous content, that's why commands was clear
-            jda.updateCommands().addCommands(commandDescriptions).queue();
-        }
+    private void registerCommands(List<CommandListener> commandListeners) {
+        jda.updateCommands().addCommands(commandListeners.stream()
+                .filter(this::registerCommand)
+                .map(Discord::getOptions).toList()).queue();
     }
 
     private boolean registerCommand(@NotNull CommandListener commandListener) {

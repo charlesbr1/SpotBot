@@ -30,12 +30,10 @@ public final class RangeCommand extends CommandAdapter {
     private static final int RESPONSE_TTL_SECONDS = 60;
 
     static final List<OptionData> options = List.of(
-            new OptionData(STRING, "exchange", "the exchange", true)
+            new OptionData(STRING, "exchange", "the exchange, like binance", true)
                     .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).collect(toList())),
-            new OptionData(STRING, "ticker1", "the first ticker", true)
-                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_TICKER_LENGTH),
-            new OptionData(STRING, "ticker2", "the second ticker", true)
-                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_TICKER_LENGTH),
+            new OptionData(STRING, "pair", "the pair, like EUR/USD", true)
+                    .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
             new OptionData(NUMBER, "low", "the low range price", true)
                     .setMinValue(0d),
             new OptionData(NUMBER, "high", "the high range price", true)
@@ -52,21 +50,20 @@ public final class RangeCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         String exchange = requireSupportedExchange(context.args.getMandatoryString("exchange"));
-        String ticker1 = requireTickerLength(context.args.getMandatoryString("ticker1"));
-        String ticker2 = requireTickerLength(context.args.getMandatoryString("ticker2"));
+        String pair = requirePairFormat(context.args.getMandatoryString("pair"));
         BigDecimal fromPrice = requirePositive(context.args.getMandatoryNumber("low"));
         BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("high"));
         ZonedDateTime fromDate = context.args.getDateTime("from_date").orElse(null);
         ZonedDateTime toDate = null != fromDate ? context.args.getDateTime("to_date").orElse(null) : null;
         String message = requireAlertMessageLength(context.args.getLastArgs("message").orElse(""));
 
-        LOGGER.debug("range command - exchange : {}, ticker1 : {}, ticker2 : {}, low : {}, high : {}, from_date : {}, to_date : {}, message : {}",
-                exchange, ticker1, ticker2, fromPrice, toPrice, fromDate, toDate, message);
-        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, range(context, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate)));
+        LOGGER.debug("range command - exchange : {}, pair : {}, low : {}, high : {}, from_date : {}, to_date : {}, message : {}",
+                exchange, pair, fromPrice, toPrice, fromDate, toDate, message);
+        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, range(context, exchange, pair, message, fromPrice, toPrice, fromDate, toDate)));
     }
 
     private EmbedBuilder range(@NotNull CommandContext context, @NotNull String exchange,
-                               @NotNull String ticker1, @NotNull String ticker2, @NotNull String message,
+                               @NotNull String pair, @NotNull String message,
                                @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
                                @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate) {
 
@@ -82,12 +79,12 @@ public final class RangeCommand extends CommandAdapter {
         }
         RangeAlert rangeAlert = new RangeAlert(context.user.getIdLong(),
                 context.getServerId(),
-                exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate);
+                exchange, pair, message, fromPrice, toPrice, fromDate, toDate);
 
         long alertId = alertsDao.addAlert(rangeAlert);
 
         String answer = context.user.getAsMention() + " New range alert added with id " + alertId +
-                "\n\n* pair : " + rangeAlert.getSlashPair() + "\n* exchange : " + exchange +
+                "\n\n* pair : " + rangeAlert.pair + "\n* exchange : " + exchange +
                 "\n* low " + fromPrice + "\n* high " + toPrice +
                 (null != fromDate ? "\n* from date " + formatUTC(fromDate) : "") +
                 (null != toDate ? "\n* to date " + formatUTC(toDate) : "") +

@@ -1,7 +1,6 @@
 package org.sbot.services.dao;
 
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
 import org.sbot.alerts.Alert.Type;
 
@@ -29,23 +28,23 @@ public interface AlertsDao extends TransactionalCtx {
     long countAlertsOfUser(long userId);
     long countAlertsOfServer(long serverId);
     long countAlertsOfServerAndUser(long serverId, long user);
-    long countAlertsOfUserAndTickers(long userId, @NotNull String ticker, @Nullable String ticker2);
-    long countAlertsOfServerAndTickers(long serverId, @NotNull String ticker, @Nullable String ticker2);
-    long countAlertsOfServerAndUserAndTickers(long serverId, long userId, @NotNull String ticker, @Nullable String ticker2);
+    long countAlertsOfUserAndTickers(long userId, @NotNull String tickerOrPair);
+    long countAlertsOfServerAndTickers(long serverId, @NotNull String tickerOrPair);
+    long countAlertsOfServerAndUserAndTickers(long serverId, long userId, @NotNull String tickerOrPair);
 
 
     @NotNull
     List<Alert> getAlertsOfUser(long userId, long offset, long limit);
     @NotNull
-    List<Alert> getAlertsOfUserAndTickers(long userId, long offset, long limit, @NotNull String ticker, @Nullable String ticker2);
+    List<Alert> getAlertsOfUserAndTickers(long userId, long offset, long limit, @NotNull String tickerOrPair);
     @NotNull
     List<Alert> getAlertsOfServer(long serverId, long offset, long limit);
     @NotNull
     List<Alert> getAlertsOfServerAndUser(long serverId, long userId, long offset, long limit);
     @NotNull
-    List<Alert> getAlertsOfServerAndTickers(long serverId, long offset, long limit, @NotNull String ticker, @Nullable String ticker2);
+    List<Alert> getAlertsOfServerAndTickers(long serverId, long offset, long limit, @NotNull String tickerOrPair);
     @NotNull
-    List<Alert> getAlertsOfServerAndUserAndTickers(long serverId, long userId, long offset, long limit, @NotNull String ticker, @Nullable String ticker2);
+    List<Alert> getAlertsOfServerAndUserAndTickers(long serverId, long userId, long offset, long limit, @NotNull String tickerOrPair);
 
 
     long addAlert(@NotNull Alert alert);

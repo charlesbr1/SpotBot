@@ -29,12 +29,10 @@ public final class TrendCommand extends CommandAdapter {
     private static final int RESPONSE_TTL_SECONDS = 60;
 
     static final List<OptionData> options = List.of(
-            new OptionData(STRING, "exchange", "the exchange", true)
+            new OptionData(STRING, "exchange", "the exchange, like binance", true)
                     .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).collect(toList())),
-            new OptionData(STRING, "ticker1", "the first ticker", true)
-                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_TICKER_LENGTH),
-            new OptionData(STRING, "ticker2", "the second ticker", true)
-                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_TICKER_LENGTH),
+            new OptionData(STRING, "pair", "the pair, like EUR/USD", true)
+                    .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
             new OptionData(NUMBER, "from_price", "the first price", true)
                     .setMinValue(0d),
             new OptionData(STRING, "from_date", "the date of first price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true),
@@ -52,8 +50,7 @@ public final class TrendCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         String exchange = requireSupportedExchange(context.args.getMandatoryString("exchange"));
-        String ticker1 = requireTickerLength(context.args.getMandatoryString("ticker1"));
-        String ticker2 = requireTickerLength(context.args.getMandatoryString("ticker2"));
+        String pair = requirePairFormat(context.args.getMandatoryString("pair"));
         BigDecimal fromPrice = requirePositive(context.args.getMandatoryNumber("from_price"));
         ZonedDateTime fromDate = context.args.getMandatoryDateTime("from_date");
         BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("to_price"));
@@ -61,13 +58,13 @@ public final class TrendCommand extends CommandAdapter {
         String message = requireAlertMessageLength(context.args.getLastArgs("message")
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
 
-        LOGGER.debug("trend command - exchange : {}, ticker1 : {}, ticker2 : {}, from_price : {}, from_date : {}, to_price : {}, to_date : {}, message : {}",
-                exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message);
-        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, trend(context, exchange, ticker1, ticker2, message, fromPrice, fromDate, toPrice, toDate)));
+        LOGGER.debug("trend command - exchange : {}, pair : {}, from_price : {}, from_date : {}, to_price : {}, to_date : {}, message : {}",
+                exchange, pair, fromPrice, fromDate, toPrice, toDate, message);
+        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, trend(context, exchange, pair, message, fromPrice, fromDate, toPrice, toDate)));
     }
 
     private EmbedBuilder trend(@NotNull CommandContext context, @NotNull String exchange,
-                               @NotNull String ticker1, @NotNull String ticker2, @NotNull String message,
+                               @NotNull String pair, @NotNull String message,
                                @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate,
                                @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate) {
 
@@ -81,12 +78,12 @@ public final class TrendCommand extends CommandAdapter {
         }
         TrendAlert trendAlert = new TrendAlert(context.user.getIdLong(),
                 context.getServerId(),
-                exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate);
+                exchange, pair, message, fromPrice, toPrice, fromDate, toDate);
 
         long alertId = alertsDao.addAlert(trendAlert);
 
         String answer = context.user.getAsMention() + " New trend alert added with id " + alertId +
-                "\n\n* pair : " + trendAlert.getSlashPair() + "\n* exchange : " + exchange +
+                "\n\n* pair : " + trendAlert.pair + "\n* exchange : " + exchange +
                 "\n* from price " + fromPrice + "\n* from date " + formatUTC(fromDate) +
                 "\n* to price " + toPrice + "\n* to date " + formatUTC(toDate) +
                 "\n* message : " + message +

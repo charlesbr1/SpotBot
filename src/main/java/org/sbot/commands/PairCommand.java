@@ -24,7 +24,7 @@ public final class PairCommand extends CommandAdapter {
 
     static final List<OptionData> options = List.of(
             new OptionData(STRING, "ticker_pair", "a ticker or pair to show alerts on", true)
-                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(1 + (2 * ALERT_MAX_TICKER_LENGTH)),
+                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
             new OptionData(INTEGER, "offset", "an offset from where to start the search (results are limited to 1000 alerts)", false)
                     .setMinValue(0));
 
@@ -34,28 +34,24 @@ public final class PairCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        String tickerPair = requireTickerPairLength(context.args.getMandatoryString("ticker_pair"));
+        String tickerOrPair = requireTickerPairLength(context.args.getMandatoryString("ticker_pair"));
         long offset = requirePositive(context.args.getLong("offset").orElse(0L));
-        LOGGER.debug("pair command - ticker_pair : {}, offset : {}", tickerPair, offset);
-        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, pair(context, tickerPair.toUpperCase(), offset)));
+        LOGGER.debug("pair command - ticker_pair : {}, offset : {}", tickerOrPair, offset);
+        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, pair(context, tickerOrPair.toUpperCase(), offset)));
     }
-    private List<EmbedBuilder> pair(@NotNull CommandContext context, @NotNull String tickerPair, long offset) {
-
-        var split = tickerPair.split("/", 2);
-        String ticker = split.length > 0 ? split[0] : tickerPair;
-        String ticker2 = split.length > 1 ? split[1] : null;
+    private List<EmbedBuilder> pair(@NotNull CommandContext context, @NotNull String tickerOrPair, long offset) {
 
         long total = isPrivateChannel(context) ?
-                alertsDao.countAlertsOfUserAndTickers(context.user.getIdLong(), ticker, ticker2) :
-                alertsDao.countAlertsOfServerAndTickers(context.getServerId(), ticker, ticker2);
+                alertsDao.countAlertsOfUserAndTickers(context.user.getIdLong(), tickerOrPair) :
+                alertsDao.countAlertsOfServerAndTickers(context.getServerId(), tickerOrPair);
 
         List<EmbedBuilder> alertMessages = (isPrivateChannel(context) ?
-                alertsDao.getAlertsOfUserAndTickers(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE - 1, ticker, ticker2) :
-                alertsDao.getAlertsOfServerAndTickers(context.getServerId(), offset, MESSAGE_PAGE_SIZE - 1, ticker, ticker2))
+                alertsDao.getAlertsOfUserAndTickers(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE - 1, tickerOrPair) :
+                alertsDao.getAlertsOfServerAndTickers(context.getServerId(), offset, MESSAGE_PAGE_SIZE - 1, tickerOrPair))
                 .stream().map(CommandAdapter::toMessage).collect(toList());
 
         return paginatedAlerts(alertMessages, offset, total,
-                () -> "!pair " + tickerPair + ' ' + (offset + MESSAGE_PAGE_SIZE - 1),
-                () -> "pair " + tickerPair);
+                () -> "!pair " + tickerOrPair + ' ' + (offset + MESSAGE_PAGE_SIZE - 1),
+                () -> " for ticker or pair : " + tickerOrPair);
     }
 }

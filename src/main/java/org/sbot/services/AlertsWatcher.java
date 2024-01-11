@@ -6,6 +6,7 @@ import net.dv8tion.jda.api.entities.Role;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
 import org.sbot.alerts.MatchingAlert;
 import org.sbot.alerts.MatchingAlert.MatchingStatus;
@@ -18,7 +19,6 @@ import org.sbot.services.dao.AlertsDao;
 
 import java.awt.*;
 import java.time.Duration;
-import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Stream;
@@ -40,14 +40,16 @@ public final class AlertsWatcher {
 
     private static final Logger LOGGER = LogManager.getLogger(AlertsWatcher.class);
 
-    private static final int STREAM_BUFFER_SIZE = 1000; // should not exceed the max underlying sgbd IN clause arguments number
+    private static final int STREAM_BUFFER_SIZE = 1000; // should not exceed the max underlying sgdb IN clause arguments number
 
     private final Discord discord;
     private final AlertsDao alertDao;
+    private final MarketDataService marketDataService;
 
-    public AlertsWatcher(@NotNull Discord discord, @NotNull AlertsDao alertsDao) {
+    public AlertsWatcher(@NotNull Discord discord, @NotNull AlertsDao alertsDao, @NotNull MarketDataService marketDataService) {
         this.discord = requireNonNull(discord);
         this.alertDao = requireNonNull(alertsDao);
+        this.marketDataService = requireNonNull(marketDataService);
     }
 
     // this splits in tasks by exchanges and pairs, one rest call must be done by each task to retrieve the candlesticks
@@ -78,22 +80,25 @@ public final class AlertsWatcher {
         try {
             LOGGER.debug("Retrieving price for pair [{}] on {}...", pair, exchange);
             // TODO récuperer l'historique depuis le last candlestick des alerts
-            List<Candlestick> prices = exchange.getCandlesticks(pair, TimeFrame.HOURLY, 1)
-                    .sorted(Comparator.comparing(Candlestick::openTime)).toList();
+            List<Candlestick> prices = exchange.getCandlesticks(pair, TimeFrame.HOURLY, 1);
+            if(prices.isEmpty()) {
+                throw new IllegalStateException("No candlestick found for pair " + pair + " on exchange" + exchange.name());
+            }
+            Candlestick previousPrice = marketDataService.getAndUpdateLastCandlestick(pair, prices.get(prices.size()-1));
 
             // load, notify, and update alerts that matches
-            processMatchingAlerts(exchange, pair, prices, null);
+            processMatchingAlerts(exchange, pair, prices, previousPrice);
 
         } catch(RuntimeException e) {
             LOGGER.warn("Exception thrown while processing alerts", e);
         }
     }
 
-    private void processMatchingAlerts(@NotNull Exchange exchange, @NotNull String pair, @NotNull List<Candlestick> prices, @NotNull Candlestick previousPrice) {
+    private void processMatchingAlerts(@NotNull Exchange exchange, @NotNull String pair, @NotNull List<Candlestick> prices, @Nullable Candlestick previousPrice) {
         alertDao.transactional(() -> alertDao
                 .fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(exchange.name(), pair,
                 alerts -> updateAlerts(
-                        split(STREAM_BUFFER_SIZE, alerts.map(alert -> alert.match(prices, previousPrice)).filter(MatchingAlert::hasMatch))
+                        split(STREAM_BUFFER_SIZE, true, alerts.map(alert -> alert.match(prices, previousPrice)).filter(MatchingAlert::hasMatch))
                         .map(this::fetchAlertsMessage)
                         .flatMap(this::sendDiscordNotifications))));
     }
@@ -116,7 +121,8 @@ public final class AlertsWatcher {
         var alertIdMessages = alertDao.getAlertMessages(alertIds); // calling code is already into a transactional context
         return matchingAlerts.stream().map(matchingAlert ->
                 matchingAlert.withAlert(matchingAlert.alert()
-                        .withMessage(alertIdMessages.getOrDefault(matchingAlert.alert().id, matchingAlert.alert().message)))).toList();
+                        .withMessage(alertIdMessages.getOrDefault(matchingAlert.alert().id, matchingAlert.alert().message))))
+                .toList();
     }
 
     private Stream<MatchingAlert> sendDiscordNotifications(@NotNull List<MatchingAlert> matchingAlerts) {
@@ -169,12 +175,12 @@ public final class AlertsWatcher {
     }
 
     private static String title(@NotNull Alert alert, @NotNull MatchingStatus matchingStatus) {
-        String title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + alert.type.titleName + (alert.type != remainder ? " ALERT !!!" : "") + " - [" + alert.getSlashPair() + "] ";
+        String title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + alert.type.titleName + (alert.type != remainder ? " ALERT !!!" : "") + " - [" + alert.pair + "] ";
         if(TITLE_MAX_LENGTH - alert.message.length() < title.length()) {
             LOGGER.warn("Alert name '{}' will be truncated from the title because it is too long : {}", alert.type.titleName, title);
-            title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + "ALERT !!! - [" + alert.getSlashPair() + "] ";
+            title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + "ALERT !!! - [" + alert.pair + "] ";
             if(TITLE_MAX_LENGTH - alert.message.length() < title.length()) {
-                LOGGER.warn("Pair '{}' will be truncated from the title because it is too long : {}", alert.getSlashPair(), title);
+                LOGGER.warn("Pair '{}' will be truncated from the title because it is too long : {}", alert.pair, title);
                 title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + " ALERT !!! - ";
             }
         }

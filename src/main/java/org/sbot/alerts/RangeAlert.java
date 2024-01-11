@@ -17,20 +17,20 @@ import static org.sbot.utils.ArgumentValidator.requirePositive;
 public final class RangeAlert extends Alert {
 
     public RangeAlert(long userId, long serverId, @NotNull String exchange,
-                      @NotNull String ticker1, @NotNull String ticker2, @NotNull String message,
+                      @NotNull String pair, @NotNull String message,
                       @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
                       @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate) {
-        this(0, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate,
+        this(0, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS);
     }
 
     public RangeAlert(long id, long userId, long serverId, @NotNull String exchange,
-                      @NotNull String ticker1, @NotNull String ticker2, @NotNull String message,
+                      @NotNull String pair, @NotNull String message,
                       @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
                       @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate,
                       @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin,
                       short repeat, short repeatDelay) {
-        super(id, Type.range, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        super(id, Type.range, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
         if(fromPrice.compareTo(toPrice) > 0) {
             throw new IllegalArgumentException("from_price is higher than to_price");
         }
@@ -44,37 +44,37 @@ public final class RangeAlert extends Alert {
         if(0 != this.id) {
             throw new IllegalArgumentException("Can't update the id of an already stored alert");
         }
-        return new RangeAlert(idGenerator.get(), userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return new RangeAlert(idGenerator.get(), userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public RangeAlert withMessage(@NotNull String message) {
-        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public RangeAlert withMargin(@NotNull BigDecimal margin) {
-        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public RangeAlert withRepeat(short repeat) {
-        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public RangeAlert withRepeatDelay(short repeatDelay) {
-        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
     @NotNull
     public RangeAlert withLastTriggerMarginRepeat(@NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat) {
-        return new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 
     @Override
@@ -110,8 +110,8 @@ public final class RangeAlert extends Alert {
      protected String asMessage(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
         return header(matchingStatus) +
                 "\n\n* id :\t" + id +
-                "\n* low :\t" + fromPrice.toPlainString() + ' ' + getSymbol(ticker2) +
-                "\n* high :\t" + toPrice.toPlainString() + ' ' + getSymbol(ticker2) +
+                "\n* low :\t" + fromPrice.toPlainString() + ' ' + getSymbol(getTicker2()) +
+                "\n* high :\t" + toPrice.toPlainString() + ' ' + getSymbol(getTicker2()) +
                 footer(matchingStatus, previousCandlestick);
     }
 }

@@ -4,7 +4,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
 
 import java.math.BigDecimal;
@@ -18,7 +17,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -59,7 +57,7 @@ public class AlertsMemory implements AlertsDao {
         alertsConsumer.accept(havingRepeatAndDelayOverWithActiveRange(
                 alerts.values().stream()
                 .filter(alert -> alert.exchange.equals(exchange))
-                .filter(alert -> alert.getSlashPair().equals(pair)))
+                .filter(alert -> alert.pair.equals(pair)))
                 .map(alert -> alert.withMessage(""))); // erase the message to simulate the SQL layer
     }
 
@@ -90,7 +88,7 @@ public class AlertsMemory implements AlertsDao {
     public Map<String, List<String>> getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange() {
         LOGGER.debug("getPairsByExchanges");
         return havingRepeatAndDelayOverWithActiveRange(alerts.values().stream())
-                .collect(groupingBy(Alert::getExchange, mapping(Alert::getSlashPair, toList())));
+                .collect(groupingBy(Alert::getExchange, mapping(Alert::getPair, toList())));
     }
 
     @Override
@@ -100,9 +98,9 @@ public class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public long countAlertsOfUserAndTickers(long userId, @NotNull String ticker, @Nullable String ticker2) {
-        LOGGER.debug("countAlertsOfUserAndTickers {} {} {}", userId, ticker, ticker2);
-        return getAlertsOfUserAndTickers(userId, 0, Long.MAX_VALUE, ticker, ticker2).size();
+    public long countAlertsOfUserAndTickers(long userId, @NotNull String tickerOrPair) {
+        LOGGER.debug("countAlertsOfUserAndTickers {} {}", userId, tickerOrPair);
+        return getAlertsOfUserAndTickers(userId, 0, Long.MAX_VALUE, tickerOrPair).size();
     }
 
     @Override
@@ -118,15 +116,15 @@ public class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public long countAlertsOfServerAndTickers(long serverId, @NotNull String ticker, @Nullable String ticker2) {
-        LOGGER.debug("countAlertsOfServerAndTickers {} {} {}", serverId, ticker, ticker2);
-        return getAlertsOfServerAndTickers(serverId, 0, Long.MAX_VALUE, ticker, ticker2).size();
+    public long countAlertsOfServerAndTickers(long serverId, @NotNull String tickerOrPair) {
+        LOGGER.debug("countAlertsOfServerAndTickers {} {}", serverId, tickerOrPair);
+        return getAlertsOfServerAndTickers(serverId, 0, Long.MAX_VALUE, tickerOrPair).size();
     }
 
     @Override
-    public long countAlertsOfServerAndUserAndTickers(long serverId, long userId, @NotNull String ticker, @Nullable String ticker2) {
-        LOGGER.debug("countAlertsOfServerAndUserAndTickers {} {} {} {}", serverId, userId, ticker, ticker2);
-        return getAlertsOfServerAndUserAndTickers(serverId, userId, 0, Long.MAX_VALUE, ticker, ticker2).size();
+    public long countAlertsOfServerAndUserAndTickers(long serverId, long userId, @NotNull String tickerOrPair) {
+        LOGGER.debug("countAlertsOfServerAndUserAndTickers {} {} {}", serverId, userId, tickerOrPair);
+        return getAlertsOfServerAndUserAndTickers(serverId, userId, 0, Long.MAX_VALUE, tickerOrPair).size();
     }
 
     @Override
@@ -140,14 +138,11 @@ public class AlertsMemory implements AlertsDao {
 
     @Override
     @NotNull
-    public List<Alert> getAlertsOfUserAndTickers(long userId, long offset, long limit, @NotNull String ticker, @Nullable String ticker2) {
-        LOGGER.debug("getAlertsOfUserAndTickers {} {} {} {} {}", userId, offset, limit, ticker, ticker2);
-        Predicate<Alert> checkTickers = null != ticker2 ?
-                alert -> alert.ticker1.equals(ticker) && alert.ticker2.equals(ticker2) :
-                alert -> List.of(alert.ticker1, alert.ticker2).contains(ticker);
+    public List<Alert> getAlertsOfUserAndTickers(long userId, long offset, long limit, @NotNull String tickerOrPair) {
+        LOGGER.debug("getAlertsOfUserAndTickers {} {} {} {}", userId, offset, limit, tickerOrPair);
         return alerts.values().stream()
                 .filter(alert -> alert.userId == userId)
-                .filter(checkTickers)
+                .filter(alert -> alert.pair.contains(tickerOrPair))
                 .skip(offset).limit(limit).toList();
     }
 
@@ -172,28 +167,22 @@ public class AlertsMemory implements AlertsDao {
 
     @Override
     @NotNull
-    public List<Alert> getAlertsOfServerAndTickers(long serverId, long offset, long limit, @NotNull String ticker, @Nullable String ticker2) {
-        LOGGER.debug("getAlertsOfServerAndTickers {} {} {} {} {}", serverId, offset, limit, ticker, ticker2);
-        Predicate<Alert> checkTickers = null != ticker2 ?
-                alert -> alert.ticker1.equals(ticker) && alert.ticker2.equals(ticker2) :
-                alert -> List.of(alert.ticker1, alert.ticker2).contains(ticker);
+    public List<Alert> getAlertsOfServerAndTickers(long serverId, long offset, long limit, @NotNull String tickerOrPair) {
+        LOGGER.debug("getAlertsOfServerAndTickers {} {} {} {}", serverId, offset, limit, tickerOrPair);
         return alerts.values().stream()
                 .filter(alert -> alert.serverId == serverId)
-                .filter(checkTickers)
+                .filter(alert -> alert.pair.contains(tickerOrPair))
                 .skip(offset).limit(limit).toList();
     }
 
     @Override
     @NotNull
-    public List<Alert> getAlertsOfServerAndUserAndTickers(long serverId, long userId, long offset, long limit, @NotNull String ticker, @Nullable String ticker2) {
-        LOGGER.debug("getAlertsOfServerAndUserAndTickers {} {} {} {} {} {}", serverId, userId, offset, limit, ticker, ticker2);
-        Predicate<Alert> checkTickers = null != ticker2 ?
-                alert -> alert.ticker1.equals(ticker) && alert.ticker2.equals(ticker2) :
-                alert -> List.of(alert.ticker1, alert.ticker2).contains(ticker);
+    public List<Alert> getAlertsOfServerAndUserAndTickers(long serverId, long userId, long offset, long limit, @NotNull String tickerOrPair) {
+        LOGGER.debug("getAlertsOfServerAndUserAndTickers {} {} {} {} {}", serverId, userId, offset, limit, tickerOrPair);
         return alerts.values().stream()
                 .filter(alert -> alert.serverId == serverId)
                 .filter(alert -> alert.userId == userId)
-                .filter(checkTickers)
+                .filter(alert -> alert.pair.contains(tickerOrPair))
                 .skip(offset).limit(limit).toList();
     }
 

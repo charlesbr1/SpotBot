@@ -9,11 +9,11 @@ import org.sbot.chart.TimeFrame;
 import org.sbot.exchanges.binance.BinanceClient;
 import org.sbot.utils.PropertiesReader;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Stream;
 
 import static java.util.Optional.empty;
 import static org.sbot.utils.PropertiesReader.loadProperties;
@@ -43,8 +43,8 @@ public enum Exchanges {
             }
             @NotNull
             @Override
-            public Stream<Candlestick> getCandlesticks(@NotNull String pair, @NotNull TimeFrame timeFrame, long limit) {
-                return Stream.empty();
+            public List<Candlestick> getCandlesticks(@NotNull String pair, @NotNull TimeFrame timeFrame, long limit) {
+                return Collections.emptyList();
             }
         }));
     }

@@ -15,8 +15,7 @@ import java.util.List;
 
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.alerts.Alert.*;
-import static org.sbot.utils.ArgumentValidator.requireAlertMessageLength;
-import static org.sbot.utils.ArgumentValidator.requireTickerLength;
+import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.formatUTC;
 
 public final class RemainderCommand extends CommandAdapter {
@@ -26,10 +25,8 @@ public final class RemainderCommand extends CommandAdapter {
     private static final int RESPONSE_TTL_SECONDS = 60;
 
     static final List<OptionData> options = List.of(
-            new OptionData(STRING, "ticker1", "the first ticker", true)
-                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_TICKER_LENGTH),
-            new OptionData(STRING, "ticker2", "the second ticker", true)
-                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_TICKER_LENGTH),
+            new OptionData(STRING, "pair", "the pair, like EUR/USD", true)
+                    .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
             new OptionData(OptionType.STRING, "date", "a date when to trigger the remainder, UTC expected format : " + Dates.DATE_TIME_FORMAT, true),
             new OptionData(OptionType.STRING, "message", "a message for this remainder (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
@@ -41,23 +38,22 @@ public final class RemainderCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        String ticker1 = requireTickerLength(context.args.getMandatoryString("ticker1"));
-        String ticker2 = requireTickerLength(context.args.getMandatoryString("ticker2"));
+        String pair = requirePairFormat(context.args.getMandatoryString("pair"));
         ZonedDateTime date = context.args.getMandatoryDateTime("date");
         String message = requireAlertMessageLength(context.args.getLastArgs("message")
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
 
-        LOGGER.debug("remainder command - ticker1 : {}, ticker2 : {}, date : {}, remainder {}", ticker1, ticker2, date, message);
-        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, remainder(context, ticker1, ticker2, date, message)));
+        LOGGER.debug("remainder command - pair : {}, date : {}, remainder {}", pair, date, message);
+        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, remainder(context, pair, date, message)));
     }
 
-    private EmbedBuilder remainder(@NotNull CommandContext context, @NotNull String ticker1, @NotNull String ticker2, @NotNull ZonedDateTime fromDate, @NotNull String message) {
+    private EmbedBuilder remainder(@NotNull CommandContext context, @NotNull String pair, @NotNull ZonedDateTime fromDate, @NotNull String message) {
         RemainderAlert remainderAlert = new RemainderAlert(context.user.getIdLong(),
-                context.getServerId(), ticker1, ticker2, message, fromDate);
+                context.getServerId(), pair, message, fromDate);
 
         long alertId = alertsDao.addAlert(remainderAlert);
         String answer = context.user.getAsMention() + " New remainder added with id " + alertId +
-                "\n\n* pair : " + remainderAlert.getSlashPair() +
+                "\n\n* pair : " + remainderAlert.pair +
                 "\n* date : " + formatUTC(fromDate) +
                 "\n* message : " + message;
 

@@ -2,13 +2,14 @@ package org.sbot.services.dao;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.generic.GenericType;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.PreparedBatch;
 import org.jdbi.v3.core.statement.SqlStatement;
 import org.jdbi.v3.core.statement.StatementContext;
+import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
 import org.sbot.alerts.Alert.Type;
 import org.sbot.alerts.RangeAlert;
@@ -20,22 +21,23 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.ZonedDateTime;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
-import static org.sbot.services.dao.AlertsSQL.AlertMapper.bindFields;
+import static org.sbot.services.dao.AlertsSQLite.AlertMapper.bindFields;
+import static org.sbot.utils.Dates.parseDateTime;
 
-public class AlertsSQL extends JDBIRepository implements AlertsDao {
+public final class AlertsSQLite implements AlertsDao {
 
-    private static final Logger LOGGER = LogManager.getLogger(AlertsSQL.class);
+    private static final Logger LOGGER = LogManager.getLogger(AlertsSQLite.class);
 
 
     private interface SQL {
@@ -46,8 +48,7 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
                 user_id INTEGER NOT NULL,
                 server_id INTEGER NOT NULL,
                 exchange TEXT NOT NULL,
-                ticker1 TEXT NOT NULL,
-                ticker2 TEXT NOT NULL,
+                pair TEXT NOT NULL,
                 message TEXT NOT NULL,
                 last_trigger INTEGER,
                 margin TEXT NOT NULL,
@@ -59,43 +60,37 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
                 to_date INTEGER) STRICT
                 """;
 
-        String CREATE_USER_ID_INDEX = "CREATE INDEX IF NOT EXISTS user_id_index ON alerts (user_id)";
-
-        String CREATE_SERVER_ID_INDEX = "CREATE INDEX IF NOT EXISTS server_id_index ON alerts (server_id)";
+        String CREATE_USER_ID_INDEX = "CREATE INDEX IF NOT EXISTS alerts_user_id_index ON alerts (user_id)";
+        String CREATE_SERVER_ID_INDEX = "CREATE INDEX IF NOT EXISTS alerts_server_id_index ON alerts (server_id)";
+        String CREATE_PAIR_INDEX = "CREATE INDEX IF NOT EXISTS alerts_pair_index ON alerts (pair)";
 
         String SELECT_MAX_ID = "SELECT MAX(id) FROM alerts";
         String SELECT_BY_ID = "SELECT * FROM alerts WHERE id=:id";
         String SELECT_USER_ID_AND_SERVER_ID_AND_TYPE_BY_ID = "SELECT user_id,server_id,type FROM alerts WHERE id=:id";
-        String SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE = "SELECT id,type,user_id,server_id,exchange,ticker1,ticker2,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,repeat_delay FROM alerts " +
-                "WHERE exchange=:exchange AND repeat > 0 AND ((:pair LIKE ticker1 || '%') OR (:pair LIKE '%' || ticker2)) " +
+        String SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE = "SELECT id,type,user_id,server_id,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,repeat_delay FROM alerts " +
+                "WHERE exchange=:exchange AND pair=:pair AND repeat > 0 " +
                 "AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * repeat_delay)) <= (1000 * (300 + unixepoch('now', 'utc')))) " +
                 "AND (type NOT LIKE 'remainder' OR (from_date < (3600 + unixepoch('now', 'utc'))) OR (from_date > (unixepoch('now', 'utc') - 3600))) " +
                 "AND (type NOT LIKE 'range' OR from_date IS NULL OR (from_date < (3600 + unixepoch('now', 'utc')) AND (to_date IS NULL OR to_date > (unixepoch('now', 'utc') - 3600))))";
         String SELECT_ALERT_ID_AND_MESSAGE_BY_ID_IN = "SELECT id,message FROM alerts WHERE id IN ";
-        String SELECT_PAIRS_BY_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE = "SELECT DISTINCT exchange,ticker1||'/'||ticker2 AS pair FROM alerts " +
+        String SELECT_PAIRS_BY_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE = "SELECT DISTINCT exchange,pair AS pair FROM alerts " +
                 "WHERE repeat > 0 AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * repeat_delay)) <= (1000 * (300 + unixepoch('now', 'utc')))) " +
                 "AND (type NOT LIKE 'remainder' OR (from_date < (3600 + unixepoch('now', 'utc'))) OR (from_date > (unixepoch('now', 'utc') - 3600))) " +
                 "AND (type NOT LIKE 'range' OR from_date IS NULL OR (from_date < (3600 + unixepoch('now', 'utc')) AND (to_date IS NULL OR to_date > (unixepoch('now', 'utc') - 3600))))";
         String COUNT_ALERTS_OF_USER = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId";
         String ALERTS_OF_USER = "SELECT * FROM alerts WHERE user_id=:userId LIMIT :limit OFFSET :offset";
-        String COUNT_ALERTS_OF_USER_AND_TICKER = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId AND (ticker1=:ticker OR ticker2=:ticker) LIMIT :limit OFFSET :offset";
-        String ALERTS_OF_USER_AND_TICKER = "SELECT COUNT (*) FROM alerts WHERE user_id=:userId AND (ticker1=:ticker OR ticker2=:ticker) LIMIT :limit OFFSET :offset";
-        String COUNT_ALERTS_OF_USER_AND_PAIR = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId AND ticker1=:ticker AND ticker2=:ticker2 LIMIT :limit OFFSET :offset";
-        String ALERTS_OF_USER_AND_PAIR = "SELECT * FROM alerts WHERE user_id=:userId AND ticker1=:ticker AND ticker2=:ticker2 LIMIT :limit OFFSET :offset";
+        String COUNT_ALERTS_OF_USER_AND_TICKER_OR_PAIR = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId AND pair LIKE '%:tickerOrPair%' LIMIT :limit OFFSET :offset";
+        String ALERTS_OF_USER_AND_TICKER_OR_PAIR = "SELECT COUNT (*) FROM alerts WHERE user_id=:userId AND pair LIKE '%:tickerOrPair%' LIMIT :limit OFFSET :offset";
         String COUNT_ALERTS_OF_SERVER = "SELECT COUNT(*) FROM alerts WHERE server_id=:serverId";
         String ALERTS_OF_SERVER = "SELECT * FROM alerts WHERE server_id=:serverId LIMIT :limit OFFSET :offset";
         String COUNT_ALERTS_OF_SERVER_AND_USER = "SELECT COUNT(*) FROM alerts WHERE server_id=:serverId AND user_id=:userId";
         String ALERTS_OF_SERVER_AND_USER = "SELECT * FROM alerts WHERE server_id=:serverId AND user_id=:userId LIMIT :limit OFFSET :offset";
-        String COUNT_ALERTS_OF_SERVER_AND_TICKER = "SELECT COUNT(*) FROM alerts WHERE server_id=:serverId AND (ticker1=:ticker OR ticker2=:ticker) LIMIT :limit OFFSET :offset";
-        String ALERTS_OF_SERVER_AND_TICKER = "SELECT COUNT (*) FROM alerts WHERE server_id=:serverId AND (ticker1=:ticker OR ticker2=:ticker) LIMIT :limit OFFSET :offset";
-        String COUNT_ALERTS_OF_SERVER_AND_USER_AND_TICKER = "SELECT COUNT(*) FROM alerts WHERE server_id=:serverId AND user_id=:userId AND (ticker1=:ticker OR ticker2=:ticker) LIMIT :limit OFFSET :offset";
-        String ALERTS_OF_SERVER_AND_USER_AND_TICKER = "SELECT COUNT (*) FROM alerts WHERE server_id=:serverId AND user_id=:userId AND (ticker1=:ticker OR ticker2=:ticker) LIMIT :limit OFFSET :offset";
-        String COUNT_ALERTS_OF_SERVER_AND_PAIR = "SELECT COUNT(*) FROM alerts WHERE server_id=:serverId AND ticker1=:ticker AND ticker2=:ticker2 LIMIT :limit OFFSET :offset";
-        String ALERTS_OF_SERVER_AND_PAIR = "SELECT * FROM alerts WHERE server_id=:serverId AND ticker1=:ticker AND ticker2=:ticker2 LIMIT :limit OFFSET :offset";
-        String COUNT_ALERTS_OF_SERVER_AND_USER_AND_PAIR = "SELECT COUNT(*) FROM alerts WHERE server_id=:serverId AND user_id=:userId AND ticker1=:ticker AND ticker2=:ticker2 LIMIT :limit OFFSET :offset";
-        String ALERTS_OF_SERVER_AND_USER_AND_PAIR = "SELECT * FROM alerts WHERE server_id=:serverId AND user_id=:userId AND ticker1=:ticker AND ticker2=:ticker2 LIMIT :limit OFFSET :offset";
+        String COUNT_ALERTS_OF_SERVER_AND_TICKER_OR_PAIR = "SELECT COUNT(*) FROM alerts WHERE server_id=:serverId AND pair LIKE '%:tickerOrPair%' LIMIT :limit OFFSET :offset";
+        String ALERTS_OF_SERVER_AND_TICKER_OR_PAIR = "SELECT COUNT (*) FROM alerts WHERE server_id=:serverId AND pair LIKE '%:tickerOrPair%' LIMIT :limit OFFSET :offset";
+        String COUNT_ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR = "SELECT COUNT(*) FROM alerts WHERE server_id=:serverId AND user_id=:userId AND pair LIKE '%:tickerOrPair%' LIMIT :limit OFFSET :offset";
+        String ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR = "SELECT COUNT (*) FROM alerts WHERE server_id=:serverId AND user_id=:userId AND pair LIKE '%tickerOrPair%' LIMIT :limit OFFSET :offset";
         String DELETE_BY_ID = "DELETE FROM alerts WHERE id=:id";
-        String INSERT_ALERT = "INSERT INTO alerts (id,type,user_id,server_id,exchange,ticker1,ticker2,message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,repeat_delay) VALUES (:id,:type,:userId,:serverId,:exchange,:ticker1,:ticker2,:message,:fromPrice,:toPrice,:fromDate,:toDate,:lastTrigger,:margin,:repeat,:repeatDelay)";
+        String INSERT_ALERT = "INSERT INTO alerts (id,type,user_id,server_id,exchange,pair,message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,repeat_delay) VALUES (:id,:type,:userId,:serverId,:exchange,:pair,:message,:fromPrice,:toPrice,:fromDate,:toDate,:lastTrigger,:margin,:repeat,:repeatDelay)";
         String UPDATE_ALERTS_MESSAGE = "UPDATE alerts SET message=:message WHERE id=:id";
         String UPDATE_ALERTS_MARGIN = "UPDATE alerts SET margin=:margin WHERE id=:id";
         String UPDATE_ALERTS_SET_MARGIN_ZERO = "UPDATE alerts SET margin = O WHERE id=:id";
@@ -113,8 +108,7 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
             long userId = rs.getLong("user_id");
             long serverId = rs.getLong("server_id");
             String exchange = rs.getString("exchange");
-            String ticker1 = rs.getString("ticker1");
-            String ticker2 = rs.getString("ticker2");
+            String tickerOrPair = rs.getString("tickerOrPair");
             String message = rs.getString("message");
             ZonedDateTime lastTrigger = parseDateTime(rs.getTimestamp("last_trigger"));
             BigDecimal margin = rs.getBigDecimal("margin");
@@ -127,9 +121,9 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
             ZonedDateTime toDate = parseDateTime(rs.getTimestamp("to_date"));
 
             return switch (type) {
-                case range -> new RangeAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
-                case trend -> new TrendAlert(id, userId, serverId, exchange, ticker1, ticker2, message, fromPrice, toPrice, requireNonNull(fromDate, "missing from_date on trend alert " + id), requireNonNull(toDate, "missing to_date on a trend alert " + id), lastTrigger, margin, repeat, repeatDelay);
-                case remainder -> new RemainderAlert(id, userId, serverId, ticker1, ticker2, message, requireNonNull(fromDate, "missing from_date on a remainder alert " + id), lastTrigger, margin, repeat);
+                case range -> new RangeAlert(id, userId, serverId, exchange, tickerOrPair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+                case trend -> new TrendAlert(id, userId, serverId, exchange, tickerOrPair, message, fromPrice, toPrice, requireNonNull(fromDate, "missing from_date on trend alert " + id), requireNonNull(toDate, "missing to_date on a trend alert " + id), lastTrigger, margin, repeat, repeatDelay);
+                case remainder -> new RemainderAlert(id, userId, serverId, tickerOrPair, message, requireNonNull(fromDate, "missing from_date on a remainder alert " + id), lastTrigger, margin, repeat);
             };
         }
 
@@ -140,13 +134,18 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
     }
 
     private final AtomicLong idGenerator;
+    private final JDBIRepository repository;
 
-    public AlertsSQL(@NotNull String url) {
-        super(url);
-        LOGGER.debug("Loading SQL storage for alerts {}", url);
-        registerRowMapper(new AlertMapper());
+    public AlertsSQLite(@NotNull JDBIRepository repository) {
+        LOGGER.debug("Loading SQLite storage for alerts");
+        this.repository = requireNonNull(repository);
+        repository.registerRowMapper(new AlertMapper());
         setupTable();
         idGenerator = new AtomicLong(transactional(this::getMaxId) + 1);
+    }
+
+    private Handle getHandle() {
+        return repository.getHandle();
     }
 
     private void setupTable() {
@@ -154,7 +153,13 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
             getHandle().execute(SQL.CREATE_TABLE);
             getHandle().execute(SQL.CREATE_USER_ID_INDEX);
             getHandle().execute(SQL.CREATE_SERVER_ID_INDEX);
+            getHandle().execute(SQL.CREATE_PAIR_INDEX);
         });
+    }
+
+    @Override
+    public <T> T transactional(@NotNull Supplier<T> callback, @NotNull TransactionIsolationLevel isolationLevel) {
+        return repository.transactional(callback, isolationLevel);
     }
 
     public long getMaxId() {
@@ -238,86 +243,66 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
     @Override
     public long countAlertsOfUser(long userId) {
         LOGGER.debug("countAlertsOfUser {}", userId);
-        return queryOneLong(SQL.COUNT_ALERTS_OF_USER,
+        return repository.queryOneLong(SQL.COUNT_ALERTS_OF_USER,
                 Map.of("userId", userId));
     }
 
     @Override
-    public long countAlertsOfUserAndTickers(long userId, @NotNull String ticker, @Nullable String ticker2) {
-        LOGGER.debug("countAlertsOfUserAndTickers {} {} {}", userId, ticker, ticker2);
-        var parameters = new HashMap<>(Map.of("ticker", ticker, "userId", userId));
-        var sql = SQL.COUNT_ALERTS_OF_USER_AND_TICKER;
-        if(null != ticker2) {
-            parameters.put("ticker2", ticker2);
-            sql = SQL.COUNT_ALERTS_OF_USER_AND_PAIR;
-        }
-        return queryOneLong(sql, parameters);
+    public long countAlertsOfUserAndTickers(long userId, @NotNull String tickerOrPair) {
+        LOGGER.debug("countAlertsOfUserAndTickers {} {}", userId, tickerOrPair);
+        return repository.queryOneLong(SQL.COUNT_ALERTS_OF_USER_AND_TICKER_OR_PAIR,
+                Map.of("tickerOrPair", tickerOrPair, "userId", userId));
     }
 
     @Override
     public long countAlertsOfServer(long serverId) {
         LOGGER.debug("countAlertsOfServer {}", serverId);
-        return queryOneLong(SQL.COUNT_ALERTS_OF_SERVER,
+        return repository.queryOneLong(SQL.COUNT_ALERTS_OF_SERVER,
                 Map.of("serverId", serverId));
     }
 
     @Override
     public long countAlertsOfServerAndUser(long serverId, long userId) {
         LOGGER.debug("countAlertsOfServerAndUser {} {}", serverId, userId);
-        return queryOneLong(SQL.COUNT_ALERTS_OF_SERVER_AND_USER,
+        return repository.queryOneLong(SQL.COUNT_ALERTS_OF_SERVER_AND_USER,
                 Map.of("serverId", serverId, "userId", userId));
     }
 
     @Override
-    public long countAlertsOfServerAndTickers(long serverId, @NotNull String ticker, @Nullable String ticker2) {
-        LOGGER.debug("countAlertsOfServerAndTickers {} {} {}", serverId, ticker, ticker2);
-        var parameters = new HashMap<>(Map.of("ticker", ticker, "serverId", serverId));
-        var sql = SQL.COUNT_ALERTS_OF_SERVER_AND_TICKER;
-        if(null != ticker2) {
-            parameters.put("ticker2", ticker2);
-            sql = SQL.COUNT_ALERTS_OF_SERVER_AND_PAIR;
-        }
-        return queryOneLong(sql, parameters);
+    public long countAlertsOfServerAndTickers(long serverId, @NotNull String tickerOrPair) {
+        LOGGER.debug("countAlertsOfServerAndTickers {} {}", serverId, tickerOrPair);
+        return repository.queryOneLong(SQL.COUNT_ALERTS_OF_SERVER_AND_TICKER_OR_PAIR,
+                Map.of("tickerOrPair", tickerOrPair, "serverId", serverId));
     }
 
     @Override
-    public long countAlertsOfServerAndUserAndTickers(long serverId, long userId, @NotNull String ticker, @Nullable String ticker2) {
-        LOGGER.debug("countAlertsOfServerAndUserAndTickers {} {} {} {}", serverId, userId, ticker, ticker2);
-        var parameters = new HashMap<>(Map.of("ticker", ticker, "serverId", serverId, "userId", userId));
-        var sql = SQL.COUNT_ALERTS_OF_SERVER_AND_USER_AND_TICKER;
-        if(null != ticker2) {
-            parameters.put("ticker2", ticker2);
-            sql = SQL.COUNT_ALERTS_OF_SERVER_AND_USER_AND_PAIR;
-        }
-        return queryOneLong(sql, parameters);
+    public long countAlertsOfServerAndUserAndTickers(long serverId, long userId, @NotNull String tickerOrPair) {
+        LOGGER.debug("countAlertsOfServerAndUserAndTickers {} {} {}", serverId, userId, tickerOrPair);
+        return repository.queryOneLong(SQL.COUNT_ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR,
+                Map.of("tickerOrPair", tickerOrPair, "serverId", serverId, "userId", userId));
     }
 
     @Override
     @NotNull
     public List<Alert> getAlertsOfUser(long userId, long offset, long limit) {
         LOGGER.debug("getAlertsOfUser {} {} {}", userId, offset, limit);
-        return queryAlerts(SQL.ALERTS_OF_USER,
+        return repository.queryAlerts(SQL.ALERTS_OF_USER,
                 Map.of("userId", userId, "offset", offset, "limit", limit));
     }
 
     @Override
     @NotNull
-    public List<Alert> getAlertsOfUserAndTickers(long userId, long offset, long limit, @NotNull String ticker, @Nullable String ticker2) {
-        LOGGER.debug("getAlertsOfUserAndTickers {} {} {} {} {}", userId, offset, limit, ticker, ticker2);
-        var parameters = new HashMap<>(Map.of("ticker", ticker, "userId", userId, "offset", offset, "limit", limit));
-        var sql = SQL.ALERTS_OF_USER_AND_TICKER;
-        if(null != ticker2) {
-            parameters.put("ticker2", ticker2);
-            sql = SQL.ALERTS_OF_USER_AND_PAIR;
-        }
-        return queryAlerts(sql, parameters);
+    public List<Alert> getAlertsOfUserAndTickers(long userId, long offset, long limit, @NotNull String tickerOrPair) {
+        LOGGER.debug("getAlertsOfUserAndTickers {} {} {} {}", userId, offset, limit, tickerOrPair);
+        return repository.queryAlerts(SQL.ALERTS_OF_USER_AND_TICKER_OR_PAIR,
+                Map.of("tickerOrPair", tickerOrPair, "userId", userId, "offset", offset, "limit", limit));
     }
 
     @Override
     @NotNull
     public List<Alert> getAlertsOfServer(long serverId, long offset, long limit) {
         LOGGER.debug("getAlertsOfServer {} {} {}", serverId, offset, limit);
-        return queryAlerts(SQL.ALERTS_OF_SERVER,
+        return repository.queryAlerts(SQL.ALERTS_OF_SERVER,
                 Map.of("serverId", serverId, "offset", offset, "limit", limit));
     }
 
@@ -325,35 +310,25 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
     @NotNull
     public List<Alert> getAlertsOfServerAndUser(long serverId, long userId, long offset, long limit) {
         LOGGER.debug("getAlertsOfServerAndUser {} {} {} {}", serverId, userId, offset, limit);
-        return queryAlerts(SQL.ALERTS_OF_SERVER_AND_USER,
+        return repository.queryAlerts(SQL.ALERTS_OF_SERVER_AND_USER,
                 Map.of("serverId", serverId, "userId", userId, "offset", offset, "limit", limit));
 
     }
 
     @Override
     @NotNull
-    public List<Alert> getAlertsOfServerAndTickers(long serverId, long offset, long limit, @NotNull String ticker, @Nullable String ticker2) {
-        LOGGER.debug("getAlertsOfServerAndTickers {} {} {} {} {}", serverId, offset, limit, ticker, ticker2);
-        var parameters = new HashMap<>(Map.of("ticker", ticker, "serverId", serverId, "offset", offset, "limit", limit));
-        var sql = SQL.ALERTS_OF_SERVER_AND_TICKER;
-        if(null != ticker2) {
-            parameters.put("ticker2", ticker2);
-            sql = SQL.ALERTS_OF_SERVER_AND_PAIR;
-        }
-        return queryAlerts(sql, parameters);
+    public List<Alert> getAlertsOfServerAndTickers(long serverId, long offset, long limit, @NotNull String tickerOrPair) {
+        LOGGER.debug("getAlertsOfServerAndTickers {} {} {} {}", serverId, offset, limit, tickerOrPair);
+        return repository.queryAlerts(SQL.ALERTS_OF_SERVER_AND_TICKER_OR_PAIR,
+                Map.of("tickerOrPair", tickerOrPair, "serverId", serverId, "offset", offset, "limit", limit));
     }
 
     @Override
     @NotNull
-    public List<Alert> getAlertsOfServerAndUserAndTickers(long serverId, long userId, long offset, long limit, @NotNull String ticker, @Nullable String ticker2) {
-        LOGGER.debug("getAlertsOfServerAndUserAndTickers {} {} {} {} {} {}", serverId, userId, offset, limit, ticker, ticker2);
-        var parameters = new HashMap<>(Map.of("ticker", ticker, "serverId", serverId, "userId", userId, "offset", offset, "limit", limit));
-        var sql = SQL.ALERTS_OF_SERVER_AND_USER_AND_TICKER;
-        if(null != ticker2) {
-            parameters.put("ticker2", ticker2);
-            sql = SQL.ALERTS_OF_SERVER_AND_USER_AND_PAIR;
-        }
-        return queryAlerts(sql, parameters);
+    public List<Alert> getAlertsOfServerAndUserAndTickers(long serverId, long userId, long offset, long limit, @NotNull String tickerOrPair) {
+        LOGGER.debug("getAlertsOfServerAndUserAndTickers {} {} {} {} {}", serverId, userId, offset, limit, tickerOrPair);
+        return repository.queryAlerts(SQL.ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR,
+                Map.of("tickerOrPair", tickerOrPair, "serverId", serverId, "userId", userId, "offset", offset, "limit", limit));
     }
 
     @Override
@@ -370,35 +345,35 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
     @Override
     public void updateMessage(long alertId, @NotNull String message) {
         LOGGER.debug("updateMessage {} {}", alertId, message);
-        update(SQL.UPDATE_ALERTS_MESSAGE,
+        repository.update(SQL.UPDATE_ALERTS_MESSAGE,
                 Map.of("id", alertId, "message", message));
     }
 
     @Override
     public void updateMargin(long alertId, @NotNull BigDecimal margin) {
         LOGGER.debug("updateMargin {} {}", alertId, margin);
-        update(SQL.UPDATE_ALERTS_MARGIN,
+        repository.update(SQL.UPDATE_ALERTS_MARGIN,
                 Map.of("id", alertId, "margin", margin));
     }
 
     @Override
     public void updateRepeat(long alertId, short repeat) {
         LOGGER.debug("updateRepeat {} {}", alertId, repeat);
-        update(SQL.UPDATE_ALERTS_REPEAT,
+        repository.update(SQL.UPDATE_ALERTS_REPEAT,
                 Map.of("id", alertId, "repeat", repeat));
     }
 
     @Override
     public void updateRepeatDelay(long alertId, short repeatDelay) {
         LOGGER.debug("updateRepeatDelay {} {}", alertId, repeatDelay);
-        update(SQL.UPDATE_ALERTS_REPEAT_DELAY,
+        repository.update(SQL.UPDATE_ALERTS_REPEAT_DELAY,
                 Map.of("id", alertId, "repeatDelay", repeatDelay));
     }
 
     @Override
     public void deleteAlert(long alertId) {
         LOGGER.debug("deleteAlert {}", alertId);
-        update(SQL.DELETE_BY_ID, Map.of("id", alertId));
+        repository.update(SQL.DELETE_BY_ID, Map.of("id", alertId));
     }
 
     @Override

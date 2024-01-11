@@ -22,16 +22,16 @@ public class RemainderAlert extends Alert {
     public static final String REMAINDER_EXCHANGE = "@r";
 
     public RemainderAlert(long userId, long serverId,
-                          @NotNull String ticker1, @NotNull String ticker2,
+                          @NotNull String pair,
                           @NotNull String message, @NotNull ZonedDateTime fromDate) {
-        this(0, userId, serverId, ticker1, ticker2, message, fromDate, null, MARGIN_DISABLED, (short) 1);
+        this(0, userId, serverId, pair, message, fromDate, null, MARGIN_DISABLED, (short) 1);
     }
 
     public RemainderAlert(long id, long userId, long serverId,
-                          @NotNull String ticker1, @NotNull String ticker2, @NotNull String message,
+                          @NotNull String pair, @NotNull String message,
                           @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime lastTrigger,
                           @NotNull BigDecimal margin, short repeat) {
-        super(id, remainder, userId, serverId, REMAINDER_EXCHANGE, ticker1, ticker2, message, null, null, fromDate, null, lastTrigger, margin, repeat, DEFAULT_REPEAT_DELAY_HOURS);
+        super(id, remainder, userId, serverId, REMAINDER_EXCHANGE, pair, message, null, null, fromDate, null, lastTrigger, margin, repeat, DEFAULT_REPEAT_DELAY_HOURS);
         requireNonNull(fromDate, "missing RemainderAlert fromDate");
     }
 
@@ -41,13 +41,13 @@ public class RemainderAlert extends Alert {
         if(0 != this.id) {
             throw new IllegalArgumentException("Can't update the id of an already stored alert");
         }
-        return new RemainderAlert(idGenerator.get(), userId, serverId, ticker1, ticker2, message, fromDate, lastTrigger, margin, repeat);
+        return new RemainderAlert(idGenerator.get(), userId, serverId, pair, message, fromDate, lastTrigger, margin, repeat);
     }
 
     @NotNull
     @Override
     public Alert withMessage(@NotNull String message) {
-        return new RemainderAlert(id, userId, serverId, ticker1, ticker2, message, fromDate, lastTrigger, margin, repeat);
+        return new RemainderAlert(id, userId, serverId, pair, message, fromDate, lastTrigger, margin, repeat);
     }
 
     @NotNull
@@ -87,7 +87,7 @@ public class RemainderAlert extends Alert {
     @NotNull
     @Override
     protected String asMessage(@NotNull MatchingAlert.MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
-        return (matchingStatus.notMatching() ? type.titleName + " set by <@" + userId + "> on " + getSlashPair() :
+        return (matchingStatus.notMatching() ? type.titleName + " set by <@" + userId + "> on " + pair :
                 "<@" + userId + ">\n\n**" + message + "**") +
                 "\n\n* id :\t" + id +
                 "\n* date :\t" + formatUTC(fromDate);
