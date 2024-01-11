@@ -33,7 +33,7 @@ public final class RemainderCommand extends CommandAdapter {
 
 
     public RemainderCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options);
+        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -44,7 +44,7 @@ public final class RemainderCommand extends CommandAdapter {
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
 
         LOGGER.debug("remainder command - pair : {}, date : {}, remainder {}", pair, date, message);
-        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, remainder(context, pair, date, message)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, remainder(context, pair, date, message)));
     }
 
     private EmbedBuilder remainder(@NotNull CommandContext context, @NotNull String pair, @NotNull ZonedDateTime fromDate, @NotNull String message) {

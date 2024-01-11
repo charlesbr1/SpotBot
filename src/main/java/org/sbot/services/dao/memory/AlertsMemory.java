@@ -1,9 +1,10 @@
-package org.sbot.services.dao;
+package org.sbot.services.dao.memory;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.Alert;
+import org.sbot.services.dao.AlertsDao;
 
 import java.math.BigDecimal;
 import java.time.Instant;

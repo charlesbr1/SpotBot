@@ -32,7 +32,7 @@ public final class OwnerCommand extends CommandAdapter {
                     .setMinValue(0));
 
     public OwnerCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options);
+        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -49,7 +49,7 @@ public final class OwnerCommand extends CommandAdapter {
         var finalOffset = offset;
         var finalTickerOrPair = tickerOrPair;
         LOGGER.debug("owner command - owner : {}, ticker_pair : {}, offset : {}", ownerId, finalTickerOrPair, finalOffset);
-        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, owner(context, finalTickerOrPair, ownerId, requirePositive(finalOffset))));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, owner(context, finalTickerOrPair, ownerId, requirePositive(finalOffset))));
     }
 
     private List<EmbedBuilder> owner(@NotNull CommandContext context, @Nullable String tickerOrPair, long ownerId, long offset) {

@@ -21,14 +21,14 @@ public final class DeleteCommand extends CommandAdapter {
             new OptionData(OptionType.INTEGER, "alert_id", "id of the alert to delete", true).setMinValue(0));
 
     public DeleteCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options);
+        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         LOGGER.debug("delete command - alert_id : {}", alertId);
-        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, delete(context, alertId)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, delete(context, alertId)));
     }
 
     private EmbedBuilder delete(@NotNull CommandContext context, long alertId) {

@@ -146,14 +146,14 @@ public final class SpotBotCommand extends CommandAdapter {
             .getResourceAsStream(ALERTS_PICTURE_PATH)), ALERTS_PICTURE_FILE);
 
     public SpotBotCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options);
+        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
         String choice = context.args.getString("choice").orElse("doc");
         LOGGER.debug("spotBot command - choice : {}", choice);
-        context.reply(RESPONSE_TTL_SECONDS, spotBot(choice, Optional.ofNullable(context.member).map(Member::getGuild).orElse(null)),
+        context.reply(responseTtlSeconds, spotBot(choice, Optional.ofNullable(context.member).map(Member::getGuild).orElse(null)),
                 List.of(CHOICE_DOC.equals(choice) ? message -> message.addFiles(alertsPicture) : m -> {}));
     }
 

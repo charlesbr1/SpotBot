@@ -29,7 +29,7 @@ public final class PairCommand extends CommandAdapter {
                     .setMinValue(0));
 
     public PairCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options);
+        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -37,7 +37,7 @@ public final class PairCommand extends CommandAdapter {
         String tickerOrPair = requireTickerPairLength(context.args.getMandatoryString("ticker_pair"));
         long offset = requirePositive(context.args.getLong("offset").orElse(0L));
         LOGGER.debug("pair command - ticker_pair : {}, offset : {}", tickerOrPair, offset);
-        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, pair(context, tickerOrPair.toUpperCase(), offset)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, pair(context, tickerOrPair.toUpperCase(), offset)));
     }
     private List<EmbedBuilder> pair(@NotNull CommandContext context, @NotNull String tickerOrPair, long offset) {
 

@@ -8,6 +8,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.sbot.SpotBot;
 import org.sbot.alerts.Alert;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.discord.CommandListener;
@@ -18,12 +19,14 @@ import java.awt.*;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 import static net.dv8tion.jda.api.Permission.ADMINISTRATOR;
 import static org.sbot.alerts.Alert.*;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
+import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public abstract class CommandAdapter implements CommandListener {
 
@@ -33,12 +36,15 @@ public abstract class CommandAdapter implements CommandListener {
     private final String name;
     private final String description;
     private final List<OptionData> options;
+    protected int responseTtlSeconds;
 
-    protected CommandAdapter(@NotNull AlertsDao alertsDao, @NotNull String name, @NotNull String description, @NotNull List<OptionData> options) {
+    protected CommandAdapter(@NotNull AlertsDao alertsDao, @NotNull String name, @NotNull String description, @NotNull List<OptionData> options, int responseTtlSeconds) {
         this.alertsDao = requireNonNull(alertsDao, "missing CommandAdapter alertDao");
         this.name = requireNonNull(name, "missing CommandAdapter name");
         this.description = requireNonNull(description, "missing CommandAdapter description");
         this.options = requireNonNull(options, "missing CommandAdapter options");
+        this.responseTtlSeconds = requirePositive(SpotBot.appProperties.getIntOr("command." + name + ".ttlSeconds", responseTtlSeconds));
+        LOGGER.debug("Created new CommandAdapter {}, responseTtlSeconds : {}, options : {}", name, this.responseTtlSeconds, options.stream().map(OptionData::toData).map(Object::toString).collect(Collectors.joining(",")));
     }
 
     @Override

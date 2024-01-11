@@ -44,7 +44,7 @@ public final class TrendCommand extends CommandAdapter {
 
 
     public TrendCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options);
+        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -60,7 +60,7 @@ public final class TrendCommand extends CommandAdapter {
 
         LOGGER.debug("trend command - exchange : {}, pair : {}, from_price : {}, from_date : {}, to_price : {}, to_date : {}, message : {}",
                 exchange, pair, fromPrice, fromDate, toPrice, toDate, message);
-        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, trend(context, exchange, pair, message, fromPrice, fromDate, toPrice, toDate)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, trend(context, exchange, pair, message, fromPrice, fromDate, toPrice, toDate)));
     }
 
     private EmbedBuilder trend(@NotNull CommandContext context, @NotNull String exchange,

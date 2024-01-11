@@ -1,4 +1,4 @@
-package org.sbot.services.dao.jdbi;
+package org.sbot.services.dao.sqlite.jdbi;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

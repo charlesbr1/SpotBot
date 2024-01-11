@@ -1,9 +1,10 @@
-package org.sbot.services.dao;
+package org.sbot.services.dao.memory;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.chart.Candlestick;
+import org.sbot.services.dao.LastCandlesticksDao;
 
 import java.time.ZonedDateTime;
 import java.util.Map;

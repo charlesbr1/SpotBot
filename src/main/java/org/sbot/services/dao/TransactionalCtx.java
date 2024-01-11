@@ -28,6 +28,6 @@ public interface TransactionalCtx {
 
 
     default  <T> T transactional(@NotNull Supplier<T> callback, @NotNull TransactionIsolationLevel isolationLevel) {
-        return callback.get(); // no transaction support if not implemented
+        return callback.get(); // default to unsupported
     }
 }

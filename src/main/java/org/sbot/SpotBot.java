@@ -9,7 +9,11 @@ import org.sbot.discord.Discord;
 import org.sbot.services.AlertsWatcher;
 import org.sbot.services.MarketDataService;
 import org.sbot.services.dao.*;
-import org.sbot.services.dao.jdbi.JDBIRepository;
+import org.sbot.services.dao.sqlite.jdbi.JDBIRepository;
+import org.sbot.services.dao.memory.AlertsMemory;
+import org.sbot.services.dao.memory.LastCandlesticksMemory;
+import org.sbot.services.dao.sqlite.AlertsSQLite;
+import org.sbot.services.dao.sqlite.LastCandlesticksSQLite;
 import org.sbot.utils.PropertiesReader;
 
 import java.time.Duration;
@@ -41,7 +45,7 @@ public class SpotBot {
 
             LOGGER.info("Starting SpotBot v1 with {} storage", memoryDao ? "memory" : "SQLite");
 
-            JDBIRepository repository = new JDBIRepository(DATABASE_URL);
+            JDBIRepository repository = memoryDao ? null : new JDBIRepository(DATABASE_URL);
             AlertsDao alertsDao = memoryDao ? new AlertsMemory() : new AlertsSQLite(repository);
             LastCandlesticksDao lastCandlestickDao = memoryDao ? new LastCandlesticksMemory() : new LastCandlesticksSQLite(repository);
 

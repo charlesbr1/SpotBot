@@ -21,6 +21,14 @@ public interface PropertiesReader {
         return Integer.parseInt(get(name));
     }
 
+    default int getIntOr(@NotNull String name, int defaultValue) {
+        try {
+            return getInt(name);
+        } catch (RuntimeException e) {
+            return defaultValue;
+        }
+    }
+
     @NotNull
     static PropertiesReader loadProperties(@NotNull String filePath) {
         LogManager.getLogger(PropertiesReader.class).debug("Loading properties file {}", filePath);

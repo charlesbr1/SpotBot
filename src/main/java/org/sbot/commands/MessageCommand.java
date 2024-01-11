@@ -28,7 +28,7 @@ public final class MessageCommand extends CommandAdapter {
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
     public MessageCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options);
+        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -36,7 +36,7 @@ public final class MessageCommand extends CommandAdapter {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         String message = requireAlertMessageLength(context.args.getLastArgs("message").orElse(""));
         LOGGER.debug("message command - alert_id : {}, message : {}", alertId, message);
-        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, message(context, message, alertId)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, message(context, message, alertId)));
     }
 
     private EmbedBuilder message(@NotNull CommandContext context, String message, long alertId) {

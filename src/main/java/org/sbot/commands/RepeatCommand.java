@@ -27,7 +27,7 @@ public final class RepeatCommand extends CommandAdapter {
                     .setRequiredRange(0, Short.MAX_VALUE));
 
     public RepeatCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options);
+        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -35,7 +35,7 @@ public final class RepeatCommand extends CommandAdapter {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         short repeat = requirePositiveShort(context.args.getMandatoryLong("repeat"));
         LOGGER.debug("repeat command - alert_id : {}, repeat : {}", alertId, repeat);
-        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, repeat(context, alertId, repeat)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, repeat(context, alertId, repeat)));
     }
 
     private EmbedBuilder repeat(@NotNull CommandContext context, long alertId, short repeat) {

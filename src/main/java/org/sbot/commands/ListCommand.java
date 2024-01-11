@@ -36,7 +36,7 @@ public final class ListCommand extends CommandAdapter {
                     .setMinValue(0));
 
     public ListCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options);
+        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -44,7 +44,7 @@ public final class ListCommand extends CommandAdapter {
         String choice = context.args.getMandatoryString("choice");
         long offset = requirePositive(context.args.getLong("offset").orElse(0L));
         LOGGER.debug("list command - choice : {}, offset : {}", choice, offset);
-        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, list(context, choice, offset)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, list(context, choice, offset)));
     }
 
     private List<EmbedBuilder> list(@NotNull CommandContext context, @NotNull String choice, long offset) {

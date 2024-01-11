@@ -1,4 +1,4 @@
-package org.sbot.services.dao.jdbi;
+package org.sbot.services.dao.sqlite.jdbi;
 
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.mapper.RowMapper;

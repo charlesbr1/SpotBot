@@ -28,7 +28,7 @@ public final class MarginCommand extends CommandAdapter {
 
 
     public MarginCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options);
+        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -36,7 +36,7 @@ public final class MarginCommand extends CommandAdapter {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         BigDecimal margin = requirePositive(context.args.getMandatoryNumber("margin"));
         LOGGER.debug("margin command - alert_id : {}, margin : {}", alertId, margin);
-        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, margin(context, margin, alertId)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, margin(context, margin, alertId)));
     }
 
     private EmbedBuilder margin(@NotNull CommandContext context, @NotNull BigDecimal margin, long alertId) {

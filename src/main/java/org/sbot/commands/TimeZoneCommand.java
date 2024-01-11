@@ -34,7 +34,7 @@ public final class TimeZoneCommand extends CommandAdapter {
             new OptionData(STRING, "date", "a date to convert in UTC, expected format : " + Dates.DATE_TIME_FORMAT, false));
 
     public TimeZoneCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options);
+        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -42,7 +42,7 @@ public final class TimeZoneCommand extends CommandAdapter {
         String choice = context.args.getMandatoryString("zone");
         String date = context.args.getString("date").orElse(null);
         LOGGER.debug("timezone command - choice : {}, date : {}", choice, date);
-        context.reply(RESPONSE_TTL_SECONDS, timezone(choice, date));
+        context.reply(responseTtlSeconds, timezone(choice, date));
     }
 
     private EmbedBuilder timezone(@NotNull String choice, @Nullable String date) {

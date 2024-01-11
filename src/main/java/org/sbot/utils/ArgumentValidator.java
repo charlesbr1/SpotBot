@@ -13,6 +13,10 @@ import static org.sbot.utils.Dates.formatUTC;
 
 public interface ArgumentValidator {
 
+    static int requirePositive(int value) {
+        return (int) requirePositive((long) value);
+    }
+
     static long requirePositive(long value) {
         if(value < 0) {
             throw new IllegalArgumentException("Negative value : " + value);

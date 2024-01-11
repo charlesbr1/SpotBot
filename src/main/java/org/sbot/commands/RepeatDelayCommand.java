@@ -27,7 +27,7 @@ public final class RepeatDelayCommand extends CommandAdapter {
                     .setRequiredRange(0, Short.MAX_VALUE));
 
     public RepeatDelayCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options);
+        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -35,7 +35,7 @@ public final class RepeatDelayCommand extends CommandAdapter {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         short repeatDelay = requirePositiveShort(context.args.getMandatoryLong("repeat_delay"));
         LOGGER.debug("repeat delay command - alert_id : {}, repeat_delay : {}", alertId, repeatDelay);
-        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, repeatDelay(context, alertId, repeatDelay)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, repeatDelay(context, alertId, repeatDelay)));
     }
 
     private EmbedBuilder repeatDelay(@NotNull CommandContext context, long alertId, short repeatDelay) {

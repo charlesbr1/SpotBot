@@ -1,4 +1,4 @@
-package org.sbot.services.dao;
+package org.sbot.services.dao.sqlite;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -7,8 +7,9 @@ import org.jdbi.v3.core.statement.SqlStatement;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.chart.Candlestick;
-import org.sbot.services.dao.jdbi.AbstractJDBI;
-import org.sbot.services.dao.jdbi.JDBIRepository;
+import org.sbot.services.dao.LastCandlesticksDao;
+import org.sbot.services.dao.sqlite.jdbi.AbstractJDBI;
+import org.sbot.services.dao.sqlite.jdbi.JDBIRepository;
 
 import java.math.BigDecimal;
 import java.sql.ResultSet;
@@ -18,7 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
-import static org.sbot.services.dao.LastCandlesticksSQLite.CandlestickMapper.bindFields;
+import static org.sbot.services.dao.sqlite.LastCandlesticksSQLite.CandlestickMapper.bindFields;
 import static org.sbot.utils.ArgumentValidator.requirePairFormat;
 import static org.sbot.utils.Dates.parseDateTime;
 

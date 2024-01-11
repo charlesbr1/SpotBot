@@ -21,13 +21,13 @@ public final class UpTimeCommand extends CommandAdapter {
     private static final Instant start = Instant.now();
 
     public UpTimeCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, emptyList());
+        super(alertsDao, NAME, DESCRIPTION, emptyList(), RESPONSE_TTL_SECONDS);
     }
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
         LOGGER.debug("uptime command");
-        context.reply(RESPONSE_TTL_SECONDS, uptime());
+        context.reply(responseTtlSeconds, uptime());
     }
     private EmbedBuilder uptime() {
         Duration upTime = Duration.between(start, Instant.now());

@@ -1,4 +1,4 @@
-package org.sbot.services.dao;
+package org.sbot.services.dao.sqlite;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -13,8 +13,9 @@ import org.sbot.alerts.Alert.Type;
 import org.sbot.alerts.RangeAlert;
 import org.sbot.alerts.RemainderAlert;
 import org.sbot.alerts.TrendAlert;
-import org.sbot.services.dao.jdbi.AbstractJDBI;
-import org.sbot.services.dao.jdbi.JDBIRepository;
+import org.sbot.services.dao.AlertsDao;
+import org.sbot.services.dao.sqlite.jdbi.AbstractJDBI;
+import org.sbot.services.dao.sqlite.jdbi.JDBIRepository;
 
 import java.math.BigDecimal;
 import java.sql.ResultSet;
@@ -31,7 +32,7 @@ import java.util.stream.Stream;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
-import static org.sbot.services.dao.AlertsSQLite.AlertMapper.bindFields;
+import static org.sbot.services.dao.sqlite.AlertsSQLite.AlertMapper.bindFields;
 import static org.sbot.utils.Dates.parseDateTime;
 
 public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
