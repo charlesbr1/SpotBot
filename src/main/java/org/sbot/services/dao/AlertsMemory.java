@@ -2,7 +2,6 @@ package org.sbot.services.dao;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.Alert;
 
@@ -17,7 +16,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.*;
@@ -244,10 +242,5 @@ public class AlertsMemory implements AlertsDao {
     public void matchedRemainderAlertBatchDeletes(@NotNull Consumer<MatchingAlertUpdater> deleter) {
         LOGGER.debug("matchedRemainderAlertBatchDeletes");
         deleter.accept(alerts::remove);
-    }
-
-    @Override
-    public <T> T transactional(@NotNull Supplier<T> callback, @NotNull TransactionIsolationLevel isolationLevel) {
-        return callback.get(); // no transaction support in memory
     }
 }

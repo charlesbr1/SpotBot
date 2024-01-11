@@ -9,12 +9,12 @@ import org.sbot.chart.TimeFrame;
 import org.sbot.exchanges.binance.BinanceClient;
 import org.sbot.utils.PropertiesReader;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static java.util.Collections.emptyList;
 import static java.util.Optional.empty;
 import static org.sbot.utils.PropertiesReader.loadProperties;
 import static org.sbot.utils.PropertiesReader.readFile;
@@ -35,17 +35,9 @@ public enum Exchanges {
     public static final List<String> VIRTUAL_EXCHANGES = List.of(RemainderAlert.REMAINDER_EXCHANGE);
 
     static {
-        VIRTUAL_EXCHANGES.forEach(exchange -> exchanges.put(exchange, new Exchange() {
-            @NotNull
-            @Override
-            public String name() {
-                return exchange;
-            }
-            @NotNull
-            @Override
-            public List<Candlestick> getCandlesticks(@NotNull String pair, @NotNull TimeFrame timeFrame, long limit) {
-                return Collections.emptyList();
-            }
+        VIRTUAL_EXCHANGES.forEach(exchangeName -> exchanges.put(exchangeName, new Exchange() {
+            @Override @NotNull public String name() { return exchangeName; }
+            @Override @NotNull public List<Candlestick> getCandlesticks(@NotNull String pair, @NotNull TimeFrame timeFrame, long limit) { return emptyList(); }
         }));
     }
     public static Optional<Exchange> get(@NotNull String exchange) {

@@ -5,9 +5,9 @@ import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.Update;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.alerts.Alert;
 import org.sbot.services.dao.TransactionalCtx;
 
 import java.time.ZonedDateTime;
@@ -15,7 +15,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,7 +32,7 @@ public final class JDBIRepository implements TransactionalCtx {
 
     public JDBIRepository(@NotNull String url) {
         LOGGER.info("Opening database {}", url);
-        this.jdbi = Jdbi.create(url);
+        jdbi = Jdbi.create(url);
     }
 
     public void registerRowMapper(@NotNull RowMapper<?> rowMapper) {
@@ -68,16 +70,42 @@ public final class JDBIRepository implements TransactionalCtx {
         }
     }
 
+    public void update(@NotNull String sql, @NotNull Consumer<Update> mapper) {
+        try (var query = getHandle().createUpdate(sql)) {
+            mapper.accept(query);
+            query.execute();
+        }
+    }
+
     @NotNull
-    public List<Alert> queryAlerts(@NotNull String sql, @NotNull Map<String, ?> parameters) {
+    public <T> List<T> query(@NotNull String sql, @NotNull Class<T> type, @NotNull Map<String, ?> parameters) {
         try (var query = getHandle().createQuery(sql)) {
-            return query.bindMap(parameters).mapTo(Alert.class).list();
+            return query.bindMap(parameters).mapTo(type).list();
+        }
+    }
+
+    public <T> void fetch(@NotNull String sql, @NotNull Class<T> type, @NotNull Map<String, ?> parameters, @NotNull Consumer<Stream<T>> streamConsumer) {
+        try (var query = getHandle().createQuery(sql)) {
+            streamConsumer.accept(query.bindMap(parameters).mapTo(type).stream());
+        }
+    }
+
+    @NotNull
+    public <T> Optional<T> findOne(@NotNull String sql, @NotNull Class<T> type, @NotNull Map<String, ?> parameters) {
+        try (var query = getHandle().createQuery(sql)) {
+            return query.bindMap(parameters).mapTo(type).findOne();
         }
     }
 
     public long queryOneLong(@NotNull String sql, @NotNull Map<String, ?> parameters) {
         try (var query = getHandle().createQuery(sql)) {
             return query.bindMap(parameters).mapTo(Long.class).one();
+        }
+    }
+
+    public Optional<Long> findOneLong(@NotNull String sql, @NotNull Map<String, ?> parameters) {
+        try (var query = getHandle().createQuery(sql)) {
+            return query.bindMap(parameters).mapTo(Long.class).findOne();
         }
     }
 

@@ -2,19 +2,18 @@ package org.sbot.services.dao;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.generic.GenericType;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.PreparedBatch;
 import org.jdbi.v3.core.statement.SqlStatement;
 import org.jdbi.v3.core.statement.StatementContext;
-import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.Alert;
 import org.sbot.alerts.Alert.Type;
 import org.sbot.alerts.RangeAlert;
 import org.sbot.alerts.RemainderAlert;
 import org.sbot.alerts.TrendAlert;
+import org.sbot.services.dao.jdbi.AbstractJDBI;
 import org.sbot.services.dao.jdbi.JDBIRepository;
 
 import java.math.BigDecimal;
@@ -26,16 +25,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
 import static org.sbot.services.dao.AlertsSQLite.AlertMapper.bindFields;
 import static org.sbot.utils.Dates.parseDateTime;
 
-public final class AlertsSQLite implements AlertsDao {
+public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
 
     private static final Logger LOGGER = LogManager.getLogger(AlertsSQLite.class);
 
@@ -134,21 +133,15 @@ public final class AlertsSQLite implements AlertsDao {
     }
 
     private final AtomicLong idGenerator;
-    private final JDBIRepository repository;
 
     public AlertsSQLite(@NotNull JDBIRepository repository) {
-        LOGGER.debug("Loading SQLite storage for alerts");
-        this.repository = requireNonNull(repository);
-        repository.registerRowMapper(new AlertMapper());
-        setupTable();
+        super(repository, new AlertMapper());
         idGenerator = new AtomicLong(transactional(this::getMaxId) + 1);
+        LOGGER.debug("Loading SQLite storage for alerts");
     }
 
-    private Handle getHandle() {
-        return repository.getHandle();
-    }
-
-    private void setupTable() {
+    @Override
+    protected void setupTable() {
         transactional(() -> {
             getHandle().execute(SQL.CREATE_TABLE);
             getHandle().execute(SQL.CREATE_USER_ID_INDEX);
@@ -157,27 +150,16 @@ public final class AlertsSQLite implements AlertsDao {
         });
     }
 
-    @Override
-    public <T> T transactional(@NotNull Supplier<T> callback, @NotNull TransactionIsolationLevel isolationLevel) {
-        return repository.transactional(callback, isolationLevel);
-    }
-
     public long getMaxId() {
         LOGGER.debug("getMaxId");
-        try (var query = getHandle().createQuery(SQL.SELECT_MAX_ID)) {
-            return query.mapTo(Long.class).findOne()
+        return findOneLong(SQL.SELECT_MAX_ID, emptyMap())
                     .orElse(-1L); // id starts from 0, so returns -1 if no one is found
-        }
     }
 
     @Override
     public Optional<Alert> getAlert(long alertId) {
         LOGGER.debug("getAlert {}", alertId);
-        try (var query = getHandle().createQuery(SQL.SELECT_BY_ID)) {
-            return query.bind("id", alertId)
-                    .mapTo(Alert.class)
-                    .findOne();
-        }
+        return findOne(SQL.SELECT_BY_ID, Alert.class, Map.of("id", alertId));
     }
 
     @Override
@@ -192,15 +174,12 @@ public final class AlertsSQLite implements AlertsDao {
                     .findOne();
         }
     }
+
     @Override
     public void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
         LOGGER.debug("fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats {} {}", exchange, pair);
-        try (var query = getHandle().createQuery(SQL.SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE)) {
-            alertsConsumer.accept(query
-                    .bind("exchange", exchange)
-                    .bind("pair", pair)
-                    .mapTo(Alert.class).stream());
-        }
+        fetch(SQL.SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE,
+                Alert.class, Map.of("exchange", exchange, "pair", pair), alertsConsumer);
     }
 
     @Override
@@ -243,42 +222,40 @@ public final class AlertsSQLite implements AlertsDao {
     @Override
     public long countAlertsOfUser(long userId) {
         LOGGER.debug("countAlertsOfUser {}", userId);
-        return repository.queryOneLong(SQL.COUNT_ALERTS_OF_USER,
-                Map.of("userId", userId));
+        return queryOneLong(SQL.COUNT_ALERTS_OF_USER, Map.of("userId", userId));
     }
 
     @Override
     public long countAlertsOfUserAndTickers(long userId, @NotNull String tickerOrPair) {
         LOGGER.debug("countAlertsOfUserAndTickers {} {}", userId, tickerOrPair);
-        return repository.queryOneLong(SQL.COUNT_ALERTS_OF_USER_AND_TICKER_OR_PAIR,
+        return queryOneLong(SQL.COUNT_ALERTS_OF_USER_AND_TICKER_OR_PAIR,
                 Map.of("tickerOrPair", tickerOrPair, "userId", userId));
     }
 
     @Override
     public long countAlertsOfServer(long serverId) {
         LOGGER.debug("countAlertsOfServer {}", serverId);
-        return repository.queryOneLong(SQL.COUNT_ALERTS_OF_SERVER,
-                Map.of("serverId", serverId));
+        return queryOneLong(SQL.COUNT_ALERTS_OF_SERVER, Map.of("serverId", serverId));
     }
 
     @Override
     public long countAlertsOfServerAndUser(long serverId, long userId) {
         LOGGER.debug("countAlertsOfServerAndUser {} {}", serverId, userId);
-        return repository.queryOneLong(SQL.COUNT_ALERTS_OF_SERVER_AND_USER,
+        return queryOneLong(SQL.COUNT_ALERTS_OF_SERVER_AND_USER,
                 Map.of("serverId", serverId, "userId", userId));
     }
 
     @Override
     public long countAlertsOfServerAndTickers(long serverId, @NotNull String tickerOrPair) {
         LOGGER.debug("countAlertsOfServerAndTickers {} {}", serverId, tickerOrPair);
-        return repository.queryOneLong(SQL.COUNT_ALERTS_OF_SERVER_AND_TICKER_OR_PAIR,
+        return queryOneLong(SQL.COUNT_ALERTS_OF_SERVER_AND_TICKER_OR_PAIR,
                 Map.of("tickerOrPair", tickerOrPair, "serverId", serverId));
     }
 
     @Override
     public long countAlertsOfServerAndUserAndTickers(long serverId, long userId, @NotNull String tickerOrPair) {
         LOGGER.debug("countAlertsOfServerAndUserAndTickers {} {} {}", serverId, userId, tickerOrPair);
-        return repository.queryOneLong(SQL.COUNT_ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR,
+        return queryOneLong(SQL.COUNT_ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR,
                 Map.of("tickerOrPair", tickerOrPair, "serverId", serverId, "userId", userId));
     }
 
@@ -286,7 +263,7 @@ public final class AlertsSQLite implements AlertsDao {
     @NotNull
     public List<Alert> getAlertsOfUser(long userId, long offset, long limit) {
         LOGGER.debug("getAlertsOfUser {} {} {}", userId, offset, limit);
-        return repository.queryAlerts(SQL.ALERTS_OF_USER,
+        return query(SQL.ALERTS_OF_USER, Alert.class,
                 Map.of("userId", userId, "offset", offset, "limit", limit));
     }
 
@@ -294,7 +271,7 @@ public final class AlertsSQLite implements AlertsDao {
     @NotNull
     public List<Alert> getAlertsOfUserAndTickers(long userId, long offset, long limit, @NotNull String tickerOrPair) {
         LOGGER.debug("getAlertsOfUserAndTickers {} {} {} {}", userId, offset, limit, tickerOrPair);
-        return repository.queryAlerts(SQL.ALERTS_OF_USER_AND_TICKER_OR_PAIR,
+        return query(SQL.ALERTS_OF_USER_AND_TICKER_OR_PAIR, Alert.class,
                 Map.of("tickerOrPair", tickerOrPair, "userId", userId, "offset", offset, "limit", limit));
     }
 
@@ -302,7 +279,7 @@ public final class AlertsSQLite implements AlertsDao {
     @NotNull
     public List<Alert> getAlertsOfServer(long serverId, long offset, long limit) {
         LOGGER.debug("getAlertsOfServer {} {} {}", serverId, offset, limit);
-        return repository.queryAlerts(SQL.ALERTS_OF_SERVER,
+        return query(SQL.ALERTS_OF_SERVER, Alert.class,
                 Map.of("serverId", serverId, "offset", offset, "limit", limit));
     }
 
@@ -310,7 +287,7 @@ public final class AlertsSQLite implements AlertsDao {
     @NotNull
     public List<Alert> getAlertsOfServerAndUser(long serverId, long userId, long offset, long limit) {
         LOGGER.debug("getAlertsOfServerAndUser {} {} {} {}", serverId, userId, offset, limit);
-        return repository.queryAlerts(SQL.ALERTS_OF_SERVER_AND_USER,
+        return query(SQL.ALERTS_OF_SERVER_AND_USER, Alert.class,
                 Map.of("serverId", serverId, "userId", userId, "offset", offset, "limit", limit));
 
     }
@@ -319,7 +296,7 @@ public final class AlertsSQLite implements AlertsDao {
     @NotNull
     public List<Alert> getAlertsOfServerAndTickers(long serverId, long offset, long limit, @NotNull String tickerOrPair) {
         LOGGER.debug("getAlertsOfServerAndTickers {} {} {} {}", serverId, offset, limit, tickerOrPair);
-        return repository.queryAlerts(SQL.ALERTS_OF_SERVER_AND_TICKER_OR_PAIR,
+        return query(SQL.ALERTS_OF_SERVER_AND_TICKER_OR_PAIR, Alert.class,
                 Map.of("tickerOrPair", tickerOrPair, "serverId", serverId, "offset", offset, "limit", limit));
     }
 
@@ -327,53 +304,50 @@ public final class AlertsSQLite implements AlertsDao {
     @NotNull
     public List<Alert> getAlertsOfServerAndUserAndTickers(long serverId, long userId, long offset, long limit, @NotNull String tickerOrPair) {
         LOGGER.debug("getAlertsOfServerAndUserAndTickers {} {} {} {} {}", serverId, userId, offset, limit, tickerOrPair);
-        return repository.queryAlerts(SQL.ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR,
+        return query(SQL.ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR, Alert.class,
                 Map.of("tickerOrPair", tickerOrPair, "serverId", serverId, "userId", userId, "offset", offset, "limit", limit));
     }
 
     @Override
     public long addAlert(@NotNull Alert alert) {
-        alert = alert.withId(idGenerator::getAndIncrement);
-        LOGGER.debug("addAlert {}, with new id {}", alert, alert.id);
-        try (var query = getHandle().createUpdate(SQL.INSERT_ALERT)) {
-            bindFields(alert, query);
-            query.execute();
-            return alert.id;
-        }
+        var alertWithId = alert.withId(idGenerator::getAndIncrement);
+        LOGGER.debug("addAlert {}, with new id {}", alert, alertWithId.id);
+        update(SQL.INSERT_ALERT, query -> bindFields(alertWithId, query));
+        return alertWithId.id;
     }
 
     @Override
     public void updateMessage(long alertId, @NotNull String message) {
         LOGGER.debug("updateMessage {} {}", alertId, message);
-        repository.update(SQL.UPDATE_ALERTS_MESSAGE,
+        update(SQL.UPDATE_ALERTS_MESSAGE,
                 Map.of("id", alertId, "message", message));
     }
 
     @Override
     public void updateMargin(long alertId, @NotNull BigDecimal margin) {
         LOGGER.debug("updateMargin {} {}", alertId, margin);
-        repository.update(SQL.UPDATE_ALERTS_MARGIN,
+        update(SQL.UPDATE_ALERTS_MARGIN,
                 Map.of("id", alertId, "margin", margin));
     }
 
     @Override
     public void updateRepeat(long alertId, short repeat) {
         LOGGER.debug("updateRepeat {} {}", alertId, repeat);
-        repository.update(SQL.UPDATE_ALERTS_REPEAT,
+        update(SQL.UPDATE_ALERTS_REPEAT,
                 Map.of("id", alertId, "repeat", repeat));
     }
 
     @Override
     public void updateRepeatDelay(long alertId, short repeatDelay) {
         LOGGER.debug("updateRepeatDelay {} {}", alertId, repeatDelay);
-        repository.update(SQL.UPDATE_ALERTS_REPEAT_DELAY,
+        update(SQL.UPDATE_ALERTS_REPEAT_DELAY,
                 Map.of("id", alertId, "repeatDelay", repeatDelay));
     }
 
     @Override
     public void deleteAlert(long alertId) {
         LOGGER.debug("deleteAlert {}", alertId);
-        repository.update(SQL.DELETE_BY_ID, Map.of("id", alertId));
+        update(SQL.DELETE_BY_ID, Map.of("id", alertId));
     }
 
     @Override

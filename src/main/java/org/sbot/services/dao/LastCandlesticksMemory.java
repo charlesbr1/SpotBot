@@ -2,7 +2,6 @@ package org.sbot.services.dao;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.chart.Candlestick;
 
@@ -10,7 +9,6 @@ import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Supplier;
 
 import static org.sbot.utils.ArgumentValidator.requirePairFormat;
 
@@ -43,7 +41,8 @@ public class LastCandlesticksMemory implements LastCandlesticksDao {
     }
 
     @Override
-    public <T> T transactional(@NotNull Supplier<T> callback, @NotNull TransactionIsolationLevel isolationLevel) {
-        return callback.get(); // no transaction support in memory
+    public void updateLastCandlestick(@NotNull String pair, @NotNull Candlestick candlestick) {
+        LOGGER.debug("updateLastCandlestick {} {}", pair, candlestick);
+        lastCandlesticks.put(requirePairFormat(pair), candlestick);
     }
 }

@@ -65,9 +65,9 @@ public final class AlertsWatcher {
                 Exchanges.get(xchange).ifPresent(exchange ->
                         Thread.ofVirtual().start(() -> pairs.forEach(pair -> {
                             Thread.ofVirtual().name('[' + pair + "] SpotBot fetcher")
-                                    .start(() -> getPricesAndRaiseAlerts(exchange, pair));
-                            LockSupport.parkNanos(VIRTUAL_EXCHANGES.contains(xchange) ? 0 :
-                                    Duration.ofMillis(300).toNanos()); // no need to flood the exchanges
+                                    .start(() -> checkAlerts(exchange, pair));
+                            LockSupport.parkNanos(exchange.isVirtual() ? 0 :
+                                    Duration.ofMillis(300).toNanos()); // no need to flood the exchanges (or discord)
                         })));
                 LockSupport.parkNanos(Duration.ofMillis(300 / (Math.min(10, exchangePairs.size()))).toNanos());
             });
@@ -81,11 +81,19 @@ public final class AlertsWatcher {
         //TODO drop alerts that are disabled since 1 month, or range box alert out of time...
     }
 
+    private void checkAlerts(@NotNull Exchange exchange, @NotNull String pair) {
+        if(exchange.isVirtual()) { // RemainderAlert does not rely on prices
+            alertDao.transactional(() -> processMatchingAlerts(exchange, pair, emptyList(), null));
+        } else {
+            getPricesAndRaiseAlerts(exchange, pair);
+        }
+    }
+
     private void getPricesAndRaiseAlerts(@NotNull Exchange exchange, @NotNull String pair) {
         try {
             LOGGER.debug("Retrieving last price for pair [{}] on {}...", pair, exchange);
 
-            // retrieve the candlesticks since the last check, or since the last hour
+            // retrieve all the candlesticks since the last check, or since the last hour
             var lastClose = marketDataService.getLastCandlestickCloseTime(pair).orElse(null);
             List<Candlestick> prices = getCandlesticksSince(exchange, pair, lastClose);
 
@@ -95,7 +103,6 @@ public final class AlertsWatcher {
                 processMatchingAlerts(exchange, pair, prices, previousPrice);
                 marketDataService.updateLastCandlestick(pair, previousPrice, prices.get(prices.size()-1));
             });
-
         } catch(RuntimeException e) {
             LOGGER.warn("Exception thrown while processing alerts", e);
         }

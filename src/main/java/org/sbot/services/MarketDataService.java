@@ -37,9 +37,10 @@ public class MarketDataService {
         requireNonNull(pair);
         requireNonNull(newCandlestick);
         lastCandlesticksDao.transactional(() -> {
-            boolean isNew = null != lastCandlestick && lastCandlestick.closeTime().isBefore(newCandlestick.closeTime());
-            if(null == lastCandlestick || isNew) {
+            if(null == lastCandlestick) {
                 lastCandlesticksDao.setLastCandlestick(pair, newCandlestick);
+            } else if(lastCandlestick.closeTime().isBefore(newCandlestick.closeTime())) {
+                lastCandlesticksDao.updateLastCandlestick(pair, newCandlestick);
             } else {
                 LOGGER.warn("Unexpected outdated new candlestick received, pair {}, last candlestick : {}, outdated new candlestick : {}", pair, lastCandlestick, newCandlestick);
             }

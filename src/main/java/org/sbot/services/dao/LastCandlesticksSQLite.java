@@ -2,13 +2,12 @@ package org.sbot.services.dao;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.SqlStatement;
 import org.jdbi.v3.core.statement.StatementContext;
-import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.chart.Candlestick;
+import org.sbot.services.dao.jdbi.AbstractJDBI;
 import org.sbot.services.dao.jdbi.JDBIRepository;
 
 import java.math.BigDecimal;
@@ -17,14 +16,13 @@ import java.sql.SQLException;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static org.sbot.services.dao.LastCandlesticksSQLite.CandlestickMapper.bindFields;
 import static org.sbot.utils.ArgumentValidator.requirePairFormat;
 import static org.sbot.utils.Dates.parseDateTime;
 
-public final class LastCandlesticksSQLite implements LastCandlesticksDao {
+public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCandlesticksDao {
 
     private static final Logger LOGGER = LogManager.getLogger(LastCandlesticksSQLite.class);
 
@@ -45,6 +43,7 @@ public final class LastCandlesticksSQLite implements LastCandlesticksDao {
         String SELECT_BY_PAIR = "SELECT open_time,close_time,open,close,high,low FROM last_candlesticks WHERE pair = :pair";
         String SELECT_CLOSE_TIME_BY_PAIR = "SELECT close_time FROM last_candlesticks WHERE pair = :pair";
         String INSERT_LAST_CANDLESTICK = "INSERT INTO last_candlesticks (pair,open_time,close_time,open,close,high,low) VALUES (:pair,:open_time,:close_time,:open,:close,:high,:low)";
+        String UPDATE_LAST_CANDLESTICK = "UPDATE last_candlesticks SET open_time=:openTime,close_time=:closeTime,open=:open,close=:close,high=:high,low=:low WHERE pair=:pair";
 
     }
 
@@ -62,9 +61,10 @@ public final class LastCandlesticksSQLite implements LastCandlesticksDao {
         }
 
         // from Candlestick to SQL
-        static void bindFields(@NotNull Candlestick candlestick, @NotNull SqlStatement<?> query) {
-            query.bind("open_time", candlestick.openTime());
-            query.bind("close_time", candlestick.closeTime());
+        static void bindFields(@NotNull String pair, @NotNull Candlestick candlestick, @NotNull SqlStatement<?> query) {
+            query.bind("pair", requirePairFormat(pair));
+            query.bind("openTime", candlestick.openTime());
+            query.bind("closeTime", candlestick.closeTime());
             query.bind("open", candlestick.open());
             query.bind("close", candlestick.close());
             query.bind("high", candlestick.high());
@@ -72,20 +72,13 @@ public final class LastCandlesticksSQLite implements LastCandlesticksDao {
         }
     }
 
-    private final JDBIRepository repository;
-
     public LastCandlesticksSQLite(@NotNull JDBIRepository repository) {
+        super(repository, new CandlestickMapper());
         LOGGER.debug("Loading SQLite storage for last_candlesticks");
-        this.repository = requireNonNull(repository);
-        repository.registerRowMapper(new CandlestickMapper());
-        setupTable();
     }
 
-    private Handle getHandle() {
-        return repository.getHandle();
-    }
-
-    private void setupTable() {
+    @Override
+    protected void setupTable() {
         transactional(() -> {
             getHandle().execute(SQL.CREATE_TABLE);
             getHandle().execute(SQL.CREATE_PAIR_INDEX);
@@ -93,33 +86,26 @@ public final class LastCandlesticksSQLite implements LastCandlesticksDao {
     }
 
     @Override
-    public <T> T transactional(@NotNull Supplier<T> callback, @NotNull TransactionIsolationLevel isolationLevel) {
-        return repository.transactional(callback, isolationLevel);
-    }
-
-    @Override
     public Optional<ZonedDateTime> getLastCandlestickCloseTime(@NotNull String pair) {
         LOGGER.debug("getLastCandlestickCloseTime {}", pair);
-        return repository.findOneDateTime(SQL.SELECT_CLOSE_TIME_BY_PAIR, Map.of("pair", pair));
+        return findOneDateTime(SQL.SELECT_CLOSE_TIME_BY_PAIR, Map.of("pair", pair));
     }
 
     @Override
     public Optional<Candlestick> getLastCandlestick(@NotNull String pair) {
         LOGGER.debug("getLastCandlestick {}", pair);
-        try (var query = getHandle().createQuery(SQL.SELECT_BY_PAIR)) {
-            return query.bind("pair", pair)
-                    .mapTo(Candlestick.class)
-                    .findOne();
-        }
+        return findOne(SQL.SELECT_BY_PAIR, Candlestick.class, Map.of("pair", pair));
     }
 
     @Override
     public void setLastCandlestick(@NotNull String pair, @NotNull Candlestick candlestick) {
         LOGGER.debug("setLastCandlestick {} {}", pair, candlestick);
-        try (var query = getHandle().createUpdate(SQL.INSERT_LAST_CANDLESTICK)) {
-            query.bind("pair", requirePairFormat(pair));
-            bindFields(candlestick, query);
-            query.execute();
-        }
+        update(SQL.INSERT_LAST_CANDLESTICK, query -> bindFields(pair, candlestick, query));
+    }
+
+    @Override
+    public void updateLastCandlestick(@NotNull String pair, @NotNull Candlestick candlestick) {
+        LOGGER.debug("updateLastCandlestick {} {}", pair, candlestick);
+        update(SQL.UPDATE_LAST_CANDLESTICK, query -> bindFields(pair, candlestick, query));
     }
 }

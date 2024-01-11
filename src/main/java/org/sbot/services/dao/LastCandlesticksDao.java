@@ -13,4 +13,6 @@ public interface LastCandlesticksDao extends TransactionalCtx {
     Optional<Candlestick> getLastCandlestick(@NotNull String pair);
 
     void setLastCandlestick(@NotNull String pair, @NotNull Candlestick candlestick);
+
+    void updateLastCandlestick(@NotNull String pair, @NotNull Candlestick candlestick);
 }
