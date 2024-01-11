@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
@@ -70,7 +71,7 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
                 "AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * repeat_delay)) <= (1000 * (300 + unixepoch('now', 'utc')))) " +
                 "AND (type NOT LIKE 'remainder' OR (from_date < (3600 + unixepoch('now', 'utc'))) OR (from_date > (unixepoch('now', 'utc') - 3600))) " +
                 "AND (type NOT LIKE 'range' OR from_date IS NULL OR (from_date < (3600 + unixepoch('now', 'utc')) AND (to_date IS NULL OR to_date > (unixepoch('now', 'utc') - 3600))))";
-        String SELECT_ALERT_ID_AND_MESSAGE_BY_ID_IN = "SELECT id,message FROM alerts WHERE id IN (:ids)";
+        String SELECT_ALERT_ID_AND_MESSAGE_BY_ID_IN = "SELECT id,message FROM alerts WHERE id IN ";
         String SELECT_PAIRS_BY_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE = "SELECT DISTINCT exchange,ticker1||'/'||ticker2 AS pair FROM alerts " +
                 "WHERE repeat > 0 AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * repeat_delay)) <= (1000 * (300 + unixepoch('now', 'utc')))) " +
                 "AND (type NOT LIKE 'remainder' OR (from_date < (3600 + unixepoch('now', 'utc'))) OR (from_date > (unixepoch('now', 'utc') - 3600))) " +
@@ -201,12 +202,26 @@ public class AlertsSQL extends JDBIRepository implements AlertsDao {
     @NotNull
     public Map<Long, String> getAlertMessages(@NotNull long[] alertIds) {
         LOGGER.debug("getAlertMessages {}", alertIds);
-        try (var query = getHandle().createQuery(SQL.SELECT_ALERT_ID_AND_MESSAGE_BY_ID_IN)) {
-            return query.bind("ids", alertIds)
-                    .setMapKeyColumn("id")
+        try (var query = getHandle().createQuery(selectAlertIdAndMessageByIdIn(alertIds))) {
+            return query.setMapKeyColumn("id")
                     .setMapValueColumn("message")
                     .collectInto(new GenericType<>() {});
         }
+    }
+
+    // can't manage to get jdbi.registerArrayType(long.class, "long") working with sqlite, to bind the alertIds long[] argument
+    private static String selectAlertIdAndMessageByIdIn(long[] alertIds) {
+        return LongStream.of(alertIds).collect(
+                () -> new StringBuilder(SQL.SELECT_ALERT_ID_AND_MESSAGE_BY_ID_IN.length() + 2 + (alertIds.length * 20)),
+                (sb, value) -> {
+                    if (sb.isEmpty()) {
+                        sb.append(SQL.SELECT_ALERT_ID_AND_MESSAGE_BY_ID_IN).append('(');
+                    } else {
+                        sb.append(',');
+                    }
+                    sb.append(value);
+                },
+                StringBuilder::append).append(')').toString();
     }
 
     @Override

@@ -169,7 +169,7 @@ public final class AlertsWatcher {
     }
 
     private static String title(@NotNull Alert alert, @NotNull MatchingStatus matchingStatus) {
-        String title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + alert.type.titleName + " ALERT !!! - [" + alert.getSlashPair() + "] ";
+        String title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + alert.type.titleName + (alert.type != remainder ? " ALERT !!!" : "") + " - [" + alert.getSlashPair() + "] ";
         if(TITLE_MAX_LENGTH - alert.message.length() < title.length()) {
             LOGGER.warn("Alert name '{}' will be truncated from the title because it is too long : {}", alert.type.titleName, title);
             title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + "ALERT !!! - [" + alert.getSlashPair() + "] ";
@@ -178,7 +178,7 @@ public final class AlertsWatcher {
                 title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + " ALERT !!! - ";
             }
         }
-        return title + alert.message;
+        return title + (alert.type != remainder ? alert.message : "");
     }
 
     private List<EmbedBuilder> shrinkToPageSize(@NotNull List<EmbedBuilder> alerts, int total) {

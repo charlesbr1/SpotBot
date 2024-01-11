@@ -88,7 +88,7 @@ public class RemainderAlert extends Alert {
     @Override
     protected String asMessage(@NotNull MatchingAlert.MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
         return (matchingStatus.notMatching() ? type.titleName + " set by <@" + userId + "> on " + getSlashPair() :
-                "<@" + userId + ">\nYour " + type.name() + " set on " + getSlashPair() + " was raised !") +
+                "<@" + userId + ">\n\n**" + message + "**") +
                 "\n\n* id :\t" + id +
                 "\n* date :\t" + formatUTC(fromDate);
     }
