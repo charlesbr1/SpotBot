@@ -3,6 +3,7 @@ package org.sbot.services;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.sbot.chart.Candlestick;
 import org.sbot.services.dao.LastCandlesticksDao;
 
@@ -32,16 +33,15 @@ public class MarketDataService {
         return lastCandlestick;
     }
 
-    public void updateLastCandlestick(@NotNull String pair, @NotNull Candlestick candlestick) {
+    public void updateLastCandlestick(@NotNull String pair, @Nullable Candlestick lastCandlestick, @NotNull Candlestick newCandlestick) {
         requireNonNull(pair);
-        requireNonNull(candlestick);
+        requireNonNull(newCandlestick);
         lastCandlesticksDao.transactional(() -> {
-            Candlestick lastCandlestick = lastCandlesticksDao.getLastCandlestick(pair).orElse(null);
-            boolean isNew = null != lastCandlestick && lastCandlestick.closeTime().isBefore(candlestick.closeTime());
+            boolean isNew = null != lastCandlestick && lastCandlestick.closeTime().isBefore(newCandlestick.closeTime());
             if(null == lastCandlestick || isNew) {
-                lastCandlesticksDao.setLastCandlestick(pair, candlestick);
+                lastCandlesticksDao.setLastCandlestick(pair, newCandlestick);
             } else {
-                LOGGER.warn("Unexpected outdated new candlestick received, pair {}, last candlestick : {}, outdated new candlestick : {}", pair, lastCandlestick, candlestick);
+                LOGGER.warn("Unexpected outdated new candlestick received, pair {}, last candlestick : {}, outdated new candlestick : {}", pair, lastCandlestick, newCandlestick);
             }
         });
     }

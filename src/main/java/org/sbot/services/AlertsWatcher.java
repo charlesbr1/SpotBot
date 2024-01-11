@@ -93,7 +93,7 @@ public final class AlertsWatcher {
             alertDao.transactional(() -> {
                 Candlestick previousPrice = marketDataService.getLastCandlestick(pair).orElse(null);
                 processMatchingAlerts(exchange, pair, prices, previousPrice);
-                marketDataService.updateLastCandlestick(pair, prices.get(prices.size()-1));
+                marketDataService.updateLastCandlestick(pair, previousPrice, prices.get(prices.size()-1));
             });
 
         } catch(RuntimeException e) {
