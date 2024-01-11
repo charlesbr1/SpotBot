@@ -6,6 +6,7 @@ import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.chart.Candlestick;
 
+import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,6 +22,12 @@ public class LastCandlesticksMemory implements LastCandlesticksDao {
 
     {
         LOGGER.debug("Loading memory storage for last_candlesticks");
+    }
+
+    @Override
+    public Optional<ZonedDateTime> getLastCandlestickCloseTime(@NotNull String pair) {
+        LOGGER.debug("getLastCandlestickCloseTime {}", pair);
+        return Optional.ofNullable(lastCandlesticks.get(pair)).map(Candlestick::closeTime);
     }
 
     @Override

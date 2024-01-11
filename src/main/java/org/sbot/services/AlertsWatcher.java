@@ -21,6 +21,7 @@ import org.sbot.utils.Dates.DaysHours;
 
 import java.awt.*;
 import java.time.Duration;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -83,13 +84,14 @@ public final class AlertsWatcher {
     private void getPricesAndRaiseAlerts(@NotNull Exchange exchange, @NotNull String pair) {
         try {
             LOGGER.debug("Retrieving last price for pair [{}] on {}...", pair, exchange);
-            Candlestick previousPrice = marketDataService.getLastCandlestick(pair).orElse(null);
 
             // retrieve the candlesticks since the last check, or since the last hour
-            List<Candlestick> prices = getCandlesticks(exchange, pair, previousPrice);
+            var lastClose = marketDataService.getLastCandlestickCloseTime(pair).orElse(null);
+            List<Candlestick> prices = getCandlesticksSince(exchange, pair, lastClose);
 
             // load, notify, and update alerts that matches
             alertDao.transactional(() -> {
+                Candlestick previousPrice = marketDataService.getLastCandlestick(pair).orElse(null);
                 processMatchingAlerts(exchange, pair, prices, previousPrice);
                 marketDataService.updateLastCandlestick(pair, prices.get(prices.size()-1));
             });
@@ -99,8 +101,8 @@ public final class AlertsWatcher {
         }
     }
 
-    private List<Candlestick> getCandlesticks(@NotNull Exchange exchange, @NotNull String pair, @Nullable Candlestick previousPrice) {
-        DaysHours daysHours = Optional.ofNullable(previousPrice).map(Candlestick::closeTime).map(Dates::daysHoursSince)
+    private List<Candlestick> getCandlesticksSince(@NotNull Exchange exchange, @NotNull String pair, @Nullable ZonedDateTime previousCloseTime) {
+        DaysHours daysHours = Optional.ofNullable(previousCloseTime).map(Dates::daysHoursSince)
                 .orElse(new DaysHours(0, 0));
         LOGGER.debug("Computed {} days and {} hours since the last price close time", daysHours.days(), daysHours.hours());
 

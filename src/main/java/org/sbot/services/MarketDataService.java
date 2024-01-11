@@ -6,6 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.sbot.chart.Candlestick;
 import org.sbot.services.dao.LastCandlesticksDao;
 
+import java.time.ZonedDateTime;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -18,6 +19,10 @@ public class MarketDataService {
 
     public MarketDataService(LastCandlesticksDao lastCandlesticksDao) {
         this.lastCandlesticksDao = requireNonNull(lastCandlesticksDao);
+    }
+
+    public Optional<ZonedDateTime> getLastCandlestickCloseTime(@NotNull String pair) {
+        return lastCandlesticksDao.transactional(() -> lastCandlesticksDao.getLastCandlestickCloseTime(pair));
     }
 
     public Optional<Candlestick> getLastCandlestick(@NotNull String pair) {

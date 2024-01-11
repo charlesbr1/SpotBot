@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.ZonedDateTime;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -42,6 +43,7 @@ public final class LastCandlesticksSQLite implements LastCandlesticksDao {
         String CREATE_PAIR_INDEX = "CREATE INDEX IF NOT EXISTS last_candlesticks_pair_index ON last_candlesticks (pair)";
 
         String SELECT_BY_PAIR = "SELECT open_time,close_time,open,close,high,low FROM last_candlesticks WHERE pair = :pair";
+        String SELECT_CLOSE_TIME_BY_PAIR = "SELECT close_time FROM last_candlesticks WHERE pair = :pair";
         String INSERT_LAST_CANDLESTICK = "INSERT INTO last_candlesticks (pair,open_time,close_time,open,close,high,low) VALUES (:pair,:open_time,:close_time,:open,:close,:high,:low)";
 
     }
@@ -93,6 +95,12 @@ public final class LastCandlesticksSQLite implements LastCandlesticksDao {
     @Override
     public <T> T transactional(@NotNull Supplier<T> callback, @NotNull TransactionIsolationLevel isolationLevel) {
         return repository.transactional(callback, isolationLevel);
+    }
+
+    @Override
+    public Optional<ZonedDateTime> getLastCandlestickCloseTime(@NotNull String pair) {
+        LOGGER.debug("getLastCandlestickCloseTime {}", pair);
+        return repository.findOneDateTime(SQL.SELECT_CLOSE_TIME_BY_PAIR, Map.of("pair", pair));
     }
 
     @Override

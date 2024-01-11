@@ -10,6 +10,7 @@ import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.Alert;
 import org.sbot.services.dao.TransactionalCtx;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -77,6 +78,12 @@ public final class JDBIRepository implements TransactionalCtx {
     public long queryOneLong(@NotNull String sql, @NotNull Map<String, ?> parameters) {
         try (var query = getHandle().createQuery(sql)) {
             return query.bindMap(parameters).mapTo(Long.class).one();
+        }
+    }
+
+    public Optional<ZonedDateTime> findOneDateTime(@NotNull String sql, @NotNull Map<String, ?> parameters) {
+        try (var query = getHandle().createQuery(sql)) {
+            return query.bindMap(parameters).mapTo(ZonedDateTime.class).findOne();
         }
     }
 }

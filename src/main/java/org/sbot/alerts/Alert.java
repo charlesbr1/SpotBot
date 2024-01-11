@@ -160,7 +160,7 @@ public abstract class Alert {
 
     protected static boolean isNewerCandleStick(@NotNull Candlestick candlestick, @Nullable Candlestick previousCandlestick) {
         return null == previousCandlestick ||
-                candlestick.closeTime().isBefore(previousCandlestick.closeTime());
+                candlestick.closeTime().isAfter(previousCandlestick.closeTime());
     }
 
     @NotNull
