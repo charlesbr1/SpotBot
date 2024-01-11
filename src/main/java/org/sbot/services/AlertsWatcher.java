@@ -35,10 +35,10 @@ import static net.dv8tion.jda.api.entities.MessageEmbed.TITLE_MAX_LENGTH;
 import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.alerts.Alert.isPrivate;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.MARGIN;
+import static org.sbot.alerts.RemainderAlert.REMAINDER_VIRTUAL_EXCHANGE;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.discord.Discord.spotBotRole;
-import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
 import static org.sbot.utils.PartitionSpliterator.split;
 
 public final class AlertsWatcher {
@@ -83,6 +83,8 @@ public final class AlertsWatcher {
 
     private void checkAlerts(@NotNull Exchange exchange, @NotNull String pair) {
         if(exchange.isVirtual()) { // RemainderAlert does not rely on prices
+            LOGGER.debug("Processing pair [{}] on virtual exchange {}{}...", pair,
+                    exchange.name(), REMAINDER_VIRTUAL_EXCHANGE.equals(exchange.name()) ? " (Remainder Alerts)" : "");
             alertDao.transactional(() -> processMatchingAlerts(exchange, pair, emptyList(), null));
         } else {
             getPricesAndRaiseAlerts(exchange, pair);
@@ -110,8 +112,8 @@ public final class AlertsWatcher {
 
     private List<Candlestick> getCandlesticksSince(@NotNull Exchange exchange, @NotNull String pair, @Nullable ZonedDateTime previousCloseTime) {
         DaysHours daysHours = Optional.ofNullable(previousCloseTime).map(Dates::daysHoursSince)
-                .orElse(new DaysHours(0, 0));
-        LOGGER.debug("Computed {} days and {} hours since the last price close time", daysHours.days(), daysHours.hours());
+                .orElse(DaysHours.ZERO);
+        LOGGER.debug("Computed {} days and {} hours since the last price close time {}", daysHours.days(), daysHours.hours(), previousCloseTime);
 
         List<Candlestick> prices = new ArrayList<>();
         if(daysHours.days() > 0) {

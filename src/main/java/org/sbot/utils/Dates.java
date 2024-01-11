@@ -33,7 +33,9 @@ public enum Dates {
                 .map(dateTime -> dateTime.toLocalDateTime().atZone(ZoneOffset.UTC)).orElse(null);
     }
 
-    public record DaysHours(int days, int hours) {}
+    public record DaysHours(int days, int hours) {
+        public static final DaysHours ZERO = new DaysHours(0, 0);
+    }
 
     @NotNull
     public static DaysHours daysHoursSince(@NotNull ZonedDateTime lastTime) {

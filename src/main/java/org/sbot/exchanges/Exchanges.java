@@ -32,7 +32,7 @@ public enum Exchanges {
     private static final Map<String, Exchange> exchanges = new ConcurrentHashMap<>();
 
     public static final List<String> SUPPORTED_EXCHANGES = List.of(BinanceClient.NAME);
-    public static final List<String> VIRTUAL_EXCHANGES = List.of(RemainderAlert.REMAINDER_EXCHANGE);
+    public static final List<String> VIRTUAL_EXCHANGES = List.of(RemainderAlert.REMAINDER_VIRTUAL_EXCHANGE);
 
     static {
         VIRTUAL_EXCHANGES.forEach(exchangeName -> exchanges.put(exchangeName, new Exchange() {

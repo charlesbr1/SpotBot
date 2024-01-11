@@ -19,7 +19,7 @@ import static org.sbot.utils.Dates.formatUTC;
 
 public class RemainderAlert extends Alert {
 
-    public static final String REMAINDER_EXCHANGE = "@r";
+    public static final String REMAINDER_VIRTUAL_EXCHANGE = "@r";
 
     public RemainderAlert(long userId, long serverId,
                           @NotNull String pair,
@@ -31,7 +31,7 @@ public class RemainderAlert extends Alert {
                           @NotNull String pair, @NotNull String message,
                           @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime lastTrigger,
                           @NotNull BigDecimal margin, short repeat) {
-        super(id, remainder, userId, serverId, REMAINDER_EXCHANGE, pair, message, null, null, fromDate, null, lastTrigger, margin, repeat, DEFAULT_REPEAT_DELAY_HOURS);
+        super(id, remainder, userId, serverId, REMAINDER_VIRTUAL_EXCHANGE, pair, message, null, null, fromDate, null, lastTrigger, margin, repeat, DEFAULT_REPEAT_DELAY_HOURS);
         requireNonNull(fromDate, "missing RemainderAlert fromDate");
     }
 

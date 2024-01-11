@@ -24,7 +24,7 @@ import static org.sbot.alerts.Alert.Type.range;
 import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.alerts.Alert.hasRepeat;
 
-public class AlertsMemory implements AlertsDao {
+public final class AlertsMemory implements AlertsDao {
 
     private static final Logger LOGGER = LogManager.getLogger(AlertsMemory.class);
 

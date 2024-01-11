@@ -71,7 +71,6 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
                 "AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * repeat_delay)) <= (1000 * (300 + unixepoch('now', 'utc')))) " +
                 "AND (type NOT LIKE 'remainder' OR (from_date < (3600 + unixepoch('now', 'utc'))) OR (from_date > (unixepoch('now', 'utc') - 3600))) " +
                 "AND (type NOT LIKE 'range' OR from_date IS NULL OR (from_date < (3600 + unixepoch('now', 'utc')) AND (to_date IS NULL OR to_date > (unixepoch('now', 'utc') - 3600))))";
-        String SELECT_ALERT_ID_AND_MESSAGE_BY_ID_IN = "SELECT id,message FROM alerts WHERE id IN ";
         String SELECT_PAIRS_BY_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE = "SELECT DISTINCT exchange,pair AS pair FROM alerts " +
                 "WHERE repeat > 0 AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * repeat_delay)) <= (1000 * (300 + unixepoch('now', 'utc')))) " +
                 "AND (type NOT LIKE 'remainder' OR (from_date < (3600 + unixepoch('now', 'utc'))) OR (from_date > (unixepoch('now', 'utc') - 3600))) " +
@@ -195,16 +194,10 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
 
     // can't manage to get jdbi.registerArrayType(long.class, "long") working with sqlite, to bind the alertIds long[] argument
     private static String selectAlertIdAndMessageByIdIn(long[] alertIds) {
+        String sql = "SELECT id,message FROM alerts WHERE id IN (";
         return LongStream.of(alertIds).collect(
-                () -> new StringBuilder(SQL.SELECT_ALERT_ID_AND_MESSAGE_BY_ID_IN.length() + 2 + (alertIds.length * 20)),
-                (sb, value) -> {
-                    if (sb.isEmpty()) {
-                        sb.append(SQL.SELECT_ALERT_ID_AND_MESSAGE_BY_ID_IN).append('(');
-                    } else {
-                        sb.append(',');
-                    }
-                    sb.append(value);
-                },
+                () -> new StringBuilder(sql.length() + 1 + (alertIds.length * 20)),
+                (sb, value) -> sb.append(sb.isEmpty() ? "," : sql).append(value),
                 StringBuilder::append).append(')').toString();
     }
 

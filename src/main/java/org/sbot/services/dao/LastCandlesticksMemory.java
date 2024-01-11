@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static org.sbot.utils.ArgumentValidator.requirePairFormat;
 
-public class LastCandlesticksMemory implements LastCandlesticksDao {
+public final class LastCandlesticksMemory implements LastCandlesticksDao {
 
     private static final Logger LOGGER = LogManager.getLogger(LastCandlesticksMemory.class);
 
