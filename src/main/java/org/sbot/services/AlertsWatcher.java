@@ -16,10 +16,14 @@ import org.sbot.discord.Discord;
 import org.sbot.exchanges.Exchange;
 import org.sbot.exchanges.Exchanges;
 import org.sbot.services.dao.AlertsDao;
+import org.sbot.utils.Dates;
+import org.sbot.utils.Dates.DaysHours;
 
 import java.awt.*;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Stream;
 
@@ -78,29 +82,50 @@ public final class AlertsWatcher {
 
     private void getPricesAndRaiseAlerts(@NotNull Exchange exchange, @NotNull String pair) {
         try {
-            LOGGER.debug("Retrieving price for pair [{}] on {}...", pair, exchange);
-            // TODO récuperer l'historique depuis le last candlestick des alerts
-            List<Candlestick> prices = exchange.getCandlesticks(pair, TimeFrame.HOURLY, 1);
-            if(prices.isEmpty()) {
-                throw new IllegalStateException("No candlestick found for pair " + pair + " on exchange" + exchange.name());
-            }
-            Candlestick previousPrice = marketDataService.getAndUpdateLastCandlestick(pair, prices.get(prices.size()-1));
+            LOGGER.debug("Retrieving last price for pair [{}] on {}...", pair, exchange);
+            Candlestick previousPrice = marketDataService.getLastCandlestick(pair).orElse(null);
+
+            // retrieve the candlesticks since the last check, or since the last hour
+            List<Candlestick> prices = getCandlesticks(exchange, pair, previousPrice);
 
             // load, notify, and update alerts that matches
-            processMatchingAlerts(exchange, pair, prices, previousPrice);
+            alertDao.transactional(() -> {
+                processMatchingAlerts(exchange, pair, prices, previousPrice);
+                marketDataService.updateLastCandlestick(pair, prices.get(prices.size()-1));
+            });
 
         } catch(RuntimeException e) {
             LOGGER.warn("Exception thrown while processing alerts", e);
         }
     }
 
+    private List<Candlestick> getCandlesticks(@NotNull Exchange exchange, @NotNull String pair, @Nullable Candlestick previousPrice) {
+        DaysHours daysHours = Optional.ofNullable(previousPrice).map(Candlestick::closeTime).map(Dates::daysHoursSince)
+                .orElse(new DaysHours(0, 0));
+        LOGGER.debug("Computed {} days and {} hours since the last price close time", daysHours.days(), daysHours.hours());
+
+        List<Candlestick> prices = new ArrayList<>();
+        if(daysHours.days() > 0) {
+            prices.addAll(getCandlesticks(exchange, pair, TimeFrame.DAILY, daysHours.days()));
+        }
+        prices.addAll(getCandlesticks(exchange, pair, TimeFrame.HOURLY, daysHours.hours() + 1));
+        return prices;
+    }
+
+    private List<Candlestick> getCandlesticks(@NotNull Exchange exchange, @NotNull String pair, @NotNull TimeFrame timeFrame, int limit) {
+        var candlesticks  = exchange.getCandlesticks(pair, timeFrame, limit);
+        if(candlesticks.isEmpty()) {
+            throw new IllegalStateException("No " + timeFrame.name() + " candlestick found for pair " + pair + " on exchange" + exchange.name());
+        }
+        return candlesticks;
+    }
+
     private void processMatchingAlerts(@NotNull Exchange exchange, @NotNull String pair, @NotNull List<Candlestick> prices, @Nullable Candlestick previousPrice) {
-        alertDao.transactional(() -> alertDao
-                .fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(exchange.name(), pair,
+        alertDao.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(exchange.name(), pair,
                 alerts -> updateAlerts(
                         split(STREAM_BUFFER_SIZE, true, alerts.map(alert -> alert.match(prices, previousPrice)).filter(MatchingAlert::hasMatch))
                         .map(this::fetchAlertsMessage)
-                        .flatMap(this::sendDiscordNotifications))));
+                        .flatMap(this::sendDiscordNotifications)));
     }
 
     private void updateAlerts(@NotNull Stream<MatchingAlert> matchingAlerts) {

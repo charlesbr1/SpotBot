@@ -38,7 +38,7 @@ public final class RemainderCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        String pair = requirePairFormat(context.args.getMandatoryString("pair"));
+        String pair = requirePairFormat(context.args.getMandatoryString("pair").toUpperCase());
         ZonedDateTime date = context.args.getMandatoryDateTime("date");
         String message = requireAlertMessageLength(context.args.getLastArgs("message")
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));

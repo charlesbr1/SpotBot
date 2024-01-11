@@ -108,7 +108,7 @@ public final class AlertsSQLite implements AlertsDao {
             long userId = rs.getLong("user_id");
             long serverId = rs.getLong("server_id");
             String exchange = rs.getString("exchange");
-            String tickerOrPair = rs.getString("tickerOrPair");
+            String pair = rs.getString("pair");
             String message = rs.getString("message");
             ZonedDateTime lastTrigger = parseDateTime(rs.getTimestamp("last_trigger"));
             BigDecimal margin = rs.getBigDecimal("margin");
@@ -121,9 +121,9 @@ public final class AlertsSQLite implements AlertsDao {
             ZonedDateTime toDate = parseDateTime(rs.getTimestamp("to_date"));
 
             return switch (type) {
-                case range -> new RangeAlert(id, userId, serverId, exchange, tickerOrPair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
-                case trend -> new TrendAlert(id, userId, serverId, exchange, tickerOrPair, message, fromPrice, toPrice, requireNonNull(fromDate, "missing from_date on trend alert " + id), requireNonNull(toDate, "missing to_date on a trend alert " + id), lastTrigger, margin, repeat, repeatDelay);
-                case remainder -> new RemainderAlert(id, userId, serverId, tickerOrPair, message, requireNonNull(fromDate, "missing from_date on a remainder alert " + id), lastTrigger, margin, repeat);
+                case range -> new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+                case trend -> new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, requireNonNull(fromDate, "missing from_date on trend alert " + id), requireNonNull(toDate, "missing to_date on a trend alert " + id), lastTrigger, margin, repeat, repeatDelay);
+                case remainder -> new RemainderAlert(id, userId, serverId, pair, message, requireNonNull(fromDate, "missing from_date on a remainder alert " + id), lastTrigger, margin, repeat);
             };
         }
 

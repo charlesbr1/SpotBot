@@ -105,13 +105,12 @@ public final class Discord {
     }
 
     public static <T extends MessageCreateRequest<?> & FluentRestAction<?, ?>> void sendMessages(int ttlSeconds, @NotNull List<EmbedBuilder> messages, @NotNull Function<List<MessageEmbed>, T> sendMessage, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
-        // Discord limit to 10 embeds by message
         asyncOrderedSubmit(ttlSeconds, toMessageRequests(messages, sendMessage, messageSetup));
     }
 
     @NotNull
     private static <T extends MessageCreateRequest<?> & FluentRestAction<?, ?>> Stream<RestAction<?>> toMessageRequests(@NotNull List<EmbedBuilder> embedBuilders, @NotNull Function<List<MessageEmbed>, T> sendMessage, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
-        return split(MAX_MESSAGE_EMBEDS, embedBuilders.stream()
+        return split(MAX_MESSAGE_EMBEDS, embedBuilders.stream() // Discord limit to 10 embeds by message
                 .peek(message -> LOGGER.debug("Sending discord message : {}", message.getDescriptionBuilder()))
                 .map(EmbedBuilder::build)).map(messages -> {
                     var messageRequest = sendMessage.apply(messages);
@@ -242,7 +241,7 @@ public final class Discord {
                 event.replyEmbeds(embedBuilder("Sorry !", Color.black,
                                 "SpotBot disabled on this channel. Use it in private or on channel " +
                                         Optional.ofNullable(event.getGuild()).flatMap(Discord::getSpotBotChannel)
-                                                .map(Channel::getAsMention).orElse('#' + DISCORD_BOT_CHANNEL)).build())
+                                                .map(Channel::getAsMention).orElse("**#" + DISCORD_BOT_CHANNEL + "**")).build())
                         .setEphemeral(true)
                         .queue(message -> message.deleteOriginal().queueAfter(5, TimeUnit.SECONDS));
             }

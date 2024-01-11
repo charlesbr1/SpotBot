@@ -4,6 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -30,5 +31,13 @@ public enum Dates {
     public static ZonedDateTime parseDateTime(@Nullable Timestamp timestamp) {
         return Optional.ofNullable(timestamp)
                 .map(dateTime -> dateTime.toLocalDateTime().atZone(ZoneOffset.UTC)).orElse(null);
+    }
+
+    public record DaysHours(int days, int hours) {}
+
+    @NotNull
+    public static DaysHours daysHoursSince(@NotNull ZonedDateTime lastTime) {
+        Duration duration = Duration.between(lastTime, ZonedDateTime.now());
+        return new DaysHours(duration.toHoursPart(), duration.toHoursPart());
     }
 }

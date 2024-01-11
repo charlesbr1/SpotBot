@@ -61,7 +61,12 @@ public final class LastCandlesticksSQLite implements LastCandlesticksDao {
 
         // from Candlestick to SQL
         static void bindFields(@NotNull Candlestick candlestick, @NotNull SqlStatement<?> query) {
-            query.bindFields(candlestick); // this bind common public fields from class Candlestick
+            query.bind("open_time", candlestick.openTime());
+            query.bind("close_time", candlestick.closeTime());
+            query.bind("open", candlestick.open());
+            query.bind("close", candlestick.close());
+            query.bind("high", candlestick.high());
+            query.bind("low", candlestick.low());
         }
     }
 

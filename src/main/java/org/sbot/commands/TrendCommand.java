@@ -50,7 +50,7 @@ public final class TrendCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         String exchange = requireSupportedExchange(context.args.getMandatoryString("exchange"));
-        String pair = requirePairFormat(context.args.getMandatoryString("pair"));
+        String pair = requirePairFormat(context.args.getMandatoryString("pair").toUpperCase());
         BigDecimal fromPrice = requirePositive(context.args.getMandatoryNumber("from_price"));
         ZonedDateTime fromDate = context.args.getMandatoryDateTime("from_date");
         BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("to_price"));
