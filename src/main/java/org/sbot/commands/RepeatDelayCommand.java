@@ -18,6 +18,7 @@ public final class RepeatDelayCommand extends CommandAdapter {
 
     public static final String NAME = "repeat-delay";
     static final String DESCRIPTION = "update the delay to wait before a next repeat of the alert, in hours, 0 will set to default " + DEFAULT_REPEAT_DELAY_HOURS + " hours";
+    private static final int RESPONSE_TTL_SECONDS = 30;
 
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.INTEGER, "alert_id", "id of the alert", true)
@@ -34,7 +35,7 @@ public final class RepeatDelayCommand extends CommandAdapter {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         short repeatDelay = requirePositiveShort(context.args.getMandatoryLong("repeat_delay"));
         LOGGER.debug("repeat delay command - alert_id : {}, repeat_delay : {}", alertId, repeatDelay);
-        alertsDao.transactional(() -> context.reply(repeatDelay(context, alertId, repeatDelay)));
+        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, repeatDelay(context, alertId, repeatDelay)));
     }
 
     private EmbedBuilder repeatDelay(@NotNull CommandContext context, long alertId, short repeatDelay) {

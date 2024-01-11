@@ -20,6 +20,7 @@ public final class PairCommand extends CommandAdapter {
 
     public static final String NAME = "pair";
     static final String DESCRIPTION = "show the alerts defined on the given ticker or pair";
+    private static final int RESPONSE_TTL_SECONDS = 300;
 
     static final List<OptionData> options = List.of(
             new OptionData(STRING, "ticker_pair", "a ticker or pair to show alerts on", true)
@@ -36,7 +37,7 @@ public final class PairCommand extends CommandAdapter {
         String tickerPair = requireTickerPairLength(context.args.getMandatoryString("ticker_pair"));
         long offset = requirePositive(context.args.getLong("offset").orElse(0L));
         LOGGER.debug("pair command - ticker_pair : {}, offset : {}", tickerPair, offset);
-        alertsDao.transactional(() -> context.reply(pair(context, tickerPair.toUpperCase(), offset)));
+        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, pair(context, tickerPair.toUpperCase(), offset)));
     }
     private List<EmbedBuilder> pair(@NotNull CommandContext context, @NotNull String tickerPair, long offset) {
 

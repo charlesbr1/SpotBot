@@ -26,6 +26,7 @@ public final class TrendCommand extends CommandAdapter {
 
     public static final String NAME = "trend";
     static final String DESCRIPTION = "create a new trend alert on pair ticker1/ticker2, a trend is defined by two prices and two dates";
+    private static final int RESPONSE_TTL_SECONDS = 60;
 
     static final List<OptionData> options = List.of(
             new OptionData(STRING, "exchange", "the exchange", true)
@@ -40,9 +41,8 @@ public final class TrendCommand extends CommandAdapter {
             new OptionData(NUMBER, "to_price", "the second price", true)
                     .setMinValue(0d),
             new OptionData(STRING, "to_date", "the date of second price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true),
-            new OptionData(STRING, "message", "a message to show when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
+            new OptionData(STRING, "message", "a message to show when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
-
 
 
     public TrendCommand(@NotNull AlertsDao alertsDao) {
@@ -58,10 +58,12 @@ public final class TrendCommand extends CommandAdapter {
         ZonedDateTime fromDate = context.args.getMandatoryDateTime("from_date");
         BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("to_price"));
         ZonedDateTime toDate = context.args.getMandatoryDateTime("to_date");
-        String message = requireAlertMessageLength(context.args.getLastArgs("message").orElse(""));
+        String message = requireAlertMessageLength(context.args.getLastArgs("message")
+                .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
+
         LOGGER.debug("trend command - exchange : {}, ticker1 : {}, ticker2 : {}, from_price : {}, from_date : {}, to_price : {}, to_date : {}, message : {}",
                 exchange, ticker1, ticker2, fromPrice, fromDate, toPrice, toDate, message);
-        alertsDao.transactional(() -> context.reply(trend(context, exchange, ticker1, ticker2, message, fromPrice, fromDate, toPrice, toDate)));
+        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, trend(context, exchange, ticker1, ticker2, message, fromPrice, fromDate, toPrice, toDate)));
     }
 
     private EmbedBuilder trend(@NotNull CommandContext context, @NotNull String exchange,
@@ -83,8 +85,8 @@ public final class TrendCommand extends CommandAdapter {
 
         long alertId = alertsDao.addAlert(trendAlert);
 
-        String answer = context.user.getAsMention() + "\nNew trend alert added with id " + alertId +
-                "\n* pair : " + trendAlert.getSlashPair() + "\n* exchange : " + exchange +
+        String answer = context.user.getAsMention() + " New trend alert added with id " + alertId +
+                "\n\n* pair : " + trendAlert.getSlashPair() + "\n* exchange : " + exchange +
                 "\n* from price " + fromPrice + "\n* from date " + formatUTC(fromDate) +
                 "\n* to price " + toPrice + "\n* to date " + formatUTC(toDate) +
                 "\n* message : " + message +

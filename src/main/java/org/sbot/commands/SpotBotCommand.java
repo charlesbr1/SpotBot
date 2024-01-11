@@ -34,6 +34,7 @@ public final class SpotBotCommand extends CommandAdapter {
 
     public static final String NAME = "spotbot";
     private static final String DESCRIPTION = "show the documentation, a description of each commands, or some examples of commands usage";
+    private static final int RESPONSE_TTL_SECONDS = 600;
 
     private static final String CHOICE_DOC = "doc";
     private static final String CHOICE_COMMANDS = "commands";
@@ -152,7 +153,7 @@ public final class SpotBotCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         String choice = context.args.getString("choice").orElse("doc");
         LOGGER.debug("spotBot command - choice : {}", choice);
-        context.reply(spotBot(choice, Optional.ofNullable(context.member).map(Member::getGuild).orElse(null)),
+        context.reply(RESPONSE_TTL_SECONDS, spotBot(choice, Optional.ofNullable(context.member).map(Member::getGuild).orElse(null)),
                 List.of(CHOICE_DOC.equals(choice) ? message -> message.addFiles(alertsPicture) : m -> {}));
     }
 

@@ -23,6 +23,7 @@ public final class TimeZoneCommand extends CommandAdapter {
 
     public static final String NAME = "timezone";
     static final String DESCRIPTION = "convert a date time into the utc time zone, helping with commands that expect a date in UTC";
+    private static final int RESPONSE_TTL_SECONDS = 30;
 
 
     private static final String CHOICE_NOW = "now";
@@ -41,7 +42,7 @@ public final class TimeZoneCommand extends CommandAdapter {
         String choice = context.args.getMandatoryString("zone");
         String date = context.args.getString("date").orElse(null);
         LOGGER.debug("timezone command - choice : {}, date : {}", choice, date);
-        context.reply(timezone(choice, date));
+        context.reply(RESPONSE_TTL_SECONDS, timezone(choice, date));
     }
 
     private EmbedBuilder timezone(@NotNull String choice, @Nullable String date) {

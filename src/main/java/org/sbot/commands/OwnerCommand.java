@@ -22,6 +22,7 @@ public final class OwnerCommand extends CommandAdapter {
 
     public static final String NAME = "owner";
     static final String DESCRIPTION = "show the alerts defined by the given user on a ticker or a pair";
+    private static final int RESPONSE_TTL_SECONDS = 300;
 
     static final List<OptionData> options = List.of(
             new OptionData(USER, "owner", "the owner of alerts to show", true),
@@ -48,7 +49,7 @@ public final class OwnerCommand extends CommandAdapter {
         var finalOffset = offset;
         var finalTickerPair = tickerPair;
         LOGGER.debug("owner command - owner : {}, ticker_pair : {}, offset : {}", ownerId, finalTickerPair, finalOffset);
-        alertsDao.transactional(() -> context.reply(owner(context, finalTickerPair, ownerId, requirePositive(finalOffset))));
+        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, owner(context, finalTickerPair, ownerId, requirePositive(finalOffset))));
     }
 
     private List<EmbedBuilder> owner(@NotNull CommandContext context, @Nullable String tickerPair, long ownerId, long offset) {

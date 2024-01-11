@@ -15,6 +15,7 @@ public final class DeleteCommand extends CommandAdapter {
 
     public static final String NAME = "delete";
     static final String DESCRIPTION = "delete an alert (only the alert owner or an admin is allowed to do it)";
+    private static final int RESPONSE_TTL_SECONDS = 30;
 
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.INTEGER, "alert_id", "id of the alert to delete", true).setMinValue(0));
@@ -27,7 +28,7 @@ public final class DeleteCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         LOGGER.debug("delete command - alert_id : {}", alertId);
-        alertsDao.transactional(() -> context.reply(delete(context, alertId)));
+        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, delete(context, alertId)));
     }
 
     private EmbedBuilder delete(@NotNull CommandContext context, long alertId) {

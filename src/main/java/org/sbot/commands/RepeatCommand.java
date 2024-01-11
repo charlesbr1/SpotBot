@@ -18,6 +18,7 @@ public final class RepeatCommand extends CommandAdapter {
 
     public static final String NAME = "repeat";
     static final String DESCRIPTION = "update the number of time the alert will be rethrown, 0 to disable";
+    private static final int RESPONSE_TTL_SECONDS = 30;
 
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.INTEGER, "alert_id", "id of the alert", true)
@@ -34,7 +35,7 @@ public final class RepeatCommand extends CommandAdapter {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         short repeat = requirePositiveShort(context.args.getMandatoryLong("repeat"));
         LOGGER.debug("repeat command - alert_id : {}, repeat : {}", alertId, repeat);
-        alertsDao.transactional(() -> context.reply(repeat(context, alertId, repeat)));
+        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, repeat(context, alertId, repeat)));
     }
 
     private EmbedBuilder repeat(@NotNull CommandContext context, long alertId, short repeat) {

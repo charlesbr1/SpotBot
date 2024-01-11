@@ -66,10 +66,10 @@ public abstract class CommandAdapter implements CommandListener {
             if (hasAccess(userIdServerIdType, context)) {
                 return new AnswerColorSmiley(updateHandler.apply(userIdServerIdType.type()), Color.green, ":+1:");
             } else {
-                return new AnswerColorSmiley(context.user.getAsMention() + "\nYou are not allowed to update alert " + alertId +
+                return new AnswerColorSmiley("You are not allowed to update alert " + alertId +
                         (isPrivate(context.getServerId()) ? ", you are on a private channel." : ""), Color.black, ":clown:");
             }
-        }).orElseGet(() -> new AnswerColorSmiley(context.user.getAsMention() + "\nAlert " + alertId + " not found", Color.red, ":ghost:"));
+        }).orElseGet(() -> new AnswerColorSmiley("Alert " + alertId + " not found", Color.red, ":ghost:"));
     }
 
     // the alert must belong to the user, or the user must be admin of the server and the alert belong to his server

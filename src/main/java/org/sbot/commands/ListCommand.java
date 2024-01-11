@@ -21,6 +21,7 @@ public final class ListCommand extends CommandAdapter {
 
     public static final String NAME = "list";
     static final String DESCRIPTION = "list the supported exchanges, or pairs, or the alerts currently set";
+    private static final int RESPONSE_TTL_SECONDS = 300;
 
     private static final String CHOICE_ALERTS = "alerts";
     private static final String CHOICE_EXCHANGES = "exchanges";
@@ -43,7 +44,7 @@ public final class ListCommand extends CommandAdapter {
         String choice = context.args.getMandatoryString("choice");
         long offset = requirePositive(context.args.getLong("offset").orElse(0L));
         LOGGER.debug("list command - choice : {}, offset : {}", choice, offset);
-        alertsDao.transactional(() -> context.reply(list(context, choice, offset)));
+        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, list(context, choice, offset)));
     }
 
     private List<EmbedBuilder> list(@NotNull CommandContext context, @NotNull String choice, long offset) {

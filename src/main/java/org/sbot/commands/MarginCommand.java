@@ -18,6 +18,7 @@ public final class MarginCommand extends CommandAdapter {
 
     public static final String NAME = "margin";
     static final String DESCRIPTION = "set a margin for the alert that will warn once reached, then it should be set again, 0 to disable";
+    private static final int RESPONSE_TTL_SECONDS = 30;
 
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.INTEGER, "alert_id", "id of the alert", true)
@@ -35,7 +36,7 @@ public final class MarginCommand extends CommandAdapter {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         BigDecimal margin = requirePositive(context.args.getMandatoryNumber("margin"));
         LOGGER.debug("margin command - alert_id : {}, margin : {}", alertId, margin);
-        alertsDao.transactional(() -> context.reply(margin(context, margin, alertId)));
+        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, margin(context, margin, alertId)));
     }
 
     private EmbedBuilder margin(@NotNull CommandContext context, @NotNull BigDecimal margin, long alertId) {

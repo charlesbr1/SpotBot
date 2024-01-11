@@ -1,6 +1,7 @@
 package org.sbot.commands.reader;
 
 import org.jetbrains.annotations.NotNull;
+import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
@@ -10,25 +11,25 @@ public interface ArgumentReader {
 
     @NotNull
     default String getMandatoryString(@NotNull String fieldName) {
-        return getString(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing field '" + fieldName + '\''));
+        return getString(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing value for argument '" + fieldName + '\''));
     }
 
     @NotNull
     default BigDecimal getMandatoryNumber(@NotNull String fieldName) {
-        return getNumber(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing figure '" + fieldName + '\''));
+        return getNumber(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing number for argument '" + fieldName + '\''));
     }
 
     default long getMandatoryLong(@NotNull String fieldName) {
-        return getLong(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing number '" + fieldName + '\''));
+        return getLong(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing integer for argument '" + fieldName + '\''));
     }
 
     @NotNull
     default ZonedDateTime getMandatoryDateTime(@NotNull String fieldName) {
-        return getDateTime(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing date '" + fieldName + '\''));
+        return getDateTime(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing date time for argument '" + fieldName + "'\nexpected format : " + Dates.DATE_TIME_FORMAT + " UTC"));
     }
 
     default long getMandatoryUserId(@NotNull String fieldName) {
-        return getUserId(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing user mention '" + fieldName + '\''));
+        return getUserId(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing user mention for argument '" + fieldName + '\''));
     }
 
 

@@ -19,6 +19,7 @@ public final class MessageCommand extends CommandAdapter {
 
     public static final String NAME = "message";
     static final String DESCRIPTION = "update the message to shown when the alert is triggered **Add a link to your AT !** (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)";
+    private static final int RESPONSE_TTL_SECONDS = 30;
 
     static final List<OptionData> options = List.of(
             new OptionData(OptionType.INTEGER, "alert_id", "id of the alert", true)
@@ -35,7 +36,7 @@ public final class MessageCommand extends CommandAdapter {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         String message = requireAlertMessageLength(context.args.getLastArgs("message").orElse(""));
         LOGGER.debug("message command - alert_id : {}, message : {}", alertId, message);
-        alertsDao.transactional(() -> context.reply(message(context, message, alertId)));
+        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, message(context, message, alertId)));
     }
 
     private EmbedBuilder message(@NotNull CommandContext context, String message, long alertId) {

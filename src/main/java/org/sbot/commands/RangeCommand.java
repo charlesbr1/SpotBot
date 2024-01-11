@@ -27,6 +27,7 @@ public final class RangeCommand extends CommandAdapter {
 
     public static final String NAME = "range";
     static final String DESCRIPTION = "create a new range alert on pair ticker1/ticker2, defined by two prices and two optional dates";
+    private static final int RESPONSE_TTL_SECONDS = 60;
 
     static final List<OptionData> options = List.of(
             new OptionData(STRING, "exchange", "the exchange", true)
@@ -61,7 +62,7 @@ public final class RangeCommand extends CommandAdapter {
 
         LOGGER.debug("range command - exchange : {}, ticker1 : {}, ticker2 : {}, low : {}, high : {}, from_date : {}, to_date : {}, message : {}",
                 exchange, ticker1, ticker2, fromPrice, toPrice, fromDate, toDate, message);
-        alertsDao.transactional(() -> context.reply(range(context, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate)));
+        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, range(context, exchange, ticker1, ticker2, message, fromPrice, toPrice, fromDate, toDate)));
     }
 
     private EmbedBuilder range(@NotNull CommandContext context, @NotNull String exchange,
@@ -85,8 +86,8 @@ public final class RangeCommand extends CommandAdapter {
 
         long alertId = alertsDao.addAlert(rangeAlert);
 
-        String answer = context.user.getAsMention() + "\nNew range alert added with id " + alertId +
-                "\n* pair : " + rangeAlert.getSlashPair() + "\n* exchange : " + exchange +
+        String answer = context.user.getAsMention() + " New range alert added with id " + alertId +
+                "\n\n* pair : " + rangeAlert.getSlashPair() + "\n* exchange : " + exchange +
                 "\n* low " + fromPrice + "\n* high " + toPrice +
                 (null != fromDate ? "\n* from date " + formatUTC(fromDate) : "") +
                 (null != toDate ? "\n* to date " + formatUTC(toDate) : "") +

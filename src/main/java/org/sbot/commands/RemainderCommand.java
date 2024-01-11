@@ -23,6 +23,7 @@ public final class RemainderCommand extends CommandAdapter {
 
     public static final String NAME = "remainder";
     static final String DESCRIPTION = "set a remainder related to a pair, to be triggered in the future, like for an airdrop event";
+    private static final int RESPONSE_TTL_SECONDS = 60;
 
     static final List<OptionData> options = List.of(
             new OptionData(STRING, "ticker1", "the first ticker", true)
@@ -44,10 +45,10 @@ public final class RemainderCommand extends CommandAdapter {
         String ticker2 = requireTickerLength(context.args.getMandatoryString("ticker2"));
         ZonedDateTime date = context.args.getMandatoryDateTime("date");
         String message = requireAlertMessageLength(context.args.getLastArgs("message")
-                .orElseThrow(() -> new IllegalArgumentException("Missing argument 'remainder'")));
+                .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
 
         LOGGER.debug("remainder command - ticker1 : {}, ticker2 : {}, date : {}, remainder {}", ticker1, ticker2, date, message);
-        alertsDao.transactional(() -> context.reply(remainder(context, ticker1, ticker2, date, message)));
+        alertsDao.transactional(() -> context.reply(RESPONSE_TTL_SECONDS, remainder(context, ticker1, ticker2, date, message)));
     }
 
     private EmbedBuilder remainder(@NotNull CommandContext context, @NotNull String ticker1, @NotNull String ticker2, @NotNull ZonedDateTime fromDate, @NotNull String message) {
@@ -55,8 +56,8 @@ public final class RemainderCommand extends CommandAdapter {
                 context.getServerId(), ticker1, ticker2, message, fromDate);
 
         long alertId = alertsDao.addAlert(remainderAlert);
-        String answer = context.user.getAsMention() + "\nNew remainder added with id " + alertId +
-                "\n* pair : " + remainderAlert.getSlashPair() +
+        String answer = context.user.getAsMention() + " New remainder added with id " + alertId +
+                "\n\n* pair : " + remainderAlert.getSlashPair() +
                 "\n* date : " + formatUTC(fromDate) +
                 "\n* message : " + message;
 

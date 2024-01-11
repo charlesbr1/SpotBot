@@ -21,6 +21,8 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.requests.FluentRestAction;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.requests.RestAction;
+import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
+import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import net.dv8tion.jda.api.utils.Compression;
 import net.dv8tion.jda.api.utils.messages.MessageCreateRequest;
 import org.apache.logging.log4j.LogManager;
@@ -51,7 +53,7 @@ import static org.sbot.utils.PropertiesReader.readFile;
 public final class Discord {
 
     public static final int MESSAGE_PAGE_SIZE = 1001; // this limit the number of messages that can be sent in bulk, 1000 + 1 for the next command message
-    private static final int MAX_MESSAGE_EMBEDS = 10;
+    public static final int MAX_MESSAGE_EMBEDS = 10;
 
     public static final String DISCORD_BOT_CHANNEL = SpotBot.appProperties.get("discord.bot.channel");
     public static final String DISCORD_BOT_ROLE = SpotBot.appProperties.get("discord.bot.role");
@@ -87,12 +89,12 @@ public final class Discord {
 
     public Optional<BotChannel> spotBotChannel(@NotNull Guild guild) {
         return getSpotBotChannel(guild).map(channel ->
-                (messages, messageSetup) -> sendMessages(messages, channel::sendMessageEmbeds, messageSetup));
+                (messages, messageSetup) -> sendMessages(0, messages, channel::sendMessageEmbeds, messageSetup));
     }
 
     public Optional<BotChannel> userChannel(long userId) {
         return getPrivateChannel(userId).map(channel ->
-                (messages, messageSetup) -> sendMessages(messages, channel::sendMessageEmbeds, messageSetup));
+                (messages, messageSetup) -> sendMessages(0, messages, channel::sendMessageEmbeds, messageSetup));
     }
 
     public static Optional<Role> spotBotRole(@NotNull Guild guild) {
@@ -101,32 +103,40 @@ public final class Discord {
                 .max(comparing(Role::getPositionRaw));
     }
 
-    public static <T extends MessageCreateRequest<?> & FluentRestAction<?, ?>> void sendMessages(@NotNull List<EmbedBuilder> messages, @NotNull Function<List<MessageEmbed>, T> sendMessage, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
+    public static <T extends MessageCreateRequest<?> & FluentRestAction<?, ?>> void sendMessages(int ttlSeconds, @NotNull List<EmbedBuilder> messages, @NotNull Function<List<MessageEmbed>, T> sendMessage, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
         // Discord limit to 10 embeds by message
-        asyncOrderedSubmit(split(MAX_MESSAGE_EMBEDS, messages)
-                .map(messagesList -> toMessageRequest(messagesList, sendMessage, messageSetup)));
+        asyncOrderedSubmit(ttlSeconds, toMessageRequests(messages, sendMessage, messageSetup));
     }
 
     @NotNull
-    private static <T extends MessageCreateRequest<?> & FluentRestAction<?, ?>> RestAction<?> toMessageRequest(@NotNull List<EmbedBuilder> messages, @NotNull Function<List<MessageEmbed>, T> sendMessage, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
-        List<MessageEmbed> embeds = messages.stream()
+    private static <T extends MessageCreateRequest<?> & FluentRestAction<?, ?>> Stream<RestAction<?>> toMessageRequests(@NotNull List<EmbedBuilder> embedBuilders, @NotNull Function<List<MessageEmbed>, T> sendMessage, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
+        return split(MAX_MESSAGE_EMBEDS, embedBuilders.stream()
                 .peek(message -> LOGGER.debug("Sending discord message : {}", message.getDescriptionBuilder()))
-                .map(EmbedBuilder::build)
-                .toList(); // list of 10 messages
-
-        var messageRequest = sendMessage.apply(embeds);
-        messageSetup.forEach(setup -> setup.accept(messageRequest));
-        String mentionedRolesAndUsers = Stream.concat(messageRequest.getMentionedRoles().stream().map(str -> "<@&" + str + '>'),
-                messageRequest.getMentionedUsers().stream().map(str -> "<@" + str + '>')).collect(joining(" "));
-        messageRequest.setContent(mentionedRolesAndUsers);
-        return messageRequest;
+                .map(EmbedBuilder::build)).map(messages -> {
+                    var messageRequest = sendMessage.apply(messages);
+                    messageSetup.forEach(setup -> setup.accept(messageRequest));
+                    String mentionedRolesAndUsers = Stream.concat(messageRequest.getMentionedRoles().stream().map(str -> "<@&" + str + '>'),
+                            messageRequest.getMentionedUsers().stream().map(str -> "<@" + str + '>')).collect(joining(" "));
+                    messageRequest.setContent(mentionedRolesAndUsers);
+                    return messageRequest;
+                });
     }
 
     // this ensures the rest action are done in order
-    private static void asyncOrderedSubmit(@NotNull Stream<RestAction<?>> restActions) {
+    private static void asyncOrderedSubmit(int ttlSeconds, @NotNull Stream<RestAction<?>> restActions) {
         restActions.limit(MESSAGE_PAGE_SIZE)
                 .reduce(CompletableFuture.<Void>completedFuture(null),
-                        (future, nextMessage) -> future.thenRun(nextMessage::submit),
+                        (future, nextMessage) -> future.thenRun(() -> {
+                            if(ttlSeconds > 0 && nextMessage instanceof ReplyCallbackAction) {
+                                ((ReplyCallbackAction) nextMessage).submit()
+                                        .thenApply(m -> m.deleteOriginal().queueAfter(ttlSeconds, TimeUnit.SECONDS));
+                            } else if(ttlSeconds > 0 && nextMessage instanceof MessageCreateAction) {
+                            ((MessageCreateAction) nextMessage).submit()
+                                .thenApply(m -> m.delete().queueAfter(ttlSeconds, TimeUnit.SECONDS));
+                            } else {
+                                nextMessage.submit();
+                            }
+                        }),
                         CompletableFuture::allOf)
                 .whenComplete((v, error) -> {
                     if (null != error) {
@@ -259,7 +269,7 @@ public final class Discord {
                 }
             } catch (RuntimeException e) {
                 LOGGER.warn("Internal error while processing discord command: " + command.name, e);
-                command.reply(embedBuilder(":confused: Oups !", Color.red,
+                command.reply(30, embedBuilder(":confused: Oups !", Color.red,
                         command.user.getAsMention() + " Something went wrong !\n\n" + e.getMessage()));
             }
         }
