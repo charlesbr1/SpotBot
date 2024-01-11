@@ -18,7 +18,6 @@ import org.sbot.services.dao.AlertsDao;
 
 import java.awt.*;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.locks.LockSupport;
@@ -41,6 +40,7 @@ public final class AlertsWatcher {
 
     private static final Logger LOGGER = LogManager.getLogger(AlertsWatcher.class);
 
+    private static final int STREAM_BUFFER_SIZE = 1000; // should not exceed the max underlying sgbd IN clause arguments number
 
     private final Discord discord;
     private final AlertsDao alertDao;
@@ -81,26 +81,21 @@ public final class AlertsWatcher {
             List<Candlestick> prices = exchange.getCandlesticks(pair, TimeFrame.HOURLY, 1)
                     .sorted(Comparator.comparing(Candlestick::openTime)).toList();
 
-            // load and update alerts that matches, their message attribute has to be loaded next
-            List<MatchingAlert> matchingAlerts = updateMatchingAlerts(exchange, pair, prices, null);
-
-            // load message of alerts that matches then send discord notifications on each related guild or private channels
-            sendDiscordNotifications(matchingAlerts);
+            // load, notify, and update alerts that matches
+            processMatchingAlerts(exchange, pair, prices, null);
 
         } catch(RuntimeException e) {
             LOGGER.warn("Exception thrown while processing alerts", e);
         }
     }
 
-    private List<MatchingAlert> updateMatchingAlerts(@NotNull Exchange exchange, @NotNull String pair, @NotNull List<Candlestick> prices, @NotNull Candlestick previousPrice) {
-        List<MatchingAlert> matchingAlerts = new ArrayList<>();
+    private void processMatchingAlerts(@NotNull Exchange exchange, @NotNull String pair, @NotNull List<Candlestick> prices, @NotNull Candlestick previousPrice) {
         alertDao.transactional(() -> alertDao
                 .fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(exchange.name(), pair,
-                alerts -> updateAlerts(alerts
-                        .map(alert -> alert.match(prices, previousPrice))
-                        .filter(MatchingAlert::hasMatch)
-                        .filter(matchingAlerts::add))));
-        return matchingAlerts;
+                alerts -> updateAlerts(
+                        split(STREAM_BUFFER_SIZE, alerts.map(alert -> alert.match(prices, previousPrice)).filter(MatchingAlert::hasMatch))
+                        .map(this::fetchAlertsMessage)
+                        .flatMap(this::sendDiscordNotifications))));
     }
 
     private void updateAlerts(@NotNull Stream<MatchingAlert> matchingAlerts) {
@@ -116,14 +111,18 @@ public final class AlertsWatcher {
                         }))));
     }
 
-    private void sendDiscordNotifications(@NotNull List<MatchingAlert> matchingAlerts) {
-        split(1000, matchingAlerts).flatMap(alertList -> { // splitting for SQL IN clause getAlertMessages(..)
-                    long[] alertIds = alertList.stream().mapToLong(matchingAlert -> matchingAlert.alert().id).toArray();
-                    var alertIdMessages = alertDao.transactional(() -> alertDao.getAlertMessages(alertIds));
-                    return alertList.stream().map(matchingAlert -> matchingAlert.withAlert(matchingAlert.alert() // replace the alerts by ones with their messages
-                            .withMessage(alertIdMessages.getOrDefault(matchingAlert.alert().id, matchingAlert.alert().message))));
-                }).collect(groupingBy(matchingAlert -> matchingAlert.alert().serverId))
+    private List<MatchingAlert> fetchAlertsMessage(@NotNull List<MatchingAlert> matchingAlerts) {
+        long[] alertIds = matchingAlerts.stream().mapToLong(matchingAlert -> matchingAlert.alert().id).toArray();
+        var alertIdMessages = alertDao.getAlertMessages(alertIds); // calling code is already into a transactional context
+        return matchingAlerts.stream().map(matchingAlert ->
+                matchingAlert.withAlert(matchingAlert.alert()
+                        .withMessage(alertIdMessages.getOrDefault(matchingAlert.alert().id, matchingAlert.alert().message)))).toList();
+    }
+
+    private Stream<MatchingAlert> sendDiscordNotifications(@NotNull List<MatchingAlert> matchingAlerts) {
+        matchingAlerts.stream().collect(groupingBy(matchingAlert -> matchingAlert.alert().serverId))
                 .forEach(this::sendAlerts);
+        return matchingAlerts.stream();
     }
 
     private void sendAlerts(@NotNull Long serverId, @NotNull List<MatchingAlert> matchingAlerts) {
