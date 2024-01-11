@@ -62,29 +62,37 @@ public abstract class CommandAdapter implements CommandListener {
     protected record AnswerColorSmiley(@NotNull String answer, @NotNull Color color, @NotNull String smiley) {}
 
     protected AnswerColorSmiley securedAlertUpdate(long alertId, @NotNull CommandContext context, @NotNull Function<Type, String> updateHandler) {
-        return alertsDao.getUserIdAndServerIdAndType(alertId).map(userIdServerIdType -> {
-            if (hasAccess(userIdServerIdType, context)) {
-                return new AnswerColorSmiley(updateHandler.apply(userIdServerIdType.type()), Color.green, ":+1:");
-            } else {
-                return new AnswerColorSmiley("You are not allowed to update alert " + alertId +
-                        (isPrivate(context.getServerId()) ? ", you are on a private channel." : ""), Color.black, ":clown:");
-            }
-        }).orElseGet(() -> new AnswerColorSmiley("Alert " + alertId + " not found", Color.red, ":ghost:"));
-    }
 
-    // the alert must belong to the user, or the user must be admin of the server and the alert belong to his server
-    protected static boolean hasAccess(@NotNull UserIdServerIdType userIdServerIdType, @NotNull CommandContext context) {
-        return alertBelongToUser(context.user, userIdServerIdType.userId()) || userIsAdminAndAlertOnHisServer(context.member, userIdServerIdType.serverId());
+        UserIdServerIdType alert = alertsDao.getUserIdAndServerIdAndType(alertId).orElse(null);
+
+        boolean notFound = null == alert ||
+                (isPrivate(alert.serverId()) && !alertBelongToUser(context.user, alert.userId())) ||
+                (!isPrivate(alert.serverId()) && !alertIsOnMemberServer(context.member, alert.serverId()));
+        if(notFound) {
+            return new AnswerColorSmiley("Alert " + alertId + " not found", Color.red, ":ghost:");
+        }
+
+        boolean hasAccess = alertBelongToUser(context.user, alert.userId()) ||
+                (alertIsOnMemberServer(context.member, alert.serverId()) && isAdminMember(context.member));
+        if(hasAccess) {
+            return new AnswerColorSmiley(updateHandler.apply(alert.type()), Color.green, ":+1:");
+        }
+
+        return new AnswerColorSmiley("You are not allowed to update alert " + alertId +
+                (isPrivate(context.getServerId()) ? ", you are on a private channel." : ""), Color.black, ":clown:");
     }
 
     private static boolean alertBelongToUser(@NotNull User user, long userId) {
         return  user.getIdLong() == userId;
     }
 
-    private static boolean userIsAdminAndAlertOnHisServer(@Nullable Member member, long serverId) {
+    private static boolean alertIsOnMemberServer(@Nullable Member member, long serverId) {
         return !isPrivate(serverId) && null != member &&
-                member.hasPermission(ADMINISTRATOR) &&
                 member.getGuild().getIdLong() == serverId;
+    }
+
+    private static boolean isAdminMember(@Nullable Member member) {
+        return null != member && member.hasPermission(ADMINISTRATOR);
     }
 
     protected static boolean isPrivateChannel(@NotNull CommandContext context) {
