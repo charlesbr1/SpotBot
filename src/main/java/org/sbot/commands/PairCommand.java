@@ -11,10 +11,8 @@ import java.util.List;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.alerts.Alert.*;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
-import static org.sbot.utils.ArgumentValidator.requirePositive;
-import static org.sbot.utils.ArgumentValidator.requireTickerPairLength;
+import static org.sbot.utils.ArgumentValidator.*;
 
 public final class PairCommand extends CommandAdapter {
 

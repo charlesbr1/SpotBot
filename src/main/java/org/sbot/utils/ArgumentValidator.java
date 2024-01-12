@@ -6,14 +6,21 @@ import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.regex.Pattern;
 
-import static org.sbot.alerts.Alert.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
 import static org.sbot.utils.Dates.formatUTC;
 
 public interface ArgumentValidator {
 
-    Pattern PAIR_PATTERN = Pattern.compile("^[A-Z]{7,11}/[A-Z]{7,11}$"); // TICKER/TICKER format
+
+    int ALERT_MESSAGE_ARG_MAX_LENGTH = 210;
+    int ALERT_MIN_TICKER_LENGTH = 3;
+    int ALERT_MAX_TICKER_LENGTH = 5;
+    int ALERT_MIN_PAIR_LENGTH = 7;
+    int ALERT_MAX_PAIR_LENGTH = 11;
+
+    Pattern PAIR_PATTERN = Pattern.compile("^[A-Z]{" + ALERT_MIN_TICKER_LENGTH + ',' + ALERT_MAX_TICKER_LENGTH +
+            "}/[A-Z]{" + ALERT_MIN_TICKER_LENGTH + ',' + ALERT_MAX_TICKER_LENGTH + "}$"); // TICKER/TICKER format
 
     static int requirePositive(int value) {
         return (int) requirePositive((long) value);
@@ -74,7 +81,16 @@ public interface ArgumentValidator {
 
     static ZonedDateTime requireInPast(@NotNull ZonedDateTime zonedDateTime) {
         if (zonedDateTime.isAfter(ZonedDateTime.now())) {
-            throw new IllegalArgumentException("Provided date should be in the past : " + formatUTC(zonedDateTime));
+            throw new IllegalArgumentException("Provided date should be before actual UTC time : " + formatUTC(zonedDateTime) +
+                    " (actual UTC time : " + formatUTC(ZonedDateTime.now()) + ')');
+        }
+        return zonedDateTime;
+    }
+
+    static ZonedDateTime requireInFuture(@NotNull ZonedDateTime zonedDateTime) {
+        if (zonedDateTime.isBefore(ZonedDateTime.now())) {
+            throw new IllegalArgumentException("Provided date should be after actual UTC time : " + formatUTC(zonedDateTime) +
+                    " (actual UTC time : " + formatUTC(ZonedDateTime.now()) + ')');
         }
         return zonedDateTime;
     }

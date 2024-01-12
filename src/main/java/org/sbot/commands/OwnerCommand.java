@@ -13,10 +13,8 @@ import java.util.List;
 
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
-import static org.sbot.alerts.Alert.ALERT_MAX_PAIR_LENGTH;
-import static org.sbot.alerts.Alert.ALERT_MIN_TICKER_LENGTH;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
-import static org.sbot.utils.ArgumentValidator.requirePositive;
+import static org.sbot.utils.ArgumentValidator.*;
 
 public final class OwnerCommand extends CommandAdapter {
 

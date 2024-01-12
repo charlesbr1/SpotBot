@@ -10,10 +10,8 @@ import org.sbot.services.dao.AlertsDao;
 import java.util.List;
 
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.alerts.Alert.ALERT_MESSAGE_ARG_MAX_LENGTH;
 import static org.sbot.alerts.Alert.Type.remainder;
-import static org.sbot.utils.ArgumentValidator.requireAlertMessageLength;
-import static org.sbot.utils.ArgumentValidator.requirePositive;
+import static org.sbot.utils.ArgumentValidator.*;
 
 public final class MessageCommand extends CommandAdapter {
 

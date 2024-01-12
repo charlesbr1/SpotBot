@@ -8,6 +8,7 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.RangeAlert;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.services.dao.AlertsDao;
+import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
@@ -18,7 +19,6 @@ import java.util.List;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.alerts.Alert.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.formatUTC;
@@ -39,7 +39,7 @@ public final class RangeCommand extends CommandAdapter {
             new OptionData(NUMBER, "high", "the high range price", true)
                     .setMinValue(0d),
             new OptionData(STRING, "from_date", "a date to start the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false),
-            new OptionData(STRING, "to_date", "a date to end the box (only if a start date is provided), UTC expected format : " + Dates.DATE_TIME_FORMAT, false),
+            new OptionData(STRING, "to_date", "a future date to end the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false),
             new OptionData(STRING, "message", "a message to show when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
@@ -54,7 +54,7 @@ public final class RangeCommand extends CommandAdapter {
         BigDecimal fromPrice = requirePositive(context.args.getMandatoryNumber("low"));
         BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("high"));
         ZonedDateTime fromDate = context.args.getDateTime("from_date").orElse(null);
-        ZonedDateTime toDate = null != fromDate ? context.args.getDateTime("to_date").orElse(null) : null;
+        ZonedDateTime toDate = null != fromDate ? context.args.getDateTime("to_date").map(ArgumentValidator::requireInFuture).orElse(null) : null;
         String message = requireAlertMessageLength(context.args.getLastArgs("message").orElse(""));
 
         LOGGER.debug("range command - exchange : {}, pair : {}, low : {}, high : {}, from_date : {}, to_date : {}, message : {}",

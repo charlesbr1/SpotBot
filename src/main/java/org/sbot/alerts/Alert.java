@@ -35,11 +35,6 @@ public abstract class Alert {
         }
     }
 
-    public static final int ALERT_MESSAGE_ARG_MAX_LENGTH = 210;
-    public static final int ALERT_MIN_TICKER_LENGTH = 3;
-    public static final int ALERT_MIN_PAIR_LENGTH = 7;
-    public static final int ALERT_MAX_PAIR_LENGTH = 11;
-
     public static final BigDecimal MARGIN_DISABLED = BigDecimal.ZERO;
     public static final short DEFAULT_REPEAT = 10;
     public static final short DEFAULT_REPEAT_DELAY_HOURS = 8;

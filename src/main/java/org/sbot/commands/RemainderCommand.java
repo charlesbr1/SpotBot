@@ -27,7 +27,7 @@ public final class RemainderCommand extends CommandAdapter {
     static final List<OptionData> options = List.of(
             new OptionData(STRING, "pair", "the pair, like EUR/USD", true)
                     .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
-            new OptionData(OptionType.STRING, "date", "a date when to trigger the remainder, UTC expected format : " + Dates.DATE_TIME_FORMAT, true),
+            new OptionData(OptionType.STRING, "date", "a future date when to trigger the remainder, UTC expected format : " + Dates.DATE_TIME_FORMAT, true),
             new OptionData(OptionType.STRING, "message", "a message for this remainder (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
@@ -39,7 +39,7 @@ public final class RemainderCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         String pair = requirePairFormat(context.args.getMandatoryString("pair").toUpperCase());
-        ZonedDateTime date = context.args.getMandatoryDateTime("date");
+        ZonedDateTime date = requireInFuture(context.args.getMandatoryDateTime("date"));
         String message = requireAlertMessageLength(context.args.getLastArgs("message")
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
 
