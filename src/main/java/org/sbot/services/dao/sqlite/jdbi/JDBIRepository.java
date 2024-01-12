@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.PreparedBatch;
 import org.jdbi.v3.core.statement.Update;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
@@ -24,6 +25,11 @@ import static java.util.Objects.requireNonNull;
 public final class JDBIRepository implements TransactionalCtx {
 
     private static final Logger LOGGER = LogManager.getLogger(JDBIRepository.class);
+
+    @FunctionalInterface
+    public interface BatchEntry {
+        void batchId(long id);
+    }
 
     // avoiding use of ThreadLocal for virtual threads
     private static final Map<Long, Handle> transactionalContexts = new ConcurrentHashMap<>();
@@ -46,12 +52,12 @@ public final class JDBIRepository implements TransactionalCtx {
 
     @Override
     public <T> T transactional(@NotNull Supplier<T> callback, @NotNull TransactionIsolationLevel isolationLevel) {
+        requireNonNull(callback);
         var threadId = Thread.currentThread().threadId();
         LOGGER.debug("New transactional context, thread id {}, isolation level {}", threadId, isolationLevel);
         if(transactionalContexts.containsKey(threadId)) {
             return callback.get();
         } else {
-            requireNonNull(callback);
             try {
                 return jdbi.inTransaction(isolationLevel, handle -> {
                     transactionalContexts.put(threadId, handle);
@@ -114,4 +120,17 @@ public final class JDBIRepository implements TransactionalCtx {
             return query.bindMap(parameters).mapTo(ZonedDateTime.class).findOne();
         }
     }
+
+    public void batchUpdates(@NotNull Consumer<BatchEntry> updater, @NotNull String sql) {
+        PreparedBatch[] batch = new PreparedBatch[1];
+        try {
+            updater.accept(id -> (null != batch[0] ? batch[0] :
+                    (batch[0] = getHandle().prepareBatch(sql)))
+                    .bind("id", id).add());
+            Optional.ofNullable(batch[0]).ifPresent(PreparedBatch::execute);
+        } finally {
+            Optional.ofNullable(batch[0]).ifPresent(PreparedBatch::close);
+        }
+    }
 }
+

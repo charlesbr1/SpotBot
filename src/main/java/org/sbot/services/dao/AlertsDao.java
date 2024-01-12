@@ -3,6 +3,7 @@ package org.sbot.services.dao;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.Alert;
 import org.sbot.alerts.Alert.Type;
+import org.sbot.services.dao.sqlite.jdbi.JDBIRepository.BatchEntry;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -56,12 +57,7 @@ public interface AlertsDao extends TransactionalCtx {
 
     void deleteAlert(long alertId);
 
-    @FunctionalInterface
-    interface MatchingAlertUpdater {
-        void update(long id);
-    }
-
-    void matchedAlertBatchUpdates(@NotNull Consumer<MatchingAlertUpdater> updater);
-    void marginAlertBatchUpdates(@NotNull Consumer<MatchingAlertUpdater> updater);
-    void matchedRemainderAlertBatchDeletes(@NotNull Consumer<MatchingAlertUpdater> deleter);
+    void matchedAlertBatchUpdates(@NotNull Consumer<BatchEntry> updater);
+    void marginAlertBatchUpdates(@NotNull Consumer<BatchEntry> updater);
+    void alertBatchDeletes(@NotNull Consumer<BatchEntry> deleter);
 }

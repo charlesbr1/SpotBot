@@ -4,7 +4,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.generic.GenericType;
 import org.jdbi.v3.core.mapper.RowMapper;
-import org.jdbi.v3.core.statement.PreparedBatch;
 import org.jdbi.v3.core.statement.SqlStatement;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jetbrains.annotations.NotNull;
@@ -16,6 +15,7 @@ import org.sbot.alerts.TrendAlert;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.sqlite.jdbi.AbstractJDBI;
 import org.sbot.services.dao.sqlite.jdbi.JDBIRepository;
+import org.sbot.services.dao.sqlite.jdbi.JDBIRepository.BatchEntry;
 
 import java.math.BigDecimal;
 import java.sql.ResultSet;
@@ -345,32 +345,20 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     }
 
     @Override
-    public void matchedAlertBatchUpdates(@NotNull Consumer<MatchingAlertUpdater> updater) {
+    public void matchedAlertBatchUpdates(@NotNull Consumer<BatchEntry> updater) {
         LOGGER.debug("matchedAlertBatchUpdates");
         batchUpdates(updater, SQL.UPDATE_ALERTS_SET_MARGIN_ZERO_DECREMENT_REPEAT_SET_LAST_TRIGGER_NOW);
     }
 
     @Override
-    public void marginAlertBatchUpdates(@NotNull Consumer<MatchingAlertUpdater> updater) {
+    public void marginAlertBatchUpdates(@NotNull Consumer<BatchEntry> updater) {
         LOGGER.debug("marginAlertBatchUpdates");
         batchUpdates(updater, SQL.UPDATE_ALERTS_SET_MARGIN_ZERO);
     }
 
     @Override
-    public void matchedRemainderAlertBatchDeletes(@NotNull Consumer<MatchingAlertUpdater> deleter) {
+    public void alertBatchDeletes(@NotNull Consumer<BatchEntry> deleter) {
         LOGGER.debug("matchedRemainderAlertBatchDeletes");
         batchUpdates(deleter, SQL.DELETE_BY_ID);
-    }
-
-    private void batchUpdates(@NotNull Consumer<MatchingAlertUpdater> updater, @NotNull String sql) {
-        PreparedBatch[] batch = new PreparedBatch[1];
-        try {
-            updater.accept(id -> (null != batch[0] ? batch[0] :
-                    (batch[0] = getHandle().prepareBatch(sql)))
-                    .bind("id", id).add());
-            Optional.ofNullable(batch[0]).ifPresent(PreparedBatch::execute);
-        } finally {
-            Optional.ofNullable(batch[0]).ifPresent(PreparedBatch::close);
-        }
     }
 }

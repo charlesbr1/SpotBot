@@ -6,6 +6,7 @@ import org.jdbi.v3.core.statement.Update;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.services.dao.TransactionalCtx;
+import org.sbot.services.dao.sqlite.jdbi.JDBIRepository.BatchEntry;
 
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -75,5 +76,9 @@ public abstract class AbstractJDBI implements TransactionalCtx {
 
     protected Optional<ZonedDateTime> findOneDateTime(@NotNull String sql, @NotNull Map<String, ?> parameters) {
         return repository.findOneDateTime(sql, parameters);
+    }
+
+    protected void batchUpdates(@NotNull Consumer<BatchEntry> updater, @NotNull String sql) {
+        repository.batchUpdates(updater, sql);
     }
 }

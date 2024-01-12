@@ -16,6 +16,7 @@ import org.sbot.discord.Discord;
 import org.sbot.exchanges.Exchange;
 import org.sbot.exchanges.Exchanges;
 import org.sbot.services.dao.AlertsDao;
+import org.sbot.services.dao.sqlite.jdbi.JDBIRepository.BatchEntry;
 import org.sbot.utils.Dates;
 import org.sbot.utils.Dates.DaysHours;
 
@@ -26,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.locks.LockSupport;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
@@ -77,6 +79,8 @@ public final class AlertsWatcher {
 
     void monthlyAlertsCleanup() {
         //TODO drop alerts that are disabled since 1 month, or range box alert out of time...
+        // + user qui sont ont quittés le serveur
+
     }
 
     private void checkAlerts(@NotNull Exchange exchange, @NotNull String pair) {
@@ -93,7 +97,8 @@ public final class AlertsWatcher {
         try {
             LOGGER.debug("Retrieving last price for pair [{}] on {}...", pair, exchange);
 
-            // retrieve all the candlesticks since the last check, or since the last hour, this does not need to be in a global transaction
+            // retrieve all the candlesticks since the last check occurred from now, or since the last hour,
+            // lastClose database read don't need to be part of the following alerts update transaction
             var lastClose = marketDataService.getLastCandlestickCloseTime(pair).orElse(null);
             List<Candlestick> prices = getCandlesticksSince(exchange, pair, lastClose);
 
@@ -135,22 +140,25 @@ public final class AlertsWatcher {
 
     private void processMatchingAlerts(@NotNull Exchange exchange, @NotNull String pair, @NotNull List<Candlestick> prices, @Nullable Candlestick previousPrice) {
         alertDao.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(exchange.name(), pair,
-                alerts -> updateAlerts(
-                        split(STREAM_BUFFER_SIZE, true, alerts.map(alert -> alert.match(prices, previousPrice)).filter(MatchingAlert::hasMatch))
+                alerts -> batchAlertsUpdates(
+                        split(STREAM_BUFFER_SIZE, true, alerts
+                                .map(alert -> alert.match(prices, previousPrice))
+                                .filter(MatchingAlert::hasMatch))
                         .map(this::fetchAlertsMessage)
                         .flatMap(this::sendDiscordNotifications)));
     }
 
-    private void updateAlerts(@NotNull Stream<MatchingAlert> matchingAlerts) {
-        alertDao.matchedAlertBatchUpdates(matchedUpdater ->
-                alertDao.marginAlertBatchUpdates(marginUpdater ->
-                        alertDao.matchedRemainderAlertBatchDeletes(remainderDelete ->
+    private void batchAlertsUpdates(@NotNull Stream<MatchingAlert> matchingAlerts) {
+        alertDao.matchedAlertBatchUpdates(matchedUpdate ->
+                alertDao.marginAlertBatchUpdates(marginUpdate ->
+                        alertDao.alertBatchDeletes(remainderDelete ->
                             matchingAlerts.forEach(matchingAlert -> {
                                 Alert alert = matchingAlert.alert();
-                                switch (matchingAlert.status()) {
-                                    case MATCHED -> (alert.type == remainder ? remainderDelete : matchedUpdater).update(alert.id);
-                                    case MARGIN -> marginUpdater.update(alert.id);
-                                }
+                                (switch (matchingAlert.status()) {
+                                    case MATCHED -> (alert.type == remainder ? remainderDelete : matchedUpdate);
+                                    case MARGIN -> marginUpdate;
+                                    case NOT_MATCHING -> (BatchEntry) Function.identity();
+                                }).batchId(alert.id);
                         }))));
     }
 
