@@ -64,17 +64,21 @@ public final class AlertsWatcher {
         try {
             var exchangePairs = alertDao.transactional(alertDao::getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange);
             exchangePairs.forEach((xchange, pairs) -> {  // one task by exchange / pair
-                Exchanges.get(xchange).ifPresent(exchange ->
-                        Thread.ofVirtual().start(() -> pairs.forEach(pair -> {
-                            if(exchange.isVirtual()) {
-                                raiseAlerts(exchange, pair);
-                            } else {
-                                Thread.ofVirtual().name('[' + pair + "] SpotBot fetcher")
-                                        .start(() -> getPricesAndRaiseAlerts(exchange, pair));
-                                LockSupport.parkNanos(Duration.ofMillis(300).toNanos()); // no need to flood the exchanges (or discord)
-                            }
-                        })));
-                LockSupport.parkNanos(Duration.ofMillis(300 / (Math.min(10, exchangePairs.size()))).toNanos());
+                boolean[] noWait = new boolean[1];
+                Exchanges.get(xchange).ifPresent(exchange -> {
+                    noWait[0] = exchange.isVirtual();
+                    var lastPair = pairs.get(pairs.size() - 1);
+                    Thread.ofVirtual().start(() -> pairs.forEach(pair -> {
+                        if(exchange.isVirtual()) {
+                            raiseAlerts(exchange, pair);
+                        } else {
+                            Thread.ofVirtual().name('[' + pair + "] SpotBot fetcher")
+                                    .start(() -> getPricesAndRaiseAlerts(exchange, pair));
+                            LockSupport.parkNanos(pair == lastPair ? 0L : Duration.ofMillis(300L).toNanos()); // no need to flood the exchanges (or discord)
+                        }
+                    }));
+                });
+                LockSupport.parkNanos(noWait[0] ? 0L : Duration.ofMillis(300L / (Math.min(10, exchangePairs.size()))).toNanos());
             });
             monthlyAlertsCleanup();
         } catch (RuntimeException e) {
@@ -83,6 +87,8 @@ public final class AlertsWatcher {
     }
 
     void monthlyAlertsCleanup() {
+//        alertDao.deleteAlertsWithRepeatZeroAndLastTriggerBefore()
+//        alertDao.deleteRangeAlertsToDateBefore()
         //TODO drop alerts that are disabled since 1 month, or range box alert out of time...
         // + user qui sont ont quittés le serveur
 

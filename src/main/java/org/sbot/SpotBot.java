@@ -62,7 +62,8 @@ public class SpotBot {
                 alertsWatcher.checkAlerts();
                 long sleepingMinutes = minutesUntilNextHour() + ALERTS_HOURLY_CHECK_DELTA_MIN;
                 LOGGER.info("Main thread now sleeping for {} minutes...", sleepingMinutes);
-                LockSupport.parkNanos(Duration.ofMinutes(sleepingMinutes).toNanos());
+                LockSupport.parkNanos(Math.max(Duration.ofMinutes(1L).toNanos(),
+                        Duration.ofMinutes(sleepingMinutes).toNanos()));
             }
         } catch (Throwable t) {
             LOGGER.info("Bye...", t);
@@ -73,7 +74,7 @@ public class SpotBot {
 
     private static long minutesUntilNextHour() {
         LocalDateTime currentTime = LocalDateTime.now();
-        LocalDateTime startOfNextHour = currentTime.truncatedTo(HOURS).plusHours(1);
+        LocalDateTime startOfNextHour = currentTime.truncatedTo(HOURS).plusHours(1L).plusMinutes(1L);
         return ChronoUnit.MINUTES.between(currentTime, startOfNextHour);
     }
 
