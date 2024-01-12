@@ -1,7 +1,6 @@
 package org.sbot.utils;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Spliterator;
 import java.util.function.Consumer;
@@ -25,47 +24,11 @@ public final class PartitionSpliterator<T> implements Spliterator<List<T>> {
     }
 
     public static <T> Stream<List<T>> split(int splitSize, boolean recycleSubList, Stream<T> inputStream) {
-        return split(splitSize, recycleSubList, true, inputStream);
-    }
-
-    public static <T> Stream<List<T>> split(int splitSize, boolean recycleSubList, boolean reserveSpace, Stream<T> inputStream) {
-        return StreamSupport.stream(over(splitSize, recycleSubList, reserveSpace, inputStream.spliterator()), false);
-    }
-
-    public static <T> Stream<List<T>> split(int splitSize, Iterable<T> inputIterable) {
-        return split(splitSize, false, inputIterable);
-    }
-
-    public static <T> Stream<List<T>> split(int splitSize, boolean recycleSubList, Iterable<T> inputIterable) {
-        return split(splitSize, recycleSubList, true, inputIterable);
-    }
-
-    public static <T> Stream<List<T>> split(int splitSize, boolean recycleSubList, boolean reserveSpace, Iterable<T> inputIterable) {
-        return StreamSupport.stream(over(splitSize, recycleSubList, reserveSpace, inputIterable.spliterator()), false);
-    }
-
-    public static <T> Stream<List<T>> split(int splitSize, Collection<T> inputCollection) {
-        return split(splitSize, false, inputCollection);
-    }
-
-    public static <T> Stream<List<T>> split(int splitSize, boolean recycleSubList, Collection<T> inputCollection) {
-        return split(splitSize, recycleSubList, true, inputCollection);
-    }
-
-    public static <T> Stream<List<T>> split(int splitSize, boolean recycleSubList, boolean reserveSpace, Collection<T> inputCollection) {
-        return StreamSupport.stream(over(splitSize, recycleSubList, reserveSpace, inputCollection.spliterator()), false);
-    }
-
-    public static <T> PartitionSpliterator<T> over(int splitSize, Spliterator<T> source) {
-        return over(splitSize, false, source);
+        return StreamSupport.stream(over(splitSize, recycleSubList, inputStream.spliterator()), false);
     }
 
     public static <T> PartitionSpliterator<T> over(int splitSize, boolean recycleSubList, Spliterator<T> source) {
-        return over(splitSize, recycleSubList, true, source);
-    }
-
-    public static <T> PartitionSpliterator<T> over(int splitSize, boolean recycleSubList, boolean reserveSpace, Spliterator<T> source) {
-        return new PartitionSpliterator<T>(source, splitSize, recycleSubList, reserveSpace);
+        return new PartitionSpliterator<T>(source, splitSize, recycleSubList);
     }
 
     @FunctionalInterface
@@ -75,21 +38,19 @@ public final class PartitionSpliterator<T> implements Spliterator<List<T>> {
     private final Spliterator<T> source;
     private final Supplier<List<T>> listFactory;
     private final int splitSize;
-    private final boolean reserveSpace;
 
-    private PartitionSpliterator(Spliterator<T> source, int splitSize, boolean recycleSubList, boolean reserveSpace) {
+    private PartitionSpliterator(Spliterator<T> source, int splitSize, boolean recycleSubList) {
         this.source = requireNonNull(source);
         this.splitSize = Math.max(1, splitSize);
-        this.reserveSpace = reserveSpace;
         if(recycleSubList) {
             List<T>[] list = new List[1];
             listFactory = (RecyclableSupplier<T>) () -> {
-                list[0] = null != list[0] ? list[0] : new ArrayList<>(reserveSpace ? splitSize : 10);
+                list[0] = null != list[0] ? list[0] : new ArrayList<>(splitSize);
                 list[0].clear();
                 return list[0];
             };
         } else {
-            listFactory = () -> new ArrayList<>(reserveSpace ? splitSize : 10);
+            listFactory = () -> new ArrayList<>(splitSize);
         }
     }
 
@@ -113,7 +74,7 @@ public final class PartitionSpliterator<T> implements Spliterator<List<T>> {
     @Override
     public Spliterator<List<T>> trySplit() {
         return ofNullable(source.trySplit())
-                .map(split -> new PartitionSpliterator<>(split, splitSize, reserveSpace, isRecyclable()))
+                .map(split -> new PartitionSpliterator<>(split, splitSize, isRecyclable()))
                 .orElse(null);
     }
 

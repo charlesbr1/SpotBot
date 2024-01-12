@@ -56,31 +56,32 @@ public final class OwnerCommand extends CommandAdapter {
         if(null == context.member && context.user.getIdLong() != ownerId) {
             return List.of(embedBuilder(NAME, Color.red, "You are not allowed to see alerts of members in a private channel"));
         }
+        return alertsDao.transactional(() -> {
+            long total;
+            List<EmbedBuilder> alertMessages;
 
-        long total;
-        List<EmbedBuilder> alertMessages;
+            if (isPrivateChannel(context)) {
+                total = null != tickerOrPair ?
+                        alertsDao.countAlertsOfUserAndTickers(context.user.getIdLong(), tickerOrPair) :
+                        alertsDao.countAlertsOfUser(context.user.getIdLong());
+                alertMessages = (null != tickerOrPair ?
+                        alertsDao.getAlertsOfUserAndTickers(context.getServerId(), offset, MESSAGE_PAGE_SIZE + 1, tickerOrPair) :
+                        alertsDao.getAlertsOfUser(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE + 1))
+                        .stream().map(CommandAdapter::toMessage).collect(toList());
+            } else {
+                total = null != tickerOrPair ?
+                        alertsDao.countAlertsOfServerAndUserAndTickers(context.getServerId(), ownerId, tickerOrPair) :
+                        alertsDao.countAlertsOfServerAndUser(context.getServerId(), ownerId);
+                alertMessages = (null != tickerOrPair ?
+                        alertsDao.getAlertsOfServerAndUserAndTickers(context.getServerId(), ownerId, offset, MESSAGE_PAGE_SIZE + 1, tickerOrPair) :
+                        alertsDao.getAlertsOfServerAndUser(context.user.getIdLong(), ownerId, offset, MESSAGE_PAGE_SIZE + 1))
+                        .stream().map(CommandAdapter::toMessage).collect(toList());
+            }
 
-        if(isPrivateChannel(context)) {
-            total = null != tickerOrPair ?
-                    alertsDao.countAlertsOfUserAndTickers(context.user.getIdLong(), tickerOrPair) :
-                    alertsDao.countAlertsOfUser(context.user.getIdLong());
-            alertMessages = (null != tickerOrPair ?
-                    alertsDao.getAlertsOfUserAndTickers(context.getServerId(), offset, MESSAGE_PAGE_SIZE + 1, tickerOrPair) :
-                    alertsDao.getAlertsOfUser(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE + 1))
-                    .stream().map(CommandAdapter::toMessage).collect(toList());
-        } else {
-            total = null != tickerOrPair ?
-                    alertsDao.countAlertsOfServerAndUserAndTickers(context.getServerId(), ownerId, tickerOrPair) :
-                    alertsDao.countAlertsOfServerAndUser(context.getServerId(), ownerId);
-            alertMessages = (null != tickerOrPair ?
-                    alertsDao.getAlertsOfServerAndUserAndTickers(context.getServerId(), ownerId, offset, MESSAGE_PAGE_SIZE + 1, tickerOrPair) :
-                    alertsDao.getAlertsOfServerAndUser(context.user.getIdLong(), ownerId, offset, MESSAGE_PAGE_SIZE + 1))
-                    .stream().map(CommandAdapter::toMessage).collect(toList());
-        }
-
-        return paginatedAlerts(alertMessages, offset, total,
-                () -> "!owner <@" + ownerId + '>' +
-                        (null != tickerOrPair ? ' ' + tickerOrPair : "") + ' ' + (offset + MESSAGE_PAGE_SIZE - 1),
-                () -> " for user <@" + ownerId + (null != tickerOrPair ? "> and " + tickerOrPair : ">"));
+            return paginatedAlerts(alertMessages, offset, total,
+                    () -> "!owner <@" + ownerId + '>' +
+                            (null != tickerOrPair ? ' ' + tickerOrPair : "") + ' ' + (offset + MESSAGE_PAGE_SIZE - 1),
+                    () -> " for user <@" + ownerId + (null != tickerOrPair ? "> and " + tickerOrPair : ">"));
+        });
     }
 }

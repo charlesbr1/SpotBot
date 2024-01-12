@@ -64,10 +64,8 @@ public final class AlertsWatcher {
             exchangePairs.forEach((xchange, pairs) -> {  // one task by exchange / pair
                 Exchanges.get(xchange).ifPresent(exchange ->
                         Thread.ofVirtual().start(() -> pairs.forEach(pair -> {
-                            Thread.ofVirtual().name('[' + pair + "] SpotBot fetcher")
-                                    .start(() -> checkAlerts(exchange, pair));
-                            LockSupport.parkNanos(exchange.isVirtual() ? 0 :
-                                    Duration.ofMillis(300).toNanos()); // no need to flood the exchanges (or discord)
+                            Thread.ofVirtual().name('[' + pair + "] SpotBot fetcher").start(() -> checkAlerts(exchange, pair));
+                            LockSupport.parkNanos(exchange.isVirtual() ? 0 : Duration.ofMillis(300).toNanos()); // no need to flood the exchanges (or discord)
                         })));
                 LockSupport.parkNanos(Duration.ofMillis(300 / (Math.min(10, exchangePairs.size()))).toNanos());
             });
@@ -95,16 +93,20 @@ public final class AlertsWatcher {
         try {
             LOGGER.debug("Retrieving last price for pair [{}] on {}...", pair, exchange);
 
-            // retrieve all the candlesticks since the last check, or since the last hour
+            // retrieve all the candlesticks since the last check, or since the last hour, this does not need to be in a global transaction
             var lastClose = marketDataService.getLastCandlestickCloseTime(pair).orElse(null);
             List<Candlestick> prices = getCandlesticksSince(exchange, pair, lastClose);
 
-            // load, notify, and update alerts that matches
-            alertDao.transactional(() -> {
-                Candlestick previousPrice = marketDataService.getLastCandlestick(pair).orElse(null);
-                processMatchingAlerts(exchange, pair, prices, previousPrice);
-                marketDataService.updateLastCandlestick(pair, previousPrice, prices.get(prices.size()-1));
-            });
+            if(!prices.isEmpty()) {
+                // load, notify, and update alerts that matches
+                alertDao.transactional(() -> {
+                    Candlestick previousPrice = marketDataService.getLastCandlestick(pair).orElse(null);
+                    processMatchingAlerts(exchange, pair, prices, previousPrice);
+                    marketDataService.updateLastCandlestick(pair, previousPrice, prices.get(prices.size() - 1));
+                });
+            } else {
+                LOGGER.warn("No market data found for {} on exchange {}", pair, exchange);
+            }
         } catch(RuntimeException e) {
             LOGGER.warn("Exception thrown while processing alerts", e);
         }
@@ -126,7 +128,7 @@ public final class AlertsWatcher {
     private List<Candlestick> getCandlesticks(@NotNull Exchange exchange, @NotNull String pair, @NotNull TimeFrame timeFrame, int limit) {
         var candlesticks  = exchange.getCandlesticks(pair, timeFrame, limit);
         if(candlesticks.isEmpty()) {
-            throw new IllegalStateException("No " + timeFrame.name() + " candlestick found for pair " + pair + " on exchange" + exchange.name());
+            throw new IllegalStateException("No " + timeFrame.name() + " candlestick found for pair " + pair + " on exchange" + exchange.name() + " with limit " + limit);
         }
         return candlesticks;
     }

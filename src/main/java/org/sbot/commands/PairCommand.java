@@ -40,18 +40,19 @@ public final class PairCommand extends CommandAdapter {
         alertsDao.transactional(() -> context.reply(responseTtlSeconds, pair(context, tickerOrPair.toUpperCase(), offset)));
     }
     private List<EmbedBuilder> pair(@NotNull CommandContext context, @NotNull String tickerOrPair, long offset) {
+        return alertsDao.transactional(() -> {
+            long total = isPrivateChannel(context) ?
+                    alertsDao.countAlertsOfUserAndTickers(context.user.getIdLong(), tickerOrPair) :
+                    alertsDao.countAlertsOfServerAndTickers(context.getServerId(), tickerOrPair);
 
-        long total = isPrivateChannel(context) ?
-                alertsDao.countAlertsOfUserAndTickers(context.user.getIdLong(), tickerOrPair) :
-                alertsDao.countAlertsOfServerAndTickers(context.getServerId(), tickerOrPair);
+            List<EmbedBuilder> alertMessages = (isPrivateChannel(context) ?
+                    alertsDao.getAlertsOfUserAndTickers(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE - 1, tickerOrPair) :
+                    alertsDao.getAlertsOfServerAndTickers(context.getServerId(), offset, MESSAGE_PAGE_SIZE - 1, tickerOrPair))
+                    .stream().map(CommandAdapter::toMessage).collect(toList());
 
-        List<EmbedBuilder> alertMessages = (isPrivateChannel(context) ?
-                alertsDao.getAlertsOfUserAndTickers(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE - 1, tickerOrPair) :
-                alertsDao.getAlertsOfServerAndTickers(context.getServerId(), offset, MESSAGE_PAGE_SIZE - 1, tickerOrPair))
-                .stream().map(CommandAdapter::toMessage).collect(toList());
-
-        return paginatedAlerts(alertMessages, offset, total,
-                () -> "!pair " + tickerOrPair + ' ' + (offset + MESSAGE_PAGE_SIZE - 1),
-                () -> " for ticker or pair : " + tickerOrPair);
+            return paginatedAlerts(alertMessages, offset, total,
+                    () -> "!pair " + tickerOrPair + ' ' + (offset + MESSAGE_PAGE_SIZE - 1),
+                    () -> " for ticker or pair : " + tickerOrPair);
+        });
     }
 }

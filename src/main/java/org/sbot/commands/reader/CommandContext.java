@@ -20,7 +20,6 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.discord.Discord.MAX_MESSAGE_EMBEDS;
 
@@ -76,23 +75,29 @@ public final class CommandContext {
 
     public void reply(int ttlSeconds, List<EmbedBuilder> messages, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
         if(null != event) { // slash commands, allows to make a reply only visible to the user, it only works for 1 message reply (with max 10 embeds)
-            if(messages.size() <= MAX_MESSAGE_EMBEDS) {
-                messageSetup = Stream.concat(Stream.of(message -> {
-                            if (message instanceof ReplyCallbackAction) {
-                                ((ReplyCallbackAction) message).setEphemeral(true);
-                            }
-                        }),
-                        messageSetup.stream()).toList();
-            }
-            Discord.sendMessages(ttlSeconds, messages, slashReply(event::replyEmbeds, channel::sendMessageEmbeds), requireNonNull(messageSetup));
-        } else {
-            if(null != message) { // classic string commands, add a 'reply to' to the message
-                messageSetup = Stream.concat(
-                        Stream.of(message -> ((MessageCreateAction) message).setMessageReference(this.message)),
-                        messageSetup.stream()).toList();
-            }
-            Discord.sendMessages(ttlSeconds, messages, channel::sendMessageEmbeds, requireNonNull(messageSetup));
+            Discord.sendMessages(ttlSeconds, messages, slashReply(event::replyEmbeds, channel::sendMessageEmbeds),
+                    messages.size() <= MAX_MESSAGE_EMBEDS ? setSlashEphemeralReply(messageSetup) : messageSetup);
+        } else { // classic string commands, add a 'reply to' to the message
+            Discord.sendMessages(ttlSeconds, messages, channel::sendMessageEmbeds,
+                    null != message ? setupMessageReplyTo(messageSetup) : messageSetup);
         }
+    }
+
+    @NotNull
+    private List<Consumer<MessageCreateRequest<?>>> setSlashEphemeralReply(@NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
+        return Stream.concat(Stream.of(message -> {
+                    if (message instanceof ReplyCallbackAction) {
+                        ((ReplyCallbackAction) message).setEphemeral(true);
+                    }
+                }),
+                messageSetup.stream()).toList();
+    }
+
+    @NotNull
+    private List<Consumer<MessageCreateRequest<?>>> setupMessageReplyTo(@NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
+        return Stream.concat(
+                Stream.of(message -> ((MessageCreateAction) message).setMessageReference(this.message)),
+                messageSetup.stream()).toList();
     }
 
     private <T, R> Function<T, R> slashReply(@NotNull Function<T, R> replyEmbeds, @NotNull Function<T, R> sendMessageEmbeds) {

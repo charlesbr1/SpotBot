@@ -8,12 +8,13 @@ import org.sbot.discord.CommandListener;
 import org.sbot.discord.Discord;
 import org.sbot.services.AlertsWatcher;
 import org.sbot.services.MarketDataService;
-import org.sbot.services.dao.*;
-import org.sbot.services.dao.sqlite.jdbi.JDBIRepository;
+import org.sbot.services.dao.AlertsDao;
+import org.sbot.services.dao.LastCandlesticksDao;
 import org.sbot.services.dao.memory.AlertsMemory;
 import org.sbot.services.dao.memory.LastCandlesticksMemory;
 import org.sbot.services.dao.sqlite.AlertsSQLite;
 import org.sbot.services.dao.sqlite.LastCandlesticksSQLite;
+import org.sbot.services.dao.sqlite.jdbi.JDBIRepository;
 import org.sbot.utils.PropertiesReader;
 
 import java.time.Duration;
@@ -35,7 +36,7 @@ public class SpotBot {
 
     private static final String DATABASE_URL = appProperties.get("database.url");
 
-    private static final int ALERTS_CHECK_PERIOD_DELTA_MIN = appProperties.getInt("alerts.check.period.delta");
+    private static final int ALERTS_HOURLY_CHECK_DELTA_MIN = appProperties.getInt("alerts.hourly-check.delta");
 
 
     public static void main(String[] args) {
@@ -43,20 +44,23 @@ public class SpotBot {
             boolean memoryDao = Stream.ofNullable(args).flatMap(Stream::of).findFirst()
                     .filter("-memory"::equals).isPresent();
 
-            LOGGER.info("Starting SpotBot v1 with {} storage", memoryDao ? "memory" : "SQLite");
+            LOGGER.info("Starting SpotBot v1.0 with {} storage", memoryDao ? "memory" : "SQLite");
 
+            // load data storage
             JDBIRepository repository = memoryDao ? null : new JDBIRepository(DATABASE_URL);
             AlertsDao alertsDao = memoryDao ? new AlertsMemory() : new AlertsSQLite(repository);
             LastCandlesticksDao lastCandlestickDao = memoryDao ? new LastCandlesticksMemory() : new LastCandlesticksSQLite(repository);
 
+            // load services
             Discord discord = new Discord(loadDiscordCommands(alertsDao));
-            AlertsWatcher alertsWatcher = new AlertsWatcher(discord, alertsDao, new MarketDataService(lastCandlestickDao));
+            MarketDataService marketDataService =  new MarketDataService(lastCandlestickDao);
+            AlertsWatcher alertsWatcher = new AlertsWatcher(discord, alertsDao, marketDataService);
 
             LOGGER.info("Entering infinite loop to check prices and send alerts every start of hours...");
 
             for(;;) {
                 alertsWatcher.checkAlerts();
-                long sleepingMinutes = minutesUntilNextHour() + ALERTS_CHECK_PERIOD_DELTA_MIN;
+                long sleepingMinutes = minutesUntilNextHour() + ALERTS_HOURLY_CHECK_DELTA_MIN;
                 LOGGER.info("Main thread now sleeping for {} minutes...", sleepingMinutes);
                 LockSupport.parkNanos(Duration.ofMinutes(sleepingMinutes).toNanos());
             }

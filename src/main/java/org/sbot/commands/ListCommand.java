@@ -57,17 +57,19 @@ public final class ListCommand extends CommandAdapter {
     }
 
     private List<EmbedBuilder> alerts(@NotNull CommandContext context, long offset) {
-        long total = isPrivateChannel(context) ?
-                alertsDao.countAlertsOfUser(context.user.getIdLong()) :
-                alertsDao.countAlertsOfServer(context.getServerId());
-        List<EmbedBuilder> alertMessages = (PRIVATE_ALERT != context.getServerId() ?
-                alertsDao.getAlertsOfUser(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE + 1) :
-                alertsDao.getAlertsOfServer(context.getServerId(), offset, MESSAGE_PAGE_SIZE + 1))
-                .stream().map(CommandAdapter::toMessage).collect(toList());
+        return alertsDao.transactional(() -> {
+            long total = isPrivateChannel(context) ?
+                    alertsDao.countAlertsOfUser(context.user.getIdLong()) :
+                    alertsDao.countAlertsOfServer(context.getServerId());
+            List<EmbedBuilder> alertMessages = (PRIVATE_ALERT != context.getServerId() ?
+                    alertsDao.getAlertsOfUser(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE + 1) :
+                    alertsDao.getAlertsOfServer(context.getServerId(), offset, MESSAGE_PAGE_SIZE + 1))
+                    .stream().map(CommandAdapter::toMessage).collect(toList());
 
-        return paginatedAlerts(alertMessages, offset, total,
-                () -> "!list alerts " + (offset + MESSAGE_PAGE_SIZE - 1),
-                () -> "");
+            return paginatedAlerts(alertMessages, offset, total,
+                    () -> "!list alerts " + (offset + MESSAGE_PAGE_SIZE - 1),
+                    () -> "");
+        });
     }
 
     private List<EmbedBuilder> exchanges() {

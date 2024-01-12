@@ -38,6 +38,33 @@ public abstract class CommandAdapter implements CommandListener {
     private final List<OptionData> options;
     protected int responseTtlSeconds;
 
+    private interface SecurityAccess {
+
+        private static boolean notFound(@Nullable UserIdServerIdType alert, @NotNull CommandContext context) {
+            return null == alert ||
+                    (isPrivate(alert.serverId()) && !alertBelongToUser(context.user, alert.userId())) ||
+                    (!isPrivate(alert.serverId()) && !alertIsOnMemberServer(context.member, alert.serverId()));
+        }
+
+        private static boolean isDenied(@NotNull UserIdServerIdType alert, @NotNull CommandContext context) {
+            return !(alertBelongToUser(context.user, alert.userId()) ||
+                    (alertIsOnMemberServer(context.member, alert.serverId()) && isAdminMember(context.member)));
+        }
+
+        private static boolean alertBelongToUser(@NotNull User user, long userId) {
+            return  user.getIdLong() == userId;
+        }
+
+        private static boolean alertIsOnMemberServer(@Nullable Member member, long serverId) {
+            return !isPrivate(serverId) && null != member &&
+                    member.getGuild().getIdLong() == serverId;
+        }
+
+        private static boolean isAdminMember(@Nullable Member member) {
+            return null != member && member.hasPermission(ADMINISTRATOR);
+        }
+    }
+
     protected CommandAdapter(@NotNull AlertsDao alertsDao, @NotNull String name, @NotNull String description, @NotNull List<OptionData> options, int responseTtlSeconds) {
         this.alertsDao = requireNonNull(alertsDao, "missing CommandAdapter alertDao");
         this.name = requireNonNull(name, "missing CommandAdapter name");
@@ -71,38 +98,17 @@ public abstract class CommandAdapter implements CommandListener {
 
         UserIdServerIdType alert = alertsDao.getUserIdAndServerIdAndType(alertId).orElse(null);
 
-        boolean notFound = null == alert ||
-                (isPrivate(alert.serverId()) && !alertBelongToUser(context.user, alert.userId())) ||
-                (!isPrivate(alert.serverId()) && !alertIsOnMemberServer(context.member, alert.serverId()));
-        if(notFound) {
+        if(SecurityAccess.notFound(alert, context)) {
             return new AnswerColorSmiley("Alert " + alertId + " not found", Color.red, ":ghost:");
+        } else if(SecurityAccess.isDenied(alert, context)) {
+            return new AnswerColorSmiley("You are not allowed to update alert " + alertId +
+                    (isPrivate(context.getServerId()) ? ", you are on a private channel." : ""), Color.black, ":clown:");
         }
-
-        boolean hasAccess = alertBelongToUser(context.user, alert.userId()) ||
-                (alertIsOnMemberServer(context.member, alert.serverId()) && isAdminMember(context.member));
-        if(hasAccess) {
-            return new AnswerColorSmiley(updateHandler.apply(alert.type()), Color.green, ":+1:");
-        }
-
-        return new AnswerColorSmiley("You are not allowed to update alert " + alertId +
-                (isPrivate(context.getServerId()) ? ", you are on a private channel." : ""), Color.black, ":clown:");
-    }
-
-    private static boolean alertBelongToUser(@NotNull User user, long userId) {
-        return  user.getIdLong() == userId;
-    }
-
-    private static boolean alertIsOnMemberServer(@Nullable Member member, long serverId) {
-        return !isPrivate(serverId) && null != member &&
-                member.getGuild().getIdLong() == serverId;
-    }
-
-    private static boolean isAdminMember(@Nullable Member member) {
-        return null != member && member.hasPermission(ADMINISTRATOR);
+        return new AnswerColorSmiley(updateHandler.apply(alert.type()), Color.green, ":+1:");
     }
 
     protected static boolean isPrivateChannel(@NotNull CommandContext context) {
-        return PRIVATE_ALERT == context.getServerId();
+        return isPrivate(context.getServerId());
     }
     public static EmbedBuilder embedBuilder(@Nullable String title, @Nullable Color color, @Nullable String text) {
         return new EmbedBuilder()

@@ -13,6 +13,8 @@ import static org.sbot.utils.Dates.formatUTC;
 
 public interface ArgumentValidator {
 
+    Pattern PAIR_PATTERN = Pattern.compile("^[A-Z]{7,11}/[A-Z]{7,11}$"); // TICKER/TICKER format
+
     static int requirePositive(int value) {
         return (int) requirePositive((long) value);
     }
@@ -46,8 +48,6 @@ public interface ArgumentValidator {
         }
         return exchange;
     }
-
-    Pattern PAIR_PATTERN = Pattern.compile("^[A-Z]+/[A-Z]+$+"); // TICKER1/TICKER2 format
 
     @NotNull
     static String requirePairFormat(@NotNull String pair) {
