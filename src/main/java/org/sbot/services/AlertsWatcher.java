@@ -66,8 +66,13 @@ public final class AlertsWatcher {
             exchangePairs.forEach((xchange, pairs) -> {  // one task by exchange / pair
                 Exchanges.get(xchange).ifPresent(exchange ->
                         Thread.ofVirtual().start(() -> pairs.forEach(pair -> {
-                            Thread.ofVirtual().name('[' + pair + "] SpotBot fetcher").start(() -> checkAlerts(exchange, pair));
-                            LockSupport.parkNanos(exchange.isVirtual() ? 0 : Duration.ofMillis(300).toNanos()); // no need to flood the exchanges (or discord)
+                            if(exchange.isVirtual()) {
+                                raiseAlerts(exchange, pair);
+                            } else {
+                                Thread.ofVirtual().name('[' + pair + "] SpotBot fetcher")
+                                        .start(() -> getPricesAndRaiseAlerts(exchange, pair));
+                                LockSupport.parkNanos(Duration.ofMillis(300).toNanos()); // no need to flood the exchanges (or discord)
+                            }
                         })));
                 LockSupport.parkNanos(Duration.ofMillis(300 / (Math.min(10, exchangePairs.size()))).toNanos());
             });
@@ -83,14 +88,10 @@ public final class AlertsWatcher {
 
     }
 
-    private void checkAlerts(@NotNull Exchange exchange, @NotNull String pair) {
-        if(exchange.isVirtual()) { // RemainderAlert does not rely on prices
-            LOGGER.debug("Processing pair [{}] on virtual exchange {}{}...", pair,
-                    exchange.name(), REMAINDER_VIRTUAL_EXCHANGE.equals(exchange.name()) ? " (Remainder Alerts)" : "");
-            alertDao.transactional(() -> processMatchingAlerts(exchange, pair, emptyList(), null));
-        } else {
-            getPricesAndRaiseAlerts(exchange, pair);
-        }
+    private void raiseAlerts(@NotNull Exchange virtualExchange, @NotNull String pair) {
+        LOGGER.debug("Processing pair [{}] on virtual exchange {}{}...", pair,
+                virtualExchange.name(), REMAINDER_VIRTUAL_EXCHANGE.equals(virtualExchange.name()) ? " (Remainder Alerts)" : "");
+        alertDao.transactional(() -> processMatchingAlerts(virtualExchange, pair, emptyList(), null));
     }
 
     private void getPricesAndRaiseAlerts(@NotNull Exchange exchange, @NotNull String pair) {
@@ -240,8 +241,8 @@ public final class AlertsWatcher {
             while(alerts.size() >= MESSAGE_PAGE_SIZE) {
                 alerts.remove(alerts.size() - 1);
             }
-            alerts.add(embedBuilder("...", Color.red, "Limit reached ! That's too much alerts.\n\n* " +
-                    total + " alerts were triggered\n* " + MESSAGE_PAGE_SIZE + " alerts were notified\n* " +
+            alerts.add(embedBuilder("...", Color.red, "Limit reached ! That's too much alerts :sweat:\n\n* " +
+                    total + " alerts were raised\n* " + MESSAGE_PAGE_SIZE + " alerts were notified\n* " +
                     (total - MESSAGE_PAGE_SIZE + 1) + " remaining alerts are discarded, sorry."));
         }
         return alerts;
