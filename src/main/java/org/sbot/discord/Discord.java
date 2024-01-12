@@ -58,7 +58,7 @@ public final class Discord {
     public static final String DISCORD_BOT_CHANNEL = SpotBot.appProperties.get("discord.bot.channel");
     public static final String DISCORD_BOT_ROLE = SpotBot.appProperties.get("discord.bot.role");
 
-    private static final int PRIVATE_CHANNEL_CACHE_TLL_MIN = 5;
+    private static final int PRIVATE_CHANNEL_CACHE_TLL_MIN = SpotBot.appProperties.getIntOr("discord.private-channel.cache.ttl-min", 5);
 
 
     @FunctionalInterface
@@ -170,7 +170,7 @@ public final class Discord {
     public Guild getDiscordServer(long discordServerId) {
         LOGGER.debug("Retrieving discord server {}...", discordServerId);
         return Optional.ofNullable(jda.getGuildById(discordServerId))
-                .orElseThrow(() -> new IllegalStateException("Failed to load discord server " + discordServerId));
+                .orElseThrow(() -> new IllegalStateException("Failed to get discord server " + discordServerId + " : not a connected guild"));
     }
 
     @NotNull

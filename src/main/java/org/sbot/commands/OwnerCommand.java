@@ -63,7 +63,7 @@ public final class OwnerCommand extends CommandAdapter {
                         alertsDao.countAlertsOfUserAndTickers(context.user.getIdLong(), tickerOrPair) :
                         alertsDao.countAlertsOfUser(context.user.getIdLong());
                 alertMessages = (null != tickerOrPair ?
-                        alertsDao.getAlertsOfUserAndTickers(context.serverId(), offset, MESSAGE_PAGE_SIZE + 1, tickerOrPair) :
+                        alertsDao.getAlertsOfUserAndTickers(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE + 1, tickerOrPair) :
                         alertsDao.getAlertsOfUser(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE + 1))
                         .stream().map(CommandAdapter::toMessage).collect(toList());
             } else {
@@ -72,7 +72,7 @@ public final class OwnerCommand extends CommandAdapter {
                         alertsDao.countAlertsOfServerAndUser(context.serverId(), ownerId);
                 alertMessages = (null != tickerOrPair ?
                         alertsDao.getAlertsOfServerAndUserAndTickers(context.serverId(), ownerId, offset, MESSAGE_PAGE_SIZE + 1, tickerOrPair) :
-                        alertsDao.getAlertsOfServerAndUser(context.user.getIdLong(), ownerId, offset, MESSAGE_PAGE_SIZE + 1))
+                        alertsDao.getAlertsOfServerAndUser(context.serverId(), ownerId, offset, MESSAGE_PAGE_SIZE + 1))
                         .stream().map(CommandAdapter::toMessage).collect(toList());
             }
 

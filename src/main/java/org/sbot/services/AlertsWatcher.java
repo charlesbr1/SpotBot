@@ -202,8 +202,10 @@ public final class AlertsWatcher {
 
     private void sendPrivateAlerts(@NotNull List<MatchingAlert> matchingAlerts) {
         matchingAlerts.stream().collect(groupingBy(matchingAlert -> matchingAlert.alert().userId))
-                .forEach((userId, userAlerts) -> discord.userChannel(userId)
-                        .ifPresent(channel -> channel.sendMessages(toMessage(userAlerts), emptyList())));
+                .forEach((userId, userAlerts) -> // retrieving user channel is a blocking task (there is a cache though)
+                        Thread.ofVirtual().name("SpotBot private channel " + userId)
+                                .start(() -> discord.userChannel(userId)
+                                        .ifPresent(channel -> channel.sendMessages(toMessage(userAlerts), emptyList()))));
     }
 
     @NotNull

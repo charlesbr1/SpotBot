@@ -151,7 +151,7 @@ public final class SpotBotCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        String choice = context.args.getString("choice").orElse("doc");
+        String choice = context.args.getString("choice").orElse(CHOICE_DOC);
         LOGGER.debug("spotBot command - choice : {}", choice);
         context.reply(responseTtlSeconds, spotBot(choice, Optional.ofNullable(context.member).map(Member::getGuild).orElse(null)),
                 List.of(CHOICE_DOC.equals(choice) ? message -> message.addFiles(alertsPicture) : m -> {}));

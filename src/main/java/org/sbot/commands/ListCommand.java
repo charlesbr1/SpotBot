@@ -12,8 +12,8 @@ import java.util.List;
 
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
-import static org.sbot.alerts.Alert.PRIVATE_ALERT;
-import static org.sbot.discord.Discord.*;
+import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
+import static org.sbot.discord.Discord.MULTI_LINE_BLOCK_QUOTE_MARKDOWN;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 
@@ -28,7 +28,7 @@ public final class ListCommand extends CommandAdapter {
     private static final String CHOICE_PAIRS = "pairs";
 
     static final List<OptionData> options = List.of(
-            new OptionData(OptionType.STRING, "choice", "the data to display, one of 'exchanges' or 'pairs' or 'alerts'", true)
+            new OptionData(OptionType.STRING, "choice", "the data to display, one of 'exchanges' or 'pairs' or 'alerts', default to alerts if omitted", false)
                     .addChoice(CHOICE_ALERTS, CHOICE_ALERTS)
                     .addChoice(CHOICE_EXCHANGES, CHOICE_EXCHANGES)
                     .addChoice(CHOICE_PAIRS, CHOICE_PAIRS),
@@ -41,7 +41,7 @@ public final class ListCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        String choice = context.args.getMandatoryString("choice");
+        String choice = context.args.getString("choice").orElse(CHOICE_ALERTS);
         long offset = requirePositive(context.args.getLong("offset").orElse(0L));
         LOGGER.debug("list command - choice : {}, offset : {}", choice, offset);
         alertsDao.transactional(() -> context.reply(responseTtlSeconds, list(context, choice, offset)));
@@ -61,7 +61,7 @@ public final class ListCommand extends CommandAdapter {
             long total = isPrivateChannel(context) ?
                     alertsDao.countAlertsOfUser(context.user.getIdLong()) :
                     alertsDao.countAlertsOfServer(context.serverId());
-            List<EmbedBuilder> alertMessages = (PRIVATE_ALERT != context.serverId() ?
+            List<EmbedBuilder> alertMessages = (isPrivateChannel(context) ?
                     alertsDao.getAlertsOfUser(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE + 1) :
                     alertsDao.getAlertsOfServer(context.serverId(), offset, MESSAGE_PAGE_SIZE + 1))
                     .stream().map(CommandAdapter::toMessage).collect(toList());

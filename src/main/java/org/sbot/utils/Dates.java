@@ -11,6 +11,8 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
+import static org.sbot.utils.ArgumentValidator.requireInPast;
+
 public interface Dates {
 
     String DATE_TIME_FORMAT = "dd/MM/yyyy-HH:mm";
@@ -38,7 +40,7 @@ public interface Dates {
 
     @NotNull
     static DaysHours daysHoursSince(@NotNull ZonedDateTime lastTime) {
-        Duration duration = Duration.between(lastTime, ZonedDateTime.now());
+        Duration duration = Duration.between(requireInPast(lastTime), ZonedDateTime.now());
         return new DaysHours(duration.toHoursPart(), duration.toHoursPart());
     }
 }
