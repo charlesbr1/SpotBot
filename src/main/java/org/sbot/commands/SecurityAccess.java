@@ -23,7 +23,7 @@ interface SecurityAccess {
                 (alertIsOnMemberServer(context.member, alert.serverId()) && isAdminMember(context.member)));
     }
 
-    static boolean isManageableUser(@NotNull CommandContext context, long userId) {
+    static boolean hasRightOnUser(@NotNull CommandContext context, long userId) {
         boolean alertBelongToUser = alertBelongToUser(context.user, userId);
         return (isPrivate(context.serverId()) && alertBelongToUser) ||
                 (!isPrivate(context.serverId()) && (alertBelongToUser || isAdminMember(context.member)));

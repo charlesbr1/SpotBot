@@ -58,7 +58,7 @@ public final class Discord {
     public static final String DISCORD_BOT_CHANNEL = SpotBot.appProperties.get("discord.bot.channel");
     public static final String DISCORD_BOT_ROLE = SpotBot.appProperties.get("discord.bot.role");
 
-    private static final int PRIVATE_CHANNEL_CACHE_TLL_MIN = SpotBot.appProperties.getIntOr("discord.private-channel.cache.ttl-min", 5);
+    private static final int PRIVATE_CHANNEL_CACHE_TLL_MIN = SpotBot.appProperties.getIntOr("discord.private-channel.cache.ttlMin", 5);
 
 
     @FunctionalInterface
@@ -105,7 +105,7 @@ public final class Discord {
     }
 
     public static <T extends MessageCreateRequest<?> & FluentRestAction<?, ?>> void sendMessages(int ttlSeconds, @NotNull List<EmbedBuilder> messages, @NotNull Function<List<MessageEmbed>, T> sendMessage, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup) {
-        asyncOrderedSubmit(ttlSeconds, toMessageRequests(messages, sendMessage, messageSetup));
+        asyncOrderedSubmit(toMessageRequests(messages, sendMessage, messageSetup), ttlSeconds);
     }
 
     @NotNull
@@ -123,26 +123,28 @@ public final class Discord {
     }
 
     // this ensures the rest action are done in order
-    private static void asyncOrderedSubmit(int ttlSeconds, @NotNull Stream<RestAction<?>> restActions) {
+    private static void asyncOrderedSubmit(@NotNull Stream<RestAction<?>> restActions, int ttlSeconds) {
         restActions.limit(MESSAGE_PAGE_SIZE)
                 .reduce(CompletableFuture.<Void>completedFuture(null),
-                        (future, nextMessage) -> future.thenRun(() -> {
-                            if(ttlSeconds > 0 && nextMessage instanceof ReplyCallbackAction) {
-                                ((ReplyCallbackAction) nextMessage).submit()
-                                        .thenApply(m -> m.deleteOriginal().queueAfter(ttlSeconds, TimeUnit.SECONDS));
-                            } else if(ttlSeconds > 0 && nextMessage instanceof MessageCreateAction) {
-                                ((MessageCreateAction) nextMessage).submit()
-                                        .thenApply(m -> m.delete().queueAfter(ttlSeconds, TimeUnit.SECONDS));
-                            } else {
-                                nextMessage.submit();
-                            }
-                        }),
+                        (future, nextMessage) -> future.thenRun(() -> submitWithTtl(nextMessage, ttlSeconds)),
                         CompletableFuture::allOf)
                 .whenComplete((v, error) -> {
                     if (null != error) {
                         LOGGER.error("Exception occurred while sending discord message", error);
                     }
                 });
+    }
+
+    private static void submitWithTtl(RestAction<?> message, int ttlSeconds) {
+        if(ttlSeconds > 0 && message instanceof ReplyCallbackAction) {
+            ((ReplyCallbackAction) message).submit()
+                    .thenApply(m -> m.deleteOriginal().queueAfter(ttlSeconds, TimeUnit.SECONDS));
+        } else if(ttlSeconds > 0 && message instanceof MessageCreateAction) {
+            ((MessageCreateAction) message).submit()
+                    .thenApply(m -> m.delete().queueAfter(ttlSeconds, TimeUnit.SECONDS));
+        } else {
+            message.submit();
+        }
     }
 
     @NotNull

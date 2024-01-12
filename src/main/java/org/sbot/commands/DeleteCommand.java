@@ -13,7 +13,7 @@ import java.awt.*;
 import java.util.List;
 
 import static org.sbot.alerts.Alert.isPrivate;
-import static org.sbot.commands.SecurityAccess.isManageableUser;
+import static org.sbot.commands.SecurityAccess.hasRightOnUser;
 import static org.sbot.utils.ArgumentValidator.*;
 
 public final class DeleteCommand extends CommandAdapter {
@@ -59,7 +59,7 @@ public final class DeleteCommand extends CommandAdapter {
         if (null != alertId) { // single id delete
             return deleteById(context, alertId);
         } else if (null == ownerId || // if ownerId is null -> delete all alerts of current user, or filtered by ticker or pair
-                isManageableUser(context, ownerId)) { // ownerId != null -> only an admin can delete alerts of other users on his server
+                hasRightOnUser(context, ownerId)) { // ownerId != null -> only an admin can delete alerts of other users on his server
             return deleteByOwnerOrTickerPair(context, ownerId, tickerOrPair);
         } else {
             return embedBuilder(":clown:" + ' ' + context.user.getEffectiveName(), Color.black, "You are not allowed to delete your mates' alerts" +
