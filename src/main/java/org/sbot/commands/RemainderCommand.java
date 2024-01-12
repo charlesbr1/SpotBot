@@ -14,7 +14,6 @@ import java.time.ZonedDateTime;
 import java.util.List;
 
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.alerts.Alert.*;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.formatUTC;
 
@@ -49,7 +48,7 @@ public final class RemainderCommand extends CommandAdapter {
 
     private EmbedBuilder remainder(@NotNull CommandContext context, @NotNull String pair, @NotNull ZonedDateTime fromDate, @NotNull String message) {
         RemainderAlert remainderAlert = new RemainderAlert(context.user.getIdLong(),
-                context.getServerId(), pair, message, fromDate);
+                context.serverId(), pair, message, fromDate);
 
         long alertId = alertsDao.addAlert(remainderAlert);
         String answer = context.user.getAsMention() + " New remainder added with id " + alertId +

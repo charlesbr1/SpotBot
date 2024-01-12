@@ -1,8 +1,6 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -22,7 +20,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
-import static net.dv8tion.jda.api.Permission.ADMINISTRATOR;
 import static org.sbot.alerts.Alert.*;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
@@ -37,33 +34,6 @@ public abstract class CommandAdapter implements CommandListener {
     private final String description;
     private final List<OptionData> options;
     protected int responseTtlSeconds;
-
-    private interface SecurityAccess {
-
-        private static boolean notFound(@Nullable UserIdServerIdType alert, @NotNull CommandContext context) {
-            return null == alert ||
-                    (isPrivate(alert.serverId()) && !alertBelongToUser(context.user, alert.userId())) ||
-                    (!isPrivate(alert.serverId()) && !alertIsOnMemberServer(context.member, alert.serverId()));
-        }
-
-        private static boolean isDenied(@NotNull UserIdServerIdType alert, @NotNull CommandContext context) {
-            return !(alertBelongToUser(context.user, alert.userId()) ||
-                    (alertIsOnMemberServer(context.member, alert.serverId()) && isAdminMember(context.member)));
-        }
-
-        private static boolean alertBelongToUser(@NotNull User user, long userId) {
-            return  user.getIdLong() == userId;
-        }
-
-        private static boolean alertIsOnMemberServer(@Nullable Member member, long serverId) {
-            return !isPrivate(serverId) && null != member &&
-                    member.getGuild().getIdLong() == serverId;
-        }
-
-        private static boolean isAdminMember(@Nullable Member member) {
-            return null != member && member.hasPermission(ADMINISTRATOR);
-        }
-    }
 
     protected CommandAdapter(@NotNull AlertsDao alertsDao, @NotNull String name, @NotNull String description, @NotNull List<OptionData> options, int responseTtlSeconds) {
         this.alertsDao = requireNonNull(alertsDao, "missing CommandAdapter alertDao");
@@ -98,17 +68,17 @@ public abstract class CommandAdapter implements CommandListener {
 
         UserIdServerIdType alert = alertsDao.getUserIdAndServerIdAndType(alertId).orElse(null);
 
-        if(SecurityAccess.notFound(alert, context)) {
+        if(SecurityAccess.notFound(context, alert)) {
             return new AnswerColorSmiley("Alert " + alertId + " not found", Color.red, ":ghost:");
-        } else if(SecurityAccess.isDenied(alert, context)) {
+        } else if(SecurityAccess.isDenied(context, alert)) {
             return new AnswerColorSmiley("You are not allowed to update alert " + alertId +
-                    (isPrivate(context.getServerId()) ? ", you are on a private channel." : ""), Color.black, ":clown:");
+                    (isPrivate(context.serverId()) ? ", you are on a private channel." : ""), Color.black, ":clown:");
         }
         return new AnswerColorSmiley(updateHandler.apply(alert.type()), Color.green, ":+1:");
     }
 
     protected static boolean isPrivateChannel(@NotNull CommandContext context) {
-        return isPrivate(context.getServerId());
+        return isPrivate(context.serverId());
     }
     public static EmbedBuilder embedBuilder(@Nullable String title, @Nullable Color color, @Nullable String text) {
         return new EmbedBuilder()

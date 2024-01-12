@@ -89,6 +89,8 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String COUNT_ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR = "SELECT COUNT(*) FROM alerts WHERE server_id=:serverId AND user_id=:userId AND pair LIKE '%:tickerOrPair%' LIMIT :limit OFFSET :offset";
         String ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR = "SELECT COUNT (*) FROM alerts WHERE server_id=:serverId AND user_id=:userId AND pair LIKE '%tickerOrPair%' LIMIT :limit OFFSET :offset";
         String DELETE_BY_ID = "DELETE FROM alerts WHERE id=:id";
+        String DELETE_BY_USER_ID_AND_SERVER_ID = "DELETE FROM alerts WHERE user_id=:userId AND server_id=:serverId";
+        String DELETE_BY_USER_ID_AND_SERVER_ID_AND_TICKER_OR_PAIR = "DELETE FROM alerts WHERE user_id=:userId AND server_id=:serverId AND pair LIKE '%:tickerOrPair%'";
         String INSERT_ALERT = "INSERT INTO alerts (id,type,user_id,server_id,exchange,pair,message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,repeat_delay) VALUES (:id,:type,:userId,:serverId,:exchange,:pair,:message,:fromPrice,:toPrice,:fromDate,:toDate,:lastTrigger,:margin,:repeat,:repeatDelay)";
         String UPDATE_ALERTS_MESSAGE = "UPDATE alerts SET message=:message WHERE id=:id";
         String UPDATE_ALERTS_MARGIN = "UPDATE alerts SET margin=:margin WHERE id=:id";
@@ -198,7 +200,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String sql = "SELECT id,message FROM alerts WHERE id IN (";
         return LongStream.of(alertIds).collect(
                 () -> new StringBuilder(sql.length() + 1 + (alertIds.length * 20)),
-                (sb, value) -> sb.append(sb.isEmpty() ? "," : sql).append(value),
+                (sb, value) -> sb.append(sb.isEmpty() ? sql : "," ).append(value),
                 StringBuilder::append).append(')').toString();
     }
 
@@ -223,7 +225,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     public long countAlertsOfUserAndTickers(long userId, @NotNull String tickerOrPair) {
         LOGGER.debug("countAlertsOfUserAndTickers {} {}", userId, tickerOrPair);
         return queryOneLong(SQL.COUNT_ALERTS_OF_USER_AND_TICKER_OR_PAIR,
-                Map.of("tickerOrPair", tickerOrPair, "userId", userId));
+                Map.of("userId", userId, "tickerOrPair", tickerOrPair));
     }
 
     @Override
@@ -243,14 +245,14 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     public long countAlertsOfServerAndTickers(long serverId, @NotNull String tickerOrPair) {
         LOGGER.debug("countAlertsOfServerAndTickers {} {}", serverId, tickerOrPair);
         return queryOneLong(SQL.COUNT_ALERTS_OF_SERVER_AND_TICKER_OR_PAIR,
-                Map.of("tickerOrPair", tickerOrPair, "serverId", serverId));
+                Map.of("serverId", serverId, "tickerOrPair", tickerOrPair));
     }
 
     @Override
     public long countAlertsOfServerAndUserAndTickers(long serverId, long userId, @NotNull String tickerOrPair) {
         LOGGER.debug("countAlertsOfServerAndUserAndTickers {} {} {}", serverId, userId, tickerOrPair);
         return queryOneLong(SQL.COUNT_ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR,
-                Map.of("tickerOrPair", tickerOrPair, "serverId", serverId, "userId", userId));
+                Map.of("serverId", serverId, "userId", userId, "tickerOrPair", tickerOrPair));
     }
 
     @Override
@@ -266,7 +268,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     public List<Alert> getAlertsOfUserAndTickers(long userId, long offset, long limit, @NotNull String tickerOrPair) {
         LOGGER.debug("getAlertsOfUserAndTickers {} {} {} {}", userId, offset, limit, tickerOrPair);
         return query(SQL.ALERTS_OF_USER_AND_TICKER_OR_PAIR, Alert.class,
-                Map.of("tickerOrPair", tickerOrPair, "userId", userId, "offset", offset, "limit", limit));
+                Map.of("userId", userId, "offset", offset, "limit", limit, "tickerOrPair", tickerOrPair));
     }
 
     @Override
@@ -291,7 +293,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     public List<Alert> getAlertsOfServerAndTickers(long serverId, long offset, long limit, @NotNull String tickerOrPair) {
         LOGGER.debug("getAlertsOfServerAndTickers {} {} {} {}", serverId, offset, limit, tickerOrPair);
         return query(SQL.ALERTS_OF_SERVER_AND_TICKER_OR_PAIR, Alert.class,
-                Map.of("tickerOrPair", tickerOrPair, "serverId", serverId, "offset", offset, "limit", limit));
+                Map.of("serverId", serverId, "offset", offset, "limit", limit, "tickerOrPair", tickerOrPair));
     }
 
     @Override
@@ -299,7 +301,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     public List<Alert> getAlertsOfServerAndUserAndTickers(long serverId, long userId, long offset, long limit, @NotNull String tickerOrPair) {
         LOGGER.debug("getAlertsOfServerAndUserAndTickers {} {} {} {} {}", serverId, userId, offset, limit, tickerOrPair);
         return query(SQL.ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR, Alert.class,
-                Map.of("tickerOrPair", tickerOrPair, "serverId", serverId, "userId", userId, "offset", offset, "limit", limit));
+                Map.of("serverId", serverId, "userId", userId, "offset", offset, "limit", limit, "tickerOrPair", tickerOrPair));
     }
 
     @Override
@@ -342,6 +344,20 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     public void deleteAlert(long alertId) {
         LOGGER.debug("deleteAlert {}", alertId);
         update(SQL.DELETE_BY_ID, Map.of("id", alertId));
+    }
+
+    @Override
+    public long deleteAlerts(long serverId, long userId) {
+        LOGGER.debug("deleteAlerts {} {}", serverId, userId);
+        return update(SQL.DELETE_BY_USER_ID_AND_SERVER_ID,
+                Map.of("userId", userId, "serverId", serverId));
+    }
+
+    @Override
+    public long deleteAlerts(long serverId, long userId, @NotNull String tickerOrPair) {
+        LOGGER.debug("deleteAlerts {} {} {}", serverId, userId, tickerOrPair);
+        return update(SQL.DELETE_BY_USER_ID_AND_SERVER_ID_AND_TICKER_OR_PAIR,
+                Map.of("userId", userId, "serverId", serverId, "tickerOrPair", tickerOrPair));
     }
 
     @Override

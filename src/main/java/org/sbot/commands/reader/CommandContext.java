@@ -58,7 +58,7 @@ public final class CommandContext {
                 .orElse("");
     }
 
-    public long getServerId() {
+    public long serverId() {
         return null != member ? member.getGuild().getIdLong() : PRIVATE_ALERT;
     }
 

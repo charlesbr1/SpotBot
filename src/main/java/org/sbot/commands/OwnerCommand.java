@@ -23,7 +23,7 @@ public final class OwnerCommand extends CommandAdapter {
     private static final int RESPONSE_TTL_SECONDS = 300;
 
     static final List<OptionData> options = List.of(
-            new OptionData(USER, "owner", "the owner of alerts to show", true),
+            new OptionData(USER, "user", "the owner of alerts to show", true),
             new OptionData(STRING, "ticker_pair", "a ticker or pair to filter on", false)
                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
             new OptionData(INTEGER, "offset", "an offset from where to start the search (results are limited to 1000 alerts)", false)
@@ -35,7 +35,7 @@ public final class OwnerCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        long ownerId = context.args.getMandatoryUserId("owner");
+        long ownerId = context.args.getMandatoryUserId("user");
         String tickerOrPair = null;
         Long offset = context.args.getLong("offset").orElse(null);
         if(null == offset) { // if the next arg can't be parsed as a long, may be it's a string
@@ -46,7 +46,7 @@ public final class OwnerCommand extends CommandAdapter {
         }
         var finalOffset = offset;
         var finalTickerOrPair = tickerOrPair;
-        LOGGER.debug("owner command - owner : {}, ticker_pair : {}, offset : {}", ownerId, finalTickerOrPair, finalOffset);
+        LOGGER.debug("owner command - user : {}, ticker_pair : {}, offset : {}", ownerId, finalTickerOrPair, finalOffset);
         alertsDao.transactional(() -> context.reply(responseTtlSeconds, owner(context, finalTickerOrPair, ownerId, requirePositive(finalOffset))));
     }
 
@@ -63,15 +63,15 @@ public final class OwnerCommand extends CommandAdapter {
                         alertsDao.countAlertsOfUserAndTickers(context.user.getIdLong(), tickerOrPair) :
                         alertsDao.countAlertsOfUser(context.user.getIdLong());
                 alertMessages = (null != tickerOrPair ?
-                        alertsDao.getAlertsOfUserAndTickers(context.getServerId(), offset, MESSAGE_PAGE_SIZE + 1, tickerOrPair) :
+                        alertsDao.getAlertsOfUserAndTickers(context.serverId(), offset, MESSAGE_PAGE_SIZE + 1, tickerOrPair) :
                         alertsDao.getAlertsOfUser(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE + 1))
                         .stream().map(CommandAdapter::toMessage).collect(toList());
             } else {
                 total = null != tickerOrPair ?
-                        alertsDao.countAlertsOfServerAndUserAndTickers(context.getServerId(), ownerId, tickerOrPair) :
-                        alertsDao.countAlertsOfServerAndUser(context.getServerId(), ownerId);
+                        alertsDao.countAlertsOfServerAndUserAndTickers(context.serverId(), ownerId, tickerOrPair) :
+                        alertsDao.countAlertsOfServerAndUser(context.serverId(), ownerId);
                 alertMessages = (null != tickerOrPair ?
-                        alertsDao.getAlertsOfServerAndUserAndTickers(context.getServerId(), ownerId, offset, MESSAGE_PAGE_SIZE + 1, tickerOrPair) :
+                        alertsDao.getAlertsOfServerAndUserAndTickers(context.serverId(), ownerId, offset, MESSAGE_PAGE_SIZE + 1, tickerOrPair) :
                         alertsDao.getAlertsOfServerAndUser(context.user.getIdLong(), ownerId, offset, MESSAGE_PAGE_SIZE + 1))
                         .stream().map(CommandAdapter::toMessage).collect(toList());
             }

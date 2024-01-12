@@ -235,7 +235,7 @@ public final class Discord {
         @Override
         public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
             if (acceptCommand(event.getUser(), event.getChannel())) {
-                LOGGER.debug("Discord slash command received : {}, with options {}", event.getName(), event.getOptions());
+                LOGGER.info("Discord slash command received from user {} : {}, with options {}", event.getUser().getEffectiveName(), event.getName(), event.getOptions());
                 onCommand(new CommandContext(event));
             } else {
                 event.replyEmbeds(embedBuilder("Sorry !", Color.black,
@@ -250,7 +250,7 @@ public final class Discord {
         @Override
         public void onMessageReceived(@NotNull MessageReceivedEvent event) {
             if (acceptCommand(event.getAuthor(), event.getChannel())) {
-                LOGGER.debug("Discord message received : {}", event.getMessage().getContentRaw());
+                LOGGER.info("Discord message received from user {} : {}", event.getAuthor().getEffectiveName(), event.getMessage().getContentRaw());
                 onCommand(new CommandContext(event));
             }
         }

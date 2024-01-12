@@ -45,12 +45,12 @@ public abstract class AbstractJDBI implements TransactionalCtx {
         return repository.getHandle();
     }
 
-    protected void update(@NotNull String sql, @NotNull Map<String, ?> parameters) {
-        repository.update(sql, parameters);
+    protected int update(@NotNull String sql, @NotNull Map<String, ?> parameters) {
+        return repository.update(sql, parameters);
     }
 
-    protected void update(@NotNull String sql, @NotNull Consumer<Update> mapper) {
-        repository.update(sql, mapper);
+    protected int update(@NotNull String sql, @NotNull Consumer<Update> mapper) {
+        return repository.update(sql, mapper);
     }
 
     @NotNull

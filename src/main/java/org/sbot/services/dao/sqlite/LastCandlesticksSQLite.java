@@ -39,8 +39,6 @@ public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCa
                 low TEXT NOT NULL) STRICT
                 """;
 
-        String CREATE_PAIR_INDEX = "CREATE INDEX IF NOT EXISTS last_candlesticks_pair_index ON last_candlesticks (pair)";
-
         String SELECT_BY_PAIR = "SELECT open_time,close_time,open,close,high,low FROM last_candlesticks WHERE pair = :pair";
         String SELECT_CLOSE_TIME_BY_PAIR = "SELECT close_time FROM last_candlesticks WHERE pair = :pair";
         String INSERT_LAST_CANDLESTICK = "INSERT INTO last_candlesticks (pair,open_time,close_time,open,close,high,low) VALUES (:pair,:open_time,:close_time,:open,:close,:high,:low)";
@@ -80,10 +78,7 @@ public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCa
 
     @Override
     protected void setupTable() {
-        transactional(() -> {
-            getHandle().execute(SQL.CREATE_TABLE);
-            getHandle().execute(SQL.CREATE_PAIR_INDEX);
-        });
+        transactional(() -> getHandle().execute(SQL.CREATE_TABLE));
     }
 
     @Override

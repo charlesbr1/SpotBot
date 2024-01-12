@@ -70,16 +70,16 @@ public final class JDBIRepository implements TransactionalCtx {
     }
 
 
-    public void update(@NotNull String sql, @NotNull Map<String, ?> parameters) {
+    public int update(@NotNull String sql, @NotNull Map<String, ?> parameters) {
         try (var query = getHandle().createUpdate(sql)) {
-            query.bindMap(parameters).execute();
+            return query.bindMap(parameters).execute();
         }
     }
 
-    public void update(@NotNull String sql, @NotNull Consumer<Update> mapper) {
+    public int update(@NotNull String sql, @NotNull Consumer<Update> mapper) {
         try (var query = getHandle().createUpdate(sql)) {
             mapper.accept(query);
-            query.execute();
+            return query.execute();
         }
     }
 

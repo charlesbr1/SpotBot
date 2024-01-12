@@ -227,6 +227,29 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
+    public long deleteAlerts(long serverId, long userId) {
+        LOGGER.debug("deleteAlerts {} {}", serverId, userId);
+        long[] removedAlerts = new long[] {0L};
+        alerts.entrySet().removeIf(entry ->
+                entry.getValue().userId == userId &&
+                entry.getValue().serverId == serverId &&
+                ++removedAlerts[0] != 0);
+        return removedAlerts[0];
+    }
+
+    @Override
+    public long deleteAlerts(long serverId, long userId, @NotNull String tickerOrPair) {
+        LOGGER.debug("deleteAlerts {} {} {}", serverId, userId, tickerOrPair);
+        long[] removedAlerts = new long[] {0L};
+        alerts.entrySet().removeIf(entry ->
+                entry.getValue().userId == userId &&
+                entry.getValue().serverId == serverId &&
+                entry.getValue().pair.contains(tickerOrPair) &&
+                ++removedAlerts[0] != 0);
+        return removedAlerts[0];
+    }
+
+    @Override
     public void matchedAlertBatchUpdates(@NotNull Consumer<BatchEntry> updater) {
         LOGGER.debug("matchedAlertBatchUpdates");
         updater.accept(alertId -> alerts.computeIfPresent(alertId,

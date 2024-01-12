@@ -17,7 +17,6 @@ import java.util.List;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.alerts.Alert.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.formatUTC;
@@ -77,7 +76,7 @@ public final class TrendCommand extends CommandAdapter {
             toPrice = value;
         }
         TrendAlert trendAlert = new TrendAlert(context.user.getIdLong(),
-                context.getServerId(),
+                context.serverId(),
                 exchange, pair, message, fromPrice, toPrice, fromDate, toDate);
 
         long alertId = alertsDao.addAlert(trendAlert);
