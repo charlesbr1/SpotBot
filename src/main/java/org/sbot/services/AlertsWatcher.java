@@ -216,7 +216,7 @@ public final class AlertsWatcher {
     }
 
     private void sendServerAlerts(@NotNull List<MatchingAlert> matchingAlerts, @NotNull Guild guild) {
-        List<String> roles = matchingAlerts.stream().map(MatchingAlert::status).anyMatch(MatchingStatus::notMatching) ? emptyList() :
+        List<String> roles = matchingAlerts.stream().map(MatchingAlert::status).anyMatch(MatchingStatus::notMatching) ? emptyList() : // no @SpotBot mention for a delete notification
                 spotBotRole(guild).map(Role::getId).stream().toList();
         long[] users = matchingAlerts.stream().map(MatchingAlert::alert).mapToLong(Alert::getUserId).distinct().toArray();
         //TODO user must still be on server check, or else <@123> appears in discord

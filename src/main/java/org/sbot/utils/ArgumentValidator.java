@@ -22,6 +22,8 @@ public interface ArgumentValidator {
     Pattern PAIR_PATTERN = Pattern.compile("^[A-Z]{" + ALERT_MIN_TICKER_LENGTH + ',' + ALERT_MAX_TICKER_LENGTH +
             "}/[A-Z]{" + ALERT_MIN_TICKER_LENGTH + ',' + ALERT_MAX_TICKER_LENGTH + "}$"); // TICKER/TICKER format
 
+    Pattern DISCORD_USER_ID_PATTERN = Pattern.compile("<@(\\d+)>"); // matches id from discord user mention
+
     static int requirePositive(int value) {
         return (int) requirePositive((long) value);
     }

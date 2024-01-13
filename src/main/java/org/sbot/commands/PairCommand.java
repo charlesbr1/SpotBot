@@ -49,7 +49,7 @@ public final class PairCommand extends CommandAdapter {
                     .stream().map(CommandAdapter::toMessage).collect(toList());
 
             return paginatedAlerts(alertMessages, offset, total,
-                    () -> "!pair " + tickerOrPair + ' ' + (offset + MESSAGE_PAGE_SIZE - 1),
+                    () -> "pair " + tickerOrPair + ' ' + (offset + MESSAGE_PAGE_SIZE - 1),
                     () -> " for ticker or pair : " + tickerOrPair);
         });
     }

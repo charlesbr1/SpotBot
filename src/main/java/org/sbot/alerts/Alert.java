@@ -177,7 +177,7 @@ public abstract class Alert {
                 "<@" + userId + ">\nYour " + type.name() + " set";
         return header + " on " + exchange + ' ' + pair +
                 (matchingStatus.notMatching() ? "" : (matchingStatus.isMargin() ? " reached **margin** threshold. Set a new one using :\n\n" +
-                        SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + "*!margin " + id + " 'amount in " + getSymbol(getTicker2()) + "'*" :
+                        SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + "*margin " + id + " 'amount in " + getSymbol(getTicker2()) + "'*" :
                         " was **tested !**") +  "\n\n:rocket: Check out the price !!") +
                 (matchingStatus.notMatching() && !hasRepeat(repeat) ? "\n\n**DISABLED**\n" : "");
     }

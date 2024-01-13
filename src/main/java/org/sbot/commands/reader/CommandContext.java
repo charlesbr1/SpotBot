@@ -22,6 +22,7 @@ import java.util.stream.Stream;
 import static java.util.Collections.emptyList;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.discord.Discord.MAX_MESSAGE_EMBEDS;
+import static org.sbot.utils.ArgumentValidator.DISCORD_USER_ID_PATTERN;
 
 public final class CommandContext {
 
@@ -51,11 +52,9 @@ public final class CommandContext {
         this.channel = event.getChannel();
         this.user = event.getAuthor();
         this.member = event.getMember();
-        this.args = new StringArgumentReader(event.getMessage().getContentRaw().strip());
-        this.name = args.getString("")
-                .filter(command -> command.startsWith("!"))
-                .map(command -> command.replaceFirst("!", ""))
-                .orElse("");
+        this.args = new StringArgumentReader(DISCORD_USER_ID_PATTERN
+                .matcher(event.getMessage().getContentRaw()).replaceAll("").strip());
+        this.name = args.getString("").orElse("");
     }
 
     public long serverId() {

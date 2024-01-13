@@ -15,10 +15,10 @@ import java.util.regex.Pattern;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
+import static org.sbot.utils.ArgumentValidator.DISCORD_USER_ID_PATTERN;
 
 public final class StringArgumentReader implements ArgumentReader {
 
-    private static final Pattern DISCORD_USER_ID_PATTERN = Pattern.compile("<@(\\d+)>"); // extract id from discord user mention
 
     @NotNull
     private String remainingArguments;

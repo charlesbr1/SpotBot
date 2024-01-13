@@ -77,7 +77,7 @@ public final class OwnerCommand extends CommandAdapter {
             }
 
             return paginatedAlerts(alertMessages, offset, total,
-                    () -> "!owner <@" + ownerId + '>' +
+                    () -> "owner <@" + ownerId + '>' +
                             (null != tickerOrPair ? ' ' + tickerOrPair : "") + ' ' + (offset + MESSAGE_PAGE_SIZE - 1),
                     () -> " for user <@" + ownerId + (null != tickerOrPair ? "> and " + tickerOrPair : ">"));
         });

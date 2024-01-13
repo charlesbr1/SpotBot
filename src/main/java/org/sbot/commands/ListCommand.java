@@ -67,7 +67,7 @@ public final class ListCommand extends CommandAdapter {
                     .stream().map(CommandAdapter::toMessage).collect(toList());
 
             return paginatedAlerts(alertMessages, offset, total,
-                    () -> "!list alerts " + (offset + MESSAGE_PAGE_SIZE - 1),
+                    () -> "list alerts " + (offset + MESSAGE_PAGE_SIZE - 1),
                     () -> "");
         });
     }

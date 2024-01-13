@@ -10,9 +10,14 @@ import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import net.dv8tion.jda.api.events.GenericEvent;
+import net.dv8tion.jda.api.events.guild.GuildBanEvent;
 import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.api.events.guild.GuildLeaveEvent;
+import net.dv8tion.jda.api.events.guild.GuildUnbanEvent;
+import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent;
+import net.dv8tion.jda.api.events.guild.member.GuildMemberRoleAddEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
@@ -34,7 +39,8 @@ import org.sbot.commands.reader.CommandContext;
 
 import java.awt.*;
 import java.util.List;
-import java.util.*;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -153,7 +159,7 @@ public final class Discord {
             LOGGER.info("Loading discord connection...");
             return JDABuilder.createLight(readFile(DISCORD_BOT_TOKEN_FILE),
                             GatewayIntent.GUILD_MESSAGES,
-                            GatewayIntent.MESSAGE_CONTENT,
+//                            GatewayIntent.GUILD_MODERATION,
                             GatewayIntent.DIRECT_MESSAGES)
                     .setActivity(Activity.watching("prices"))
                     .addEventListeners(new EventAdapter())
@@ -220,18 +226,54 @@ public final class Discord {
     private final class EventAdapter extends ListenerAdapter {
 
         @Override
+        public void onGuildMemberRoleAdd(GuildMemberRoleAddEvent event) {
+            Member member = event.getMember();
+            String roleId = event.getRoles().get(0).getId(); // Si vous voulez obtenir l'ID du premier rôle ajouté
+
+            LOGGER.error("Le rôle avec l'ID " + roleId + " a été ajouté à l'utilisateur " + member.getUser().getName() + " sur le serveur " + event.getGuild().getName());
+        }
+
+        @Override
+        public void onGenericEvent(@NotNull GenericEvent event) {
+            LOGGER.error("GenericEvent : " + event);
+        }
+
+        @Override
         public void onGuildJoin(@NotNull GuildJoinEvent event) {
             LOGGER.error("Guild server joined : " + event.getGuild());
         }
 
         @Override
-        public void onGuildMemberRemove(@NotNull GuildMemberRemoveEvent event) {
-            LOGGER.error("User " + event.getUser() + " leaved server : " + event.getGuild());
+        public void onGuildLeave(@NotNull GuildLeaveEvent event) {
+            LOGGER.error("Guild server leaved : " + event.getGuild());
         }
 
         @Override
-        public void onGuildLeave(@NotNull GuildLeaveEvent event) {
-            LOGGER.error("Guild server leaved : " + event.getGuild());
+        public void onGuildBan(@NotNull GuildBanEvent event) {
+            LOGGER.error("onGuildBan " + event);
+        }
+
+        @Override
+        public void onGuildUnban(@NotNull GuildUnbanEvent event) {
+            LOGGER.error("onGuildUnban " + event);
+        }
+
+        @Override
+        public void onGuildMemberJoin(GuildMemberJoinEvent event) {
+            // check si il y a des alerts en base et prévient l'admmin
+            LOGGER.error("L'utilisateur " + event.getUser().getName() + " a rejoint le serveur : " + event.getGuild().getName());
+        }
+
+        @Override
+        public void onGuildMemberRemove(@NotNull GuildMemberRemoveEvent event) {
+            Guild guild = event.getGuild();
+
+            // Obtenez la liste des membres
+            List<Member> members = guild.getMembers();
+            LOGGER.error("User " + event.getUser() + " leaved server : " + event.getGuild());
+            //TODO set user alerts private user _id or, migrate private
+            // + envoyer message a l'user pour le prevenir
+            // detecter les user ajouté au role spotBot pour leur envoyer un coucou
         }
 
         @Override
@@ -262,6 +304,9 @@ public final class Discord {
                 CommandListener listener = commands.get(command.name);
                 if(null != listener) {
                     listener.onCommand(command);
+                } else if(!command.name.isEmpty()) {
+                    command.reply(30, embedBuilder(":confused: Sorry !", Color.red,
+                            command.user.getAsMention() + " I don't know this command"));
                 }
             } catch (RuntimeException e) {
                 LOGGER.warn("Internal error while processing discord command: " + command.name, e);

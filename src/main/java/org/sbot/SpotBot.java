@@ -93,7 +93,7 @@ public class SpotBot {
                 new MessageCommand(alertsDao),
                 new RemainderCommand(alertsDao),
                 new SpotBotCommand(alertsDao),
-                new TimeZoneCommand(alertsDao),
+                new UtcCommand(alertsDao),
                 new UpTimeCommand(alertsDao));
     }
 }

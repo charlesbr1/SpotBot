@@ -65,7 +65,7 @@ public final class SpotBotCommand extends CommandAdapter {
             new Command(MarginCommand.NAME, MarginCommand.DESCRIPTION, MarginCommand.options),
             new Command(MessageCommand.NAME, MessageCommand.DESCRIPTION, MessageCommand.options),
             new Command(DeleteCommand.NAME, DeleteCommand.DESCRIPTION, DeleteCommand.options),
-            new Command(TimeZoneCommand.NAME, TimeZoneCommand.DESCRIPTION, TimeZoneCommand.options),
+            new Command(UtcCommand.NAME, UtcCommand.DESCRIPTION, UtcCommand.options),
             new Command(UpTimeCommand.NAME, UpTimeCommand.DESCRIPTION, emptyList()));
 
     private static final String DOC_HEADER = """
@@ -121,7 +121,7 @@ public final class SpotBotCommand extends CommandAdapter {
 
             You may also want to join role {role} to get notified of each alert occurring on the channel {channel}.
 
-            Now type **/** to use a command, or type it prefixed with char **!**
+            Now type **/** to use a command, or type it prefixed with my name {spotBot}
             
             For a description of each available commands use :
             ``` /spotbot commands```
@@ -130,16 +130,16 @@ public final class SpotBotCommand extends CommandAdapter {
             """;
 
     private static final String EXAMPLES_MESSAGE = """
-            * *!list alerts*
-            * *!owner @someone*
-            * *!pair ETH/USDT*
-            * *!range binance eth usdt 1800 1900 zone conso 1900 reached, see https://discord.com/channels...*
-            * *!trend binance eth usdt 1800 10/03/2019-12:30 1900 03/11/2021-16:00 daily uptrend tested, see https://discord.com/channels...*
-            * *!repeat 123 5*
-            * *!repeat-delay 123 24*
-            * *!margin 123 3*
-            * *!delete 123*
-            * *!remainder 10/03/2019-12:30 A message to receive at this date*
+            * *list alerts*
+            * *owner @someone*
+            * *pair ETH/USDT*
+            * *range binance eth usdt 1800 1900 zone conso 1900 reached, see https://discord.com/channels...*
+            * *trend binance eth usdt 1800 10/03/2019-12:30 1900 03/11/2021-16:00 daily uptrend tested, see https://discord.com/channels...*
+            * *repeat 123 5*
+            * *repeat-delay 123 24*
+            * *margin 123 3*
+            * *delete 123*
+            * *remainder 10/03/2019-12:30 A message to receive at this date*
             """;
 
     private static final FileUpload alertsPicture = FileUpload.fromData(requireNonNull(SpotBotCommand.class
@@ -153,27 +153,29 @@ public final class SpotBotCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         String choice = context.args.getString("choice").orElse(CHOICE_DOC);
         LOGGER.debug("spotBot command - choice : {}", choice);
-        context.reply(responseTtlSeconds, spotBot(choice, Optional.ofNullable(context.member).map(Member::getGuild).orElse(null)),
+        context.reply(responseTtlSeconds, spotBot(choice, context),
                 List.of(CHOICE_DOC.equals(choice) ? message -> message.addFiles(alertsPicture) : m -> {}));
     }
 
-    private List<EmbedBuilder> spotBot(@NotNull String choice, @Nullable Guild guild) {
+    private List<EmbedBuilder> spotBot(@NotNull String choice, @NotNull CommandContext context) {
         return switch (choice) {
-            case CHOICE_DOC -> doc(guild);
+            case CHOICE_DOC -> doc(context);
             case CHOICE_COMMANDS -> commands();
             case CHOICE_EXAMPLES -> examples();
             default -> throw new IllegalArgumentException("Invalid argument : " + choice);
         };
     }
-    private static List<EmbedBuilder> doc(@Nullable Guild guild) {
-        EmbedBuilder builder = embedBuilder(null, Color.green, formattedHeader(guild));
+    private static List<EmbedBuilder> doc(@NotNull CommandContext context) {
+        Guild guild = Optional.ofNullable(context.member).map(Member::getGuild).orElse(null);
+        String selfMention = context.channel.getJDA().getSelfUser().getAsMention();
+        EmbedBuilder builder = embedBuilder(null, Color.green, formattedHeader(guild, selfMention));
         builder.addBlankField(false);
         builder.setImage("attachment://" + ALERTS_PICTURE_FILE);
         builder.setFooter(DOC_FOOTER);
         return List.of(builder);
     }
 
-    private static String formattedHeader(@Nullable Guild guild) {
+    private static String formattedHeader(@Nullable Guild guild, @NotNull String selfMention) {
         String channel = Optional.ofNullable(guild).flatMap(Discord::getSpotBotChannel)
                 .map(Channel::getAsMention).orElse("**#" + DISCORD_BOT_CHANNEL + "** of your discord server");
         String role = Optional.ofNullable(guild).flatMap(Discord::spotBotRole)
@@ -182,7 +184,8 @@ public final class SpotBotCommand extends CommandAdapter {
                 .replace("{date-now}", Dates.formatUTC(Instant.now().atZone(ZoneOffset.UTC)))
                 .replace("{repeat}", ""+DEFAULT_REPEAT)
                 .replace("{repeat-delay}", ""+DEFAULT_REPEAT_DELAY_HOURS)
-                .replace("{channel}", channel).replace("{role}", role);
+                .replace("{channel}", channel).replace("{role}", role)
+                .replace("{spotBot}", selfMention);
     }
 
     private static String optionsDescription(List<OptionData> options) {

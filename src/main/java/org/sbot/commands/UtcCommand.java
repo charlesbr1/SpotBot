@@ -19,9 +19,9 @@ import static java.util.stream.Collectors.joining;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.utils.Dates.DATE_TIME_FORMATTER;
 
-public final class TimeZoneCommand extends CommandAdapter {
+public final class UtcCommand extends CommandAdapter {
 
-    public static final String NAME = "timezone";
+    public static final String NAME = "utc";
     static final String DESCRIPTION = "convert a date time into the utc time zone, helping with commands that expect a date in UTC";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
@@ -33,7 +33,7 @@ public final class TimeZoneCommand extends CommandAdapter {
                     .setMaxLength(4),
             new OptionData(STRING, "date", "a date to convert in UTC, expected format : " + Dates.DATE_TIME_FORMAT, false));
 
-    public TimeZoneCommand(@NotNull AlertsDao alertsDao) {
+    public UtcCommand(@NotNull AlertsDao alertsDao) {
         super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
@@ -41,7 +41,7 @@ public final class TimeZoneCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         String choice = context.args.getMandatoryString("zone");
         String date = context.args.getString("date").orElse(null);
-        LOGGER.debug("timezone command - choice : {}, date : {}", choice, date);
+        LOGGER.debug("utc command - choice : {}, date : {}", choice, date);
         context.reply(responseTtlSeconds, timezone(choice, date));
     }
 
@@ -65,7 +65,7 @@ public final class TimeZoneCommand extends CommandAdapter {
 
     private EmbedBuilder toUTC(@NotNull String timeZone, @Nullable String date) {
         if(!SHORT_IDS.containsKey(timeZone)) {
-            throw new IllegalArgumentException("Invalid time zone : " + timeZone + "\nuse *!utc list* to see the available ones");
+            throw new IllegalArgumentException("Invalid time zone : " + timeZone + "\nuse *utc list* to see the available ones");
         }
         if(null == date) {
             throw new IllegalArgumentException("Missing date time field");
