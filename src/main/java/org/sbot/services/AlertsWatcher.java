@@ -83,17 +83,17 @@ public final class AlertsWatcher {
         } catch (RuntimeException e) {
             LOGGER.error("Exception thrown while performing hourly alerts task", e);
         } finally {
-            try {
-                expiredAlertsCleanup();
-            } catch (RuntimeException e) {
-                LOGGER.error("Exception thrown while deleting old alerts", e);
-            }
+            expiredAlertsCleanup();
         }
     }
 
     void expiredAlertsCleanup() {
-        alertDao.transactional(() -> alertDao.deleteAlertsWithRepeatZeroAndLastTriggerBefore(ZonedDateTime.now().minusMonths(1)));
-        alertDao.transactional(() -> alertDao.deleteRangeAlertsWithToDateBefore(ZonedDateTime.now().minusWeeks(1)));
+        try {
+            alertDao.transactional(() -> alertDao.deleteAlertsWithRepeatZeroAndLastTriggerBefore(ZonedDateTime.now().minusMonths(1)));
+            alertDao.transactional(() -> alertDao.deleteRangeAlertsWithToDateBefore(ZonedDateTime.now().minusWeeks(1)));
+        } catch (RuntimeException e) {
+            LOGGER.error("Exception thrown while deleting old alerts", e);
+        }
     }
 
     private void raiseAlerts(@NotNull Exchange virtualExchange, @NotNull String pair) {
