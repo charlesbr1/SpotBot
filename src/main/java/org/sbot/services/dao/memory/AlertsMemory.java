@@ -11,10 +11,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -111,10 +108,10 @@ public final class AlertsMemory implements AlertsDao {
 
     @Override
     @NotNull
-    public Map<String, List<String>> getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange() {
+    public Map<String, Set<String>> getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange() {
         LOGGER.debug("getPairsByExchanges");
         return havingRepeatAndDelayOverWithActiveRange(alerts.values().stream())
-                .collect(groupingBy(Alert::getExchange, mapping(Alert::getPair, toList())));
+                .collect(groupingBy(Alert::getExchange, mapping(Alert::getPair, toSet())));
     }
 
     @Override

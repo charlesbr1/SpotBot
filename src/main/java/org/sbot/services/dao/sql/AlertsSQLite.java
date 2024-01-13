@@ -24,6 +24,7 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.LongStream;
@@ -229,12 +230,12 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
 
     @Override
     @NotNull
-    public Map<String, List<String>> getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange() {
+    public Map<String, Set<String>> getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange() {
         LOGGER.debug("getPairsByExchanges");
         try (var query = getHandle().createQuery(SQL.SELECT_PAIRS_BY_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE)) {
             return query.collectRows(groupingBy(
                     rowView -> rowView.getColumn("exchange", String.class),
-                    mapping(rowView -> rowView.getColumn("pair", String.class), toList())));
+                    mapping(rowView -> rowView.getColumn("pair", String.class), toSet())));
         }
     }
 

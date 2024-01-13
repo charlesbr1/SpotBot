@@ -65,21 +65,19 @@ public final class AlertsWatcher {
         try {
             var exchangePairs = alertDao.transactional(alertDao::getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange);
             exchangePairs.forEach((xchange, pairs) -> {  // one task by exchange / pair
-                boolean[] wait = new boolean[1];
+                var pairList = List.copyOf(pairs);
                 Exchanges.get(xchange).ifPresent(exchange -> {
-                    wait[0] = !exchange.isVirtual();
-                    final var lastPair = pairs.get(pairs.size() - 1);
-                    Thread.ofVirtual().start(() -> pairs.forEach(pair -> {
+                    Thread.ofVirtual().start(() -> pairList.forEach(pair -> {
                         if(exchange.isVirtual()) {
                             raiseAlerts(exchange, pair);
                         } else {
                             Thread.ofVirtual().name('[' + pair + "] SpotBot fetcher")
                                     .start(() -> getPricesAndRaiseAlerts(exchange, pair));
-                            LockSupport.parkNanos(pair == lastPair ? 0L : Duration.ofMillis(300L).toNanos()); // no need to flood the exchanges (or discord)
+                            LockSupport.parkNanos(pair.equals(pairList.get(pairList.size() - 1)) ? 0L : Duration.ofMillis(300L).toNanos()); // no need to flood the exchanges (or discord)
                         }
                     }));
+                    LockSupport.parkNanos(exchange.isVirtual() ? 0L : Duration.ofMillis(300L / (Math.min(10, exchangePairs.size()))).toNanos());
                 });
-                LockSupport.parkNanos(wait[0] ? Duration.ofMillis(300L / (Math.min(10, exchangePairs.size()))).toNanos() : 0L);
             });
         } catch (RuntimeException e) {
             LOGGER.error("Exception thrown while performing hourly alerts task", e);
