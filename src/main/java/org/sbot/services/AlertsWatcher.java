@@ -89,8 +89,12 @@ public final class AlertsWatcher {
 
     void expiredAlertsCleanup() {
         try {
-            alertDao.transactional(() -> alertDao.deleteAlertsWithRepeatZeroAndLastTriggerBefore(ZonedDateTime.now().minusMonths(1)));
-            alertDao.transactional(() -> alertDao.deleteRangeAlertsWithToDateBefore(ZonedDateTime.now().minusWeeks(1)));
+            ZonedDateTime expirationDate = ZonedDateTime.now().minusMonths(1);
+            long deleted = alertDao.transactional(() -> alertDao.deleteAlertsWithRepeatZeroAndLastTriggerBefore(expirationDate));
+            LOGGER.debug("Deleted {} alerts with repeat = 0 and lastTrigger < {}", deleted, expirationDate);
+            ZonedDateTime rangeExpirationDate = ZonedDateTime.now().minusWeeks(1L);
+            deleted = alertDao.transactional(() -> alertDao.deleteRangeAlertsWithToDateBefore(rangeExpirationDate));
+            LOGGER.debug("Deleted {} range alerts with toDate < {}", deleted, rangeExpirationDate);
         } catch (RuntimeException e) {
             LOGGER.error("Exception thrown while deleting old alerts", e);
         }
