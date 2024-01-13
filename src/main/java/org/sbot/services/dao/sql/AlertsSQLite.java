@@ -1,11 +1,10 @@
-package org.sbot.services.dao.sqlite;
+package org.sbot.services.dao.sql;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.generic.GenericType;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.SqlStatement;
-import org.jdbi.v3.core.statement.StatementContext;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.Alert;
 import org.sbot.alerts.Alert.Type;
@@ -13,13 +12,11 @@ import org.sbot.alerts.RangeAlert;
 import org.sbot.alerts.RemainderAlert;
 import org.sbot.alerts.TrendAlert;
 import org.sbot.services.dao.AlertsDao;
-import org.sbot.services.dao.sqlite.jdbi.AbstractJDBI;
-import org.sbot.services.dao.sqlite.jdbi.JDBIRepository;
-import org.sbot.services.dao.sqlite.jdbi.JDBIRepository.BatchEntry;
+import org.sbot.services.dao.sql.jdbi.AbstractJDBI;
+import org.sbot.services.dao.sql.jdbi.JDBIRepository;
+import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 
 import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
@@ -32,8 +29,7 @@ import java.util.stream.Stream;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
-import static org.sbot.services.dao.sqlite.AlertsSQLite.AlertMapper.bindFields;
-import static org.sbot.utils.Dates.parseDateTime;
+import static org.sbot.utils.Dates.parseDateTimeOrNull;
 
 public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
 
@@ -100,46 +96,49 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String UPDATE_ALERTS_REPEAT_DELAY = "UPDATE alerts SET repeat_delay=:repeatDelay WHERE id=:id";
     }
 
-    static final class AlertMapper implements RowMapper<Alert> {
+    // from jdbi SQL to Alert
+    private static final RowMapper<Alert> alertsMapper = (rs, ctx) -> {
+        Type type = Type.valueOf(rs.getString("type"));
+        long id = rs.getLong("id");
+        long userId = rs.getLong("user_id");
+        long serverId = rs.getLong("server_id");
+        String exchange = rs.getString("exchange");
+        String pair = rs.getString("pair");
+        String message = rs.getString("message");
+        ZonedDateTime lastTrigger = parseDateTimeOrNull(rs.getTimestamp("last_trigger"));
+        BigDecimal margin = rs.getBigDecimal("margin");
+        short repeat = rs.getShort("repeat");
+        short repeatDelay = rs.getShort("repeat_delay");
 
-        @Override // from SQL to Alert
-        public Alert map(ResultSet rs, StatementContext ctx) throws SQLException {
-            Type type = Type.valueOf(rs.getString("type"));
-            long id = rs.getLong("id");
-            long userId = rs.getLong("user_id");
-            long serverId = rs.getLong("server_id");
-            String exchange = rs.getString("exchange");
-            String pair = rs.getString("pair");
-            String message = rs.getString("message");
-            ZonedDateTime lastTrigger = parseDateTime(rs.getTimestamp("last_trigger"));
-            BigDecimal margin = rs.getBigDecimal("margin");
-            short repeat = rs.getShort("repeat");
-            short repeatDelay = rs.getShort("repeat_delay");
+        BigDecimal fromPrice = rs.getBigDecimal("from_price");
+        BigDecimal toPrice = rs.getBigDecimal("to_price");
+        ZonedDateTime fromDate = parseDateTimeOrNull(rs.getTimestamp("from_date"));
+        ZonedDateTime toDate = parseDateTimeOrNull(rs.getTimestamp("to_date"));
 
-            BigDecimal fromPrice = rs.getBigDecimal("from_price");
-            BigDecimal toPrice = rs.getBigDecimal("to_price");
-            ZonedDateTime fromDate = parseDateTime(rs.getTimestamp("from_date"));
-            ZonedDateTime toDate = parseDateTime(rs.getTimestamp("to_date"));
+        return switch (type) {
+            case range -> new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+            case trend -> new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, requireNonNull(fromDate, "missing from_date on trend alert " + id), requireNonNull(toDate, "missing to_date on a trend alert " + id), lastTrigger, margin, repeat, repeatDelay);
+            case remainder -> new RemainderAlert(id, userId, serverId, pair, message, requireNonNull(fromDate, "missing from_date on a remainder alert " + id), lastTrigger, margin, repeat);
+        };
+    };
 
-            return switch (type) {
-                case range -> new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
-                case trend -> new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, requireNonNull(fromDate, "missing from_date on trend alert " + id), requireNonNull(toDate, "missing to_date on a trend alert " + id), lastTrigger, margin, repeat, repeatDelay);
-                case remainder -> new RemainderAlert(id, userId, serverId, pair, message, requireNonNull(fromDate, "missing from_date on a remainder alert " + id), lastTrigger, margin, repeat);
-            };
-        }
-
-        // from Alert to SQL
-        static void bindFields(@NotNull Alert alert, @NotNull SqlStatement<?> query) {
-            query.bindFields(alert); // this bind common public fields from class Alert
-        }
+    // from Alert to jdbi SQL
+    private static void bindAlertFields(@NotNull Alert alert, @NotNull SqlStatement<?> query) {
+        query.bindFields(alert); // this bind common public fields from class Alert
     }
+
+    private static final RowMapper<UserIdServerIdType> userIdServerIdTypeMapper =
+            (rs, ctx) -> new UserIdServerIdType(
+                    rs.getLong("user_id"),
+                    rs.getLong("server_id"),
+                    Type.valueOf(rs.getString("type")));
 
     private final AtomicLong idGenerator;
 
     public AlertsSQLite(@NotNull JDBIRepository repository) {
-        super(repository, new AlertMapper());
-        idGenerator = new AtomicLong(transactional(this::getMaxId) + 1);
+        super(repository, alertsMapper, userIdServerIdTypeMapper);
         LOGGER.debug("Loading SQLite storage for alerts");
+        idGenerator = new AtomicLong(transactional(this::getMaxId) + 1);
     }
 
     @Override
@@ -161,20 +160,15 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     @Override
     public Optional<Alert> getAlert(long alertId) {
         LOGGER.debug("getAlert {}", alertId);
-        return findOne(SQL.SELECT_BY_ID, Alert.class, Map.of("id", alertId));
+        return findOne(SQL.SELECT_BY_ID, Alert.class,
+                Map.of("id", alertId));
     }
 
     @Override
     public Optional<UserIdServerIdType> getUserIdAndServerIdAndType(long alertId) {
         LOGGER.debug("getUserIdAndServerId {}", alertId);
-        try (var query = getHandle().createQuery(SQL.SELECT_USER_ID_AND_SERVER_ID_AND_TYPE_BY_ID)) {
-            return query.bind("id", alertId)
-                    .map((rs, ctx) -> new UserIdServerIdType(
-                                    rs.getLong("user_id"),
-                                    rs.getLong("server_id"),
-                                    Type.valueOf(rs.getString("type"))))
-                    .findOne();
-        }
+        return findOne(SQL.SELECT_USER_ID_AND_SERVER_ID_AND_TYPE_BY_ID, UserIdServerIdType.class,
+                Map.of("id", alertId));
     }
 
     @Override
@@ -199,9 +193,10 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     private static String selectAlertIdAndMessageByIdIn(long[] alertIds) {
         String sql = "SELECT id,message FROM alerts WHERE id IN (";
         return LongStream.of(alertIds).collect(
-                () -> new StringBuilder(sql.length() + 1 + (alertIds.length * 20)),
-                (sb, value) -> sb.append(sb.isEmpty() ? sql : "," ).append(value),
-                StringBuilder::append).append(')').toString();
+                        () -> new StringBuilder(sql.length() + 1 + (alertIds.length * 20)),
+                        (sb, value) -> sb.append(sb.isEmpty() ? sql : "," ).append(value),
+                        StringBuilder::append)
+                .append(')').toString();
     }
 
     @Override
@@ -308,7 +303,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     public long addAlert(@NotNull Alert alert) {
         var alertWithId = alert.withId(idGenerator::getAndIncrement);
         LOGGER.debug("addAlert {}, with new id {}", alert, alertWithId.id);
-        update(SQL.INSERT_ALERT, query -> bindFields(alertWithId, query));
+        update(SQL.INSERT_ALERT, query -> bindAlertFields(alertWithId, query));
         return alertWithId.id;
     }
 

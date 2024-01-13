@@ -1,4 +1,4 @@
-package org.sbot.services.dao.sqlite.jdbi;
+package org.sbot.services.dao.sql.jdbi;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -56,7 +56,7 @@ public final class JDBIRepository implements TransactionalCtx {
         var threadId = Thread.currentThread().threadId();
         LOGGER.debug("New transactional context, thread id {}, isolation level {}", threadId, isolationLevel);
         if(transactionalContexts.containsKey(threadId)) {
-            return callback.get();
+            return callback.get(); // this thread is already into a transactional context
         } else {
             try {
                 return jdbi.inTransaction(isolationLevel, handle -> {

@@ -29,7 +29,7 @@ public interface Dates {
     }
 
     @Nullable
-    static ZonedDateTime parseDateTime(@Nullable Timestamp timestamp) {
+    static ZonedDateTime parseDateTimeOrNull(@Nullable Timestamp timestamp) {
         return Optional.ofNullable(timestamp)
                 .map(dateTime -> dateTime.toLocalDateTime().atZone(ZoneOffset.UTC)).orElse(null);
     }

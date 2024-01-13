@@ -1,4 +1,4 @@
-package org.sbot.services.dao.sqlite.jdbi;
+package org.sbot.services.dao.sql.jdbi;
 
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.mapper.RowMapper;
@@ -6,11 +6,12 @@ import org.jdbi.v3.core.statement.Update;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.services.dao.TransactionalCtx;
-import org.sbot.services.dao.sqlite.jdbi.JDBIRepository.BatchEntry;
+import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -22,9 +23,11 @@ public abstract class AbstractJDBI implements TransactionalCtx {
 
     private final JDBIRepository repository;
 
-    protected AbstractJDBI(@NotNull JDBIRepository repository, @NotNull RowMapper<?> rowMapper) {
+    protected AbstractJDBI(@NotNull JDBIRepository repository, RowMapper<?>... rowMappers) {
         this.repository = requireNonNull(repository);
-        registerRowMapper(rowMapper);
+        Optional.ofNullable(rowMappers).stream().flatMap(Stream::of)
+                .filter(Objects::nonNull)
+                .forEach(this::registerRowMapper);
         setupTable();
     }
 

@@ -16,7 +16,7 @@ import org.sbot.discord.Discord;
 import org.sbot.exchanges.Exchange;
 import org.sbot.exchanges.Exchanges;
 import org.sbot.services.dao.AlertsDao;
-import org.sbot.services.dao.sqlite.jdbi.JDBIRepository.BatchEntry;
+import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 import org.sbot.utils.Dates;
 import org.sbot.utils.Dates.DaysHours;
 
@@ -64,10 +64,10 @@ public final class AlertsWatcher {
         try {
             var exchangePairs = alertDao.transactional(alertDao::getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange);
             exchangePairs.forEach((xchange, pairs) -> {  // one task by exchange / pair
-                boolean[] noWait = new boolean[1];
+                boolean[] wait = new boolean[1];
                 Exchanges.get(xchange).ifPresent(exchange -> {
-                    noWait[0] = exchange.isVirtual();
-                    var lastPair = pairs.get(pairs.size() - 1);
+                    wait[0] = !exchange.isVirtual();
+                    final var lastPair = pairs.get(pairs.size() - 1);
                     Thread.ofVirtual().start(() -> pairs.forEach(pair -> {
                         if(exchange.isVirtual()) {
                             raiseAlerts(exchange, pair);
@@ -78,7 +78,7 @@ public final class AlertsWatcher {
                         }
                     }));
                 });
-                LockSupport.parkNanos(noWait[0] ? 0L : Duration.ofMillis(300L / (Math.min(10, exchangePairs.size()))).toNanos());
+                LockSupport.parkNanos(wait[0] ? Duration.ofMillis(300L / (Math.min(10, exchangePairs.size()))).toNanos() : 0L);
             });
             monthlyAlertsCleanup();
         } catch (RuntimeException e) {

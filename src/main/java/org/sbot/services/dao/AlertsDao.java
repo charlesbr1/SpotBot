@@ -3,7 +3,7 @@ package org.sbot.services.dao;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.Alert;
 import org.sbot.alerts.Alert.Type;
-import org.sbot.services.dao.sqlite.jdbi.JDBIRepository.BatchEntry;
+import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 
 import java.math.BigDecimal;
 import java.util.List;

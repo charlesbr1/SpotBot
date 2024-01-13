@@ -12,9 +12,9 @@ import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.LastCandlesticksDao;
 import org.sbot.services.dao.memory.AlertsMemory;
 import org.sbot.services.dao.memory.LastCandlesticksMemory;
-import org.sbot.services.dao.sqlite.AlertsSQLite;
-import org.sbot.services.dao.sqlite.LastCandlesticksSQLite;
-import org.sbot.services.dao.sqlite.jdbi.JDBIRepository;
+import org.sbot.services.dao.sql.AlertsSQLite;
+import org.sbot.services.dao.sql.LastCandlesticksSQLite;
+import org.sbot.services.dao.sql.jdbi.JDBIRepository;
 import org.sbot.utils.PropertiesReader;
 
 import java.time.Duration;

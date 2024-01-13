@@ -1,27 +1,23 @@
-package org.sbot.services.dao.sqlite;
+package org.sbot.services.dao.sql;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.SqlStatement;
-import org.jdbi.v3.core.statement.StatementContext;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.chart.Candlestick;
 import org.sbot.services.dao.LastCandlesticksDao;
-import org.sbot.services.dao.sqlite.jdbi.AbstractJDBI;
-import org.sbot.services.dao.sqlite.jdbi.JDBIRepository;
+import org.sbot.services.dao.sql.jdbi.AbstractJDBI;
+import org.sbot.services.dao.sql.jdbi.JDBIRepository;
 
 import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
-import static org.sbot.services.dao.sqlite.LastCandlesticksSQLite.CandlestickMapper.bindFields;
 import static org.sbot.utils.ArgumentValidator.requirePairFormat;
-import static org.sbot.utils.Dates.parseDateTime;
+import static org.sbot.utils.Dates.parseDateTimeOrNull;
 
 public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCandlesticksDao {
 
@@ -39,40 +35,35 @@ public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCa
                 low TEXT NOT NULL) STRICT
                 """;
 
-        String SELECT_BY_PAIR = "SELECT open_time,close_time,open,close,high,low FROM last_candlesticks WHERE pair = :pair";
-        String SELECT_CLOSE_TIME_BY_PAIR = "SELECT close_time FROM last_candlesticks WHERE pair = :pair";
+        String SELECT_BY_PAIR = "SELECT open_time,close_time,open,close,high,low FROM last_candlesticks WHERE pair=:pair";
+        String SELECT_CLOSE_TIME_BY_PAIR = "SELECT close_time FROM last_candlesticks WHERE pair=:pair";
         String INSERT_LAST_CANDLESTICK = "INSERT INTO last_candlesticks (pair,open_time,close_time,open,close,high,low) VALUES (:pair,:open_time,:close_time,:open,:close,:high,:low)";
         String UPDATE_LAST_CANDLESTICK = "UPDATE last_candlesticks SET open_time=:openTime,close_time=:closeTime,open=:open,close=:close,high=:high,low=:low WHERE pair=:pair";
 
     }
 
-    static final class CandlestickMapper implements RowMapper<Candlestick> {
+    private static final RowMapper<Candlestick> candlestickMapper = (rs, ctx) -> {
+        ZonedDateTime openTime = parseDateTimeOrNull(rs.getTimestamp("open_time"));
+        ZonedDateTime closeTime = parseDateTimeOrNull(rs.getTimestamp("close_time"));
+        BigDecimal open = rs.getBigDecimal("open");
+        BigDecimal close = rs.getBigDecimal("close");
+        BigDecimal high = rs.getBigDecimal("high");
+        BigDecimal low = rs.getBigDecimal("low");
+        return new Candlestick(requireNonNull(openTime), requireNonNull(closeTime), open, close, high, low);
+    };
 
-        @Override // from SQL to Candlestick
-        public Candlestick map(ResultSet rs, StatementContext ctx) throws SQLException {
-            ZonedDateTime openTime = parseDateTime(rs.getTimestamp("open_time"));
-            ZonedDateTime closeTime = parseDateTime(rs.getTimestamp("close_time"));
-            BigDecimal open = rs.getBigDecimal("open");
-            BigDecimal close = rs.getBigDecimal("close");
-            BigDecimal high = rs.getBigDecimal("high");
-            BigDecimal low = rs.getBigDecimal("low");
-            return new Candlestick(requireNonNull(openTime), requireNonNull(closeTime), open, close, high, low);
-        }
-
-        // from Candlestick to SQL
-        static void bindFields(@NotNull String pair, @NotNull Candlestick candlestick, @NotNull SqlStatement<?> query) {
-            query.bind("pair", requirePairFormat(pair));
-            query.bind("openTime", candlestick.openTime());
-            query.bind("closeTime", candlestick.closeTime());
-            query.bind("open", candlestick.open());
-            query.bind("close", candlestick.close());
-            query.bind("high", candlestick.high());
-            query.bind("low", candlestick.low());
-        }
+    private static void bindCandlestickFields(@NotNull String pair, @NotNull Candlestick candlestick, @NotNull SqlStatement<?> query) {
+        query.bind("pair", requirePairFormat(pair));
+        query.bind("openTime", candlestick.openTime());
+        query.bind("closeTime", candlestick.closeTime());
+        query.bind("open", candlestick.open());
+        query.bind("close", candlestick.close());
+        query.bind("high", candlestick.high());
+        query.bind("low", candlestick.low());
     }
 
     public LastCandlesticksSQLite(@NotNull JDBIRepository repository) {
-        super(repository, new CandlestickMapper());
+        super(repository, candlestickMapper);
         LOGGER.debug("Loading SQLite storage for last_candlesticks");
     }
 
@@ -96,12 +87,12 @@ public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCa
     @Override
     public void setLastCandlestick(@NotNull String pair, @NotNull Candlestick candlestick) {
         LOGGER.debug("setLastCandlestick {} {}", pair, candlestick);
-        update(SQL.INSERT_LAST_CANDLESTICK, query -> bindFields(pair, candlestick, query));
+        update(SQL.INSERT_LAST_CANDLESTICK, query -> bindCandlestickFields(pair, candlestick, query));
     }
 
     @Override
     public void updateLastCandlestick(@NotNull String pair, @NotNull Candlestick candlestick) {
         LOGGER.debug("updateLastCandlestick {} {}", pair, candlestick);
-        update(SQL.UPDATE_LAST_CANDLESTICK, query -> bindFields(pair, candlestick, query));
+        update(SQL.UPDATE_LAST_CANDLESTICK, query -> bindCandlestickFields(pair, candlestick, query));
     }
 }
