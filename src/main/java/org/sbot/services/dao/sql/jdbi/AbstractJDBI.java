@@ -23,7 +23,7 @@ public abstract class AbstractJDBI implements TransactionalCtx {
 
     private final JDBIRepository repository;
 
-    protected AbstractJDBI(@NotNull JDBIRepository repository, RowMapper<?>... rowMappers) {
+    protected AbstractJDBI(@NotNull JDBIRepository repository, RowMapper<?> ...rowMappers) {
         this.repository = requireNonNull(repository);
         Optional.ofNullable(rowMappers).stream().flatMap(Stream::of)
                 .filter(Objects::nonNull)
@@ -61,8 +61,8 @@ public abstract class AbstractJDBI implements TransactionalCtx {
         return repository.query(sql, type, parameters);
     }
 
-    public <T> void fetch(@NotNull String sql, @NotNull Class<T> type, @NotNull Map<String, ?> parameters, @NotNull Consumer<Stream<T>> streamConsumer) {
-        repository.fetch(sql, type, parameters, streamConsumer);
+    public <T> long fetch(@NotNull String sql, @NotNull Class<T> type, @NotNull Map<String, ?> parameters, @NotNull Consumer<Stream<T>> streamConsumer) {
+        return repository.fetch(sql, type, parameters, streamConsumer);
     }
 
     public <T> Optional<T> findOne(@NotNull String sql, @NotNull Class<T> type, @NotNull Map<String, ?> parameters) {

@@ -90,9 +90,12 @@ public final class JDBIRepository implements TransactionalCtx {
         }
     }
 
-    public <T> void fetch(@NotNull String sql, @NotNull Class<T> type, @NotNull Map<String, ?> parameters, @NotNull Consumer<Stream<T>> streamConsumer) {
+    public <T> long fetch(@NotNull String sql, @NotNull Class<T> type, @NotNull Map<String, ?> parameters, @NotNull Consumer<Stream<T>> streamConsumer) {
         try (var query = getHandle().createQuery(sql)) {
-            streamConsumer.accept(query.bindMap(parameters).mapTo(type).stream());
+            long[] read = new long[] {0L};
+            streamConsumer.accept(query.bindMap(parameters).mapTo(type)
+                    .stream().filter(v -> ++read[0] != 0));
+            return read[0];
         }
     }
 

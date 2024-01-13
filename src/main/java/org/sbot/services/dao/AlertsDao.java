@@ -20,7 +20,10 @@ public interface AlertsDao extends TransactionalCtx {
     record UserIdServerIdType(long userId, long serverId, @NotNull Type type) {}
     Optional<UserIdServerIdType> getUserIdAndServerIdAndType(long alertId);
 
-    void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer);
+    long fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer);
+    long fetchAlertsHavingRepeatZeroAndLastTriggerBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer);
+    long fetchRangeAlertsHavingToDateBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer);
+
     @NotNull
     Map<Long, String> getAlertMessages(@NotNull long[] alertIds);
 
@@ -59,9 +62,6 @@ public interface AlertsDao extends TransactionalCtx {
     void deleteAlert(long alertId);
     long deleteAlerts(long serverId, long userId);
     long deleteAlerts(long serverId, long userId, @NotNull String tickerOrPair);
-
-    long deleteAlertsWithRepeatZeroAndLastTriggerBefore(@NotNull ZonedDateTime expirationDate);
-    long deleteRangeAlertsWithToDateBefore(@NotNull ZonedDateTime expirationDate);
 
     void matchedAlertBatchUpdates(@NotNull Consumer<BatchEntry> updater);
     void marginAlertBatchUpdates(@NotNull Consumer<BatchEntry> updater);

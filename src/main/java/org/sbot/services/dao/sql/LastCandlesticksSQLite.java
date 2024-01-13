@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.SqlStatement;
+import org.jdbi.v3.core.statement.StatementContext;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.chart.Candlestick;
 import org.sbot.services.dao.LastCandlesticksDao;
@@ -11,6 +12,8 @@ import org.sbot.services.dao.sql.jdbi.AbstractJDBI;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository;
 
 import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
@@ -42,15 +45,18 @@ public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCa
 
     }
 
-    private static final RowMapper<Candlestick> candlestickMapper = (rs, ctx) -> {
-        ZonedDateTime openTime = parseDateTimeOrNull(rs.getTimestamp("open_time"));
-        ZonedDateTime closeTime = parseDateTimeOrNull(rs.getTimestamp("close_time"));
-        BigDecimal open = rs.getBigDecimal("open");
-        BigDecimal close = rs.getBigDecimal("close");
-        BigDecimal high = rs.getBigDecimal("high");
-        BigDecimal low = rs.getBigDecimal("low");
-        return new Candlestick(requireNonNull(openTime), requireNonNull(closeTime), open, close, high, low);
-    };
+    private static final class CandlestickMapper implements RowMapper<Candlestick> {
+        @Override
+        public Candlestick map(ResultSet rs, StatementContext ctx) throws SQLException {
+            ZonedDateTime openTime = parseDateTimeOrNull(rs.getTimestamp("open_time"));
+            ZonedDateTime closeTime = parseDateTimeOrNull(rs.getTimestamp("close_time"));
+            BigDecimal open = rs.getBigDecimal("open");
+            BigDecimal close = rs.getBigDecimal("close");
+            BigDecimal high = rs.getBigDecimal("high");
+            BigDecimal low = rs.getBigDecimal("low");
+            return new Candlestick(requireNonNull(openTime), requireNonNull(closeTime), open, close, high, low);
+        }
+    }
 
     private static void bindCandlestickFields(@NotNull String pair, @NotNull Candlestick candlestick, @NotNull SqlStatement<?> query) {
         query.bind("pair", requirePairFormat(pair));
@@ -63,7 +69,7 @@ public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCa
     }
 
     public LastCandlesticksSQLite(@NotNull JDBIRepository repository) {
-        super(repository, candlestickMapper);
+        super(repository, new CandlestickMapper());
         LOGGER.debug("Loading SQLite storage for last_candlesticks");
     }
 

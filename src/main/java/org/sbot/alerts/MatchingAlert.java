@@ -15,6 +15,10 @@ public record MatchingAlert(@NotNull Alert alert, @NotNull MatchingStatus status
         MARGIN,
         NOT_MATCHING;
 
+        public boolean isMatched() {
+            return this == MATCHED;
+        }
+
         public boolean isMargin() {
             return this == MARGIN;
         }

@@ -53,13 +53,38 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+    public long fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
         LOGGER.debug("fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats {} {}", exchange, pair);
+        long[] read = new long[] {0L};
         alertsConsumer.accept(havingRepeatAndDelayOverWithActiveRange(
                 alerts.values().stream()
                 .filter(alert -> alert.exchange.equals(exchange))
                 .filter(alert -> alert.pair.equals(pair)))
-                .map(alert -> alert.withMessage(""))); // erase the message to simulate the SQL layer
+                .map(alert -> alert.withMessage("")) // erase the message to simulate the SQL layer
+                .filter(alert -> ++read[0] != 0));
+        return read[0];
+    }
+
+    @Override
+    public long fetchAlertsHavingRepeatZeroAndLastTriggerBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchAlertsHavingRepeatZeroAndLastTriggerBefore {}", expirationDate);
+        long[] read = new long[] {0L};
+        alertsConsumer.accept(alerts.values().stream()
+                .filter(alert -> alert.repeat <= 0)
+                .filter(alert -> requireNonNull(alert.lastTrigger).isBefore(expirationDate))
+                .filter(alert -> ++read[0] != 0));
+        return read[0];
+    }
+
+    @Override
+    public long fetchRangeAlertsHavingToDateBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchRangeAlertsHavingToDateBefore {}", expirationDate);
+        long[] read = new long[] {0L};
+        alertsConsumer.accept(alerts.values().stream()
+                .filter(alert -> alert.type == range)
+                .filter(alert -> requireNonNull(alert.toDate).isBefore(expirationDate))
+                .filter(alert -> ++read[0] != 0));
+        return read[0];
     }
 
     @NotNull
@@ -246,29 +271,6 @@ public final class AlertsMemory implements AlertsDao {
                 entry.getValue().userId == userId &&
                 entry.getValue().serverId == serverId &&
                 entry.getValue().pair.contains(tickerOrPair) &&
-                ++removedAlerts[0] != 0);
-        return removedAlerts[0];
-    }
-
-    @Override
-    public long deleteAlertsWithRepeatZeroAndLastTriggerBefore(@NotNull ZonedDateTime expirationDate) {
-        LOGGER.debug("deleteAlertsWithRepeatZeroAndLastTriggerBefore {}", expirationDate);
-        long[] removedAlerts = new long[] {0L};
-        alerts.entrySet().removeIf(entry ->
-                entry.getValue().repeat <= 0 &&
-                requireNonNull(entry.getValue().lastTrigger).isBefore(expirationDate) &&
-                ++removedAlerts[0] != 0);
-        return removedAlerts[0];
-    }
-
-    @Override
-    public long deleteRangeAlertsWithToDateBefore(@NotNull ZonedDateTime expirationDate) {
-        LOGGER.debug("deleteRangeAlertsWithToDateBefore {}", expirationDate);
-        long[] removedAlerts = new long[] {0L};
-        alerts.entrySet().removeIf(entry ->
-                entry.getValue().type == range &&
-                null != entry.getValue().toDate &&
-                entry.getValue().toDate.isBefore(expirationDate) &&
                 ++removedAlerts[0] != 0);
         return removedAlerts[0];
     }

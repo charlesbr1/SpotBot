@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.generic.GenericType;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.SqlStatement;
+import org.jdbi.v3.core.statement.StatementContext;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.Alert;
 import org.sbot.alerts.Alert.Type;
@@ -17,6 +18,8 @@ import org.sbot.services.dao.sql.jdbi.JDBIRepository;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 
 import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
@@ -68,6 +71,10 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
                 "AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * repeat_delay)) <= (1000 * (300 + unixepoch('now', 'utc')))) " +
                 "AND (type NOT LIKE 'remainder' OR (from_date < (3600 + unixepoch('now', 'utc'))) OR (from_date > (unixepoch('now', 'utc') - 3600))) " +
                 "AND (type NOT LIKE 'range' OR from_date IS NULL OR (from_date < (3600 + unixepoch('now', 'utc')) AND (to_date IS NULL OR to_date > (unixepoch('now', 'utc') - 3600))))";
+        String SELECT_HAVING_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE = "SELECT * FROM alerts WHERE repeat=0 AND last_trigger<=:expirationDate";
+
+        String SELECT_HAVING_RANGE_ALERT_WITH_TO_DATE_BEFORE = "SELECT * FROM alerts WHERE type LIKE 'range' AND to_date<=:expirationDate";
+
         String SELECT_PAIRS_BY_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE = "SELECT DISTINCT exchange,pair AS pair FROM alerts " +
                 "WHERE repeat > 0 AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * repeat_delay)) <= (1000 * (300 + unixepoch('now', 'utc')))) " +
                 "AND (type NOT LIKE 'remainder' OR (from_date < (3600 + unixepoch('now', 'utc'))) OR (from_date > (unixepoch('now', 'utc') - 3600))) " +
@@ -87,8 +94,6 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String DELETE_BY_ID = "DELETE FROM alerts WHERE id=:id";
         String DELETE_BY_USER_ID_AND_SERVER_ID = "DELETE FROM alerts WHERE user_id=:userId AND server_id=:serverId";
         String DELETE_BY_USER_ID_AND_SERVER_ID_AND_TICKER_OR_PAIR = "DELETE FROM alerts WHERE user_id=:userId AND server_id=:serverId AND pair LIKE '%:tickerOrPair%'";
-        String DELETE_WITH_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE = "DELETE FROM alerts WHERE repeat=0 AND last_trigger<=:expirationDate";
-        String DELETE_RANGE_ALERT_WITH_TO_DATE_BEFORE = "DELETE FROM alerts WHERE type LIKE 'range' AND to_date<=:expirationDate";
         String INSERT_ALERT = "INSERT INTO alerts (id,type,user_id,server_id,exchange,pair,message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,repeat_delay) VALUES (:id,:type,:userId,:serverId,:exchange,:pair,:message,:fromPrice,:toPrice,:fromDate,:toDate,:lastTrigger,:margin,:repeat,:repeatDelay)";
         String UPDATE_ALERTS_MESSAGE = "UPDATE alerts SET message=:message WHERE id=:id";
         String UPDATE_ALERTS_MARGIN = "UPDATE alerts SET margin=:margin WHERE id=:id";
@@ -99,46 +104,53 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     }
 
     // from jdbi SQL to Alert
-    private static final RowMapper<Alert> alertsMapper = (rs, ctx) -> {
-        Type type = Type.valueOf(rs.getString("type"));
-        long id = rs.getLong("id");
-        long userId = rs.getLong("user_id");
-        long serverId = rs.getLong("server_id");
-        String exchange = rs.getString("exchange");
-        String pair = rs.getString("pair");
-        String message = rs.getString("message");
-        ZonedDateTime lastTrigger = parseDateTimeOrNull(rs.getTimestamp("last_trigger"));
-        BigDecimal margin = rs.getBigDecimal("margin");
-        short repeat = rs.getShort("repeat");
-        short repeatDelay = rs.getShort("repeat_delay");
+    private static final class AlertMapper implements RowMapper<Alert> {
+        @Override
+        public Alert map(ResultSet rs, StatementContext ctx) throws SQLException {
+            Type type = Type.valueOf(rs.getString("type"));
+            long id = rs.getLong("id");
+            long userId = rs.getLong("user_id");
+            long serverId = rs.getLong("server_id");
+            String exchange = rs.getString("exchange");
+            String pair = rs.getString("pair");
+            String message = rs.getString("message");
+            ZonedDateTime lastTrigger = parseDateTimeOrNull(rs.getTimestamp("last_trigger"));
+            BigDecimal margin = rs.getBigDecimal("margin");
+            short repeat = rs.getShort("repeat");
+            short repeatDelay = rs.getShort("repeat_delay");
 
-        BigDecimal fromPrice = rs.getBigDecimal("from_price");
-        BigDecimal toPrice = rs.getBigDecimal("to_price");
-        ZonedDateTime fromDate = parseDateTimeOrNull(rs.getTimestamp("from_date"));
-        ZonedDateTime toDate = parseDateTimeOrNull(rs.getTimestamp("to_date"));
+            BigDecimal fromPrice = rs.getBigDecimal("from_price");
+            BigDecimal toPrice = rs.getBigDecimal("to_price");
+            ZonedDateTime fromDate = parseDateTimeOrNull(rs.getTimestamp("from_date"));
+            ZonedDateTime toDate = parseDateTimeOrNull(rs.getTimestamp("to_date"));
 
-        return switch (type) {
-            case range -> new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
-            case trend -> new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, requireNonNull(fromDate, "missing from_date on trend alert " + id), requireNonNull(toDate, "missing to_date on a trend alert " + id), lastTrigger, margin, repeat, repeatDelay);
-            case remainder -> new RemainderAlert(id, userId, serverId, pair, message, requireNonNull(fromDate, "missing from_date on a remainder alert " + id), lastTrigger, margin, repeat);
-        };
-    };
+            return switch (type) {
+                case range -> new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+                case trend -> new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, requireNonNull(fromDate, "missing from_date on trend alert " + id), requireNonNull(toDate, "missing to_date on a trend alert " + id), lastTrigger, margin, repeat, repeatDelay);
+                case remainder -> new RemainderAlert(id, userId, serverId, pair, message, requireNonNull(fromDate, "missing from_date on a remainder alert " + id), lastTrigger, margin, repeat);
+            };
+        }
+    }
 
     // from Alert to jdbi SQL
     private static void bindAlertFields(@NotNull Alert alert, @NotNull SqlStatement<?> query) {
         query.bindFields(alert); // this bind common public fields from class Alert
     }
 
-    private static final RowMapper<UserIdServerIdType> userIdServerIdTypeMapper =
-            (rs, ctx) -> new UserIdServerIdType(
+    private static final class UserIdServerIdTypeMapper implements RowMapper<UserIdServerIdType> {
+        @Override
+        public UserIdServerIdType map(ResultSet rs, StatementContext ctx) throws SQLException {
+            return new UserIdServerIdType(
                     rs.getLong("user_id"),
                     rs.getLong("server_id"),
                     Type.valueOf(rs.getString("type")));
+        }
+    }
 
     private final AtomicLong idGenerator;
 
     public AlertsSQLite(@NotNull JDBIRepository repository) {
-        super(repository, alertsMapper, userIdServerIdTypeMapper);
+        super(repository, new AlertMapper(), new UserIdServerIdTypeMapper());
         LOGGER.debug("Loading SQLite storage for alerts");
         idGenerator = new AtomicLong(transactional(this::getMaxId) + 1);
     }
@@ -174,10 +186,24 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     }
 
     @Override
-    public void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+    public long fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
         LOGGER.debug("fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats {} {}", exchange, pair);
-        fetch(SQL.SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE,
+        return fetch(SQL.SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE,
                 Alert.class, Map.of("exchange", exchange, "pair", pair), alertsConsumer);
+    }
+
+    @Override
+    public long fetchAlertsHavingRepeatZeroAndLastTriggerBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchAlertsHavingRepeatZeroAndLastTriggerBefore {}", expirationDate);
+        return fetch(SQL.SELECT_HAVING_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE, Alert.class,
+                Map.of("expirationDate", 1000L * expirationDate.toEpochSecond()), alertsConsumer);
+    }
+
+    @Override
+    public long fetchRangeAlertsHavingToDateBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchRangeAlertsHavingToDateBefore {}", expirationDate);
+        return fetch(SQL.SELECT_HAVING_RANGE_ALERT_WITH_TO_DATE_BEFORE, Alert.class,
+                Map.of("expirationDate", 1000L * expirationDate.toEpochSecond()), alertsConsumer);
     }
 
     @Override
@@ -355,21 +381,6 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         LOGGER.debug("deleteAlerts {} {} {}", serverId, userId, tickerOrPair);
         return update(SQL.DELETE_BY_USER_ID_AND_SERVER_ID_AND_TICKER_OR_PAIR,
                 Map.of("userId", userId, "serverId", serverId, "tickerOrPair", tickerOrPair));
-    }
-
-    @Override
-    public long deleteAlertsWithRepeatZeroAndLastTriggerBefore(@NotNull ZonedDateTime expirationDate) {
-        LOGGER.debug("deleteAlertsWithRepeatZeroAndLastTriggerBefore {}", expirationDate);
-        return update(SQL.DELETE_WITH_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE,
-                Map.of("expirationDate", 1000L * expirationDate.toEpochSecond()));
-    }
-
-    @Override
-    public long deleteRangeAlertsWithToDateBefore(@NotNull ZonedDateTime expirationDate) {
-        LOGGER.debug("deleteRangeAlertsWithToDateBefore {}", expirationDate);
-        return update(SQL.DELETE_RANGE_ALERT_WITH_TO_DATE_BEFORE,
-                Map.of("expirationDate", 1000L * expirationDate.toEpochSecond()));
-
     }
 
     @Override

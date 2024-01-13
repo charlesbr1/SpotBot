@@ -27,19 +27,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.locks.LockSupport;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.*;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.joining;
 import static net.dv8tion.jda.api.entities.MessageEmbed.TITLE_MAX_LENGTH;
 import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.alerts.Alert.isPrivate;
-import static org.sbot.alerts.MatchingAlert.MatchingStatus.MARGIN;
+import static org.sbot.alerts.MatchingAlert.MatchingStatus.NOT_MATCHING;
 import static org.sbot.alerts.RemainderAlert.REMAINDER_VIRTUAL_EXCHANGE;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
-import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.discord.Discord.spotBotRole;
 import static org.sbot.utils.PartitionSpliterator.split;
 
@@ -83,18 +84,29 @@ public final class AlertsWatcher {
         } catch (RuntimeException e) {
             LOGGER.error("Exception thrown while performing hourly alerts task", e);
         } finally {
-            expiredAlertsCleanup();
+            Thread.ofVirtual().name("SpotBot expired alerts cleaner").start(this::expiredAlertsCleanup);
         }
     }
 
     void expiredAlertsCleanup() {
         try {
-            ZonedDateTime expirationDate = ZonedDateTime.now().minusMonths(1);
-            long deleted = alertDao.transactional(() -> alertDao.deleteAlertsWithRepeatZeroAndLastTriggerBefore(expirationDate));
-            LOGGER.debug("Deleted {} alerts with repeat = 0 and lastTrigger < {}", deleted, expirationDate);
-            ZonedDateTime rangeExpirationDate = ZonedDateTime.now().minusWeeks(1L);
-            deleted = alertDao.transactional(() -> alertDao.deleteRangeAlertsWithToDateBefore(rangeExpirationDate));
-            LOGGER.debug("Deleted {} range alerts with toDate < {}", deleted, rangeExpirationDate);
+            Consumer<Stream<Alert>> alertsDeleter = alerts -> alertDao.alertBatchDeletes(deleter ->
+                    split(STREAM_BUFFER_SIZE, true, alerts
+                            .map(alert -> new MatchingAlert(alert, NOT_MATCHING, null)))
+                            .flatMap(this::sendDiscordNotifications)
+                            .forEach(matchingAlert -> deleter.batchId(matchingAlert.alert().id)));
+
+            alertDao.transactional(() -> {
+                ZonedDateTime expirationDate = ZonedDateTime.now().minusMonths(1L);
+                long deleted = alertDao.fetchAlertsHavingRepeatZeroAndLastTriggerBefore(expirationDate, alertsDeleter);
+                LOGGER.debug("Deleted {} alerts with repeat = 0 and lastTrigger < {}", deleted, expirationDate);
+            });
+
+            alertDao.transactional(() -> {
+                ZonedDateTime expirationDate = ZonedDateTime.now().minusWeeks(1L);
+                long deleted = alertDao.fetchRangeAlertsHavingToDateBefore(expirationDate, alertsDeleter);
+                LOGGER.debug("Deleted {} range alerts with toDate < {}", deleted, expirationDate);
+            });
         } catch (RuntimeException e) {
             LOGGER.error("Exception thrown while deleting old alerts", e);
         }
@@ -152,13 +164,14 @@ public final class AlertsWatcher {
     }
 
     private void processMatchingAlerts(@NotNull Exchange exchange, @NotNull String pair, @NotNull List<Candlestick> prices, @Nullable Candlestick previousPrice) {
-        alertDao.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(exchange.name(), pair,
+        long read = alertDao.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(exchange.name(), pair,
                 alerts -> batchAlertsUpdates(
                         split(STREAM_BUFFER_SIZE, true, alerts
                                 .map(alert -> alert.match(prices, previousPrice))
                                 .filter(MatchingAlert::hasMatch))
                         .map(this::fetchAlertsMessage)
                         .flatMap(this::sendDiscordNotifications)));
+        LOGGER.debug("Processed {} alerts", read);
     }
 
     private void batchAlertsUpdates(@NotNull Stream<MatchingAlert> matchingAlerts) {
@@ -205,11 +218,12 @@ public final class AlertsWatcher {
     }
 
     private void sendServerAlerts(@NotNull List<MatchingAlert> matchingAlerts, @NotNull Guild guild) {
-        var roles = spotBotRole(guild).map(Role::getId).stream().toList();
-        var users = matchingAlerts.stream().map(MatchingAlert::alert).mapToLong(Alert::getUserId).distinct().toArray();
+        List<String> roles = matchingAlerts.stream().map(MatchingAlert::status).anyMatch(MatchingStatus::notMatching) ? emptyList() :
+                spotBotRole(guild).map(Role::getId).stream().toList();
+        long[] users = matchingAlerts.stream().map(MatchingAlert::alert).mapToLong(Alert::getUserId).distinct().toArray();
         //TODO user must still be on server check, or else <@123> appears in discord
         discord.spotBotChannel(guild).ifPresent(channel ->
-                channel.sendMessages(toMessage(matchingAlerts),
+                channel.sendMessages(toMessages(matchingAlerts),
                         List.of(message -> requireNonNull(message.mentionRoles(roles).mentionUsers(users)))));
     }
 
@@ -218,20 +232,22 @@ public final class AlertsWatcher {
                 .forEach((userId, userAlerts) -> // retrieving user channel is a blocking task (there is a cache though)
                         Thread.ofVirtual().name("SpotBot private channel " + userId)
                                 .start(() -> discord.userChannel(userId)
-                                        .ifPresent(channel -> channel.sendMessages(toMessage(userAlerts), emptyList()))));
+                                        .ifPresent(channel -> channel.sendMessages(toMessages(userAlerts), emptyList()))));
     }
 
     @NotNull
-    private List<EmbedBuilder> toMessage(@NotNull List<MatchingAlert> matchingAlerts) {
-        return shrinkToPageSize(matchingAlerts.stream()
-                .limit(MESSAGE_PAGE_SIZE + 1)
-                .map(this::toMessage).collect(toList()), matchingAlerts.size());
+    private List<EmbedBuilder> toMessages(@NotNull List<MatchingAlert> matchingAlerts) {
+        return matchingAlerts.stream().map(this::toMessage).toList();
     }
 
     private EmbedBuilder toMessage(@NotNull MatchingAlert matchingAlert) {
         Alert alert = matchingAlert.alert();
+        if(matchingAlert.status().notMatching()) { // delete notification
+            return embedBuilder("Delete notification - alert #" + alert.id, Color.black,
+                    "Following alert has expired and will be deleted :\n\n" + alert.descriptionMessage());
+        }
         return embedBuilder(title(alert, matchingAlert.status()),
-                MARGIN == matchingAlert.status() ? Color.orange : Color.green,
+                matchingAlert.status().isMatched() ? Color.green : Color.orange,
                 alert.triggeredMessage(matchingAlert.status(), matchingAlert.matchingCandlestick()));
     }
 
@@ -246,17 +262,5 @@ public final class AlertsWatcher {
             }
         }
         return title + (alert.type != remainder ? alert.message : "");
-    }
-
-    private List<EmbedBuilder> shrinkToPageSize(@NotNull List<EmbedBuilder> alerts, int total) {
-        if(alerts.size() > MESSAGE_PAGE_SIZE) {
-            while(alerts.size() >= MESSAGE_PAGE_SIZE) {
-                alerts.remove(alerts.size() - 1);
-            }
-            alerts.add(embedBuilder("...", Color.red, "Limit reached ! That's too much alerts :sweat:\n\n* " +
-                    total + " alerts were raised\n* " + MESSAGE_PAGE_SIZE + " alerts were notified\n* " +
-                    (total - MESSAGE_PAGE_SIZE + 1) + " remaining alerts are discarded, sorry."));
-        }
-        return alerts;
     }
 }
