@@ -80,18 +80,20 @@ public final class AlertsWatcher {
                 });
                 LockSupport.parkNanos(wait[0] ? Duration.ofMillis(300L / (Math.min(10, exchangePairs.size()))).toNanos() : 0L);
             });
-            monthlyAlertsCleanup();
         } catch (RuntimeException e) {
             LOGGER.error("Exception thrown while performing hourly alerts task", e);
+        } finally {
+            try {
+                expiredAlertsCleanup();
+            } catch (RuntimeException e) {
+                LOGGER.error("Exception thrown while deleting old alerts", e);
+            }
         }
     }
 
-    void monthlyAlertsCleanup() {
-//        alertDao.deleteAlertsWithRepeatZeroAndLastTriggerBefore()
-//        alertDao.deleteRangeAlertsToDateBefore()
-        //TODO drop alerts that are disabled since 1 month, or range box alert out of time...
-        // + user qui sont ont quittés le serveur
-
+    void expiredAlertsCleanup() {
+        alertDao.transactional(() -> alertDao.deleteAlertsWithRepeatZeroAndLastTriggerBefore(ZonedDateTime.now().minusMonths(1)));
+        alertDao.transactional(() -> alertDao.deleteRangeAlertsWithToDateBefore(ZonedDateTime.now().minusWeeks(1)));
     }
 
     private void raiseAlerts(@NotNull Exchange virtualExchange, @NotNull String pair) {

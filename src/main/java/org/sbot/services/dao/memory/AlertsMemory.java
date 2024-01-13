@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
 import static org.sbot.alerts.Alert.MARGIN_DISABLED;
 import static org.sbot.alerts.Alert.Type.range;
@@ -245,6 +246,29 @@ public final class AlertsMemory implements AlertsDao {
                 entry.getValue().userId == userId &&
                 entry.getValue().serverId == serverId &&
                 entry.getValue().pair.contains(tickerOrPair) &&
+                ++removedAlerts[0] != 0);
+        return removedAlerts[0];
+    }
+
+    @Override
+    public long deleteAlertsWithRepeatZeroAndLastTriggerBefore(@NotNull ZonedDateTime expirationDate) {
+        LOGGER.debug("deleteAlertsWithRepeatZeroAndLastTriggerBefore {}", expirationDate);
+        long[] removedAlerts = new long[] {0L};
+        alerts.entrySet().removeIf(entry ->
+                entry.getValue().repeat <= 0 &&
+                requireNonNull(entry.getValue().lastTrigger).isBefore(expirationDate) &&
+                ++removedAlerts[0] != 0);
+        return removedAlerts[0];
+    }
+
+    @Override
+    public long deleteRangeAlertsWithToDateBefore(@NotNull ZonedDateTime expirationDate) {
+        LOGGER.debug("deleteRangeAlertsWithToDateBefore {}", expirationDate);
+        long[] removedAlerts = new long[] {0L};
+        alerts.entrySet().removeIf(entry ->
+                entry.getValue().type == range &&
+                null != entry.getValue().toDate &&
+                entry.getValue().toDate.isBefore(expirationDate) &&
                 ++removedAlerts[0] != 0);
         return removedAlerts[0];
     }

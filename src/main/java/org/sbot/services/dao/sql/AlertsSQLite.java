@@ -87,6 +87,8 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String DELETE_BY_ID = "DELETE FROM alerts WHERE id=:id";
         String DELETE_BY_USER_ID_AND_SERVER_ID = "DELETE FROM alerts WHERE user_id=:userId AND server_id=:serverId";
         String DELETE_BY_USER_ID_AND_SERVER_ID_AND_TICKER_OR_PAIR = "DELETE FROM alerts WHERE user_id=:userId AND server_id=:serverId AND pair LIKE '%:tickerOrPair%'";
+        String DELETE_WITH_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE = "DELETE FROM alerts WHERE repeat=0 AND last_trigger<=:expirationDate";
+        String DELETE_RANGE_ALERT_WITH_TO_DATE_BEFORE = "DELETE FROM alerts WHERE type LIKE 'range' AND to_date<=:expirationDate";
         String INSERT_ALERT = "INSERT INTO alerts (id,type,user_id,server_id,exchange,pair,message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,repeat_delay) VALUES (:id,:type,:userId,:serverId,:exchange,:pair,:message,:fromPrice,:toPrice,:fromDate,:toDate,:lastTrigger,:margin,:repeat,:repeatDelay)";
         String UPDATE_ALERTS_MESSAGE = "UPDATE alerts SET message=:message WHERE id=:id";
         String UPDATE_ALERTS_MARGIN = "UPDATE alerts SET margin=:margin WHERE id=:id";
@@ -353,6 +355,21 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         LOGGER.debug("deleteAlerts {} {} {}", serverId, userId, tickerOrPair);
         return update(SQL.DELETE_BY_USER_ID_AND_SERVER_ID_AND_TICKER_OR_PAIR,
                 Map.of("userId", userId, "serverId", serverId, "tickerOrPair", tickerOrPair));
+    }
+
+    @Override
+    public long deleteAlertsWithRepeatZeroAndLastTriggerBefore(@NotNull ZonedDateTime expirationDate) {
+        LOGGER.debug("deleteAlertsWithRepeatZeroAndLastTriggerBefore {}", expirationDate);
+        return update(SQL.DELETE_WITH_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE,
+                Map.of("expirationDate", 1000L * expirationDate.toEpochSecond()));
+    }
+
+    @Override
+    public long deleteRangeAlertsWithToDateBefore(@NotNull ZonedDateTime expirationDate) {
+        LOGGER.debug("deleteRangeAlertsWithToDateBefore {}", expirationDate);
+        return update(SQL.DELETE_RANGE_ALERT_WITH_TO_DATE_BEFORE,
+                Map.of("expirationDate", 1000L * expirationDate.toEpochSecond()));
+
     }
 
     @Override

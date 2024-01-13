@@ -6,6 +6,7 @@ import org.sbot.alerts.Alert.Type;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 
 import java.math.BigDecimal;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -58,6 +59,9 @@ public interface AlertsDao extends TransactionalCtx {
     void deleteAlert(long alertId);
     long deleteAlerts(long serverId, long userId);
     long deleteAlerts(long serverId, long userId, @NotNull String tickerOrPair);
+
+    long deleteAlertsWithRepeatZeroAndLastTriggerBefore(@NotNull ZonedDateTime expirationDate);
+    long deleteRangeAlertsWithToDateBefore(@NotNull ZonedDateTime expirationDate);
 
     void matchedAlertBatchUpdates(@NotNull Consumer<BatchEntry> updater);
     void marginAlertBatchUpdates(@NotNull Consumer<BatchEntry> updater);
