@@ -63,6 +63,8 @@ public final class AlertsWatcher {
     // this splits in tasks by exchanges and pairs, one rest call must be done by each task to retrieve the candlesticks
     public void checkAlerts() {
         try {
+            expiredAlertsCleanup();
+
             var exchangePairs = alertDao.transactional(alertDao::getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange);
             exchangePairs.forEach((xchange, pairs) -> {  // one task by exchange / pair
                 var pairList = List.copyOf(pairs);
@@ -81,8 +83,6 @@ public final class AlertsWatcher {
             });
         } catch (RuntimeException e) {
             LOGGER.error("Exception thrown while performing hourly alerts task", e);
-        } finally {
-            Thread.ofVirtual().name("SpotBot expired alerts cleaner").start(this::expiredAlertsCleanup);
         }
     }
 
