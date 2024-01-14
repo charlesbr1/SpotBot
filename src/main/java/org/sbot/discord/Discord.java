@@ -189,7 +189,7 @@ public final class Discord {
     private void registerCommands(List<CommandListener> commandListeners) {
         jda.updateCommands().addCommands(commandListeners.stream()
                 .filter(this::registerCommand)
-                .map(CommandListener::asCommandData).toList()).queue();
+                .map(CommandListener::options).toList()).queue();
     }
 
     private boolean registerCommand(@NotNull CommandListener commandListener) {

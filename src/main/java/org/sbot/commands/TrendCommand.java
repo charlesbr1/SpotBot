@@ -2,7 +2,8 @@ package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.Command.Choice;
-import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.TrendAlert;
 import org.sbot.commands.reader.CommandContext;
@@ -12,7 +13,6 @@ import org.sbot.utils.Dates;
 import java.awt.*;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
-import java.util.List;
 
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
@@ -27,23 +27,24 @@ public final class TrendCommand extends CommandAdapter {
     static final String DESCRIPTION = "create a new trend alert on pair ticker1/ticker2, a trend is defined by two prices and two dates";
     private static final int RESPONSE_TTL_SECONDS = 60;
 
-    static final List<OptionData> options = List.of(
-            new OptionData(STRING, "exchange", "the exchange, like binance", true)
-                    .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).collect(toList())),
-            new OptionData(STRING, "pair", "the pair, like EUR/USD", true)
-                    .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
-            new OptionData(NUMBER, "from_price", "the first price", true)
-                    .setMinValue(0d),
-            new OptionData(STRING, "from_date", "the date of first price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true),
-            new OptionData(NUMBER, "to_price", "the second price", true)
-                    .setMinValue(0d),
-            new OptionData(STRING, "to_date", "the date of second price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true),
-            new OptionData(STRING, "message", "a message to show when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
-                    .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
+    static final SlashCommandData options =
+            Commands.slash(NAME, DESCRIPTION).addOptions(
+                    option(STRING, "exchange", "the exchange, like binance", true)
+                            .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).collect(toList())),
+                    option(STRING, "pair", "the pair, like EUR/USD", true)
+                            .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
+                    option(NUMBER, "from_price", "the first price", true)
+                            .setMinValue(0d),
+                    option(STRING, "from_date", "the date of first price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true),
+                    option(NUMBER, "to_price", "the second price", true)
+                            .setMinValue(0d),
+                    option(STRING, "to_date", "the date of second price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true),
+                    option(STRING, "message", "a message to show when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
+                            .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
 
     public TrendCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
+        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -59,7 +60,7 @@ public final class TrendCommand extends CommandAdapter {
 
         LOGGER.debug("trend command - exchange : {}, pair : {}, from_price : {}, from_date : {}, to_price : {}, to_date : {}, message : {}",
                 exchange, pair, fromPrice, fromDate, toPrice, toDate, message);
-        alertsDao.transactional(() -> context.reply(responseTtlSeconds, trend(context, exchange, pair, message, fromPrice, fromDate, toPrice, toDate)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, trend(context.noMoreArgs(), exchange, pair, message, fromPrice, fromDate, toPrice, toDate)));
     }
 
     private EmbedBuilder trend(@NotNull CommandContext context, @NotNull String exchange,
@@ -75,6 +76,8 @@ public final class TrendCommand extends CommandAdapter {
             fromPrice = toPrice;
             toPrice = value;
         }
+        //TODO if toPrice = fromPrice -> create range alert
+
         TrendAlert trendAlert = new TrendAlert(context.user.getIdLong(),
                 context.serverId(),
                 exchange, pair, message, fromPrice, toPrice, fromDate, toDate);

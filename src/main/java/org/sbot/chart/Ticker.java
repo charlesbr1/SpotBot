@@ -2,7 +2,7 @@ package org.sbot.chart;
 
 import org.jetbrains.annotations.NotNull;
 
-public interface Symbol {
+public interface Ticker {
 
     @NotNull
     static String getSymbol(@NotNull String ticker) {

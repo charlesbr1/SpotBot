@@ -16,7 +16,7 @@ import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.NOT_MATCHING;
-import static org.sbot.chart.Symbol.getSymbol;
+import static org.sbot.chart.Ticker.getSymbol;
 import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.formatUTC;

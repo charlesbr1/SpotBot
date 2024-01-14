@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.function.Supplier;
 
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.*;
-import static org.sbot.chart.Symbol.getSymbol;
+import static org.sbot.chart.Ticker.getSymbol;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class RangeAlert extends Alert {

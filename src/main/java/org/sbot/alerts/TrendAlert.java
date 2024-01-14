@@ -13,7 +13,7 @@ import java.util.function.Supplier;
 
 import static java.math.RoundingMode.FLOOR;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.*;
-import static org.sbot.chart.Symbol.getSymbol;
+import static org.sbot.chart.Ticker.getSymbol;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.Dates.formatUTC;
 

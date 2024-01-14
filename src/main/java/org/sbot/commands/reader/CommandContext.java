@@ -20,6 +20,7 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
+import static java.util.function.Predicate.not;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.discord.Discord.MAX_MESSAGE_EMBEDS;
 
@@ -57,6 +58,13 @@ public final class CommandContext {
 
     public long serverId() {
         return null != member ? member.getGuild().getIdLong() : PRIVATE_ALERT;
+    }
+
+    public CommandContext noMoreArgs() {
+        if(args.getLastArgs("").filter(not(String::isBlank)).isPresent()) {
+            throw new IllegalArgumentException("Too many arguments provided");
+        }
+        return this;
     }
 
     public void reply(int ttlSeconds, @NotNull EmbedBuilder message) {

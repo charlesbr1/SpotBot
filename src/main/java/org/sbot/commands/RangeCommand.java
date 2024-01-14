@@ -2,7 +2,8 @@ package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.Command.Choice;
-import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.RangeAlert;
@@ -14,7 +15,6 @@ import org.sbot.utils.Dates;
 import java.awt.*;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
-import java.util.List;
 
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
@@ -29,22 +29,23 @@ public final class RangeCommand extends CommandAdapter {
     static final String DESCRIPTION = "create a new range alert on pair ticker1/ticker2, defined by two prices and two optional dates";
     private static final int RESPONSE_TTL_SECONDS = 60;
 
-    static final List<OptionData> options = List.of(
-            new OptionData(STRING, "exchange", "the exchange, like binance", true)
-                    .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).collect(toList())),
-            new OptionData(STRING, "pair", "the pair, like EUR/USD", true)
-                    .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
-            new OptionData(NUMBER, "low", "the low range price", true)
-                    .setMinValue(0d),
-            new OptionData(NUMBER, "high", "the high range price", false) //TODO range with 1 price
-                    .setMinValue(0d),
-            new OptionData(STRING, "from_date", "a date to start the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false),
-            new OptionData(STRING, "to_date", "a future date to end the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false),
-            new OptionData(STRING, "message", "a message to show when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
-                    .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
+    static final SlashCommandData options =
+            Commands.slash(NAME, DESCRIPTION).addOptions(
+                    option(STRING, "exchange", "the exchange, like binance", true)
+                            .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).collect(toList())),
+                    option(STRING, "pair", "the pair, like EUR/USD", true)
+                            .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
+                    option(NUMBER, "low", "the low range price", true)
+                            .setMinValue(0d),
+                    option(NUMBER, "high", "the high range price", false) //TODO range with 1 price
+                            .setMinValue(0d),
+                    option(STRING, "from_date", "a date to start the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false),
+                    option(STRING, "to_date", "a future date to end the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false),
+                    option(STRING, "message", "a message to show when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
+                            .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
     public RangeCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
+        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -59,7 +60,7 @@ public final class RangeCommand extends CommandAdapter {
 
         LOGGER.debug("range command - exchange : {}, pair : {}, low : {}, high : {}, from_date : {}, to_date : {}, message : {}",
                 exchange, pair, fromPrice, toPrice, fromDate, toDate, message);
-        alertsDao.transactional(() -> context.reply(responseTtlSeconds, range(context, exchange, pair, message, fromPrice, toPrice, fromDate, toDate)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, range(context.noMoreArgs(), exchange, pair, message, fromPrice, toPrice, fromDate, toDate)));
     }
 
     private EmbedBuilder range(@NotNull CommandContext context, @NotNull String exchange,

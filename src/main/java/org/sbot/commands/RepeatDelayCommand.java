@@ -1,13 +1,11 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.interactions.commands.OptionType;
-import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.services.dao.AlertsDao;
-
-import java.util.List;
 
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static org.sbot.alerts.Alert.DEFAULT_REPEAT_DELAY_HOURS;
@@ -18,17 +16,18 @@ import static org.sbot.utils.ArgumentValidator.requirePositiveShort;
 public final class RepeatDelayCommand extends CommandAdapter {
 
     public static final String NAME = "repeat-delay";
-    static final String DESCRIPTION = "update the delay to wait before a next repeat of the alert, in hours, 0 will set to default " + DEFAULT_REPEAT_DELAY_HOURS + " hours";
+    static final String DESCRIPTION = "update the delay to wait before a next raise of the alert, in hours, 0 will set to default " + DEFAULT_REPEAT_DELAY_HOURS + " hours";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
-    static final List<OptionData> options = List.of(
-            new OptionData(INTEGER, "alert_id", "id of the alert", true)
-                    .setMinValue(0),
-            new OptionData(INTEGER, "repeat_delay", "a new delay in hours", true)
-                    .setRequiredRange(0, Short.MAX_VALUE));
+    static final SlashCommandData options =
+            Commands.slash(NAME, DESCRIPTION).addOptions(
+                    option(INTEGER, "alert_id", "id of the alert", true)
+                            .setMinValue(0),
+                    option(INTEGER, "repeat_delay", "a new delay in hours", true)
+                            .setRequiredRange(0, Short.MAX_VALUE));
 
     public RepeatDelayCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
+        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -36,7 +35,7 @@ public final class RepeatDelayCommand extends CommandAdapter {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         short repeatDelay = requirePositiveShort(context.args.getMandatoryLong("repeat_delay"));
         LOGGER.debug("repeat delay command - alert_id : {}, repeat_delay : {}", alertId, repeatDelay);
-        alertsDao.transactional(() -> context.reply(responseTtlSeconds, repeatDelay(context, alertId, repeatDelay)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, repeatDelay(context.noMoreArgs(), alertId, repeatDelay)));
     }
 
     private EmbedBuilder repeatDelay(@NotNull CommandContext context, long alertId, short repeatDelay) {

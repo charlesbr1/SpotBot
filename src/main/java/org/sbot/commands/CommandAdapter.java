@@ -1,7 +1,9 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -17,7 +19,6 @@ import java.awt.*;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 import static org.sbot.alerts.Alert.*;
@@ -31,17 +32,15 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected final AlertsDao alertsDao;
     private final String name;
-    private final String description;
-    private final List<OptionData> options;
+    private final SlashCommandData options;
     protected int responseTtlSeconds;
 
-    protected CommandAdapter(@NotNull AlertsDao alertsDao, @NotNull String name, @NotNull String description, @NotNull List<OptionData> options, int responseTtlSeconds) {
+    protected CommandAdapter(@NotNull AlertsDao alertsDao, @NotNull String name, @NotNull SlashCommandData options, int responseTtlSeconds) {
         this.alertsDao = requireNonNull(alertsDao, "missing CommandAdapter alertDao");
         this.name = requireNonNull(name, "missing CommandAdapter name");
-        this.description = requireNonNull(description, "missing CommandAdapter description");
         this.options = requireNonNull(options, "missing CommandAdapter options");
         this.responseTtlSeconds = requirePositive(SpotBot.appProperties.getIntOr("command." + name + ".ttlSeconds", responseTtlSeconds));
-        LOGGER.debug("Created new CommandAdapter {}, responseTtlSeconds : {}, options : {}", name, this.responseTtlSeconds, options.stream().map(OptionData::toData).map(Object::toString).collect(Collectors.joining(",")));
+        LOGGER.debug("Created new CommandAdapter {}, responseTtlSeconds : {}, options : {}", name, this.responseTtlSeconds, options.toData());
     }
 
     @Override
@@ -52,14 +51,12 @@ public abstract class CommandAdapter implements CommandListener {
 
     @Override
     @NotNull
-    public final String description() {
-        return description;
+    public final SlashCommandData options() {
+        return options;
     }
 
-    @Override
-    @NotNull
-    public final List<OptionData> options() {
-        return options;
+    protected static OptionData option(@NotNull OptionType type, @NotNull String name, @NotNull String description, boolean isRequired) {
+        return new OptionData(type, name, description, isRequired);
     }
 
     protected record AnswerColorSmiley(@NotNull String answer, @NotNull Color color, @NotNull String smiley) {}

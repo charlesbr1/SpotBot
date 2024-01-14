@@ -94,7 +94,7 @@ final class EventAdapter extends ListenerAdapter {
     public void onMessageReceived(@NotNull MessageReceivedEvent event) {
         if (acceptCommand(event.getAuthor(), event.getChannel())) {
             var command = event.getMessage().getContentRaw().strip();
-            if (command.startsWith(spotBotUserMention)) {
+            if (isPrivateMessage(event.getChannel().getType()) || command.startsWith(spotBotUserMention)) {
                 LOGGER.info("Discord message received from user {} : {}", event.getAuthor().getEffectiveName(), event.getMessage().getContentRaw());
                 onCommand(new CommandContext(event, removeStartingMentions(command)));
             }

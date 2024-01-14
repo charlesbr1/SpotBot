@@ -4,6 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.Optional;
 
@@ -40,6 +41,8 @@ public interface ArgumentReader {
     Optional<Long> getLong(@NotNull String fieldName);
 
     Optional<ZonedDateTime> getDateTime(@NotNull String fieldName);
+
+    Optional<LocalDateTime> getLocalDateTime(@NotNull String fieldName);
 
     Optional<Long> getUserId(@NotNull String fieldName);
 

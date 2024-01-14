@@ -222,7 +222,7 @@ public final class AlertsWatcher {
                 spotBotRole(guild).map(Role::getId).stream().toList();
         long[] users = matchingAlerts.stream().map(MatchingAlert::alert).mapToLong(Alert::getUserId).distinct().toArray();
         //TODO user must still be on server check, or else <@123> appears in discord
-        discord.spotBotChannel(guild).ifPresent(channel ->
+        Discord.spotBotChannel(guild).ifPresent(channel ->
                 channel.sendMessages(toMessages(matchingAlerts),
                         List.of(message -> requireNonNull(message.mentionRoles(roles).mentionUsers(users)))));
     }

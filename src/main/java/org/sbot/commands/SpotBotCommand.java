@@ -6,7 +6,9 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.interactions.commands.Command.Choice;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.utils.FileUpload;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -22,7 +24,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
@@ -39,18 +40,20 @@ public final class SpotBotCommand extends CommandAdapter {
     private static final String CHOICE_DOC = "doc";
     private static final String CHOICE_COMMANDS = "commands";
     private static final String CHOICE_EXAMPLES = "examples";
-    static final List<OptionData> options = List.of(
-            new OptionData(STRING, "choice", "one of 'doc' or 'commands' or 'examples', default to doc if omitted", false)
-                    .addChoices(List.of(new Choice(CHOICE_DOC, CHOICE_DOC),
-                            new Choice(CHOICE_COMMANDS, CHOICE_COMMANDS),
-                            new Choice(CHOICE_EXAMPLES, CHOICE_EXAMPLES))));
+
+    static final SlashCommandData options =
+            Commands.slash(NAME, DESCRIPTION).addOptions(
+                    option(STRING, "choice", "one of 'doc' or 'commands' or 'examples', default to doc if omitted", false)
+                            .addChoices(List.of(new Choice(CHOICE_DOC, CHOICE_DOC),
+                                    new Choice(CHOICE_COMMANDS, CHOICE_COMMANDS),
+                                    new Choice(CHOICE_EXAMPLES, CHOICE_EXAMPLES))));
 
     private static final String DOC_FOOTER = "EXPLAIN THE range and trend alerts from picture";
 
     private static final String ALERTS_PICTURE_FILE = "range2.png";
     private static final String ALERTS_PICTURE_PATH = '/' + ALERTS_PICTURE_FILE;
 
-    private record Command(String name, String description, List<OptionData> options) {}
+    private record Command(String name, String description, SlashCommandData options) {}
 
     private static final List<Command> commands = List.of(
             new Command(NAME, DESCRIPTION, options),
@@ -66,7 +69,7 @@ public final class SpotBotCommand extends CommandAdapter {
             new Command(MessageCommand.NAME, MessageCommand.DESCRIPTION, MessageCommand.options),
             new Command(DeleteCommand.NAME, DeleteCommand.DESCRIPTION, DeleteCommand.options),
             new Command(UtcCommand.NAME, UtcCommand.DESCRIPTION, UtcCommand.options),
-            new Command(UpTimeCommand.NAME, UpTimeCommand.DESCRIPTION, emptyList()));
+            new Command(UpTimeCommand.NAME, UpTimeCommand.DESCRIPTION, UpTimeCommand.options));
 
     private static final String DOC_HEADER = """
             SpotBot is a discord utility for setting alerts when the price of an asset reach a box or cross a trend line, or just for a remainder in the future.
@@ -146,14 +149,14 @@ public final class SpotBotCommand extends CommandAdapter {
             .getResourceAsStream(ALERTS_PICTURE_PATH)), ALERTS_PICTURE_FILE);
 
     public SpotBotCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
+        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
         String choice = context.args.getString("choice").orElse(CHOICE_DOC);
         LOGGER.debug("spotBot command - choice : {}", choice);
-        context.reply(responseTtlSeconds, spotBot(choice, context),
+        context.reply(responseTtlSeconds, spotBot(choice, context.noMoreArgs()),
                 List.of(CHOICE_DOC.equals(choice) ? message -> message.addFiles(alertsPicture) : m -> {}));
     }
 
@@ -188,9 +191,19 @@ public final class SpotBotCommand extends CommandAdapter {
                 .replace("{spotBot}", selfMention);
     }
 
-    private static String optionsDescription(List<OptionData> options) {
-        return options.isEmpty() ? "" :
-                (options.size() > 1 ? "\n\nparameters :\n\n" : "\n\nparameter :\n\n") +
+    private static String commandDescription(SlashCommandData commandData) {
+        if(!commandData.getSubcommands().isEmpty()) {
+            return commandData.getSubcommands().stream()
+                    .map(command -> "\n\n*" + command.getDescription() + " :*\n\n" + optionsDescription(command.getOptions(), false))
+                    .collect(joining("\n"));
+        } else if(!commandData.getOptions().isEmpty()) {
+            return optionsDescription(commandData.getOptions(), true);
+        }
+        return "";
+    }
+
+    private static String optionsDescription(List<OptionData> options, boolean header) {
+        return (header ? options.size() > 1 ? "\n\n*parameters :*\n\n" : "\n\n*parameter :*\n\n" : "") +
                 options.stream()
                         .map(option -> "- **" + option.getName() + "** *" + option.getType().toString().toLowerCase() + "* " +
                                 (option.isRequired() ? "" : "*(optional)* ") + option.getDescription())
@@ -201,7 +214,7 @@ public final class SpotBotCommand extends CommandAdapter {
         // split the list because it exceeds max discord message length
         return Stream.of(commands.subList(0, commands.size() / 2), commands.subList(commands.size()/2, commands.size()))
                 .map(cmdList -> embedBuilder(null, Color.green, cmdList.stream()
-                        .map(cmd -> "** " + cmd.name + "**\n\n" + SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + cmd.description + optionsDescription(cmd.options))
+                        .map(cmd -> "** " + cmd.name + "**\n\n" + SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + cmd.description + commandDescription(cmd.options))
                         .collect(joining("\n\n\n")))).toList();
     }
 

@@ -1,8 +1,9 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.interactions.commands.OptionType;
-import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.reader.CommandContext;
@@ -10,8 +11,8 @@ import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.ArgumentValidator;
 
 import java.awt.*;
-import java.util.List;
 
+import static java.util.function.Predicate.not;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
 import static org.sbot.alerts.Alert.isPrivate;
 import static org.sbot.commands.SecurityAccess.hasRightOnUser;
@@ -25,36 +26,42 @@ public final class DeleteCommand extends CommandAdapter {
 
     private static final String DELETE_ALL = "all";
 
-    static final List<OptionData> options = List.of(
-            new OptionData(INTEGER, "alert_id", "id of one alert to delete (exclusive argument)", false)
-                    .setMinValue(0),
-            new OptionData(USER, "user", "for admin only, an user to remove all or some alerts on this server (option for ticker_pair)", false),
-            new OptionData(STRING, "ticker_pair", "a filter to select all alerts having a ticker or a pair (can be '" + DELETE_ALL + "', exclusive argument)", false)
-                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH));
+    static final SlashCommandData options =
+            Commands.slash(NAME, DESCRIPTION).addSubcommands(
+                    new SubcommandData("id", "delete an alert giving his id").addOptions(
+                            option(INTEGER, "alert_id", "id of one alert to delete", true)
+                                    .setMinValue(0)),
+                    new SubcommandData("all_or_ticker_or_pair", "delete all your alerts or filtered by pair or ticker").addOptions(
+                            option(STRING, "all_ticker_pair", "a filter to select the alerts having a ticker or a pair (can be '" + DELETE_ALL + "')", true)
+                                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
+                            option(USER, "user", "for admin only, a member to drop the alerts on your server", false)));
 
     public DeleteCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
+        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
         Long alertId = context.args.getLong("alert_id").map(ArgumentValidator::requirePositive).orElse(null);
-        Long ownerId = context.args.getUserId("user").orElse(null);
-        String tickerOrPair = context.args.getString("ticker_pair")
+        String tickerOrPair = context.args.getString("all_ticker_pair")
                 .map(t -> null != alertId ? t : requireTickerPairLength(t)).orElse(null);
-        LOGGER.debug("delete command - alert_id : {}, user : {}, ticker_pair : {}", alertId, ownerId, tickerOrPair);
+        Long ownerId = validateArguments(context, alertId, tickerOrPair);
 
-        validateArguments(alertId, ownerId, tickerOrPair);
-        alertsDao.transactional(() -> context.reply(responseTtlSeconds, delete(context, alertId, ownerId, tickerOrPair)));
+        LOGGER.debug("delete command - alert_id : {}, user : {}, ticker_pair : {}", alertId, ownerId, tickerOrPair);
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, delete(context.noMoreArgs(), alertId, ownerId, tickerOrPair)));
     }
 
-    private void validateArguments(@Nullable Long alertId, @Nullable Long ownerId, @Nullable String tickerOrPair) {
-        if(null == alertId && null == ownerId && null == tickerOrPair) {
+    private Long validateArguments(@NotNull CommandContext context, @Nullable Long alertId, @Nullable String tickerOrPair) {
+        if(null == alertId && null == tickerOrPair) {
             throw new IllegalArgumentException("Missing arguments, an alert id or a ticker or a pair is expected");
         }
-        if(null != alertId && (null != ownerId || null != tickerOrPair)) {
-            throw new IllegalArgumentException("Too many arguments provided, alert id is an exclusive argument");
+        if(null != alertId && null != tickerOrPair) {
+            throw new IllegalArgumentException("Too many arguments provided, either an alert id or a filter on a ticker or a pair is expected");
         }
+        if(null != tickerOrPair && context.args.getLastArgs("user").filter(not(String::isBlank)).isPresent()) {
+            return context.args.getMandatoryUserId("user");
+        }
+        return null;
     }
 
     private EmbedBuilder delete(@NotNull CommandContext context, @Nullable Long alertId, @Nullable Long ownerId, @Nullable String tickerOrPair) {
@@ -81,6 +88,6 @@ public final class DeleteCommand extends CommandAdapter {
         long deleted = null == tickerOrPair || DELETE_ALL.equals(tickerOrPair) ?
                 alertsDao.deleteAlerts(context.serverId(), null != ownerId ? ownerId : context.user.getIdLong()) :
                 alertsDao.deleteAlerts(context.serverId(), null != ownerId ? ownerId : context.user.getIdLong(), tickerOrPair);
-        return embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), Color.green, deleted + ' ' + (deleted > 1 ? " alerts" : " alert") + " deleted");
+        return embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), Color.green, deleted + " " + (deleted > 1 ? " alerts" : " alert") + " deleted");
     }
 }

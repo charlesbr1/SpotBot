@@ -4,6 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.Collections;
@@ -50,6 +51,11 @@ public final class StringArgumentReader implements ArgumentReader {
     @Override
     public Optional<ZonedDateTime> getDateTime(@NotNull String unused) {
         return getNext(Dates::parseUTC);
+    }
+
+    @Override
+    public Optional<LocalDateTime> getLocalDateTime(@NotNull String unused) {
+        return getNext(Dates::parse);
     }
 
     @Override

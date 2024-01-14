@@ -20,8 +20,12 @@ public interface Dates {
     DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(DATE_TIME_FORMAT);
 
 
+    static LocalDateTime parse(@NotNull String dateTime) {
+        return LocalDateTime.parse(dateTime, DATE_TIME_FORMATTER);
+    }
+
     static ZonedDateTime parseUTC(@NotNull String dateTime) {
-        return LocalDateTime.parse(dateTime, DATE_TIME_FORMATTER).atZone(ZoneOffset.UTC);
+        return parse(dateTime).atZone(ZoneOffset.UTC);
     }
 
     static String formatUTC(@NotNull ZonedDateTime dateTime) {

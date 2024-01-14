@@ -1,17 +1,18 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.services.dao.AlertsDao;
 
-import java.util.List;
-
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
 import static org.sbot.commands.SecurityAccess.alertBelongToUser;
-import static org.sbot.utils.ArgumentValidator.requirePositive;
+import static org.sbot.utils.ArgumentValidator.*;
 
 public final class MigrateCommand extends CommandAdapter {
 
@@ -19,20 +20,22 @@ public final class MigrateCommand extends CommandAdapter {
     static final String DESCRIPTION = "migrate an alert to your private channel or on another server that you and this bot have access to";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
-    private static final String CHOICE_PRIVATE = "private";
+    private static final OptionData SERVER_ID_OPTION = option(NUMBER, "server_id", "0 for private channel or id of a discord server, you must be member of this server and this bot too", true);
 
-    static final List<OptionData> options = List.of(
-            new OptionData(INTEGER, "alert_id", "id of the alert", true)
-                    .setMinValue(0),
-            new OptionData(USER, "user", "owner of alerts to migrate", true),
-            new OptionData(STRING, "channel", "'private' to migrate the alert on your private channel (exclusive argument)", false)
-                    .addChoice(CHOICE_PRIVATE, CHOICE_PRIVATE),
-            new OptionData(NUMBER, "server_id", "id of a discord server to migrate your alert, you must be member of this server and this bot too", false),
-            new OptionData(STRING, "ticker_pair", "id of a discord server to migrate your alert, you must be member of this server and this bot too", false));
-
+    static final SlashCommandData options =
+            Commands.slash(NAME, DESCRIPTION).addSubcommands(
+                    new SubcommandData("id", DESCRIPTION).addOptions(
+                            option(INTEGER, "alert_id", "id of one alert to migrate", true)
+                                    .setMinValue(0),
+                            SERVER_ID_OPTION),
+                    new SubcommandData("all_or_ticker_or_pair", DESCRIPTION).addOptions(
+                            option(STRING, "ticker_pair_all", "a ticker or a pair to filter alerts to migrate, or 'all'", true)
+                                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
+                            SERVER_ID_OPTION,
+                            option(USER, "user", "for admin only, owner of the alerts to migrate", false)));
 
     public MigrateCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
+        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -43,7 +46,7 @@ public final class MigrateCommand extends CommandAdapter {
 
         LOGGER.debug("migrate command - alert_id : {}, channel : {}, server_id : {}", alertId, privateChannel, serverId);
         validateArguments(serverId, privateChannel);
-        alertsDao.transactional(() -> context.reply(responseTtlSeconds, migrate(context, alertId, serverId, privateChannel)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, migrate(context.noMoreArgs(), alertId, serverId, privateChannel)));
     }
 
     private void validateArguments(@Nullable Long serverId, @Nullable String privateChannel) {
@@ -58,7 +61,7 @@ public final class MigrateCommand extends CommandAdapter {
 // un admin peut rendre un alert d'un user private plutot que la delete@
     private EmbedBuilder migrate(@NotNull CommandContext context, long alertId, @Nullable Long serverId, @Nullable String privateChannel) {
         var alert = alertsDao.getUserIdAndServerIdAndType(alertId).orElse(null);
-        if(CHOICE_PRIVATE.equals(privateChannel)) {
+        if("CHOICE_PRIVATE".equals(privateChannel)) {
             if(alertBelongToUser(context.user, alert.userId()) && alert.serverId() == context.member.getGuild().getIdLong()) {
                 // update alert set serverId 0
             }

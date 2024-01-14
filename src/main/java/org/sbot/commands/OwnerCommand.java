@@ -1,7 +1,8 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.reader.CommandContext;
@@ -22,32 +23,32 @@ public final class OwnerCommand extends CommandAdapter {
     static final String DESCRIPTION = "show the alerts defined by the given user on a ticker or a pair";
     private static final int RESPONSE_TTL_SECONDS = 300;
 
-    static final List<OptionData> options = List.of(
-            new OptionData(USER, "user", "the owner of alerts to show", true),
-            new OptionData(STRING, "ticker_pair", "a ticker or pair to filter on", false)
-                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
-            new OptionData(INTEGER, "offset", "an offset from where to start the search (results are limited to 1000 alerts)", false)
-                    .setMinValue(0));
+    static final SlashCommandData options =
+            Commands.slash(NAME, DESCRIPTION).addOptions(
+                    option(USER, "user", "the owner of alerts to show", true),
+                    option(STRING, "ticker_pair", "a ticker or a pair to filter on", false)
+                            .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
+                    option(INTEGER, "offset", "an offset from where to start the search (results are limited to 1000 alerts)", false)
+                            .setMinValue(0));
 
     public OwnerCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
+        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
         long ownerId = context.args.getMandatoryUserId("user");
-        String tickerOrPair = null;
-        Long offset = context.args.getLong("offset").orElse(null);
-        if(null == offset) { // if the next arg can't be parsed as a long, may be it's a string
-            tickerOrPair = context.args.getString("ticker_pair")
-                    .map(ArgumentValidator::requireTickerPairLength)
-                    .map(String::toUpperCase).orElse(null);
-            offset = context.args.getLong("offset").orElse(0L);
+        Long offset = context.args.getLong("offset").map(ArgumentValidator::requirePositive).orElse(null);
+        String tickerOrPair = context.args.getString("ticker_pair")
+                .map(ArgumentValidator::requireTickerPairLength)
+                .map(String::toUpperCase).orElse(null);
+
+        if(null == offset) { // if the previous arg was not be parsed as a long, may be it was a string first
+            offset = context.args.getLong("offset").map(ArgumentValidator::requirePositive).orElse(0L);
         }
         var finalOffset = offset;
-        var finalTickerOrPair = tickerOrPair;
-        LOGGER.debug("owner command - user : {}, ticker_pair : {}, offset : {}", ownerId, finalTickerOrPair, finalOffset);
-        alertsDao.transactional(() -> context.reply(responseTtlSeconds, owner(context, finalTickerOrPair, ownerId, requirePositive(finalOffset))));
+        LOGGER.debug("owner command - user : {}, ticker_pair : {}, offset : {}", ownerId, tickerOrPair, finalOffset);
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, owner(context.noMoreArgs(), tickerOrPair, ownerId, requirePositive(finalOffset))));
     }
 
     private List<EmbedBuilder> owner(@NotNull CommandContext context, @Nullable String tickerOrPair, long ownerId, long offset) {
@@ -78,7 +79,7 @@ public final class OwnerCommand extends CommandAdapter {
 
             return paginatedAlerts(alertMessages, offset, total,
                     () -> "owner <@" + ownerId + '>' +
-                            (null != tickerOrPair ? ' ' + tickerOrPair : "") + ' ' + (offset + MESSAGE_PAGE_SIZE - 1),
+                            (null != tickerOrPair ? ' ' + tickerOrPair : "") + " " + (offset + MESSAGE_PAGE_SIZE - 1),
                     () -> " for user <@" + ownerId + (null != tickerOrPair ? "> and " + tickerOrPair : ">"));
         });
     }

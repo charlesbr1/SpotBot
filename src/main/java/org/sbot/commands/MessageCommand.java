@@ -1,13 +1,11 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.interactions.commands.OptionType;
-import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.services.dao.AlertsDao;
-
-import java.util.List;
 
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
@@ -20,14 +18,15 @@ public final class MessageCommand extends CommandAdapter {
     static final String DESCRIPTION = "update the message to shown when the alert is triggered **Add a link to your AT !** (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
-    static final List<OptionData> options = List.of(
-            new OptionData(INTEGER, "alert_id", "id of the alert", true)
-                    .setMinValue(0),
-            new OptionData(STRING, "message", "a message to show when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
-                    .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
+    static final SlashCommandData options =
+            Commands.slash(NAME, DESCRIPTION).addOptions(
+                    option(INTEGER, "alert_id", "id of the alert", true)
+                            .setMinValue(0),
+                    option(STRING, "message", "a message to show when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
+                            .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
     public MessageCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
+        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -35,7 +34,7 @@ public final class MessageCommand extends CommandAdapter {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         String message = requireAlertMessageLength(context.args.getLastArgs("message").orElse(""));
         LOGGER.debug("message command - alert_id : {}, message : {}", alertId, message);
-        alertsDao.transactional(() -> context.reply(responseTtlSeconds, message(context, message, alertId)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, message(context.noMoreArgs(), message, alertId)));
     }
 
     private EmbedBuilder message(@NotNull CommandContext context, String message, long alertId) {

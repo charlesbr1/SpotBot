@@ -1,6 +1,8 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.services.dao.AlertsDao;
@@ -9,7 +11,6 @@ import java.awt.*;
 import java.time.Duration;
 import java.time.Instant;
 
-import static java.util.Collections.emptyList;
 import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
 
 public final class UpTimeCommand extends CommandAdapter {
@@ -18,16 +19,17 @@ public final class UpTimeCommand extends CommandAdapter {
     static final String DESCRIPTION = "returns the time since this bot is up";
     private static final int RESPONSE_TTL_SECONDS = 10;
 
+    static final SlashCommandData options = Commands.slash(NAME, DESCRIPTION);
     private static final Instant start = Instant.now();
 
     public UpTimeCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, DESCRIPTION, emptyList(), RESPONSE_TTL_SECONDS);
+        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
         LOGGER.debug("uptime command");
-        context.reply(responseTtlSeconds, uptime());
+        context.noMoreArgs().reply(responseTtlSeconds, uptime());
     }
     private EmbedBuilder uptime() {
         Duration upTime = Duration.between(start, Instant.now());
