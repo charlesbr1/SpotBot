@@ -29,7 +29,7 @@ interface SecurityAccess {
                 (!isPrivate(context.serverId()) && (alertBelongToUser || isAdminMember(context.member)));
     }
 
-    private static boolean alertBelongToUser(@NotNull User user, long userId) {
+    static boolean alertBelongToUser(@NotNull User user, long userId) {
         return user.getIdLong() == userId;
     }
 

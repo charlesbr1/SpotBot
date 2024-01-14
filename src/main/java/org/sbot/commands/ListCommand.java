@@ -12,6 +12,7 @@ import java.util.List;
 
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
+import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.discord.Discord.MULTI_LINE_BLOCK_QUOTE_MARKDOWN;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
@@ -28,7 +29,7 @@ public final class ListCommand extends CommandAdapter {
     private static final String CHOICE_PAIRS = "pairs";
 
     static final List<OptionData> options = List.of(
-            new OptionData(OptionType.STRING, "choice", "the data to display, one of 'exchanges' or 'pairs' or 'alerts', default to alerts if omitted", false)
+            new OptionData(STRING, "choice", "the data to display, one of 'exchanges' or 'pairs' or 'alerts', default to alerts if omitted", false)
                     .addChoice(CHOICE_ALERTS, CHOICE_ALERTS)
                     .addChoice(CHOICE_EXCHANGES, CHOICE_EXCHANGES)
                     .addChoice(CHOICE_PAIRS, CHOICE_PAIRS),

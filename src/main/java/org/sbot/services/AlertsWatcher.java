@@ -41,6 +41,7 @@ import static org.sbot.alerts.Alert.isPrivate;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.NOT_MATCHING;
 import static org.sbot.alerts.RemainderAlert.REMAINDER_VIRTUAL_EXCHANGE;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
+import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.discord.Discord.spotBotRole;
 import static org.sbot.utils.PartitionSpliterator.split;
 
@@ -48,7 +49,8 @@ public final class AlertsWatcher {
 
     private static final Logger LOGGER = LogManager.getLogger(AlertsWatcher.class);
 
-    private static final int STREAM_BUFFER_SIZE = 1000; // should not exceed the max underlying sgdb IN clause arguments number
+    private static final int MAX_DBMS_SQL_IN_CLAUSE_VALUES = 1000;
+    private static final int STREAM_BUFFER_SIZE = Math.min(MAX_DBMS_SQL_IN_CLAUSE_VALUES, MESSAGE_PAGE_SIZE);
 
     private final Discord discord;
     private final AlertsDao alertDao;
@@ -145,7 +147,7 @@ public final class AlertsWatcher {
                 .orElse(DaysHours.ZERO);
         LOGGER.debug("Computed {} days and {} hours since the last price close time {}", daysHours.days(), daysHours.hours(), previousCloseTime);
 
-        List<Candlestick> prices = new ArrayList<>();
+        List<Candlestick> prices = new ArrayList<>(daysHours.days() + daysHours.hours() + 1);
         if(daysHours.days() > 0) {
             prices.addAll(getCandlesticks(exchange, pair, TimeFrame.DAILY, daysHours.days()));
         }

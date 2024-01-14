@@ -79,7 +79,7 @@ public final class SpotBotCommand extends CommandAdapter {
             
             A price can use a comma or a dot separator and is expected to be positive : 23.6 or 38,2 are ok.
             
-            **A date should be provided as UTC** date and time. Discord can't provide your time zone so you have to think about it !
+            **Any date should be provided as UTC** date and time. Discord can't provide your time zone so you have to think about it !
 
             The expected date time format is :``` {date-format}```
             For instance now it's {date-now} UTC

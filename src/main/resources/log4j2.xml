@@ -21,7 +21,7 @@
 
         <Logger name="org.sbot" level="all" />
 
-        <Root level="all">
+        <Root level="DEBUG">
 
             <AppenderRef ref="stdout" />
             <AppenderRef ref="rollingFile" />

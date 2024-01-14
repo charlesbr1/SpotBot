@@ -9,6 +9,7 @@ import org.sbot.services.dao.AlertsDao;
 
 import java.util.List;
 
+import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static org.sbot.alerts.Alert.DEFAULT_REPEAT_DELAY_HOURS;
 import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
@@ -21,9 +22,9 @@ public final class RepeatDelayCommand extends CommandAdapter {
     private static final int RESPONSE_TTL_SECONDS = 30;
 
     static final List<OptionData> options = List.of(
-            new OptionData(OptionType.INTEGER, "alert_id", "id of the alert", true)
+            new OptionData(INTEGER, "alert_id", "id of the alert", true)
                     .setMinValue(0),
-            new OptionData(OptionType.INTEGER, "repeat_delay", "a new delay in hours", true)
+            new OptionData(INTEGER, "repeat_delay", "a new delay in hours", true)
                     .setRequiredRange(0, Short.MAX_VALUE));
 
     public RepeatDelayCommand(@NotNull AlertsDao alertsDao) {

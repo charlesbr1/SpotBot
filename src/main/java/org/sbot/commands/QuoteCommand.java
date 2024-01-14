@@ -1,7 +1,6 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
@@ -16,12 +15,12 @@ import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.alerts.Alert.hasMargin;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 
-public final class MarginCommand extends CommandAdapter {
+public final class QuoteCommand extends CommandAdapter {
 
-    public static final String NAME = "margin";
-    static final String DESCRIPTION = "set a margin for the alert that will warn once reached, then it should be set again, 0 to disable";
+    public static final String NAME = "quote";
+    static final String DESCRIPTION = "get a quotation for given exchange pair and time frame";
     private static final int RESPONSE_TTL_SECONDS = 30;
-
+//TODO
     static final List<OptionData> options = List.of(
             new OptionData(INTEGER, "alert_id", "id of the alert", true)
                     .setMinValue(0),
@@ -29,7 +28,7 @@ public final class MarginCommand extends CommandAdapter {
                     .setMinValue(0d));
 
 
-    public MarginCommand(@NotNull AlertsDao alertsDao) {
+    public QuoteCommand(@NotNull AlertsDao alertsDao) {
         super(alertsDao, NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 

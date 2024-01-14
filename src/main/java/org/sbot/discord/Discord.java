@@ -5,24 +5,12 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
-import net.dv8tion.jda.api.entities.*;
-import net.dv8tion.jda.api.entities.channel.Channel;
-import net.dv8tion.jda.api.entities.channel.ChannelType;
+import net.dv8tion.jda.api.entities.Activity;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.MessageEmbed;
+import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
-import net.dv8tion.jda.api.events.GenericEvent;
-import net.dv8tion.jda.api.events.guild.GuildBanEvent;
-import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
-import net.dv8tion.jda.api.events.guild.GuildLeaveEvent;
-import net.dv8tion.jda.api.events.guild.GuildUnbanEvent;
-import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
-import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent;
-import net.dv8tion.jda.api.events.guild.member.GuildMemberRoleAddEvent;
-import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
-import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import net.dv8tion.jda.api.interactions.commands.build.CommandData;
-import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.requests.FluentRestAction;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.requests.RestAction;
@@ -33,11 +21,8 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateRequest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.sbot.SpotBot;
-import org.sbot.commands.reader.CommandContext;
 
-import java.awt.*;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,11 +37,12 @@ import static java.util.Comparator.comparing;
 import static java.util.Optional.empty;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
-import static org.sbot.commands.CommandAdapter.embedBuilder;
 import static org.sbot.utils.PartitionSpliterator.split;
 import static org.sbot.utils.PropertiesReader.readFile;
 
 public final class Discord {
+
+    private static final Logger LOGGER = LogManager.getLogger(Discord.class);
 
     public static final int MESSAGE_PAGE_SIZE = 1001; // this limit the number of messages that can be sent in bulk, 1000 + 1 for the next command message
     public static final int MAX_MESSAGE_EMBEDS = 10;
@@ -72,8 +58,6 @@ public final class Discord {
         void sendMessages(@NotNull List<EmbedBuilder> messages, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup);
     }
 
-    private static final Logger LOGGER = LogManager.getLogger(Discord.class);
-
 
     private static final String DISCORD_BOT_TOKEN_FILE = "discord.token";
 
@@ -86,7 +70,7 @@ public final class Discord {
     // this allows to keep the minimum jda cache settings, user private channel may be requested by many threads in bulk
     private final Cache<Long, Optional<MessageChannel>> privateChannelCache = Caffeine.newBuilder()
             .expireAfterWrite(PRIVATE_CHANNEL_CACHE_TLL_MIN, TimeUnit.MINUTES)
-            .maximumSize(1024)
+            .maximumSize(Short.MAX_VALUE)
             .build();
 
     public Discord(@NotNull List<CommandListener> commandListeners) {
@@ -94,7 +78,7 @@ public final class Discord {
         registerCommands(commandListeners);
     }
 
-    public Optional<BotChannel> spotBotChannel(@NotNull Guild guild) {
+    public static Optional<BotChannel> spotBotChannel(@NotNull Guild guild) {
         return getSpotBotChannel(guild).map(channel ->
                 (messages, messageSetup) -> sendMessages(0, messages, channel::sendMessageEmbeds, messageSetup));
     }
@@ -157,17 +141,17 @@ public final class Discord {
     private JDA loadDiscordConnection() {
         try {
             LOGGER.info("Loading discord connection...");
-            return JDABuilder.createLight(readFile(DISCORD_BOT_TOKEN_FILE),
+            JDA jda = JDABuilder.createLight(readFile(DISCORD_BOT_TOKEN_FILE),
                             GatewayIntent.GUILD_MESSAGES,
-//                            GatewayIntent.GUILD_MODERATION,
                             GatewayIntent.DIRECT_MESSAGES)
                     .setActivity(Activity.watching("prices"))
-                    .addEventListeners(new EventAdapter())
                     .setCompression(Compression.ZLIB)
                     .setAutoReconnect(true)
                     .setRequestTimeoutRetry(true)
                     .build()
                     .awaitReady();
+            jda.addEventListener(new EventAdapter(commands, jda));
+            return jda;
         } catch (Exception e) {
             LOGGER.error("Unable to establish discord connection");
             throw new IllegalStateException(e);
@@ -205,7 +189,7 @@ public final class Discord {
     private void registerCommands(List<CommandListener> commandListeners) {
         jda.updateCommands().addCommands(commandListeners.stream()
                 .filter(this::registerCommand)
-                .map(Discord::getOptions).toList()).queue();
+                .map(CommandListener::asCommandData).toList()).queue();
     }
 
     private boolean registerCommand(@NotNull CommandListener commandListener) {
@@ -215,116 +199,5 @@ public final class Discord {
             return false;
         }
         return true;
-    }
-
-    @NotNull
-    private static CommandData getOptions(@NotNull CommandListener discordCommand) {
-        return Commands.slash(discordCommand.name(), discordCommand.description())
-                .addOptions(discordCommand.options());
-    }
-
-    private final class EventAdapter extends ListenerAdapter {
-
-        @Override
-        public void onGuildMemberRoleAdd(GuildMemberRoleAddEvent event) {
-            Member member = event.getMember();
-            String roleId = event.getRoles().get(0).getId(); // Si vous voulez obtenir l'ID du premier rôle ajouté
-
-            LOGGER.error("Le rôle avec l'ID " + roleId + " a été ajouté à l'utilisateur " + member.getUser().getName() + " sur le serveur " + event.getGuild().getName());
-        }
-
-        @Override
-        public void onGenericEvent(@NotNull GenericEvent event) {
-            LOGGER.error("GenericEvent : " + event);
-        }
-
-        @Override
-        public void onGuildJoin(@NotNull GuildJoinEvent event) {
-            LOGGER.error("Guild server joined : " + event.getGuild());
-        }
-
-        @Override
-        public void onGuildLeave(@NotNull GuildLeaveEvent event) {
-            LOGGER.error("Guild server leaved : " + event.getGuild());
-        }
-
-        @Override
-        public void onGuildBan(@NotNull GuildBanEvent event) {
-            LOGGER.error("onGuildBan " + event);
-        }
-
-        @Override
-        public void onGuildUnban(@NotNull GuildUnbanEvent event) {
-            LOGGER.error("onGuildUnban " + event);
-        }
-
-        @Override
-        public void onGuildMemberJoin(GuildMemberJoinEvent event) {
-            // check si il y a des alerts en base et prévient l'admmin
-            LOGGER.error("L'utilisateur " + event.getUser().getName() + " a rejoint le serveur : " + event.getGuild().getName());
-        }
-
-        @Override
-        public void onGuildMemberRemove(@NotNull GuildMemberRemoveEvent event) {
-            Guild guild = event.getGuild();
-
-            // Obtenez la liste des membres
-            List<Member> members = guild.getMembers();
-            LOGGER.error("User " + event.getUser() + " leaved server : " + event.getGuild());
-            //TODO set user alerts private user _id or, migrate private
-            // + envoyer message a l'user pour le prevenir
-            // detecter les user ajouté au role spotBot pour leur envoyer un coucou
-        }
-
-        @Override
-        public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
-            if (acceptCommand(event.getUser(), event.getChannel())) {
-                LOGGER.info("Discord slash command received from user {} : {}, with options {}", event.getUser().getEffectiveName(), event.getName(), event.getOptions());
-                onCommand(new CommandContext(event));
-            } else {
-                event.replyEmbeds(embedBuilder("Sorry !", Color.black,
-                                "SpotBot disabled on this channel. Use it in private or on channel " +
-                                        Optional.ofNullable(event.getGuild()).flatMap(Discord::getSpotBotChannel)
-                                                .map(Channel::getAsMention).orElse("**#" + DISCORD_BOT_CHANNEL + "**")).build())
-                        .setEphemeral(true)
-                        .queue(message -> message.deleteOriginal().queueAfter(5, TimeUnit.SECONDS));
-            }
-        }
-
-        @Override
-        public void onMessageReceived(@NotNull MessageReceivedEvent event) {
-            if (acceptCommand(event.getAuthor(), event.getChannel())) {
-                LOGGER.info("Discord message received from user {} : {}", event.getAuthor().getEffectiveName(), event.getMessage().getContentRaw());
-                onCommand(new CommandContext(event));
-            }
-        }
-
-        private void onCommand(@NotNull CommandContext command) {
-            try {
-                CommandListener listener = commands.get(command.name);
-                if(null != listener) {
-                    listener.onCommand(command);
-                } else if(!command.name.isEmpty()) {
-                    command.reply(30, embedBuilder(":confused: Sorry !", Color.red,
-                            command.user.getAsMention() + " I don't know this command"));
-                }
-            } catch (RuntimeException e) {
-                LOGGER.warn("Internal error while processing discord command: " + command.name, e);
-                command.reply(30, embedBuilder(":confused: Oups !", Color.red,
-                        command.user.getAsMention() + " Something went wrong !\n\n" + e.getMessage()));
-            }
-        }
-
-        private boolean acceptCommand(@NotNull User user, @NotNull MessageChannel channel) {
-            return !user.isBot() && (isPrivateMessage(channel.getType()) || isSpotBotChannel(channel));
-        }
-
-        private boolean isPrivateMessage(@Nullable ChannelType channelType) {
-            return ChannelType.PRIVATE.equals(channelType);
-        }
-
-        private boolean isSpotBotChannel(@NotNull MessageChannel channel) {
-            return DISCORD_BOT_CHANNEL.equals(channel.getName());
-        }
     }
 }

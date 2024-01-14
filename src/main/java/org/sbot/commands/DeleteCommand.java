@@ -12,6 +12,7 @@ import org.sbot.utils.ArgumentValidator;
 import java.awt.*;
 import java.util.List;
 
+import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
 import static org.sbot.alerts.Alert.isPrivate;
 import static org.sbot.commands.SecurityAccess.hasRightOnUser;
 import static org.sbot.utils.ArgumentValidator.*;
@@ -25,10 +26,10 @@ public final class DeleteCommand extends CommandAdapter {
     private static final String DELETE_ALL = "all";
 
     static final List<OptionData> options = List.of(
-            new OptionData(OptionType.INTEGER, "alert_id", "id of one alert to delete (exclusive argument)", false)
+            new OptionData(INTEGER, "alert_id", "id of one alert to delete (exclusive argument)", false)
                     .setMinValue(0),
-            new OptionData(OptionType.USER, "user", "for admin only, an user to remove all or some alerts on this server (option for ticker_pair)", false),
-            new OptionData(OptionType.STRING, "ticker_pair", "a filter to select all alerts having a ticker or a pair (can be '" + DELETE_ALL + "', exclusive argument)", false)
+            new OptionData(USER, "user", "for admin only, an user to remove all or some alerts on this server (option for ticker_pair)", false),
+            new OptionData(STRING, "ticker_pair", "a filter to select all alerts having a ticker or a pair (can be '" + DELETE_ALL + "', exclusive argument)", false)
                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH));
 
     public DeleteCommand(@NotNull AlertsDao alertsDao) {
@@ -55,6 +56,7 @@ public final class DeleteCommand extends CommandAdapter {
             throw new IllegalArgumentException("Too many arguments provided, alert id is an exclusive argument");
         }
     }
+
     private EmbedBuilder delete(@NotNull CommandContext context, @Nullable Long alertId, @Nullable Long ownerId, @Nullable String tickerOrPair) {
         if (null != alertId) { // single id delete
             return deleteById(context, alertId);

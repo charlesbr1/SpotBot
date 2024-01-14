@@ -9,6 +9,7 @@ import org.sbot.services.dao.AlertsDao;
 
 import java.util.List;
 
+import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.utils.ArgumentValidator.*;
@@ -20,7 +21,7 @@ public final class MessageCommand extends CommandAdapter {
     private static final int RESPONSE_TTL_SECONDS = 30;
 
     static final List<OptionData> options = List.of(
-            new OptionData(OptionType.INTEGER, "alert_id", "id of the alert", true)
+            new OptionData(INTEGER, "alert_id", "id of the alert", true)
                     .setMinValue(0),
             new OptionData(STRING, "message", "a message to show when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));

@@ -36,7 +36,7 @@ public final class RangeCommand extends CommandAdapter {
                     .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
             new OptionData(NUMBER, "low", "the low range price", true)
                     .setMinValue(0d),
-            new OptionData(NUMBER, "high", "the high range price", true)
+            new OptionData(NUMBER, "high", "the high range price", false) //TODO range with 1 price
                     .setMinValue(0d),
             new OptionData(STRING, "from_date", "a date to start the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false),
             new OptionData(STRING, "to_date", "a future date to end the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false),
