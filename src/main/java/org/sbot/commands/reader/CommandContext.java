@@ -20,11 +20,14 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.discord.Discord.MAX_MESSAGE_EMBEDS;
 
 public final class CommandContext {
+
+    public final @NotNull Discord discord;
 
     public final @NotNull String name;
     public final @NotNull MessageChannel channel;
@@ -36,7 +39,8 @@ public final class CommandContext {
     private @Nullable SlashCommandInteractionEvent event;
     private final @Nullable Message message;
 
-    public CommandContext(@NotNull SlashCommandInteractionEvent event) {
+    public CommandContext(@NotNull Discord discord, @NotNull SlashCommandInteractionEvent event) {
+        this.discord = requireNonNull(discord);
         this.event = event;
         this.message = null;
         this.channel = event.getChannel();
@@ -46,7 +50,8 @@ public final class CommandContext {
         this.name = event.getName();
     }
 
-    public CommandContext(@NotNull MessageReceivedEvent event, @NotNull String command) {
+    public CommandContext(@NotNull Discord discord, @NotNull MessageReceivedEvent event, @NotNull String command) {
+        this.discord = requireNonNull(discord);
         this.event = null;
         this.message = event.getMessage();
         this.channel = event.getChannel();

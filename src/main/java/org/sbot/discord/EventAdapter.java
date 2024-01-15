@@ -1,6 +1,5 @@
 package org.sbot.discord;
 
-import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
@@ -23,7 +22,6 @@ import org.sbot.commands.reader.CommandContext;
 
 import java.awt.*;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -35,12 +33,12 @@ final class EventAdapter extends ListenerAdapter {
 
     private static final Logger LOGGER = LogManager.getLogger(EventAdapter.class);
 
-    private final Map<String, CommandListener> commands;
+    private final Discord discord;
     private final String spotBotUserMention;
 
-    public EventAdapter(@NotNull Map<String, CommandListener> commands, @NotNull JDA jda) {
-        this.commands = requireNonNull(commands);
-        spotBotUserMention = jda.getSelfUser().getAsMention();
+    public EventAdapter(@NotNull Discord discord, @NotNull String selfMention) {
+        this.discord = requireNonNull(discord);
+        spotBotUserMention = requireNonNull(selfMention);
     }
 
     @Override
@@ -79,7 +77,7 @@ final class EventAdapter extends ListenerAdapter {
     public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
         if (acceptCommand(event.getUser(), event.getChannel())) {
             LOGGER.info("Discord slash command received from user {} : {}, with options {}", event.getUser().getEffectiveName(), event.getName(), event.getOptions());
-            onCommand(new CommandContext(event));
+            onCommand(new CommandContext(discord, event));
         } else {
             event.replyEmbeds(embedBuilder("Sorry !", Color.black,
                             "SpotBot disabled on this channel. Use it in private or on channel " +
@@ -96,7 +94,7 @@ final class EventAdapter extends ListenerAdapter {
             var command = event.getMessage().getContentRaw().strip();
             if (isPrivateMessage(event.getChannel().getType()) || command.startsWith(spotBotUserMention)) {
                 LOGGER.info("Discord message received from user {} : {}", event.getAuthor().getEffectiveName(), event.getMessage().getContentRaw());
-                onCommand(new CommandContext(event, removeStartingMentions(command)));
+                onCommand(new CommandContext(discord, event, removeStartingMentions(command)));
             }
         }
     }
@@ -118,7 +116,7 @@ final class EventAdapter extends ListenerAdapter {
 
     private void process(@NotNull CommandContext command) {
         try {
-            CommandListener listener = commands.get(command.name);
+            CommandListener listener = discord.getGetCommandListener(command.name);
             if (null != listener) {
                 listener.onCommand(command);
             } else if (!command.name.isEmpty()) {

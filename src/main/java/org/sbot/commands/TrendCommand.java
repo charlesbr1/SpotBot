@@ -39,7 +39,7 @@ public final class TrendCommand extends CommandAdapter {
                     option(NUMBER, "to_price", "the second price", true)
                             .setMinValue(0d),
                     option(STRING, "to_date", "the date of second price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true),
-                    option(STRING, "message", "a message to show when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
+                    option(STRING, "message", "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
                             .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
 

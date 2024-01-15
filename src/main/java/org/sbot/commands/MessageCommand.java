@@ -15,14 +15,14 @@ import static org.sbot.utils.ArgumentValidator.*;
 public final class MessageCommand extends CommandAdapter {
 
     public static final String NAME = "message";
-    static final String DESCRIPTION = "update the message to shown when the alert is triggered **Add a link to your AT !** (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)";
+    static final String DESCRIPTION = "update the message to shown when the alert is raised, add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
     static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(
                     option(INTEGER, "alert_id", "id of the alert", true)
                             .setMinValue(0),
-                    option(STRING, "message", "a message to show when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
+                    option(STRING, "message", "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
                             .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
     public MessageCommand(@NotNull AlertsDao alertsDao) {

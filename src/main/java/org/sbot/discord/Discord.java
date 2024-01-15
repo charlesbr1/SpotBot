@@ -150,7 +150,7 @@ public final class Discord {
                     .setRequestTimeoutRetry(true)
                     .build()
                     .awaitReady();
-            jda.addEventListener(new EventAdapter(commands, jda));
+            jda.addEventListener(new EventAdapter(this, jda.getSelfUser().getAsMention()));
             return jda;
         } catch (Exception e) {
             LOGGER.error("Unable to establish discord connection");
@@ -184,6 +184,10 @@ public final class Discord {
             LOGGER.warn("Failed to retrieve discord private channel for user " + userId, e);
             return empty();
         }
+    }
+
+    public CommandListener getGetCommandListener(@NotNull String command) {
+        return commands.get(command);
     }
 
     private void registerCommands(List<CommandListener> commandListeners) {

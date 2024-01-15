@@ -30,8 +30,10 @@ import static org.sbot.utils.ArgumentValidator.*;
 public final class QuoteCommand extends CommandAdapter {
 
     public static final String NAME = "quote";
-    static final String DESCRIPTION = "get last quotation for given exchange pair and time frame (1 minute)";
+    static final String DESCRIPTION = "get the last quotation of a pair on the given exchange (1 minute time frame)";
     private static final int RESPONSE_TTL_SECONDS = 300;
+
+    private static final int TIME_ZONE_LENGTH = 3;
 
     static final SlashCommandData options =
         Commands.slash(NAME, DESCRIPTION).addOptions(
@@ -40,7 +42,7 @@ public final class QuoteCommand extends CommandAdapter {
                 option(STRING, "pair", "the pair, like EUR/USDT", true)
                         .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
                 option(STRING, "timezone", "your current timezone, use utc list to see the available ones", false)
-                        .setMinLength(3).setMaxLength(3));
+                        .setMinLength(TIME_ZONE_LENGTH).setMaxLength(TIME_ZONE_LENGTH));
 
 
 

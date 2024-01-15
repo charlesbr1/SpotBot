@@ -41,7 +41,7 @@ public final class RangeCommand extends CommandAdapter {
                             .setMinValue(0d),
                     option(STRING, "from_date", "a date to start the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false),
                     option(STRING, "to_date", "a future date to end the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false),
-                    option(STRING, "message", "a message to show when the alert is triggered : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
+                    option(STRING, "message", "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
                             .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
     public RangeCommand(@NotNull AlertsDao alertsDao) {

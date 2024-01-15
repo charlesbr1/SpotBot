@@ -19,7 +19,7 @@ import static org.sbot.utils.Dates.formatUTC;
 public final class RemainderCommand extends CommandAdapter {
 
     public static final String NAME = "remainder";
-    static final String DESCRIPTION = "set a remainder related to a pair, to be triggered in the future, like for an airdrop event";
+    static final String DESCRIPTION = "set a remainder related to a pair, to be raised in the future, like for an airdrop event";
     private static final int RESPONSE_TTL_SECONDS = 60;
 
     static final SlashCommandData options =
