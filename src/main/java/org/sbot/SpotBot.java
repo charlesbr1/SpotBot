@@ -95,6 +95,7 @@ public class SpotBot {
                 new MigrateCommand(alertsDao),
                 new SpotBotCommand(alertsDao),
                 new UtcCommand(alertsDao),
+                new QuoteCommand(alertsDao),
                 new UpTimeCommand(alertsDao));
     }
 }

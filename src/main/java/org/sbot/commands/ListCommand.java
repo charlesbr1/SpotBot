@@ -51,7 +51,7 @@ public final class ListCommand extends CommandAdapter {
         }
         long finalOffset = offset;
         LOGGER.debug("list command - choice : {}, offset : {}", choice, offset);
-        alertsDao.transactional(() -> context.reply(responseTtlSeconds, list(context.noMoreArgs(), choice, finalOffset)));
+        alertsDao.transactional(() -> context.noMoreArgs().reply(responseTtlSeconds, list(context, choice, finalOffset)));
     }
 
     private List<EmbedBuilder> list(@NotNull CommandContext context, @NotNull String choice, long offset) {
@@ -84,7 +84,7 @@ public final class ListCommand extends CommandAdapter {
                 MULTI_LINE_BLOCK_QUOTE_MARKDOWN + "* " + String.join("\n* ", SUPPORTED_EXCHANGES)));
     }
 
-    private List<EmbedBuilder> pairs() {
+    private List<EmbedBuilder> pairs() {//TODO Exchanges.get(exchange).getAvailablePairs()
         return List.of(embedBuilder(CHOICE_PAIRS, Color.green, "TODO"));
     }
 }

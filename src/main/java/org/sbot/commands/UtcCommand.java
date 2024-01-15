@@ -55,11 +55,11 @@ public final class UtcCommand extends CommandAdapter {
     }
 
     private EmbedBuilder now() {
-        return embedBuilder(NAME, Color.green, "Current UTC date time :\n\n> " + Dates.formatUTC(ZonedDateTime.now()));
+        return embedBuilder(" ", Color.green, "Current UTC date time :\n\n> " + Dates.formatUTC(ZonedDateTime.now()));
     }
 
     private EmbedBuilder list() {
-        return embedBuilder(NAME, Color.green, "Available time zones :\n\n>>> " + SHORT_IDS.entrySet().stream()
+        return embedBuilder(" ", Color.green, "Available time zones :\n\n>>> " + SHORT_IDS.entrySet().stream()
                 .map(entry -> entry.getKey() + " : " + entry.getValue())
                 .collect(joining("\n")));
     }
@@ -71,7 +71,7 @@ public final class UtcCommand extends CommandAdapter {
         if(null == date) {
             throw new IllegalArgumentException("Missing date time field");
         }
-        ZonedDateTime utcDate = date.atZone(ZoneId.of(SHORT_IDS.get(timeZone)));
-        return embedBuilder(NAME, Color.green, Dates.formatUTC(utcDate));
+        ZonedDateTime zonedDateTime = date.atZone(ZoneId.of(SHORT_IDS.get(timeZone)));
+        return embedBuilder(" ", Color.green, Dates.formatUTC(zonedDateTime));
     }
 }

@@ -113,6 +113,10 @@ final class EventAdapter extends ListenerAdapter {
     }
 
     private void onCommand(@NotNull CommandContext command) {
+        Thread.ofVirtual().name("Discord event handler").start(() -> process(command));
+    }
+
+    private void process(@NotNull CommandContext command) {
         try {
             CommandListener listener = commands.get(command.name);
             if (null != listener) {

@@ -34,7 +34,7 @@ public final class MessageCommand extends CommandAdapter {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         String message = requireAlertMessageLength(context.args.getLastArgs("message").orElse(""));
         LOGGER.debug("message command - alert_id : {}, message : {}", alertId, message);
-        alertsDao.transactional(() -> context.reply(responseTtlSeconds, message(context.noMoreArgs(), message, alertId)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, message(context, message, alertId)));
     }
 
     private EmbedBuilder message(@NotNull CommandContext context, String message, long alertId) {

@@ -50,7 +50,7 @@ public final class DeleteCommand extends CommandAdapter {
                 context.args.getMandatoryUserId("owner") : null;
 
         LOGGER.debug("delete command - alert_id : {}, owner : {}, ticker_pair : {}", alertId, ownerId, tickerOrPair);
-        alertsDao.transactional(() -> context.reply(responseTtlSeconds, delete(context.noMoreArgs(), alertId, ownerId, tickerOrPair)));
+        alertsDao.transactional(() -> context.noMoreArgs().reply(responseTtlSeconds, delete(context, alertId, ownerId, tickerOrPair)));
     }
 
     static void validateExclusiveArguments(@Nullable Long alertId, @Nullable String tickerOrPair) {

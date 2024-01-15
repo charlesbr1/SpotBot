@@ -31,7 +31,7 @@ public final class TrendCommand extends CommandAdapter {
             Commands.slash(NAME, DESCRIPTION).addOptions(
                     option(STRING, "exchange", "the exchange, like binance", true)
                             .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).collect(toList())),
-                    option(STRING, "pair", "the pair, like EUR/USD", true)
+                    option(STRING, "pair", "the pair, like EUR/USDT", true)
                             .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
                     option(NUMBER, "from_price", "the first price", true)
                             .setMinValue(0d),
@@ -60,7 +60,7 @@ public final class TrendCommand extends CommandAdapter {
 
         LOGGER.debug("trend command - exchange : {}, pair : {}, from_price : {}, from_date : {}, to_price : {}, to_date : {}, message : {}",
                 exchange, pair, fromPrice, fromDate, toPrice, toDate, message);
-        alertsDao.transactional(() -> context.reply(responseTtlSeconds, trend(context.noMoreArgs(), exchange, pair, message, fromPrice, fromDate, toPrice, toDate)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, trend(context, exchange, pair, message, fromPrice, fromDate, toPrice, toDate)));
     }
 
     private EmbedBuilder trend(@NotNull CommandContext context, @NotNull String exchange,

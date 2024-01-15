@@ -28,6 +28,10 @@ public interface Dates {
         return parse(dateTime).atZone(ZoneOffset.UTC);
     }
 
+    static String formatAtZone(@NotNull ZonedDateTime dateTime) {
+        return dateTime.format(DATE_TIME_FORMATTER);
+    }
+
     static String formatUTC(@NotNull ZonedDateTime dateTime) {
         return dateTime.withZoneSameInstant(ZoneOffset.UTC).format(DATE_TIME_FORMATTER);
     }

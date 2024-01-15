@@ -70,6 +70,7 @@ public final class SpotBotCommand extends CommandAdapter {
             new Command(MigrateCommand.NAME, MigrateCommand.DESCRIPTION, MigrateCommand.options),
             new Command(DeleteCommand.NAME, DeleteCommand.DESCRIPTION, DeleteCommand.options),
             new Command(UtcCommand.NAME, UtcCommand.DESCRIPTION, UtcCommand.options),
+            new Command(QuoteCommand.NAME, QuoteCommand.DESCRIPTION, QuoteCommand.options),
             new Command(UpTimeCommand.NAME, UpTimeCommand.DESCRIPTION, UpTimeCommand.options));
 
     private static final String DOC_HEADER = """
@@ -157,7 +158,7 @@ public final class SpotBotCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         String choice = context.args.getString("choice").orElse(CHOICE_DOC);
         LOGGER.debug("spotBot command - choice : {}", choice);
-        context.reply(responseTtlSeconds, spotBot(choice, context.noMoreArgs()),
+        context.noMoreArgs().reply(responseTtlSeconds, spotBot(choice, context),
                 List.of(CHOICE_DOC.equals(choice) ? message -> message.addFiles(alertsPicture) : m -> {}));
     }
 

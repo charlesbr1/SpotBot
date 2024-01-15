@@ -52,7 +52,7 @@ public abstract class CommandAdapter implements CommandListener {
     @Override
     @NotNull
     public final SlashCommandData options() {
-        return options;
+        return SlashCommandData.fromData(options.toData()); // defensive copy
     }
 
     protected static OptionData option(@NotNull OptionType type, @NotNull String name, @NotNull String description, boolean isRequired) {

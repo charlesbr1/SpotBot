@@ -35,7 +35,7 @@ public final class RepeatCommand extends CommandAdapter {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         short repeat = requirePositiveShort(context.args.getMandatoryLong("repeat"));
         LOGGER.debug("repeat command - alert_id : {}, repeat : {}", alertId, repeat);
-        alertsDao.transactional(() -> context.reply(responseTtlSeconds, repeat(context.noMoreArgs(), alertId, repeat)));
+        alertsDao.transactional(() -> context.noMoreArgs().reply(responseTtlSeconds, repeat(context, alertId, repeat)));
     }
 
     private EmbedBuilder repeat(@NotNull CommandContext context, long alertId, short repeat) {

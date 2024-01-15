@@ -13,7 +13,7 @@ import static org.sbot.alerts.Alert.isPrivate;
 interface SecurityAccess {
 
     static boolean notFound(@NotNull CommandContext context, @Nullable UserIdServerIdType alert) {
-        return null == alert ||
+        return null == alert || //TODO bug si sur private channel, doit pouvoir trouver ses alerts sur autres guild
                 (isPrivate(alert.serverId()) && !alertBelongToUser(context.user, alert.userId())) ||
                 (!isPrivate(alert.serverId()) && !alertIsOnMemberServer(context.member, alert.serverId()));
     }

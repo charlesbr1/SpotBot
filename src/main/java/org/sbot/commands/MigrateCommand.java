@@ -71,8 +71,8 @@ public final class MigrateCommand extends CommandAdapter {
         Long finalOwnerId = ownerId;
 
         LOGGER.debug("migrate command - alert_id : {}, server_id : {}, tickerOrPair : {}, ownerId : {}", alertId, serverId, tickerOrPair, ownerId);
-        Thread.ofVirtual().name("Migrate user query").start(() -> alertsDao.transactional(() -> // underlying call to isGuildMember is blocking
-                context.reply(responseTtlSeconds, migrate(context.noMoreArgs(), finalServerId, alertId, finalOwnerId, tickerOrPair))));
+        alertsDao.transactional(() ->
+                context.noMoreArgs().reply(responseTtlSeconds, migrate(context, finalServerId, alertId, finalOwnerId, tickerOrPair)));
     }
 
     private EmbedBuilder migrate(@NotNull CommandContext context, long serverId, @Nullable Long alertId, @Nullable Long ownerId, @Nullable String tickerOrPair) {

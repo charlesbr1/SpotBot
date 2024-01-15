@@ -33,7 +33,7 @@ public final class RangeCommand extends CommandAdapter {
             Commands.slash(NAME, DESCRIPTION).addOptions(
                     option(STRING, "exchange", "the exchange, like binance", true)
                             .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).collect(toList())),
-                    option(STRING, "pair", "the pair, like EUR/USD", true)
+                    option(STRING, "pair", "the pair, like EUR/USDT", true)
                             .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
                     option(NUMBER, "low", "the low range price", true)
                             .setMinValue(0d),
@@ -60,7 +60,7 @@ public final class RangeCommand extends CommandAdapter {
 
         LOGGER.debug("range command - exchange : {}, pair : {}, low : {}, high : {}, from_date : {}, to_date : {}, message : {}",
                 exchange, pair, fromPrice, toPrice, fromDate, toDate, message);
-        alertsDao.transactional(() -> context.reply(responseTtlSeconds, range(context.noMoreArgs(), exchange, pair, message, fromPrice, toPrice, fromDate, toDate)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, range(context, exchange, pair, message, fromPrice, toPrice, fromDate, toDate)));
     }
 
     private EmbedBuilder range(@NotNull CommandContext context, @NotNull String exchange,

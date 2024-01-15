@@ -24,7 +24,7 @@ public final class RemainderCommand extends CommandAdapter {
 
     static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(
-                    option(STRING, "pair", "the pair, like EUR/USD", true)
+                    option(STRING, "pair", "the pair, like EUR/USDT", true)
                             .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
                     option(STRING, "date", "a future date when to trigger the remainder, UTC expected format : " + Dates.DATE_TIME_FORMAT, true),
                     option(STRING, "message", "a message for this remainder (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
@@ -42,7 +42,7 @@ public final class RemainderCommand extends CommandAdapter {
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
 
         LOGGER.debug("remainder command - pair : {}, date : {}, remainder {}", pair, date, message);
-        alertsDao.transactional(() -> context.reply(responseTtlSeconds, remainder(context.noMoreArgs(), pair, date, message)));
+        alertsDao.transactional(() -> context.reply(responseTtlSeconds, remainder(context, pair, date, message)));
     }
 
     private EmbedBuilder remainder(@NotNull CommandContext context, @NotNull String pair, @NotNull ZonedDateTime fromDate, @NotNull String message) {
