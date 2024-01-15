@@ -1,6 +1,7 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
@@ -84,10 +85,16 @@ public abstract class CommandAdapter implements CommandListener {
                 .setDescription(text);
     }
 
-    protected static EmbedBuilder toMessage(@NotNull Alert alert) {
+    protected static EmbedBuilder toMessage(@NotNull CommandContext context, @NotNull Alert alert) {
         return embedBuilder('[' + alert.pair + "] " + alert.message,
                 !hasRepeat(alert.repeat) ? Color.black : (isPrivate(alert.serverId) ? Color.blue : Color.green),
-                alert.descriptionMessage());
+                alert.descriptionMessage() + (isPrivate(context.serverId()) && !isPrivate(alert.serverId) ?
+                        "\n\nGuild : " + context.discord.getGuildServer(alert.serverId).map(CommandAdapter::guildName).orElse("unknown") : ""));
+    }
+
+    @NotNull
+    protected static String guildName(@NotNull Guild guild) {
+        return guild.getName() + " (" + guild.getIdLong() + ")";
     }
 
     //TODO doc mutation of list messages argument

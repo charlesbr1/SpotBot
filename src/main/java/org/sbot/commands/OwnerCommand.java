@@ -66,7 +66,7 @@ public final class OwnerCommand extends CommandAdapter {
                 alertMessages = (null != tickerOrPair ?
                         alertsDao.getAlertsOfUserAndTickers(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE + 1, tickerOrPair) :
                         alertsDao.getAlertsOfUser(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE + 1))
-                        .stream().map(CommandAdapter::toMessage).collect(toList());
+                        .stream().map(alert -> toMessage(context, alert)).collect(toList());
             } else {
                 total = null != tickerOrPair ?
                         alertsDao.countAlertsOfServerAndUserAndTickers(context.serverId(), ownerId, tickerOrPair) :
@@ -74,7 +74,7 @@ public final class OwnerCommand extends CommandAdapter {
                 alertMessages = (null != tickerOrPair ?
                         alertsDao.getAlertsOfServerAndUserAndTickers(context.serverId(), ownerId, offset, MESSAGE_PAGE_SIZE + 1, tickerOrPair) :
                         alertsDao.getAlertsOfServerAndUser(context.serverId(), ownerId, offset, MESSAGE_PAGE_SIZE + 1))
-                        .stream().map(CommandAdapter::toMessage).collect(toList());
+                        .stream().map(alert -> toMessage(context, alert)).collect(toList());
             }
 
             return paginatedAlerts(alertMessages, offset, total,

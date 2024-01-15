@@ -71,7 +71,7 @@ public final class ListCommand extends CommandAdapter {
             List<EmbedBuilder> alertMessages = (isPrivateChannel(context) ?
                     alertsDao.getAlertsOfUser(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE + 1) :
                     alertsDao.getAlertsOfServer(context.serverId(), offset, MESSAGE_PAGE_SIZE + 1))
-                    .stream().map(CommandAdapter::toMessage).collect(toList());
+                    .stream().map(alert -> toMessage(context, alert)).collect(toList());
 
             return paginatedAlerts(alertMessages, offset, total,
                     () -> "list alerts " + (offset + MESSAGE_PAGE_SIZE - 1),

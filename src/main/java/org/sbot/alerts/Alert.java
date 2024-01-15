@@ -168,7 +168,7 @@ public abstract class Alert {
     }
 
     @NotNull
-    public final String descriptionMessage() { //TODO add serverId in private
+    public final String descriptionMessage() {
         return asMessage(NOT_MATCHING, null);
     }
 

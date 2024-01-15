@@ -48,7 +48,7 @@ public final class PairCommand extends CommandAdapter {
             List<EmbedBuilder> alertMessages = (isPrivateChannel(context) ?
                     alertsDao.getAlertsOfUserAndTickers(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE - 1, tickerOrPair) :
                     alertsDao.getAlertsOfServerAndTickers(context.serverId(), offset, MESSAGE_PAGE_SIZE - 1, tickerOrPair))
-                    .stream().map(CommandAdapter::toMessage).collect(toList());
+                    .stream().map(alert -> toMessage(context, alert)).collect(toList());
 
             return paginatedAlerts(alertMessages, offset, total,
                     () -> "pair " + tickerOrPair + " " + (offset + MESSAGE_PAGE_SIZE - 1),

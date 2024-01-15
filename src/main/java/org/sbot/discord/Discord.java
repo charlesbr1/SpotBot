@@ -158,11 +158,9 @@ public final class Discord {
         }
     }
 
-    @NotNull
-    public Guild getGuildServer(long guildServerId) {
+    public Optional<Guild> getGuildServer(long guildServerId) {
         LOGGER.debug("Retrieving discord server {}...", guildServerId);
-        return Optional.ofNullable(jda.getGuildById(guildServerId))
-                .orElseThrow(() -> new IllegalStateException("Failed to get guild server " + guildServerId + " : should not be connected to this bot"));
+        return Optional.ofNullable(jda.getGuildById(guildServerId));
     }
 
     @NotNull

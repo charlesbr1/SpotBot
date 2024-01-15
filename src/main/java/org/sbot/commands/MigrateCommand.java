@@ -98,16 +98,16 @@ public final class MigrateCommand extends CommandAdapter {
     private EmbedBuilder migrateById(@NotNull CommandContext context, @Nullable Guild guild, long alertId, Runnable[] outNotificationCallBack) {
         AnswerColorSmiley answer = securedAlertUpdate(alertId, context, alert -> {
             if((isPrivate(alert.serverId()) && null == guild) || (null != guild && guild.getIdLong() == alert.serverId())) {
-                return "Alert is already into " + (null == guild ? "the private channel" : guildName(guild));
+                throw new IllegalArgumentException("Alert " + alertId + " is already into " + (null == guild ? "the private channel" : "guild " + guildName(guild)));
             }
             if(null == guild || isGuildMember(guild, alert.userId())) {
                 alertsDao.updateServerId(alertId, null != guild ? guild.getIdLong() : PRIVATE_ALERT);
                 if(context.user.getIdLong() != alert.userId()) {
                     outNotificationCallBack[0] = () -> notifyAlertOwner(context, alertId, alert.userId(), requireNonNull(context.member), guild);
                 }
-                return "Alert migrated to " + (null == guild ? "user private channel" : guildName(guild));
+                return "Alert migrated to " + (null == guild ? "user private channel" : "guild " +guildName(guild));
             }
-            throw new IllegalArgumentException("User <@" + alert.userId() + "> is not a member of " + guildName(guild));
+            throw new IllegalArgumentException("User <@" + alert.userId() + "> is not a member of guild " + guildName(guild));
         });
         return embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer());
     }
@@ -116,7 +116,7 @@ public final class MigrateCommand extends CommandAdapter {
     private static Guild getGuild(@NotNull CommandContext context, long serverId) {
         return isPrivate(serverId) ? null :
                 Optional.ofNullable(context.channel.getJDA().getGuildById(serverId))
-                        .orElseThrow(() -> new IllegalArgumentException("This guild does not support this bot : " + serverId));
+                        .orElseThrow(() -> new IllegalArgumentException("Bot is not supported on this guild : " + serverId));
     }
 
     private static boolean isGuildMember(@NotNull Guild guild, long userId) {
@@ -124,9 +124,13 @@ public final class MigrateCommand extends CommandAdapter {
     }
 
     private EmbedBuilder migrateByOwnerOrTickerPair(@NotNull CommandContext context, @Nullable Guild guild, @Nullable Long ownerId, @NotNull String tickerOrPair, Runnable[] outNotificationCallBack) {
+        if((isPrivate(context.serverId()) && null == guild) || (null != guild && guild.getIdLong() == context.serverId())) {
+            throw new IllegalArgumentException("Those alerts are already into " + (null == guild ? "the private channel" : "guild " +guildName(guild)));
+        }
+
         long userId = null != ownerId ? ownerId : context.user.getIdLong();
         if(null != guild && !isGuildMember(guild, userId)) {
-            throw new IllegalArgumentException("User <@" + userId + "> is not a member of " + guildName(guild));
+            throw new IllegalArgumentException("User <@" + userId + "> is not a member of guild " + guildName(guild));
         }
         long migrated = MIGRATE_ALL.equalsIgnoreCase(tickerOrPair) ?
                 alertsDao.updateServerIdOfUserAndServerId(userId, context.serverId(), null != guild ? guild.getIdLong() : PRIVATE_ALERT) :
@@ -135,12 +139,7 @@ public final class MigrateCommand extends CommandAdapter {
             outNotificationCallBack[0] = () -> notifyAlertOwner(context, tickerOrPair, ownerId, requireNonNull(context.member), guild, migrated);
         }
         return embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), Color.green, migrated + " " + (migrated > 1 ? " alerts" : " alert") +
-                " migrated to " + (null == guild ? "user private channel" : guildName(guild)));
-    }
-
-    @NotNull
-    private static String guildName(@NotNull Guild guild) {
-        return "guild " + guild.getName() + " (" + guild.getIdLong() + ")";
+                " migrated to " + (null == guild ? "user private channel" : "guild " +guildName(guild)));
     }
 
     private void notifyAlertOwner(@NotNull CommandContext context, long alertId, long userId, @NotNull Member member, @Nullable Guild guild) {
