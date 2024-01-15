@@ -52,7 +52,7 @@ public class SpotBot {
             LastCandlesticksDao lastCandlestickDao = memoryDao ? new LastCandlesticksMemory() : new LastCandlesticksSQLite(repository);
 
             // load services
-            Discord discord = new Discord(loadDiscordCommands(alertsDao));
+            Discord discord = new Discord(alertsDao, loadDiscordCommands(alertsDao));
             MarketDataService marketDataService =  new MarketDataService(lastCandlestickDao);
             AlertsWatcher alertsWatcher = new AlertsWatcher(discord, alertsDao, marketDataService);
 

@@ -20,6 +20,7 @@ public interface AlertsDao extends TransactionalCtx {
 
     record UserIdServerIdType(long userId, long serverId, @NotNull Type type) {}
     Optional<UserIdServerIdType> getUserIdAndServerIdAndType(long alertId);
+    List<Long> getUserIdsByServerId(long serverId);
 
     long fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer);
     long fetchAlertsHavingRepeatZeroAndLastTriggerBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer);

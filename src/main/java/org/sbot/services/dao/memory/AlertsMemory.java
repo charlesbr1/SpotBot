@@ -50,6 +50,14 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
+    public List<Long> getUserIdsByServerId(long serverId) {
+        LOGGER.debug("getUserIdsByServerId {}", serverId);
+        return alerts.values().stream()
+                .filter(alert -> alert.serverId == serverId)
+                .map(Alert::getUserId).toList();
+    }
+
+    @Override
     public long fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
         LOGGER.debug("fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats {} {}", exchange, pair);
         long[] read = new long[] {0L};

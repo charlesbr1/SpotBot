@@ -1,14 +1,11 @@
 package org.sbot.discord;
 
 import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
-import net.dv8tion.jda.api.events.GenericEvent;
 import net.dv8tion.jda.api.events.guild.GuildBanEvent;
-import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.api.events.guild.GuildLeaveEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -19,14 +16,18 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.reader.CommandContext;
+import org.sbot.services.dao.AlertsDao;
 
 import java.awt.*;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
+import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
+import static org.sbot.commands.CommandAdapter.guildName;
 import static org.sbot.utils.ArgumentValidator.START_WITH_DISCORD_USER_ID_PATTERN;
 
 final class EventAdapter extends ListenerAdapter {
@@ -34,43 +35,51 @@ final class EventAdapter extends ListenerAdapter {
     private static final Logger LOGGER = LogManager.getLogger(EventAdapter.class);
 
     private final Discord discord;
+    private final AlertsDao alertsDao;
     private final String spotBotUserMention;
 
-    public EventAdapter(@NotNull Discord discord, @NotNull String selfMention) {
+    public EventAdapter(@NotNull Discord discord, @NotNull AlertsDao alertsDao, @NotNull String selfMention) {
         this.discord = requireNonNull(discord);
+        this.alertsDao = requireNonNull(alertsDao);
         spotBotUserMention = requireNonNull(selfMention);
     }
 
     @Override
-    public void onGenericEvent(@NotNull GenericEvent event) {
-        LOGGER.debug("GenericEvent : " + event);
-    }
-
-    @Override
-    public void onGuildJoin(@NotNull GuildJoinEvent event) {
-        LOGGER.debug("Guild server joined : " + event.getGuild());
-    }
-
-    @Override
     public void onGuildLeave(@NotNull GuildLeaveEvent event) {
-        //TODO migrer alerts de tous les user en private et les notifier
-        LOGGER.debug("Guild server leaved : " + event.getGuild());
+        LOGGER.debug("onGuildLeave, event {}", event);
+        migrateUserAlertsToPrivateChannel(null, event.getGuild(),
+                "Guild " + guildName(event.getGuild()) + " removed this bot");
     }
 
     @Override
     public void onGuildBan(@NotNull GuildBanEvent event) {
-        //TODO migrer alerts de l'user en private et le notifier
-        LOGGER.error("onGuildBan " + event);
+        LOGGER.debug("onGuildBan, event {}", event);
+        migrateUserAlertsToPrivateChannel(event.getUser().getIdLong(), event.getGuild(),
+                "You were banned from guild " + guildName(event.getGuild()));
     }
 
     @Override
     public void onGuildMemberRemove(@NotNull GuildMemberRemoveEvent event) {
-        //TODO migrer alerts de l'user en private et le notifier
-        Guild guild = event.getGuild();
+        LOGGER.debug("onGuildMemberRemove, event {}", event);
+        migrateUserAlertsToPrivateChannel(event.getUser().getIdLong(), event.getGuild(),
+                "You leaved guild " + guildName(event.getGuild()));
+    }
 
-        // Obtenez la liste des membres
-        List<Member> members = guild.getMembers();
-        LOGGER.error("User " + event.getUser() + " leaved server : " + event.getGuild());
+    private void migrateUserAlertsToPrivateChannel(@Nullable Long userId, @NotNull Guild guild, @NotNull String reason) {
+        if(null != userId) {
+            migrateAndNotify(userId, guild, reason);
+        }
+        alertsDao.transactional(() -> alertsDao.getUserIdsByServerId(guild.getIdLong()))
+                .forEach(id -> migrateAndNotify(id, guild, reason));
+    }
+
+    private void migrateAndNotify(long userId, @NotNull Guild guild, @NotNull String reason) {
+        long nbMigrated = alertsDao.transactional(() -> alertsDao.updateServerIdOfUserAndServerId(userId, guild.getIdLong(), PRIVATE_ALERT));
+        if(nbMigrated > 0) {
+            discord.userChannel(userId).ifPresent(channel ->
+                    channel.sendMessages(List.of(embedBuilder("Notice of " + (nbMigrated > 1 ? "alerts" : "alert") + " migration", Color.lightGray,
+                            reason + (nbMigrated > 1 ? ", all your alerts (" + nbMigrated + ") on this guild were " : ", your alert on this guild was ") + "migrated to your private channel")), emptyList()));
+        }
     }
 
     @Override

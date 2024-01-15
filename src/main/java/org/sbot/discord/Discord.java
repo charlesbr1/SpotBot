@@ -22,6 +22,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.SpotBot;
+import org.sbot.services.dao.AlertsDao;
 
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,7 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static java.util.Comparator.comparing;
+import static java.util.Objects.requireNonNull;
 import static java.util.Optional.empty;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
@@ -73,8 +75,8 @@ public final class Discord {
             .maximumSize(Short.MAX_VALUE)
             .build();
 
-    public Discord(@NotNull List<CommandListener> commandListeners) {
-        jda = loadDiscordConnection();
+    public Discord(@NotNull AlertsDao alertsDao, @NotNull List<CommandListener> commandListeners) {
+        jda = loadDiscordConnection(requireNonNull(alertsDao));
         registerCommands(commandListeners);
     }
 
@@ -138,7 +140,7 @@ public final class Discord {
     }
 
     @NotNull
-    private JDA loadDiscordConnection() {
+    private JDA loadDiscordConnection(@NotNull AlertsDao alertsDao) {
         try {
             LOGGER.info("Loading discord connection...");
             JDA jda = JDABuilder.createLight(readFile(DISCORD_BOT_TOKEN_FILE),
@@ -150,7 +152,7 @@ public final class Discord {
                     .setRequestTimeoutRetry(true)
                     .build()
                     .awaitReady();
-            jda.addEventListener(new EventAdapter(this, jda.getSelfUser().getAsMention()));
+            jda.addEventListener(new EventAdapter(this, alertsDao, jda.getSelfUser().getAsMention()));
             return jda;
         } catch (Exception e) {
             LOGGER.error("Unable to establish discord connection");

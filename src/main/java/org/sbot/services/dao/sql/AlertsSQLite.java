@@ -67,6 +67,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String SELECT_MAX_ID = "SELECT MAX(id) FROM alerts";
         String SELECT_BY_ID = "SELECT * FROM alerts WHERE id=:id";
         String SELECT_USER_ID_AND_SERVER_ID_AND_TYPE_BY_ID = "SELECT user_id,server_id,type FROM alerts WHERE id=:id";
+        String SELECT_USER_ID_BY_SERVER_ID = "SELECT user_id FROM alerts WHERE server_id=:serverId";
         String SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE = "SELECT id,type,user_id,server_id,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,repeat_delay FROM alerts " +
                 "WHERE exchange=:exchange AND pair=:pair AND repeat > 0 " +
                 "AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * repeat_delay)) <= (1000 * (300 + unixepoch('now', 'utc')))) " +
@@ -187,6 +188,12 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         LOGGER.debug("getUserIdAndServerId {}", alertId);
         return findOne(SQL.SELECT_USER_ID_AND_SERVER_ID_AND_TYPE_BY_ID, UserIdServerIdType.class,
                 Map.of("id", alertId));
+    }
+
+    @Override
+    public List<Long> getUserIdsByServerId(long serverId) {
+        LOGGER.debug("getUserIdsByServerId {}", serverId);
+        return query(SQL.SELECT_USER_ID_BY_SERVER_ID, Long.class, Map.of("serverId", serverId));
     }
 
     @Override

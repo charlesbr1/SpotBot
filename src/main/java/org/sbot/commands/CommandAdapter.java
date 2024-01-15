@@ -93,7 +93,7 @@ public abstract class CommandAdapter implements CommandListener {
     }
 
     @NotNull
-    protected static String guildName(@NotNull Guild guild) {
+    public static String guildName(@NotNull Guild guild) {
         return guild.getName() + " (" + guild.getIdLong() + ")";
     }
 
