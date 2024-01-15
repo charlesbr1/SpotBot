@@ -55,6 +55,9 @@ public interface AlertsDao extends TransactionalCtx {
 
     long addAlert(@NotNull Alert alert);
 
+    void updateServerId(long alertId, long serverId);
+    long updateServerIdOfUserAndServerId(long userId, long serverId, long newServerId);
+    long updateServerIdOfUserAndServerIdAndTickers(long userId, long serverId, @NotNull String tickerOrPair, long newServerId);
     void updateMessage(long alertId, @NotNull String message);
     void updateMargin(long alertId, @NotNull BigDecimal margin);
     void updateRepeat(long alertId, short repeat);

@@ -49,6 +49,12 @@ public final class RangeAlert extends Alert {
 
     @Override
     @NotNull
+    public RangeAlert withServerId(long serverId) {
+        return new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+    }
+
+    @Override
+    @NotNull
     public RangeAlert withMessage(@NotNull String message) {
         return new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }

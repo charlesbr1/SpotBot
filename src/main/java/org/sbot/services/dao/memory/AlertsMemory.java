@@ -218,6 +218,35 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
+    public void updateServerId(long alertId, long serverId) {
+        LOGGER.debug("updateServerId {} {}", alertId, serverId);
+        alerts.computeIfPresent(alertId, (id, alert) -> alert.withServerId(serverId));
+    }
+
+    @Override
+    public long updateServerIdOfUserAndServerId(long userId, long serverId, long newServerId) {
+        LOGGER.debug("updateServerIdOfUserAndServerId {} {} {}", userId, serverId, newServerId);
+        long[] updatedAlerts = new long[] {0L};
+        alerts.replaceAll((alertId, alert) ->
+                alert.userId == userId &&
+                alert.serverId == serverId &&
+                ++updatedAlerts[0] != 0 ? alert.withServerId(newServerId) : alert);
+        return updatedAlerts[0];
+    }
+
+    @Override
+    public long updateServerIdOfUserAndServerIdAndTickers(long userId, long serverId, @NotNull String tickerOrPair, long newServerId) {
+        LOGGER.debug("updateServerIdOfUserAndServerIdAndTickers {} {} {} {}", userId, serverId, tickerOrPair, newServerId);
+        long[] updatedAlerts = new long[] {0L};
+        alerts.replaceAll((alertId, alert) ->
+                alert.userId == userId &&
+                alert.serverId == serverId &&
+                alert.pair.contains(tickerOrPair) &&
+                ++updatedAlerts[0] != 0 ? alert.withServerId(newServerId) : alert);
+        return updatedAlerts[0];
+    }
+
+    @Override
     public void updateMessage(long alertId, @NotNull String message) {
         LOGGER.debug("updateMessage {} {}", alertId, message);
         alerts.computeIfPresent(alertId, (id, alert) -> alert.withMessage(message));

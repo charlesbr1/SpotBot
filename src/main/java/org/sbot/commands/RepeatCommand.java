@@ -39,8 +39,8 @@ public final class RepeatCommand extends CommandAdapter {
     }
 
     private EmbedBuilder repeat(@NotNull CommandContext context, long alertId, short repeat) {
-        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, type -> {
-            if(remainder == type) {
+        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, alert -> {
+            if(remainder == alert.type()) {
                 throw new IllegalArgumentException("You can't set the repeat of a remainder alert");
             }
             alertsDao.updateRepeat(alertId, repeat);

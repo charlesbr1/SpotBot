@@ -61,7 +61,7 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected record AnswerColorSmiley(@NotNull String answer, @NotNull Color color, @NotNull String smiley) {}
 
-    protected AnswerColorSmiley securedAlertUpdate(long alertId, @NotNull CommandContext context, @NotNull Function<Type, String> updateHandler) {
+    protected AnswerColorSmiley securedAlertUpdate(long alertId, @NotNull CommandContext context, @NotNull Function<UserIdServerIdType, String> updateHandler) {
 
         UserIdServerIdType alert = alertsDao.getUserIdAndServerIdAndType(alertId).orElse(null);
 
@@ -71,7 +71,7 @@ public abstract class CommandAdapter implements CommandListener {
             return new AnswerColorSmiley("You are not allowed to update alert " + alertId +
                     (isPrivate(context.serverId()) ? ", you are on a private channel." : ""), Color.black, ":clown:");
         }
-        return new AnswerColorSmiley(updateHandler.apply(alert.type()), Color.green, ":+1:");
+        return new AnswerColorSmiley(updateHandler.apply(alert), Color.green, ":+1:");
     }
 
     protected static boolean isPrivateChannel(@NotNull CommandContext context) {

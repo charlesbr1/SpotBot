@@ -208,7 +208,7 @@ public final class AlertsWatcher {
             if(isPrivate(serverId)) {
                 sendPrivateAlerts(matchingAlerts);
             } else {
-                sendServerAlerts(matchingAlerts, discord.getDiscordServer(serverId));
+                sendServerAlerts(matchingAlerts, discord.getGuildServer(serverId));
             }
         } catch (RuntimeException e) {
             String alertIds = matchingAlerts.stream()

@@ -135,6 +135,10 @@ public abstract class Alert {
 
     @NotNull
     public abstract Alert withId(@NotNull Supplier<Long> idGenerator);
+
+    @NotNull
+    public abstract Alert withServerId(long serverId);
+
     @NotNull
     public abstract Alert withMessage(@NotNull String message);
 

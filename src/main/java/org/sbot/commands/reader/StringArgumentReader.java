@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;

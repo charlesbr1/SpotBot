@@ -96,6 +96,9 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String DELETE_BY_USER_ID_AND_SERVER_ID = "DELETE FROM alerts WHERE user_id=:userId AND server_id=:serverId";
         String DELETE_BY_USER_ID_AND_SERVER_ID_AND_TICKER_OR_PAIR = "DELETE FROM alerts WHERE user_id=:userId AND server_id=:serverId AND pair LIKE '%:tickerOrPair%'";
         String INSERT_ALERT = "INSERT INTO alerts (id,type,user_id,server_id,exchange,pair,message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,repeat_delay) VALUES (:id,:type,:userId,:serverId,:exchange,:pair,:message,:fromPrice,:toPrice,:fromDate,:toDate,:lastTrigger,:margin,:repeat,:repeatDelay)";
+        String UPDATE_ALERTS_SERVER_ID_BY_ID = "UPDATE alerts SET server_id=:serverId WHERE id=:id";
+        String UPDATE_ALERTS_SERVER_ID_BY_USER_ID_AND_SERVER_ID = "UPDATE alerts SET server_id=:newServerId WHERE user_id=:userId AND server_id=:serverId";
+        String UPDATE_ALERTS_SERVER_ID_BY_USER_ID_AND_SERVER_ID_TICKER_OR_PAIR = "UPDATE alerts SET server_id=:newServerId WHERE user_id=:userId AND server_id=:serverId AND pair LIKE '%:tickerOrPair%'";
         String UPDATE_ALERTS_MESSAGE = "UPDATE alerts SET message=:message WHERE id=:id";
         String UPDATE_ALERTS_MARGIN = "UPDATE alerts SET margin=:margin WHERE id=:id";
         String UPDATE_ALERTS_SET_MARGIN_ZERO = "UPDATE alerts SET margin = O WHERE id=:id";
@@ -334,6 +337,27 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         LOGGER.debug("addAlert {}, with new id {}", alert, alertWithId.id);
         update(SQL.INSERT_ALERT, query -> bindAlertFields(alertWithId, query));
         return alertWithId.id;
+    }
+
+    @Override
+    public void updateServerId(long alertId, long serverId) {
+        LOGGER.debug("updateServerId {} {}", alertId, serverId);
+        update(SQL.UPDATE_ALERTS_SERVER_ID_BY_ID,
+                Map.of("id", alertId, "serverId", serverId));
+    }
+
+    @Override
+    public long updateServerIdOfUserAndServerId(long userId, long serverId, long newServerId) {
+        LOGGER.debug("updateServerIdOfUserAndServerId {} {} {}", userId, serverId, newServerId);
+        return update(SQL.UPDATE_ALERTS_SERVER_ID_BY_USER_ID_AND_SERVER_ID,
+                Map.of("userId", userId, "serverId", serverId, "newServerId", newServerId));
+    }
+
+    @Override
+    public long updateServerIdOfUserAndServerIdAndTickers(long userId, long serverId, @NotNull String tickerOrPair, long newServerId) {
+        LOGGER.debug("updateServerIdOfUserAndServerIdAndTickers {} {} {} {}", userId, serverId, tickerOrPair, newServerId);
+        return update(SQL.UPDATE_ALERTS_SERVER_ID_BY_USER_ID_AND_SERVER_ID_TICKER_OR_PAIR,
+                Map.of("userId", userId, "serverId", serverId, "newServerId", newServerId, "tickerOrPair", tickerOrPair));
     }
 
     @Override

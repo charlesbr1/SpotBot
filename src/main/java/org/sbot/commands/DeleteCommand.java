@@ -28,13 +28,13 @@ public final class DeleteCommand extends CommandAdapter {
 
     static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addSubcommands(
-                    new SubcommandData("id", "delete an alert giving his id").addOptions(
+                    new SubcommandData("id", "delete an alert by id").addOptions(
                             option(INTEGER, "alert_id", "id of one alert to delete", true)
                                     .setMinValue(0)),
                     new SubcommandData("all_or_ticker_or_pair", "delete all your alerts or filtered by pair or ticker").addOptions(
                             option(STRING, "all_ticker_pair", "a filter to select the alerts having a ticker or a pair (can be '" + DELETE_ALL + "')", true)
                                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
-                            option(USER, "user", "for admin only, a member to drop the alerts on your server", false)));
+                            option(USER, "owner", "for admin only, a member to drop the alerts on your server", false)));
 
     public DeleteCommand(@NotNull AlertsDao alertsDao) {
         super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
@@ -45,23 +45,21 @@ public final class DeleteCommand extends CommandAdapter {
         Long alertId = context.args.getLong("alert_id").map(ArgumentValidator::requirePositive).orElse(null);
         String tickerOrPair = context.args.getString("all_ticker_pair")
                 .map(t -> null != alertId ? t : requireTickerPairLength(t)).orElse(null);
-        Long ownerId = validateArguments(context, alertId, tickerOrPair);
+        validateExclusiveArguments(alertId, tickerOrPair);
+        Long ownerId = null != tickerOrPair && context.args.getLastArgs("owner").filter(not(String::isBlank)).isPresent() ?
+                context.args.getMandatoryUserId("owner") : null;
 
-        LOGGER.debug("delete command - alert_id : {}, user : {}, ticker_pair : {}", alertId, ownerId, tickerOrPair);
+        LOGGER.debug("delete command - alert_id : {}, owner : {}, ticker_pair : {}", alertId, ownerId, tickerOrPair);
         alertsDao.transactional(() -> context.reply(responseTtlSeconds, delete(context.noMoreArgs(), alertId, ownerId, tickerOrPair)));
     }
 
-    private Long validateArguments(@NotNull CommandContext context, @Nullable Long alertId, @Nullable String tickerOrPair) {
+    static void validateExclusiveArguments(@Nullable Long alertId, @Nullable String tickerOrPair) {
         if(null == alertId && null == tickerOrPair) {
             throw new IllegalArgumentException("Missing arguments, an alert id or a ticker or a pair is expected");
         }
         if(null != alertId && null != tickerOrPair) {
             throw new IllegalArgumentException("Too many arguments provided, either an alert id or a filter on a ticker or a pair is expected");
         }
-        if(null != tickerOrPair && context.args.getLastArgs("user").filter(not(String::isBlank)).isPresent()) {
-            return context.args.getMandatoryUserId("user");
-        }
-        return null;
     }
 
     private EmbedBuilder delete(@NotNull CommandContext context, @Nullable Long alertId, @Nullable Long ownerId, @Nullable String tickerOrPair) {
@@ -85,9 +83,9 @@ public final class DeleteCommand extends CommandAdapter {
     }
 
     private EmbedBuilder deleteByOwnerOrTickerPair(@NotNull CommandContext context, @Nullable Long ownerId, @Nullable String tickerOrPair) {
-        long deleted = null == tickerOrPair || DELETE_ALL.equals(tickerOrPair) ?
+        long deleted = null == tickerOrPair || DELETE_ALL.equalsIgnoreCase(tickerOrPair) ?
                 alertsDao.deleteAlerts(context.serverId(), null != ownerId ? ownerId : context.user.getIdLong()) :
-                alertsDao.deleteAlerts(context.serverId(), null != ownerId ? ownerId : context.user.getIdLong(), tickerOrPair);
+                alertsDao.deleteAlerts(context.serverId(), null != ownerId ? ownerId : context.user.getIdLong(), tickerOrPair.toUpperCase());
         return embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), Color.green, deleted + " " + (deleted > 1 ? " alerts" : " alert") + " deleted");
     }
 }

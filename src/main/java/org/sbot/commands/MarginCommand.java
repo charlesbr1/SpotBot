@@ -42,8 +42,8 @@ public final class MarginCommand extends CommandAdapter {
     }
 
     private EmbedBuilder margin(@NotNull CommandContext context, @NotNull BigDecimal margin, long alertId) {
-        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, type -> {
-            if(remainder == type) {
+        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, alert -> {
+            if(remainder == alert.type()) {
                 throw new IllegalArgumentException("You can't set the margin of a remainder alert");
             }
             alertsDao.updateMargin(alertId, margin);

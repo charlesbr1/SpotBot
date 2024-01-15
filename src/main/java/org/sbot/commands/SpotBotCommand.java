@@ -67,6 +67,7 @@ public final class SpotBotCommand extends CommandAdapter {
             new Command(RepeatDelayCommand.NAME, RepeatDelayCommand.DESCRIPTION, RepeatDelayCommand.options),
             new Command(MarginCommand.NAME, MarginCommand.DESCRIPTION, MarginCommand.options),
             new Command(MessageCommand.NAME, MessageCommand.DESCRIPTION, MessageCommand.options),
+            new Command(MigrateCommand.NAME, MigrateCommand.DESCRIPTION, MigrateCommand.options),
             new Command(DeleteCommand.NAME, DeleteCommand.DESCRIPTION, DeleteCommand.options),
             new Command(UtcCommand.NAME, UtcCommand.DESCRIPTION, UtcCommand.options),
             new Command(UpTimeCommand.NAME, UpTimeCommand.DESCRIPTION, UpTimeCommand.options));

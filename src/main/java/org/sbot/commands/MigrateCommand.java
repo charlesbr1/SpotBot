@@ -1,38 +1,49 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.services.dao.AlertsDao;
+import org.sbot.utils.ArgumentValidator;
 
+import java.awt.*;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
+import static java.util.function.Predicate.not;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
-import static org.sbot.commands.SecurityAccess.alertBelongToUser;
+import static org.sbot.alerts.Alert.PRIVATE_ALERT;
+import static org.sbot.alerts.Alert.isPrivate;
+import static org.sbot.commands.DeleteCommand.validateExclusiveArguments;
 import static org.sbot.utils.ArgumentValidator.*;
 
 public final class MigrateCommand extends CommandAdapter {
 
     public static final String NAME = "migrate";
-    static final String DESCRIPTION = "migrate an alert to your private channel or on another server that you and this bot have access to";
+    static final String DESCRIPTION = "migrate an alert to your private channel or on another guild that we have access to";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
-    private static final OptionData SERVER_ID_OPTION = option(NUMBER, "server_id", "0 for private channel or id of a discord server, you must be member of this server and this bot too", true);
+    private static final String MIGRATE_ALL = "all";
+
+    private static final OptionData SERVER_ID_OPTION = option(NUMBER, "guild_id", PRIVATE_ALERT + " for private channel or id of a guild server whose alert' owner is a member and this bot too", true);
 
     static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addSubcommands(
-                    new SubcommandData("id", DESCRIPTION).addOptions(
+                    new SubcommandData("id", "migrate an alert by id").addOptions(
                             option(INTEGER, "alert_id", "id of one alert to migrate", true)
                                     .setMinValue(0),
                             SERVER_ID_OPTION),
-                    new SubcommandData("all_or_ticker_or_pair", DESCRIPTION).addOptions(
-                            option(STRING, "ticker_pair_all", "a ticker or a pair to filter alerts to migrate, or 'all'", true)
+                    new SubcommandData("all_or_ticker_or_pair", "migrate all your alerts or filtered by pair or ticker").addOptions(
+                            option(STRING, "all_ticker_pair", "a filter to select the alerts having a ticker or a pair (can be '" + MIGRATE_ALL + "')", true)
                                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
                             SERVER_ID_OPTION,
-                            option(USER, "user", "for admin only, owner of the alerts to migrate", false)));
+                            option(USER, "owner", "for admin only, owner of the alerts to migrate", false)));
 
     public MigrateCommand(@NotNull AlertsDao alertsDao) {
         super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
@@ -40,38 +51,70 @@ public final class MigrateCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
-        Long serverId = context.args.getLong("server_id").orElse(null);
-        String privateChannel = context.args.getString("channel").orElse(null);
+        Long alertId = context.args.getLong("alert_id").map(ArgumentValidator::requirePositive).orElse(null);
+        Long serverId = context.args.getLong("guild_id").orElse(null);
+        String tickerOrPair = context.args.getString("all_ticker_pair")
+                .map(t -> null != alertId ? t : requireTickerPairLength(t)).orElse(null);
+        validateExclusiveArguments(alertId, tickerOrPair);
+        Long ownerId = null;
+        if(null != alertId) { // command id
+            if(null == serverId) {
+                throw new IllegalArgumentException("Missing guild id");
+            }
+        } else { // command all_or_ticker_or_pair
+            serverId = null != serverId ? serverId : context.args.getLong("guild_id").orElse(null);
+            ownerId = context.args.getLastArgs("owner").filter(not(String::isBlank)).isPresent() ?
+                    context.args.getMandatoryUserId("owner") : null;
+            serverId = null != serverId ? serverId : context.args.getMandatoryLong("guild_id");
+        }
+        long finalServerId = serverId;
+        Long finalOwnerId = ownerId;
 
-        LOGGER.debug("migrate command - alert_id : {}, channel : {}, server_id : {}", alertId, privateChannel, serverId);
-        validateArguments(serverId, privateChannel);
-        alertsDao.transactional(() -> context.reply(responseTtlSeconds, migrate(context.noMoreArgs(), alertId, serverId, privateChannel)));
+        LOGGER.debug("migrate command - alert_id : {}, server_id : {}, tickerOrPair : {}, ownerId : {}", alertId, serverId, tickerOrPair, ownerId);
+        Thread.ofVirtual().name("Migrate user query").start(() -> alertsDao.transactional(() -> // underlying call to isGuildMember is blocking
+                context.reply(responseTtlSeconds, migrate(context.noMoreArgs(), finalServerId, alertId, finalOwnerId, tickerOrPair))));
     }
 
-    private void validateArguments(@Nullable Long serverId, @Nullable String privateChannel) {
-        if(null == serverId && null == privateChannel) {
-            throw new IllegalArgumentException("Missing argument, 'private' or a discord server id is expected");
-        }
-        if(null != serverId && null != privateChannel) {
-            throw new IllegalArgumentException("Too many arguments provided, either 'private' or discord server id is expected (exclusive arguments)");
+    private EmbedBuilder migrate(@NotNull CommandContext context, long serverId, @Nullable Long alertId, @Nullable Long ownerId, @Nullable String tickerOrPair) {
+        Guild server = getGuild(context, serverId);
+        if (null != alertId) { // command id
+            return migrateById(context, server, alertId);
+        } else { // command all_or_ticker_or_pair
+            return migrateByOwnerOrTickerPair(context, server, ownerId, requireNonNull(tickerOrPair));
         }
     }
-    //TODO
-// un admin peut rendre un alert d'un user private plutot que la delete@
-    private EmbedBuilder migrate(@NotNull CommandContext context, long alertId, @Nullable Long serverId, @Nullable String privateChannel) {
-        var alert = alertsDao.getUserIdAndServerIdAndType(alertId).orElse(null);
-        if("CHOICE_PRIVATE".equals(privateChannel)) {
-            if(alertBelongToUser(context.user, alert.userId()) && alert.serverId() == context.member.getGuild().getIdLong()) {
-                // update alert set serverId 0
-            }
 
-        } else {
-            if(alertBelongToUser(context.user, alert.userId())) {
-                if(null != context.channel.getJDA().getGuildById(serverId))
-                    context.channel.getJDA().getGuildById(serverId).getMemberById(context.user.getIdLong());
+    private EmbedBuilder migrateById(@NotNull CommandContext context, @Nullable Guild guild, long alertId) {
+        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, alert -> {
+            if(null == guild || isGuildMember(guild, alert.userId())) {
+                alertsDao.updateServerId(alertId, null != guild ? guild.getIdLong() : PRIVATE_ALERT);
+                return "Alert migrated to " + (null == guild ? "user private channel" : "server " + guild.getIdLong());
             }
+            throw new IllegalArgumentException("User <@" + alert.userId() + "> is not a member of guild " + guild.getIdLong());
+        });
+        return embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer());
+    }
+
+    @Nullable
+    private static Guild getGuild(@NotNull CommandContext context, long serverId) {
+        return isPrivate(serverId) ? null :
+                Optional.ofNullable(context.channel.getJDA().getGuildById(serverId))
+                        .orElseThrow(() -> new IllegalArgumentException("This guild does not support this bot : " + serverId));
+    }
+
+    private static boolean isGuildMember(@NotNull Guild guild, long userId) {
+        return null != guild.retrieveMemberById(userId).complete(); // blocking call
+    }
+
+    private EmbedBuilder migrateByOwnerOrTickerPair(@NotNull CommandContext context, @Nullable Guild guild, @Nullable Long ownerId, @NotNull String tickerOrPair) {
+        long userId = null != ownerId ? ownerId : context.user.getIdLong();
+        if(null != guild && !isGuildMember(guild, userId)) {
+            throw new IllegalArgumentException("User <@" + userId + "> is not a member of guild " + guild.getIdLong());
         }
-        return null;
+        long migrated = MIGRATE_ALL.equalsIgnoreCase(tickerOrPair) ?
+                alertsDao.updateServerIdOfUserAndServerId(userId, context.serverId(), null != guild ? guild.getIdLong() : PRIVATE_ALERT) :
+                alertsDao.updateServerIdOfUserAndServerIdAndTickers(userId, context.serverId(), tickerOrPair.toUpperCase(), null != guild ? guild.getIdLong() : PRIVATE_ALERT);
+        return embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), Color.green, migrated + " " + (migrated > 1 ? " alerts" : " alert") +
+                " migrated to " + (null == guild ? "user private channel" : "server " + guild.getIdLong()));
     }
 }

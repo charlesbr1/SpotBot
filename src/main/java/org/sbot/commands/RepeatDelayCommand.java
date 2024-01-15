@@ -39,8 +39,8 @@ public final class RepeatDelayCommand extends CommandAdapter {
     }
 
     private EmbedBuilder repeatDelay(@NotNull CommandContext context, long alertId, short repeatDelay) {
-        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, type -> {
-            if(remainder == type) {
+        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, alert -> {
+            if(remainder == alert.type()) {
                 throw new IllegalArgumentException("You can't set the repeat-delay of a remainder alert");
             }
             alertsDao.updateRepeatDelay(alertId, 0 != repeatDelay ? repeatDelay : DEFAULT_REPEAT_DELAY_HOURS);

@@ -44,33 +44,39 @@ public class RemainderAlert extends Alert {
         return new RemainderAlert(idGenerator.get(), userId, serverId, pair, message, fromDate, lastTrigger, margin, repeat);
     }
 
-    @NotNull
     @Override
-    public Alert withMessage(@NotNull String message) {
+    @NotNull
+    public RemainderAlert withServerId(long serverId) {
         return new RemainderAlert(id, userId, serverId, pair, message, fromDate, lastTrigger, margin, repeat);
     }
 
     @NotNull
     @Override
-    public Alert withMargin(@NotNull BigDecimal margin) {
+    public RemainderAlert withMessage(@NotNull String message) {
+        return new RemainderAlert(id, userId, serverId, pair, message, fromDate, lastTrigger, margin, repeat);
+    }
+
+    @NotNull
+    @Override
+    public RemainderAlert withMargin(@NotNull BigDecimal margin) {
         throw new UnsupportedOperationException("You can't set the margin of a remainder alert");
     }
 
     @NotNull
     @Override
-    public Alert withRepeat(short repeat) {
+    public RemainderAlert withRepeat(short repeat) {
         throw new UnsupportedOperationException("You can't set the repeat of a remainder alert");
     }
 
     @NotNull
     @Override
-    public Alert withRepeatDelay(short delay) {
+    public RemainderAlert withRepeatDelay(short delay) {
         throw new UnsupportedOperationException("You can't set the repeatDelay of a remainder alert");
     }
 
     @NotNull
     @Override
-    public Alert withLastTriggerMarginRepeat(@NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat) {
+    public RemainderAlert withLastTriggerMarginRepeat(@NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat) {
         throw new UnsupportedOperationException("You can't update a remainder alert");
     }
 

@@ -38,10 +38,10 @@ public final class MessageCommand extends CommandAdapter {
     }
 
     private EmbedBuilder message(@NotNull CommandContext context, String message, long alertId) {
-        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, type -> {
+        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, alert -> {
             alertsDao.updateMessage(alertId, message);
             return "Message of alert " + alertId + " updated to *" + message + "*" +
-                    (remainder != type ? alertMessageTips(message, alertId) : "");
+                    (remainder != alert.type() ? alertMessageTips(message, alertId) : "");
         });
         return embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer());
     }
