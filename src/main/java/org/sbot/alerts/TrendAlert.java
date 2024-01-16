@@ -9,7 +9,6 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.function.Supplier;
 
 import static java.math.RoundingMode.FLOOR;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.*;
@@ -18,14 +17,6 @@ import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.Dates.formatUTC;
 
 public final class TrendAlert extends Alert {
-
-    public TrendAlert(long userId, long serverId, @NotNull String exchange,
-                      @NotNull String pair, @NotNull String message,
-                      @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
-                      @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate) {
-        this(0, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
-                null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS);
-    }
 
     public TrendAlert(long id, long userId, long serverId, @NotNull String exchange,
                       @NotNull String pair, @NotNull String message,
@@ -42,47 +33,9 @@ public final class TrendAlert extends Alert {
     }
 
     @Override
-    @NotNull
-    public TrendAlert withId(@NotNull Supplier<Long> idGenerator) {
-        if(0 != this.id) {
-            throw new IllegalArgumentException("Can't update the id of an already stored alert");
-        }
-        return new TrendAlert(idGenerator.get(), userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
-    }
-
-    @Override
-    @NotNull
-    public TrendAlert withServerId(long serverId) {
-        return new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
-    }
-
-    @Override
-    @NotNull
-    public TrendAlert withMessage(@NotNull String message) {
-        return new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
-    }
-
-    @Override
-    @NotNull
-    public TrendAlert withMargin(@NotNull BigDecimal margin) {
-        return new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
-    }
-
-    @Override
-    @NotNull
-    public TrendAlert withRepeat(short repeat) {
-        return new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
-    }
-
-    @Override
-    @NotNull
-    public TrendAlert withRepeatDelay(short repeatDelay) {
-        return new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
-    }
-
-    @Override
-    @NotNull
-    public TrendAlert withLastTriggerMarginRepeat(@NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat) {
+    public TrendAlert build(long id, long userId, long serverId, @NotNull String exchange, @NotNull String pair, @NotNull String message,
+                            BigDecimal fromPrice, BigDecimal toPrice, ZonedDateTime fromDate, ZonedDateTime toDate,
+                            ZonedDateTime lastTrigger, BigDecimal margin, short repeat, short repeatDelay) {
         return new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 

@@ -27,7 +27,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
-import static org.sbot.commands.CommandAdapter.guildName;
+import static org.sbot.discord.Discord.guildName;
 import static org.sbot.utils.ArgumentValidator.START_WITH_DISCORD_USER_ID_PATTERN;
 
 final class EventAdapter extends ListenerAdapter {

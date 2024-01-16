@@ -80,6 +80,11 @@ public final class Discord {
         registerCommands(commandListeners);
     }
 
+    @NotNull
+    public static String guildName(@NotNull Guild guild) {
+        return guild.getName() + " (" + guild.getIdLong() + ")";
+    }
+
     public static Optional<BotChannel> spotBotChannel(@NotNull Guild guild) {
         return getSpotBotChannel(guild).map(channel ->
                 (messages, messageSetup) -> sendMessages(0, messages, channel::sendMessageEmbeds, messageSetup));

@@ -96,7 +96,7 @@ public abstract class Alert {
         return repeat > 0;
     }
 
-    public boolean isRepeatDelayOver(long epochSeconds) {
+    public final boolean isRepeatDelayOver(long epochSeconds) {
         return null == lastTrigger || (lastTrigger.toEpochSecond() + (3600L * repeatDelay)) <= epochSeconds;
     }
 
@@ -105,54 +105,75 @@ public abstract class Alert {
     }
 
 
-    public long getId() {
+    public final long getId() {
         return id;
     }
 
-    public long getUserId() {
+    public final long getUserId() {
         return userId;
     }
 
     @NotNull
-    public String getExchange() {
+    public final String getExchange() {
         return exchange;
     }
 
     @NotNull
-    public String getMessage() {
+    public final String getMessage() {
         return message;
     }
 
     @NotNull
-    public String getPair() {
+    public final String getPair() {
         return pair;
     }
 
     @NotNull
-    public String getTicker2() {
+    public final String getTicker2() {
         return pair.substring(pair.indexOf('/'));
     }
 
-    @NotNull
-    public abstract Alert withId(@NotNull Supplier<Long> idGenerator);
+    protected abstract Alert build(long id, long userId, long serverId, @NotNull String exchange, @NotNull String pair, @NotNull String message,
+                               BigDecimal fromPrice, BigDecimal toPrice, ZonedDateTime fromDate, ZonedDateTime toDate,
+                               ZonedDateTime lastTrigger, BigDecimal margin, short repeat, short repeatDelay);
 
     @NotNull
-    public abstract Alert withServerId(long serverId);
+    public final Alert withId(@NotNull Supplier<Long> idGenerator) {
+        if(0 != this.id) {
+            throw new IllegalArgumentException("Can't update the id of an already stored alert");
+        }
+        return build(idGenerator.get(), userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+    }
 
     @NotNull
-    public abstract Alert withMessage(@NotNull String message);
+    public final Alert withServerId(long serverId) {
+        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+    }
 
     @NotNull
-    public abstract Alert withMargin(@NotNull BigDecimal margin);
+    public final Alert withMessage(@NotNull String message) {
+        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+    }
 
     @NotNull
-    public abstract Alert withRepeat(short repeat);
+    public final Alert withMargin(@NotNull BigDecimal margin) {
+        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+    }
 
     @NotNull
-    public abstract Alert withRepeatDelay(short delay);
+    public final Alert withRepeat(short repeat) {
+        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+    }
 
     @NotNull
-    public abstract Alert withLastTriggerMarginRepeat(@NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat);
+    public final Alert withRepeatDelay(short repeatDelay) {
+        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+    }
+
+    @NotNull
+    public final Alert withLastTriggerMarginRepeat(@NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat) {
+        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+    }
 
     @NotNull
     public abstract MatchingAlert match(@NotNull List<Candlestick> candlesticks, @Nullable Candlestick previousCandlestick);

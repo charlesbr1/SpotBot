@@ -17,10 +17,38 @@ class RangeAlertTest {
     }
 
     @Test
+    void withId() {
+    }
+
+    @Test
+    void withServerId() {
+    }
+
+    @Test
+    void withMessage() {
+    }
+
+    @Test
+    void withMargin() {
+    }
+
+    @Test
+    void withRepeat() {
+    }
+
+    @Test
+    void withRepeatDelay() {
+    }
+
+    @Test
+    void withLastTriggerMarginRepeat() {
+    }
+
+    @Test
     void match() {
     }
 
     @Test
-    void notification() {
+    void asMessage() {
     }
 }

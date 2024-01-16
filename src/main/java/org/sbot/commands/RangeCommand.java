@@ -19,6 +19,7 @@ import java.time.ZonedDateTime;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
+import static org.sbot.alerts.Alert.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.formatUTC;
@@ -78,9 +79,10 @@ public final class RangeCommand extends CommandAdapter {
             fromDate = toDate;
             toDate = swap;
         }
-        RangeAlert rangeAlert = new RangeAlert(context.user.getIdLong(),
+        RangeAlert rangeAlert = new RangeAlert(0L, context.user.getIdLong(),
                 context.serverId(),
-                exchange, pair, message, fromPrice, toPrice, fromDate, toDate);
+                exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
+                null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS);
 
         long alertId = alertsDao.addAlert(rangeAlert);
 

@@ -8,21 +8,12 @@ import org.sbot.chart.Candlestick;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.function.Supplier;
 
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.*;
 import static org.sbot.chart.Ticker.getSymbol;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class RangeAlert extends Alert {
-
-    public RangeAlert(long userId, long serverId, @NotNull String exchange,
-                      @NotNull String pair, @NotNull String message,
-                      @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
-                      @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate) {
-        this(0, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
-                null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS);
-    }
 
     public RangeAlert(long id, long userId, long serverId, @NotNull String exchange,
                       @NotNull String pair, @NotNull String message,
@@ -39,47 +30,9 @@ public final class RangeAlert extends Alert {
     }
 
     @Override
-    @NotNull
-    public RangeAlert withId(@NotNull Supplier<Long> idGenerator) {
-        if(0 != this.id) {
-            throw new IllegalArgumentException("Can't update the id of an already stored alert");
-        }
-        return new RangeAlert(idGenerator.get(), userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
-    }
-
-    @Override
-    @NotNull
-    public RangeAlert withServerId(long serverId) {
-        return new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
-    }
-
-    @Override
-    @NotNull
-    public RangeAlert withMessage(@NotNull String message) {
-        return new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
-    }
-
-    @Override
-    @NotNull
-    public RangeAlert withMargin(@NotNull BigDecimal margin) {
-        return new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
-    }
-
-    @Override
-    @NotNull
-    public RangeAlert withRepeat(short repeat) {
-        return new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
-    }
-
-    @Override
-    @NotNull
-    public RangeAlert withRepeatDelay(short repeatDelay) {
-        return new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
-    }
-
-    @Override
-    @NotNull
-    public RangeAlert withLastTriggerMarginRepeat(@NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat) {
+    public RangeAlert build(long id, long userId, long serverId, @NotNull String exchange, @NotNull String pair, @NotNull String message,
+                            BigDecimal fromPrice, BigDecimal toPrice, ZonedDateTime fromDate, ZonedDateTime toDate,
+                            ZonedDateTime lastTrigger, BigDecimal margin, short repeat, short repeatDelay) {
         return new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
     }
 

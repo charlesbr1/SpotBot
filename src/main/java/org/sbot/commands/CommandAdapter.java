@@ -1,7 +1,6 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
@@ -13,6 +12,7 @@ import org.sbot.SpotBot;
 import org.sbot.alerts.Alert;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.discord.CommandListener;
+import org.sbot.discord.Discord;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.AlertsDao.UserIdServerIdType;
 
@@ -22,7 +22,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
-import static org.sbot.alerts.Alert.*;
+import static org.sbot.alerts.Alert.hasRepeat;
+import static org.sbot.alerts.Alert.isPrivate;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
@@ -89,12 +90,7 @@ public abstract class CommandAdapter implements CommandListener {
         return embedBuilder('[' + alert.pair + "] " + alert.message,
                 !hasRepeat(alert.repeat) ? Color.black : (isPrivate(alert.serverId) ? Color.blue : Color.green),
                 alert.descriptionMessage() + (isPrivate(context.serverId()) && !isPrivate(alert.serverId) ?
-                        "\n\nGuild : " + context.discord.getGuildServer(alert.serverId).map(CommandAdapter::guildName).orElse("unknown") : ""));
-    }
-
-    @NotNull
-    public static String guildName(@NotNull Guild guild) {
-        return guild.getName() + " (" + guild.getIdLong() + ")";
+                        "\n\nGuild : " + context.discord.getGuildServer(alert.serverId).map(Discord::guildName).orElse("unknown") : ""));
     }
 
     //TODO doc mutation of list messages argument

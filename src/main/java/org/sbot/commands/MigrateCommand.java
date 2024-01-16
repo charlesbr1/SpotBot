@@ -25,6 +25,7 @@ import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.alerts.Alert.isPrivate;
 import static org.sbot.commands.DeleteCommand.validateExclusiveArguments;
 import static org.sbot.commands.SecurityAccess.hasRightOnUser;
+import static org.sbot.discord.Discord.guildName;
 import static org.sbot.utils.ArgumentValidator.*;
 
 public final class MigrateCommand extends CommandAdapter {
@@ -105,7 +106,7 @@ public final class MigrateCommand extends CommandAdapter {
                 if(context.user.getIdLong() != alert.userId()) {
                     outNotificationCallBack[0] = () -> notifyAlertOwner(context, alertId, alert.userId(), requireNonNull(context.member), guild);
                 }
-                return "Alert migrated to " + (null == guild ? "user private channel" : "guild " +guildName(guild));
+                return "Alert migrated to " + (null == guild ? "user private channel" : "guild " + guildName(guild));
             }
             throw new IllegalArgumentException("User <@" + alert.userId() + "> is not a member of guild " + guildName(guild));
         });

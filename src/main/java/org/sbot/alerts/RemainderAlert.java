@@ -35,49 +35,15 @@ public class RemainderAlert extends Alert {
         requireNonNull(fromDate, "missing RemainderAlert fromDate");
     }
 
-    @NotNull
     @Override
-    public Alert withId(@NotNull Supplier<Long> idGenerator) {
-        if(0 != this.id) {
-            throw new IllegalArgumentException("Can't update the id of an already stored alert");
+    public RemainderAlert build(long id, long userId, long serverId, @NotNull String exchange, @NotNull String pair, @NotNull String message,
+                                BigDecimal fromPrice, BigDecimal toPrice, ZonedDateTime fromDate, ZonedDateTime toDate,
+                                ZonedDateTime lastTrigger, BigDecimal margin, short repeat, short repeatDelay) {
+        if(MARGIN_DISABLED.compareTo(margin) != 0 || !REMAINDER_VIRTUAL_EXCHANGE.equals(exchange) ||
+                null != toDate|| null != fromPrice|| null != toPrice || 1 != repeat || DEFAULT_REPEAT_DELAY_HOURS != repeatDelay) {
+            throw new IllegalArgumentException("Can't update such value in a Remainder Alert");
         }
-        return new RemainderAlert(idGenerator.get(), userId, serverId, pair, message, fromDate, lastTrigger, margin, repeat);
-    }
-
-    @Override
-    @NotNull
-    public RemainderAlert withServerId(long serverId) {
-        return new RemainderAlert(id, userId, serverId, pair, message, fromDate, lastTrigger, margin, repeat);
-    }
-
-    @NotNull
-    @Override
-    public RemainderAlert withMessage(@NotNull String message) {
-        return new RemainderAlert(id, userId, serverId, pair, message, fromDate, lastTrigger, margin, repeat);
-    }
-
-    @NotNull
-    @Override
-    public RemainderAlert withMargin(@NotNull BigDecimal margin) {
-        throw new UnsupportedOperationException("You can't set the margin of a remainder alert");
-    }
-
-    @NotNull
-    @Override
-    public RemainderAlert withRepeat(short repeat) {
-        throw new UnsupportedOperationException("You can't set the repeat of a remainder alert");
-    }
-
-    @NotNull
-    @Override
-    public RemainderAlert withRepeatDelay(short delay) {
-        throw new UnsupportedOperationException("You can't set the repeatDelay of a remainder alert");
-    }
-
-    @NotNull
-    @Override
-    public RemainderAlert withLastTriggerMarginRepeat(@NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat) {
-        throw new UnsupportedOperationException("You can't update a remainder alert");
+        return new RemainderAlert(id, userId, serverId, pair, message, fromDate, lastTrigger, MARGIN_DISABLED, (short) 1);
     }
 
     @NotNull
