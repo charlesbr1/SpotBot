@@ -81,7 +81,7 @@ public final class TrendCommand extends CommandAdapter {
         TrendAlert trendAlert = new TrendAlert(0L, context.user.getIdLong(),
                 context.serverId(),
                 exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
-                null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS);
+                null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
 
         long alertId = context.alertsDao.addAlert(trendAlert);
 

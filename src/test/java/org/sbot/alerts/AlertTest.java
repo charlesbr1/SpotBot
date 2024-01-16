@@ -20,7 +20,7 @@ class AlertTest {
                 BigDecimal.ZERO, BigDecimal.TEN, ZonedDateTime.now(), ZonedDateTime.now().plusHours(1),
                 ZonedDateTime.now().minusHours(1), BigDecimal.ONE, (short) 5, (short) 2) {
             @Override
-            protected Alert build(long id, long userId, long serverId, @NotNull String exchange, @NotNull String pair, @NotNull String message, BigDecimal fromPrice, BigDecimal toPrice, ZonedDateTime fromDate, ZonedDateTime toDate, ZonedDateTime lastTrigger, BigDecimal margin, short repeat, short repeatDelay) {
+            protected Alert build(long id, long userId, long serverId, @NotNull String exchange, @NotNull String pair, @NotNull String message, BigDecimal fromPrice, BigDecimal toPrice, ZonedDateTime fromDate, ZonedDateTime toDate, ZonedDateTime lastTrigger, BigDecimal margin, short repeat, short snooze) {
                 return null;
             }
 
@@ -55,7 +55,7 @@ class AlertTest {
     void isRepeatDelayOver() {
         Alert alert = createTestAlert();
         long epochSeconds = ZonedDateTime.now().toEpochSecond();
-        assertTrue(alert.isRepeatDelayOver(epochSeconds));
+        assertTrue(alert.isSnoozeOver(epochSeconds));
     }
 
     @Test

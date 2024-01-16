@@ -37,7 +37,7 @@ public abstract class Alert {
 
     public static final BigDecimal MARGIN_DISABLED = BigDecimal.ZERO;
     public static final short DEFAULT_REPEAT = 10;
-    public static final short DEFAULT_REPEAT_DELAY_HOURS = 8;
+    public static final short DEFAULT_SNOOZE_HOURS = 8;
     public static final long PRIVATE_ALERT = 0;
 
     public final long id;
@@ -64,13 +64,12 @@ public abstract class Alert {
 
     public final BigDecimal margin;
     public final short repeat;
-    @ColumnName("repeat_delay")
-    public final short repeatDelay;
+    public final short snooze;
 
 
     protected Alert(long id, @NotNull Type type, long userId, long serverId, @NotNull String exchange, @NotNull String pair, @NotNull String message,
                     @Nullable BigDecimal fromPrice, @Nullable BigDecimal toPrice, @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate,
-                    @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short repeatDelay) {
+                    @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short snooze) {
         this.id = id;
         this.type = requireNonNull(type, "missing Alert type");
         this.userId = userId;
@@ -85,7 +84,7 @@ public abstract class Alert {
         this.lastTrigger = null != lastTrigger ? requireInPast(lastTrigger) : null;
         this.margin = requirePositive(margin).stripTrailingZeros();
         this.repeat = requirePositiveShort(repeat);
-        this.repeatDelay = requirePositiveShort(repeatDelay);
+        this.snooze = requirePositiveShort(snooze);
     }
 
     public static boolean isPrivate(long serverId) {
@@ -96,8 +95,8 @@ public abstract class Alert {
         return repeat > 0;
     }
 
-    public final boolean isRepeatDelayOver(long epochSeconds) {
-        return null == lastTrigger || (lastTrigger.toEpochSecond() + (3600L * repeatDelay)) <= epochSeconds;
+    public final boolean isSnoozeOver(long epochSeconds) {
+        return null == lastTrigger || (lastTrigger.toEpochSecond() + (3600L * snooze)) <= epochSeconds;
     }
 
     public static boolean hasMargin(@NotNull BigDecimal margin) {
@@ -135,44 +134,44 @@ public abstract class Alert {
 
     protected abstract Alert build(long id, long userId, long serverId, @NotNull String exchange, @NotNull String pair, @NotNull String message,
                                BigDecimal fromPrice, BigDecimal toPrice, ZonedDateTime fromDate, ZonedDateTime toDate,
-                               ZonedDateTime lastTrigger, BigDecimal margin, short repeat, short repeatDelay);
+                               ZonedDateTime lastTrigger, BigDecimal margin, short repeat, short snooze);
 
     @NotNull
     public final Alert withId(@NotNull Supplier<Long> idGenerator) {
         if(0 != this.id) {
             throw new IllegalArgumentException("Can't update the id of an already stored alert");
         }
-        return build(idGenerator.get(), userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return build(idGenerator.get(), userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
     public final Alert withServerId(long serverId) {
-        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
     public final Alert withMessage(@NotNull String message) {
-        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
     public final Alert withMargin(@NotNull BigDecimal margin) {
-        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
     public final Alert withRepeat(short repeat) {
-        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
-    public final Alert withRepeatDelay(short repeatDelay) {
-        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+    public final Alert withSnooze(short snooze) {
+        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
     public final Alert withLastTriggerMarginRepeat(@NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat) {
-        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
@@ -213,7 +212,7 @@ public abstract class Alert {
         return "\n* margin / repeat / delay :\t" +
                 (matchingStatus.notMatching() && hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(getTicker2()) : "disabled") +
                 " / " + (!hasRepeat(nextRepeat) ? "disabled" : nextRepeat) +
-                " / " + repeatDelay + (repeatDelay > 1 ? " hours" : " hour") +
+                " / " + snooze + (snooze > 1 ? " hours" : " hour") +
                 Optional.ofNullable(previousCandlestick).map(Candlestick::close)
                         .map(BigDecimal::stripTrailingZeros)
                         .map(BigDecimal::toPlainString)

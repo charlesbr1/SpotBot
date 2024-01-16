@@ -20,8 +20,8 @@ public final class RangeAlert extends Alert {
                       @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
                       @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate,
                       @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin,
-                      short repeat, short repeatDelay) {
-        super(id, Type.range, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+                      short repeat, short snooze) {
+        super(id, Type.range, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
         if(fromPrice.compareTo(toPrice) > 0) {
             throw new IllegalArgumentException("from_price is higher than to_price");
         }
@@ -32,8 +32,8 @@ public final class RangeAlert extends Alert {
     @Override
     public RangeAlert build(long id, long userId, long serverId, @NotNull String exchange, @NotNull String pair, @NotNull String message,
                             BigDecimal fromPrice, BigDecimal toPrice, ZonedDateTime fromDate, ZonedDateTime toDate,
-                            ZonedDateTime lastTrigger, BigDecimal margin, short repeat, short repeatDelay) {
-        return new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+                            ZonedDateTime lastTrigger, BigDecimal margin, short repeat, short snooze) {
+        return new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @Override

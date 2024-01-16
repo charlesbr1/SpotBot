@@ -61,9 +61,6 @@ public final class Discord {
         void sendMessages(@NotNull List<EmbedBuilder> messages, @NotNull List<Consumer<MessageCreateRequest<?>>> messageSetup);
     }
 
-
-    private static final String DISCORD_BOT_TOKEN_FILE = "discord.token";
-
     public static final String SINGLE_LINE_BLOCK_QUOTE_MARKDOWN = "> ";
     public static final String MULTI_LINE_BLOCK_QUOTE_MARKDOWN = ">>> ";
 
@@ -76,9 +73,11 @@ public final class Discord {
             .maximumSize(Short.MAX_VALUE)
             .build();
 
-    public Discord(@NotNull AlertsDao alertsDao) {
-        jda = loadDiscordConnection(requireNonNull(alertsDao));
+    public Discord(@NotNull String tokenFile, @NotNull AlertsDao alertsDao) {
+        requireNonNull(alertsDao);
+        jda = loadDiscordConnection(tokenFile);
         registerCommands(DISCORD_COMMANDS);
+        jda.addEventListener(new EventAdapter(this, alertsDao, jda.getSelfUser().getAsMention()));
     }
 
     @NotNull
@@ -146,10 +145,10 @@ public final class Discord {
     }
 
     @NotNull
-    private JDA loadDiscordConnection(@NotNull AlertsDao alertsDao) {
+    private JDA loadDiscordConnection(@NotNull String tokenFile) {
         try {
             LOGGER.info("Loading discord connection...");
-            JDA jda = JDABuilder.createLight(readFile(DISCORD_BOT_TOKEN_FILE),
+            return JDABuilder.createLight(readFile(tokenFile),
                             GatewayIntent.GUILD_MESSAGES,
                             GatewayIntent.DIRECT_MESSAGES)
                     .setActivity(Activity.watching("prices"))
@@ -158,8 +157,6 @@ public final class Discord {
                     .setRequestTimeoutRetry(true)
                     .build()
                     .awaitReady();
-            jda.addEventListener(new EventAdapter(this, alertsDao, jda.getSelfUser().getAsMention()));
-            return jda;
         } catch (Exception e) {
             LOGGER.error("Unable to establish discord connection");
             throw new IllegalStateException(e);

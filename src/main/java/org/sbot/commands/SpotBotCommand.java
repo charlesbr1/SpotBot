@@ -25,8 +25,7 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.alerts.Alert.DEFAULT_REPEAT;
-import static org.sbot.alerts.Alert.DEFAULT_REPEAT_DELAY_HOURS;
+import static org.sbot.alerts.Alert.*;
 import static org.sbot.commands.DiscordCommands.DISCORD_COMMANDS;
 import static org.sbot.discord.Discord.*;
 import static org.sbot.utils.PartitionSpliterator.split;
@@ -83,11 +82,11 @@ public final class SpotBotCommand extends CommandAdapter {
             
             **snooze**
 
-            Range and margin alerts also have two parameters, *repeat* and *repeat-delay*, that can be set using the commands of their respective names.
+            Range and margin alerts also have two parameters, *repeat* and *snooze*, that can be set using the commands of their respective names.
             * **repeat** : the number of times a triggered alert will be re thrown. (default : {repeat})
-            * **repeat-delay** : the time in hours to wait before the alert can be raised again. (default : {repeat-delay} hours)
+            * **snooze** : the time in hours to wait before the alert can be raised again. (default : {snooze} hours)
 
-            Once an alert has been raised, it decreases in number of *repeat* and becomes ignored during *repeat-delay* hours.
+            Once an alert has been raised, it decreases in number of *repeat* and becomes ignored during *snooze* hours.
             If it's number of repeat reach 0, the alert is disabled and will be deleted one month later, this let time to enable it again, if never.
             
             **remainder**
@@ -121,7 +120,7 @@ public final class SpotBotCommand extends CommandAdapter {
             * *range binance eth usdt 1800 1900 zone conso 1900 reached, see https://discord.com/channels...*
             * *trend binance eth usdt 1800 10/03/2019-12:30 1900 03/11/2021-16:00 daily uptrend tested, see https://discord.com/channels...*
             * *repeat 123 5*
-            * *repeat-delay 123 24*
+            * *snooze 123 24*
             * *margin 123 3*
             * *delete 123*
             * *remainder 10/03/2019-12:30 A message to receive at this date*
@@ -168,7 +167,7 @@ public final class SpotBotCommand extends CommandAdapter {
         return DOC_HEADER.replace("{date-format}", Dates.DATE_TIME_FORMAT)
                 .replace("{date-now}", Dates.formatUTC(Instant.now().atZone(ZoneOffset.UTC)))
                 .replace("{repeat}", ""+DEFAULT_REPEAT)
-                .replace("{repeat-delay}", ""+DEFAULT_REPEAT_DELAY_HOURS)
+                .replace("{snooze}", "" + DEFAULT_SNOOZE_HOURS)
                 .replace("{channel}", channel).replace("{role}", role)
                 .replace("{spotBot}", selfMention);
     }

@@ -23,8 +23,8 @@ public final class TrendAlert extends Alert {
                       @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
                       @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate,
                       @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin,
-                      short repeat, short repeatDelay) {
-        super(id, Type.trend, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+                      short repeat, short snooze) {
+        super(id, Type.trend, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
         if(fromDate.isAfter(toDate)) {
             throw new IllegalArgumentException("first date is after second date");
         }
@@ -35,8 +35,8 @@ public final class TrendAlert extends Alert {
     @Override
     public TrendAlert build(long id, long userId, long serverId, @NotNull String exchange, @NotNull String pair, @NotNull String message,
                             BigDecimal fromPrice, BigDecimal toPrice, ZonedDateTime fromDate, ZonedDateTime toDate,
-                            ZonedDateTime lastTrigger, BigDecimal margin, short repeat, short repeatDelay) {
-        return new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, repeatDelay);
+                            ZonedDateTime lastTrigger, BigDecimal margin, short repeat, short snooze) {
+        return new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @Override

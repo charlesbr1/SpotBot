@@ -15,12 +15,24 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static java.util.Optional.empty;
 import static org.sbot.utils.PropertiesReader.loadProperties;
 import static org.sbot.utils.PropertiesReader.readFile;
 
 public enum Exchanges {
-    ;
+
+    binance(BinanceClient.NAME);
+
+    public final String name;
+
+    Exchanges(@NotNull String name) {
+        this.name = requireNonNull(name);
+    }
+
+    public Exchange get() {
+        return get(name).orElseGet(() -> loadExchange(name));
+    }
 
     private static final Logger LOGGER = LogManager.getLogger(Exchanges.class);
 
@@ -40,6 +52,7 @@ public enum Exchanges {
             @Override @NotNull public List<Candlestick> getCandlesticks(@NotNull String pair, @NotNull TimeFrame timeFrame, long limit) { return emptyList(); }
         }));
     }
+
     public static Optional<Exchange> get(@NotNull String exchange) {
         try {
             return Optional.of(exchanges.computeIfAbsent(exchange, Exchanges::loadExchange));

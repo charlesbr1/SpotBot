@@ -17,7 +17,7 @@ public interface DiscordCommands {
             new OwnerCommand(),
             new PairCommand(),
             new RepeatCommand(),
-            new RepeatDelayCommand(),
+            new SnoozeCommand(),
             new MarginCommand(),
             new MessageCommand(),
             new MigrateCommand(),

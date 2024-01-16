@@ -53,12 +53,12 @@ public final class AlertsWatcher {
     private static final int STREAM_BUFFER_SIZE = Math.min(MAX_DBMS_SQL_IN_CLAUSE_VALUES, MESSAGE_PAGE_SIZE);
 
     private final Discord discord;
-    private final AlertsDao alertDao;
+    private final AlertsDao alertsDao;
     private final MarketDataService marketDataService;
 
     public AlertsWatcher(@NotNull Discord discord, @NotNull AlertsDao alertsDao, @NotNull MarketDataService marketDataService) {
         this.discord = requireNonNull(discord);
-        this.alertDao = requireNonNull(alertsDao);
+        this.alertsDao = requireNonNull(alertsDao);
         this.marketDataService = requireNonNull(marketDataService);
     }
 
@@ -67,7 +67,7 @@ public final class AlertsWatcher {
         try {
             expiredAlertsCleanup();
 
-            var exchangePairs = alertDao.transactional(alertDao::getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange);
+            var exchangePairs = alertsDao.transactional(alertsDao::getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange);
             exchangePairs.forEach((xchange, pairs) -> {  // one task by exchange / pair
                 var pairList = List.copyOf(pairs);
                 Exchanges.get(xchange).ifPresent(exchange -> {
@@ -90,21 +90,21 @@ public final class AlertsWatcher {
 
     void expiredAlertsCleanup() {
         try {
-            Consumer<Stream<Alert>> alertsDeleter = alerts -> alertDao.alertBatchDeletes(deleter ->
+            Consumer<Stream<Alert>> alertsDeleter = alerts -> alertsDao.alertBatchDeletes(deleter ->
                     split(STREAM_BUFFER_SIZE, true, alerts
                             .map(alert -> new MatchingAlert(alert, NOT_MATCHING, null)))
                             .flatMap(this::sendDiscordNotifications)
                             .forEach(matchingAlert -> deleter.batchId(matchingAlert.alert().id)));
 
-            alertDao.transactional(() -> {
+            alertsDao.transactional(() -> {
                 ZonedDateTime expirationDate = ZonedDateTime.now().minusMonths(1L);
-                long deleted = alertDao.fetchAlertsHavingRepeatZeroAndLastTriggerBefore(expirationDate, alertsDeleter);
+                long deleted = alertsDao.fetchAlertsHavingRepeatZeroAndLastTriggerBefore(expirationDate, alertsDeleter);
                 LOGGER.debug("Deleted {} alerts with repeat = 0 and lastTrigger < {}", deleted, expirationDate);
             });
 
-            alertDao.transactional(() -> {
+            alertsDao.transactional(() -> {
                 ZonedDateTime expirationDate = ZonedDateTime.now().minusWeeks(1L);
-                long deleted = alertDao.fetchRangeAlertsHavingToDateBefore(expirationDate, alertsDeleter);
+                long deleted = alertsDao.fetchRangeAlertsHavingToDateBefore(expirationDate, alertsDeleter);
                 LOGGER.debug("Deleted {} range alerts with toDate < {}", deleted, expirationDate);
             });
         } catch (RuntimeException e) {
@@ -115,7 +115,7 @@ public final class AlertsWatcher {
     private void raiseAlerts(@NotNull Exchange virtualExchange, @NotNull String pair) {
         LOGGER.debug("Processing pair [{}] on virtual exchange {}{}...", pair,
                 virtualExchange.name(), REMAINDER_VIRTUAL_EXCHANGE.equals(virtualExchange.name()) ? " (Remainder Alerts)" : "");
-        alertDao.transactional(() -> processMatchingAlerts(virtualExchange, pair, emptyList(), null));
+        alertsDao.transactional(() -> processMatchingAlerts(virtualExchange, pair, emptyList(), null));
     }
 
     private void getPricesAndRaiseAlerts(@NotNull Exchange exchange, @NotNull String pair) {
@@ -129,7 +129,7 @@ public final class AlertsWatcher {
 
             if(!prices.isEmpty()) {
                 // load, notify, and update alerts that matches
-                alertDao.transactional(() -> {
+                alertsDao.transactional(() -> {
                     Candlestick previousPrice = marketDataService.getLastCandlestick(pair).orElse(null);
                     processMatchingAlerts(exchange, pair, prices, previousPrice);
                     marketDataService.updateLastCandlestick(pair, previousPrice, prices.get(prices.size() - 1));
@@ -164,7 +164,7 @@ public final class AlertsWatcher {
     }
 
     private void processMatchingAlerts(@NotNull Exchange exchange, @NotNull String pair, @NotNull List<Candlestick> prices, @Nullable Candlestick previousPrice) {
-        long read = alertDao.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(exchange.name(), pair,
+        long read = alertsDao.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(exchange.name(), pair,
                 alerts -> batchAlertsUpdates(
                         split(STREAM_BUFFER_SIZE, true, alerts
                                 .map(alert -> alert.match(prices, previousPrice))
@@ -175,9 +175,9 @@ public final class AlertsWatcher {
     }
 
     private void batchAlertsUpdates(@NotNull Stream<MatchingAlert> matchingAlerts) {
-        alertDao.matchedAlertBatchUpdates(matchedUpdate ->
-                alertDao.marginAlertBatchUpdates(marginUpdate ->
-                        alertDao.alertBatchDeletes(remainderDelete ->
+        alertsDao.matchedAlertBatchUpdates(matchedUpdate ->
+                alertsDao.marginAlertBatchUpdates(marginUpdate ->
+                        alertsDao.alertBatchDeletes(remainderDelete ->
                             matchingAlerts.forEach(matchingAlert -> {
                                 Alert alert = matchingAlert.alert();
                                 (switch (matchingAlert.status()) {
@@ -190,7 +190,7 @@ public final class AlertsWatcher {
 
     private List<MatchingAlert> fetchAlertsMessage(@NotNull List<MatchingAlert> matchingAlerts) {
         long[] alertIds = matchingAlerts.stream().mapToLong(matchingAlert -> matchingAlert.alert().id).toArray();
-        var alertIdMessages = alertDao.getAlertMessages(alertIds); // calling code is already into a transactional context
+        var alertIdMessages = alertsDao.getAlertMessages(alertIds); // calling code is already into a transactional context
         return matchingAlerts.stream().map(matchingAlert ->
                 matchingAlert.withAlert(matchingAlert.alert()
                         .withMessage(alertIdMessages.getOrDefault(matchingAlert.alert().id, matchingAlert.alert().message))))

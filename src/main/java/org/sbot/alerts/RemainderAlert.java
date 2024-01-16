@@ -9,7 +9,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static org.sbot.alerts.Alert.Type.remainder;
@@ -31,16 +30,16 @@ public class RemainderAlert extends Alert {
                           @NotNull String pair, @NotNull String message,
                           @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime lastTrigger,
                           @NotNull BigDecimal margin, short repeat) {
-        super(id, remainder, userId, serverId, REMAINDER_VIRTUAL_EXCHANGE, pair, message, null, null, fromDate, null, lastTrigger, margin, repeat, DEFAULT_REPEAT_DELAY_HOURS);
+        super(id, remainder, userId, serverId, REMAINDER_VIRTUAL_EXCHANGE, pair, message, null, null, fromDate, null, lastTrigger, margin, repeat, DEFAULT_SNOOZE_HOURS);
         requireNonNull(fromDate, "missing RemainderAlert fromDate");
     }
 
     @Override
     public RemainderAlert build(long id, long userId, long serverId, @NotNull String exchange, @NotNull String pair, @NotNull String message,
                                 BigDecimal fromPrice, BigDecimal toPrice, ZonedDateTime fromDate, ZonedDateTime toDate,
-                                ZonedDateTime lastTrigger, BigDecimal margin, short repeat, short repeatDelay) {
+                                ZonedDateTime lastTrigger, BigDecimal margin, short repeat, short snooze) {
         if(MARGIN_DISABLED.compareTo(margin) != 0 || !REMAINDER_VIRTUAL_EXCHANGE.equals(exchange) ||
-                null != toDate|| null != fromPrice|| null != toPrice || 1 != repeat || DEFAULT_REPEAT_DELAY_HOURS != repeatDelay) {
+                null != toDate|| null != fromPrice|| null != toPrice || 1 != repeat || DEFAULT_SNOOZE_HOURS != snooze) {
             throw new IllegalArgumentException("Can't update such value in a Remainder Alert");
         }
         return new RemainderAlert(id, userId, serverId, pair, message, fromDate, lastTrigger, MARGIN_DISABLED, (short) 1);

@@ -32,6 +32,8 @@ public class SpotBot {
 
     private static final String DATABASE_URL = appProperties.get("database.url");
 
+    private static final String DISCORD_BOT_TOKEN_FILE = "discord.token";
+
     private static final int ALERTS_HOURLY_CHECK_DELTA_MIN = appProperties.getInt("alerts.hourly-check.delta");
 
 
@@ -48,7 +50,7 @@ public class SpotBot {
             LastCandlesticksDao lastCandlestickDao = memoryDao ? new LastCandlesticksMemory() : new LastCandlesticksSQLite(repository);
 
             // load services
-            Discord discord = new Discord(alertsDao);
+            Discord discord = new Discord(DISCORD_BOT_TOKEN_FILE, alertsDao);
             MarketDataService marketDataService =  new MarketDataService(lastCandlestickDao);
             AlertsWatcher alertsWatcher = new AlertsWatcher(discord, alertsDao, marketDataService);
 

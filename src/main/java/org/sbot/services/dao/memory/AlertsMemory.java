@@ -99,7 +99,7 @@ public final class AlertsMemory implements AlertsDao {
         ZonedDateTime nowPlus60 = now.plusMinutes(60);
         long nowSeconds = now.plusMinutes(5).toEpochSecond();
         return alerts.filter(alert -> hasRepeat(alert.repeat))
-                .filter(alert -> alert.isRepeatDelayOver(nowSeconds))
+                .filter(alert -> alert.isSnoozeOver(nowSeconds))
                 .filter(alert -> alert.type != remainder || alert.fromDate.isBefore(nowPlus60) ||alert.fromDate.isAfter(nowMinus60))
                 .filter(alert -> alert.type != range || null  == alert.fromDate ||
                         (alert.fromDate.isBefore(nowPlus60) && (null == alert.toDate || alert.toDate.isAfter(nowMinus60))));
@@ -274,9 +274,9 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public void updateRepeatDelay(long alertId, short repeatDelay) {
-        LOGGER.debug("updateRepeatDelay {} {}", alertId, repeatDelay);
-        alerts.computeIfPresent(alertId, (id, alert) -> alert.withRepeatDelay(repeatDelay));
+    public void updateSnooze(long alertId, short snooze) {
+        LOGGER.debug("updateSnooze {} {}", alertId, snooze);
+        alerts.computeIfPresent(alertId, (id, alert) -> alert.withSnooze(snooze));
 
     }
 

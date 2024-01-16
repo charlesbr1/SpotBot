@@ -62,7 +62,7 @@ public interface AlertsDao extends TransactionalCtx {
     void updateMessage(long alertId, @NotNull String message);
     void updateMargin(long alertId, @NotNull BigDecimal margin);
     void updateRepeat(long alertId, short repeat);
-    void updateRepeatDelay(long alertId, short repeatDelay);
+    void updateSnooze(long alertId, short snooze);
 
     void deleteAlert(long alertId);
     long deleteAlerts(long serverId, long userId);
