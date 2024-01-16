@@ -6,7 +6,6 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.ArgumentValidator;
 
 import java.awt.*;
@@ -19,7 +18,7 @@ import static org.sbot.utils.ArgumentValidator.*;
 
 public final class OwnerCommand extends CommandAdapter {
 
-    public static final String NAME = "owner";
+    private static final String NAME = "owner";
     static final String DESCRIPTION = "show the alerts defined by the given user on a ticker or a pair";
     private static final int RESPONSE_TTL_SECONDS = 300;
 
@@ -31,8 +30,8 @@ public final class OwnerCommand extends CommandAdapter {
                     option(INTEGER, "offset", "an offset from where to start the search (results are limited to 1000 alerts)", false)
                             .setMinValue(0));
 
-    public OwnerCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
+    public OwnerCommand() {
+        super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -48,32 +47,32 @@ public final class OwnerCommand extends CommandAdapter {
         }
         var finalOffset = offset;
         LOGGER.debug("owner command - user : {}, ticker_pair : {}, offset : {}", ownerId, tickerOrPair, finalOffset);
-        alertsDao.transactional(() -> context.noMoreArgs().reply(responseTtlSeconds, owner(context, tickerOrPair, ownerId, requirePositive(finalOffset))));
+        context.alertsDao.transactional(() -> context.noMoreArgs().reply(responseTtlSeconds, owner(context, tickerOrPair, ownerId, requirePositive(finalOffset))));
     }
 
     private List<EmbedBuilder> owner(@NotNull CommandContext context, @Nullable String tickerOrPair, long ownerId, long offset) {
         if(null == context.member && context.user.getIdLong() != ownerId) {
             return List.of(embedBuilder(NAME, Color.red, "You are not allowed to see alerts of members in a private channel"));
         }
-        return alertsDao.transactional(() -> {
+        return context.alertsDao.transactional(() -> {
             long total;
             List<EmbedBuilder> alertMessages;
 
             if (isPrivateChannel(context)) {
                 total = null != tickerOrPair ?
-                        alertsDao.countAlertsOfUserAndTickers(context.user.getIdLong(), tickerOrPair) :
-                        alertsDao.countAlertsOfUser(context.user.getIdLong());
+                        context.alertsDao.countAlertsOfUserAndTickers(context.user.getIdLong(), tickerOrPair) :
+                        context.alertsDao.countAlertsOfUser(context.user.getIdLong());
                 alertMessages = (null != tickerOrPair ?
-                        alertsDao.getAlertsOfUserAndTickers(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE + 1, tickerOrPair) :
-                        alertsDao.getAlertsOfUser(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE + 1))
+                        context.alertsDao.getAlertsOfUserAndTickers(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE + 1, tickerOrPair) :
+                        context.alertsDao.getAlertsOfUser(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE + 1))
                         .stream().map(alert -> toMessage(context, alert)).collect(toList());
             } else {
                 total = null != tickerOrPair ?
-                        alertsDao.countAlertsOfServerAndUserAndTickers(context.serverId(), ownerId, tickerOrPair) :
-                        alertsDao.countAlertsOfServerAndUser(context.serverId(), ownerId);
+                        context.alertsDao.countAlertsOfServerAndUserAndTickers(context.serverId(), ownerId, tickerOrPair) :
+                        context.alertsDao.countAlertsOfServerAndUser(context.serverId(), ownerId);
                 alertMessages = (null != tickerOrPair ?
-                        alertsDao.getAlertsOfServerAndUserAndTickers(context.serverId(), ownerId, offset, MESSAGE_PAGE_SIZE + 1, tickerOrPair) :
-                        alertsDao.getAlertsOfServerAndUser(context.serverId(), ownerId, offset, MESSAGE_PAGE_SIZE + 1))
+                        context.alertsDao.getAlertsOfServerAndUserAndTickers(context.serverId(), ownerId, offset, MESSAGE_PAGE_SIZE + 1, tickerOrPair) :
+                        context.alertsDao.getAlertsOfServerAndUser(context.serverId(), ownerId, offset, MESSAGE_PAGE_SIZE + 1))
                         .stream().map(alert -> toMessage(context, alert)).collect(toList());
             }
 

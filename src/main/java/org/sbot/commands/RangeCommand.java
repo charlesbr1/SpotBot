@@ -8,7 +8,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.RangeAlert;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
 
@@ -26,7 +25,7 @@ import static org.sbot.utils.Dates.formatUTC;
 
 public final class RangeCommand extends CommandAdapter {
 
-    public static final String NAME = "range";
+    private static final String NAME = "range";
     static final String DESCRIPTION = "create a new range alert on pair ticker1/ticker2, defined by two prices and two optional dates";
     private static final int RESPONSE_TTL_SECONDS = 60;
 
@@ -45,8 +44,8 @@ public final class RangeCommand extends CommandAdapter {
                     option(STRING, "message", "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
                             .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
-    public RangeCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
+    public RangeCommand() {
+        super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -61,7 +60,7 @@ public final class RangeCommand extends CommandAdapter {
 
         LOGGER.debug("range command - exchange : {}, pair : {}, low : {}, high : {}, from_date : {}, to_date : {}, message : {}",
                 exchange, pair, fromPrice, toPrice, fromDate, toDate, message);
-        alertsDao.transactional(() -> context.reply(responseTtlSeconds, range(context, exchange, pair, message, fromPrice, toPrice, fromDate, toDate)));
+        context.alertsDao.transactional(() -> context.reply(responseTtlSeconds, range(context, exchange, pair, message, fromPrice, toPrice, fromDate, toDate)));
     }
 
     private EmbedBuilder range(@NotNull CommandContext context, @NotNull String exchange,
@@ -84,7 +83,7 @@ public final class RangeCommand extends CommandAdapter {
                 exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS);
 
-        long alertId = alertsDao.addAlert(rangeAlert);
+        long alertId = context.alertsDao.addAlert(rangeAlert);
 
         String answer = context.user.getAsMention() + " New range alert added with id " + alertId +
                 "\n\n* pair : " + rangeAlert.pair + "\n* exchange : " + exchange +

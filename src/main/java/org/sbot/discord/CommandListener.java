@@ -11,7 +11,14 @@ public interface CommandListener {
     String name();
 
     @NotNull
+    String description();
+
+    @NotNull
     SlashCommandData options();
+
+    default boolean isSlashCommand() {
+        return true;
+    }
 
     void onCommand(@NotNull CommandContext context);
 }

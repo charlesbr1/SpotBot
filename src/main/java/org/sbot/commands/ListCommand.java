@@ -5,7 +5,6 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.ArgumentValidator;
 
 import java.awt.*;
@@ -20,7 +19,7 @@ import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 
 public final class ListCommand extends CommandAdapter {
 
-    public static final String NAME = "list";
+    private static final String NAME = "list";
     static final String DESCRIPTION = "list the supported exchanges, or pairs, or the alerts currently set";
     private static final int RESPONSE_TTL_SECONDS = 300;
 
@@ -37,8 +36,8 @@ public final class ListCommand extends CommandAdapter {
                     option(INTEGER, "offset", "an offset from where to start the search (results are limited to 1000 alerts)", false)
                             .setMinValue(0));
 
-    public ListCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
+    public ListCommand() {
+        super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -51,7 +50,7 @@ public final class ListCommand extends CommandAdapter {
         }
         long finalOffset = offset;
         LOGGER.debug("list command - choice : {}, offset : {}", choice, offset);
-        alertsDao.transactional(() -> context.noMoreArgs().reply(responseTtlSeconds, list(context, choice, finalOffset)));
+        context.alertsDao.transactional(() -> context.noMoreArgs().reply(responseTtlSeconds, list(context, choice, finalOffset)));
     }
 
     private List<EmbedBuilder> list(@NotNull CommandContext context, @NotNull String choice, long offset) {
@@ -64,13 +63,13 @@ public final class ListCommand extends CommandAdapter {
     }
 
     private List<EmbedBuilder> alerts(@NotNull CommandContext context, long offset) {
-        return alertsDao.transactional(() -> {
+        return context.alertsDao.transactional(() -> {
             long total = isPrivateChannel(context) ?
-                    alertsDao.countAlertsOfUser(context.user.getIdLong()) :
-                    alertsDao.countAlertsOfServer(context.serverId());
+                    context.alertsDao.countAlertsOfUser(context.user.getIdLong()) :
+                    context.alertsDao.countAlertsOfServer(context.serverId());
             List<EmbedBuilder> alertMessages = (isPrivateChannel(context) ?
-                    alertsDao.getAlertsOfUser(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE + 1) :
-                    alertsDao.getAlertsOfServer(context.serverId(), offset, MESSAGE_PAGE_SIZE + 1))
+                    context.alertsDao.getAlertsOfUser(context.user.getIdLong(), offset, MESSAGE_PAGE_SIZE + 1) :
+                    context.alertsDao.getAlertsOfServer(context.serverId(), offset, MESSAGE_PAGE_SIZE + 1))
                     .stream().map(alert -> toMessage(context, alert)).collect(toList());
 
             return paginatedAlerts(alertMessages, offset, total,

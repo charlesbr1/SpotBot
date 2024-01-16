@@ -14,7 +14,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.discord.Discord;
-import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
@@ -22,18 +21,19 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.alerts.Alert.DEFAULT_REPEAT;
 import static org.sbot.alerts.Alert.DEFAULT_REPEAT_DELAY_HOURS;
+import static org.sbot.commands.DiscordCommands.DISCORD_COMMANDS;
 import static org.sbot.discord.Discord.*;
+import static org.sbot.utils.PartitionSpliterator.split;
 
 public final class SpotBotCommand extends CommandAdapter {
 
-    public static final String NAME = "spotbot";
+    private static final String NAME = "spotbot";
     private static final String DESCRIPTION = "show the documentation, a description of each commands, or some examples of commands usage";
     private static final int RESPONSE_TTL_SECONDS = 600;
 
@@ -52,26 +52,6 @@ public final class SpotBotCommand extends CommandAdapter {
 
     private static final String ALERTS_PICTURE_FILE = "range2.png";
     private static final String ALERTS_PICTURE_PATH = '/' + ALERTS_PICTURE_FILE;
-
-    private record Command(String name, String description, SlashCommandData options) {}
-
-    private static final List<Command> commands = List.of(
-            new Command(NAME, DESCRIPTION, options),
-            new Command(ListCommand.NAME, ListCommand.DESCRIPTION, ListCommand.options),
-            new Command(OwnerCommand.NAME, OwnerCommand.DESCRIPTION, OwnerCommand.options),
-            new Command(PairCommand.NAME, PairCommand.DESCRIPTION, PairCommand.options),
-            new Command(RangeCommand.NAME, RangeCommand.DESCRIPTION, RangeCommand.options),
-            new Command(TrendCommand.NAME, TrendCommand.DESCRIPTION, TrendCommand.options),
-            new Command(RemainderCommand.NAME, RemainderCommand.DESCRIPTION, RemainderCommand.options),
-            new Command(RepeatCommand.NAME, RepeatCommand.DESCRIPTION, RepeatCommand.options),
-            new Command(RepeatDelayCommand.NAME, RepeatDelayCommand.DESCRIPTION, RepeatDelayCommand.options),
-            new Command(MarginCommand.NAME, MarginCommand.DESCRIPTION, MarginCommand.options),
-            new Command(MessageCommand.NAME, MessageCommand.DESCRIPTION, MessageCommand.options),
-            new Command(MigrateCommand.NAME, MigrateCommand.DESCRIPTION, MigrateCommand.options),
-            new Command(DeleteCommand.NAME, DeleteCommand.DESCRIPTION, DeleteCommand.options),
-            new Command(UtcCommand.NAME, UtcCommand.DESCRIPTION, UtcCommand.options),
-            new Command(QuoteCommand.NAME, QuoteCommand.DESCRIPTION, QuoteCommand.options),
-            new Command(UpTimeCommand.NAME, UpTimeCommand.DESCRIPTION, UpTimeCommand.options));
 
     private static final String DOC_HEADER = """
             SpotBot is a discord utility for setting alerts when the price of an asset reach a box or cross a trend line, or just for a remainder in the future.
@@ -150,8 +130,8 @@ public final class SpotBotCommand extends CommandAdapter {
     private static final FileUpload alertsPicture = FileUpload.fromData(requireNonNull(SpotBotCommand.class
             .getResourceAsStream(ALERTS_PICTURE_PATH)), ALERTS_PICTURE_FILE);
 
-    public SpotBotCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
+    public SpotBotCommand() {
+        super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -213,8 +193,12 @@ public final class SpotBotCommand extends CommandAdapter {
     }
 
     private static List<EmbedBuilder> commands() {
+        record Command(String name, String description, SlashCommandData options) {}
+        var commands = DISCORD_COMMANDS.stream()
+                .map(command -> new Command(command.name(), command.description() ,command.options()));
+
         // split the list because it exceeds max discord message length
-        return Stream.of(commands.subList(0, commands.size() / 2), commands.subList(commands.size()/2, commands.size()))
+        return split(10, commands)
                 .map(cmdList -> embedBuilder(null, Color.green, cmdList.stream()
                         .map(cmd -> "** " + cmd.name + "**\n\n" + SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + cmd.description + commandDescription(cmd.options))
                         .collect(joining("\n\n\n")))).toList();

@@ -5,7 +5,6 @@ import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.dao.AlertsDao;
 
 import java.awt.*;
 import java.time.Duration;
@@ -15,15 +14,15 @@ import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
 
 public final class UpTimeCommand extends CommandAdapter {
 
-    public static final String NAME = "uptime";
+    private static final String NAME = "uptime";
     static final String DESCRIPTION = "returns the time since this bot is up";
     private static final int RESPONSE_TTL_SECONDS = 10;
 
     static final SlashCommandData options = Commands.slash(NAME, DESCRIPTION);
     private static final Instant start = Instant.now();
 
-    public UpTimeCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
+    public UpTimeCommand() {
+        super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override

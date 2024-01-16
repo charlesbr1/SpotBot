@@ -6,7 +6,6 @@ import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
@@ -20,7 +19,7 @@ import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 
 public final class UtcCommand extends CommandAdapter {
 
-    public static final String NAME = "utc";
+    private static final String NAME = "utc";
     static final String DESCRIPTION = "convert a date time into the utc time zone, helping with commands that expect a date in UTC";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
@@ -34,8 +33,8 @@ public final class UtcCommand extends CommandAdapter {
                             .setMaxLength(4),
                     option(STRING, "date", "a date to convert in UTC, expected format : " + Dates.DATE_TIME_FORMAT, false));
 
-    public UtcCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
+    public UtcCommand() {
+        super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override

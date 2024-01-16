@@ -86,7 +86,7 @@ final class EventAdapter extends ListenerAdapter {
     public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
         if (acceptCommand(event.getUser(), event.getChannel())) {
             LOGGER.info("Discord slash command received from user {} : {}, with options {}", event.getUser().getEffectiveName(), event.getName(), event.getOptions());
-            onCommand(new CommandContext(discord, event));
+            onCommand(new CommandContext(discord, alertsDao, event));
         } else {
             event.replyEmbeds(embedBuilder("Sorry !", Color.black,
                             "SpotBot disabled on this channel. Use it in private or on channel " +
@@ -103,7 +103,7 @@ final class EventAdapter extends ListenerAdapter {
             var command = event.getMessage().getContentRaw().strip();
             if (isPrivateMessage(event.getChannel().getType()) || command.startsWith(spotBotUserMention)) {
                 LOGGER.info("Discord message received from user {} : {}", event.getAuthor().getEffectiveName(), event.getMessage().getContentRaw());
-                onCommand(new CommandContext(discord, event, removeStartingMentions(command)));
+                onCommand(new CommandContext(discord, alertsDao, event, removeStartingMentions(command)));
             }
         }
     }

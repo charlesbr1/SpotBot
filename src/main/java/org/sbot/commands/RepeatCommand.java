@@ -5,7 +5,6 @@ import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.dao.AlertsDao;
 
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static org.sbot.alerts.Alert.Type.remainder;
@@ -15,7 +14,7 @@ import static org.sbot.utils.ArgumentValidator.requirePositiveShort;
 
 public final class RepeatCommand extends CommandAdapter {
 
-    public static final String NAME = "repeat";
+    private static final String NAME = "repeat";
     static final String DESCRIPTION = "update the number of time the alert will be raise, 0 to disable";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
@@ -26,8 +25,8 @@ public final class RepeatCommand extends CommandAdapter {
                     option(INTEGER, "repeat", "number of time the specified alert will be raise again", true)
                             .setRequiredRange(0, Short.MAX_VALUE));
 
-    public RepeatCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
+    public RepeatCommand() {
+        super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -35,7 +34,7 @@ public final class RepeatCommand extends CommandAdapter {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         short repeat = requirePositiveShort(context.args.getMandatoryLong("repeat"));
         LOGGER.debug("repeat command - alert_id : {}, repeat : {}", alertId, repeat);
-        alertsDao.transactional(() -> context.noMoreArgs().reply(responseTtlSeconds, repeat(context, alertId, repeat)));
+        context.alertsDao.transactional(() -> context.noMoreArgs().reply(responseTtlSeconds, repeat(context, alertId, repeat)));
     }
 
     private EmbedBuilder repeat(@NotNull CommandContext context, long alertId, short repeat) {
@@ -43,7 +42,7 @@ public final class RepeatCommand extends CommandAdapter {
             if(remainder == alert.type()) {
                 throw new IllegalArgumentException("You can't set the repeat of a remainder alert");
             }
-            alertsDao.updateRepeat(alertId, repeat);
+            context.alertsDao.updateRepeat(alertId, repeat);
             return "Repeat of alert " + alertId + " updated to " + repeat +
                     (!hasRepeat(repeat) ? " (disabled)" : "");
         });

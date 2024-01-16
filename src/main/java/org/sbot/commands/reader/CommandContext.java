@@ -13,6 +13,7 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateRequest;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.discord.Discord;
+import org.sbot.services.dao.AlertsDao;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -28,6 +29,7 @@ import static org.sbot.discord.Discord.MAX_MESSAGE_EMBEDS;
 public final class CommandContext {
 
     public final @NotNull Discord discord;
+    public final @NotNull AlertsDao alertsDao;
 
     public final @NotNull String name;
     public final @NotNull MessageChannel channel;
@@ -39,8 +41,9 @@ public final class CommandContext {
     private @Nullable SlashCommandInteractionEvent event;
     private final @Nullable Message message;
 
-    public CommandContext(@NotNull Discord discord, @NotNull SlashCommandInteractionEvent event) {
+    public CommandContext(@NotNull Discord discord, @NotNull AlertsDao alertsDao, @NotNull SlashCommandInteractionEvent event) {
         this.discord = requireNonNull(discord);
+        this.alertsDao = requireNonNull(alertsDao);
         this.event = event;
         this.message = null;
         this.channel = event.getChannel();
@@ -50,8 +53,9 @@ public final class CommandContext {
         this.name = event.getName();
     }
 
-    public CommandContext(@NotNull Discord discord, @NotNull MessageReceivedEvent event, @NotNull String command) {
+    public CommandContext(@NotNull Discord discord, @NotNull AlertsDao alertsDao, @NotNull MessageReceivedEvent event, @NotNull String command) {
         this.discord = requireNonNull(discord);
+        this.alertsDao = requireNonNull(alertsDao);
         this.event = null;
         this.message = event.getMessage();
         this.channel = event.getChannel();

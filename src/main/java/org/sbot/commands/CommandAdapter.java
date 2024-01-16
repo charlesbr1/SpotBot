@@ -13,7 +13,6 @@ import org.sbot.alerts.Alert;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.discord.CommandListener;
 import org.sbot.discord.Discord;
-import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.AlertsDao.UserIdServerIdType;
 
 import java.awt.*;
@@ -32,14 +31,14 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected static final Logger LOGGER = LogManager.getLogger(CommandAdapter.class);
 
-    protected final AlertsDao alertsDao;
     private final String name;
+    private final String description;
     private final SlashCommandData options;
-    protected int responseTtlSeconds;
+    protected final int responseTtlSeconds;
 
-    protected CommandAdapter(@NotNull AlertsDao alertsDao, @NotNull String name, @NotNull SlashCommandData options, int responseTtlSeconds) {
-        this.alertsDao = requireNonNull(alertsDao, "missing CommandAdapter alertDao");
+    protected CommandAdapter(@NotNull String name,@NotNull String description, @NotNull SlashCommandData options, int responseTtlSeconds) {
         this.name = requireNonNull(name, "missing CommandAdapter name");
+        this.description = requireNonNull(description, "missing CommandAdapter description");
         this.options = requireNonNull(options, "missing CommandAdapter options");
         this.responseTtlSeconds = requirePositive(SpotBot.appProperties.getIntOr("command." + name + ".ttlSeconds", responseTtlSeconds));
         LOGGER.debug("Created new CommandAdapter {}, responseTtlSeconds : {}, options : {}", name, this.responseTtlSeconds, options.toData());
@@ -49,6 +48,12 @@ public abstract class CommandAdapter implements CommandListener {
     @NotNull
     public final String name() {
         return name;
+    }
+
+    @Override
+    @NotNull
+    public final String description() {
+        return description;
     }
 
     @Override
@@ -65,7 +70,7 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected AnswerColorSmiley securedAlertUpdate(long alertId, @NotNull CommandContext context, @NotNull Function<UserIdServerIdType, String> updateHandler) {
 
-        UserIdServerIdType alert = alertsDao.getUserIdAndServerIdAndType(alertId).orElse(null);
+        UserIdServerIdType alert = context.alertsDao.getUserIdAndServerIdAndType(alertId).orElse(null);
 
         if(SecurityAccess.notFound(context, alert)) {
             return new AnswerColorSmiley("Alert " + alertId + " not found", Color.red, ":ghost:");

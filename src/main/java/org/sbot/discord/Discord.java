@@ -39,6 +39,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.Optional.empty;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
+import static org.sbot.commands.DiscordCommands.DISCORD_COMMANDS;
 import static org.sbot.utils.PartitionSpliterator.split;
 import static org.sbot.utils.PropertiesReader.readFile;
 
@@ -75,9 +76,9 @@ public final class Discord {
             .maximumSize(Short.MAX_VALUE)
             .build();
 
-    public Discord(@NotNull AlertsDao alertsDao, @NotNull List<CommandListener> commandListeners) {
+    public Discord(@NotNull AlertsDao alertsDao) {
         jda = loadDiscordConnection(requireNonNull(alertsDao));
-        registerCommands(commandListeners);
+        registerCommands(DISCORD_COMMANDS);
     }
 
     @NotNull
@@ -195,8 +196,8 @@ public final class Discord {
         return commands.get(command);
     }
 
-    private void registerCommands(List<CommandListener> commandListeners) {
-        jda.updateCommands().addCommands(commandListeners.stream()
+    private void registerCommands(List<CommandListener> commands) {
+        jda.updateCommands().addCommands(commands.stream()
                 .filter(this::registerCommand)
                 .map(CommandListener::options).toList()).queue();
     }
@@ -207,6 +208,6 @@ public final class Discord {
             LOGGER.warn("Discord command {} was already registered", commandListener.name());
             return false;
         }
-        return true;
+        return commandListener.isSlashCommand();
     }
 }

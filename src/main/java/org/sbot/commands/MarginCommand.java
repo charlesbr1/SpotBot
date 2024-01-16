@@ -5,7 +5,6 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.dao.AlertsDao;
 
 import java.math.BigDecimal;
 
@@ -17,7 +16,7 @@ import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class MarginCommand extends CommandAdapter {
 
-    public static final String NAME = "margin";
+    private static final String NAME = "margin";
     static final String DESCRIPTION = "set a margin for the alert that will warn once reached, then it should be set again, 0 to disable";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
@@ -29,8 +28,8 @@ public final class MarginCommand extends CommandAdapter {
                             .setMinValue(0d));
 
 
-    public MarginCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
+    public MarginCommand() {
+        super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -38,7 +37,7 @@ public final class MarginCommand extends CommandAdapter {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         BigDecimal margin = requirePositive(context.args.getMandatoryNumber("margin"));
         LOGGER.debug("margin command - alert_id : {}, margin : {}", alertId, margin);
-        alertsDao.transactional(() -> context.noMoreArgs().reply(responseTtlSeconds, margin(context, margin, alertId)));
+        context.alertsDao.transactional(() -> context.noMoreArgs().reply(responseTtlSeconds, margin(context, margin, alertId)));
     }
 
     private EmbedBuilder margin(@NotNull CommandContext context, @NotNull BigDecimal margin, long alertId) {
@@ -46,7 +45,7 @@ public final class MarginCommand extends CommandAdapter {
             if(remainder == alert.type()) {
                 throw new IllegalArgumentException("You can't set the margin of a remainder alert");
             }
-            alertsDao.updateMargin(alertId, margin);
+            context.alertsDao.updateMargin(alertId, margin);
             return "Margin of alert " + alertId + " updated to " + margin +
                     (hasMargin(margin) ? "" : " (disabled)");
         });

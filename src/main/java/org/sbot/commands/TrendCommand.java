@@ -7,7 +7,6 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.alerts.TrendAlert;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
@@ -24,7 +23,7 @@ import static org.sbot.utils.Dates.formatUTC;
 
 public final class TrendCommand extends CommandAdapter {
 
-    public static final String NAME = "trend";
+    private static final String NAME = "trend";
     static final String DESCRIPTION = "create a new trend alert on pair ticker1/ticker2, a trend is defined by two prices and two dates";
     private static final int RESPONSE_TTL_SECONDS = 60;
 
@@ -44,8 +43,8 @@ public final class TrendCommand extends CommandAdapter {
                             .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
 
-    public TrendCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
+    public TrendCommand() {
+        super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -61,7 +60,7 @@ public final class TrendCommand extends CommandAdapter {
 
         LOGGER.debug("trend command - exchange : {}, pair : {}, from_price : {}, from_date : {}, to_price : {}, to_date : {}, message : {}",
                 exchange, pair, fromPrice, fromDate, toPrice, toDate, message);
-        alertsDao.transactional(() -> context.reply(responseTtlSeconds, trend(context, exchange, pair, message, fromPrice, fromDate, toPrice, toDate)));
+        context.alertsDao.transactional(() -> context.reply(responseTtlSeconds, trend(context, exchange, pair, message, fromPrice, fromDate, toPrice, toDate)));
     }
 
     private EmbedBuilder trend(@NotNull CommandContext context, @NotNull String exchange,
@@ -84,7 +83,7 @@ public final class TrendCommand extends CommandAdapter {
                 exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_REPEAT_DELAY_HOURS);
 
-        long alertId = alertsDao.addAlert(trendAlert);
+        long alertId = context.alertsDao.addAlert(trendAlert);
 
         String answer = context.user.getAsMention() + " New trend alert added with id " + alertId +
                 "\n\n* pair : " + trendAlert.pair + "\n* exchange : " + exchange +

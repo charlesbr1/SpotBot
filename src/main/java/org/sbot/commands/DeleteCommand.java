@@ -7,7 +7,6 @@ import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.ArgumentValidator;
 
 import java.awt.*;
@@ -20,7 +19,7 @@ import static org.sbot.utils.ArgumentValidator.*;
 
 public final class DeleteCommand extends CommandAdapter {
 
-    public static final String NAME = "delete";
+    private static final String NAME = "delete";
     static final String DESCRIPTION = "delete one or many alerts (only your alerts, but an admin is allowed to do delete any user alerts)";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
@@ -36,8 +35,8 @@ public final class DeleteCommand extends CommandAdapter {
                                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
                             option(USER, "owner", "for admin only, a member to drop the alerts on your server", false)));
 
-    public DeleteCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
+    public DeleteCommand() {
+        super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -50,7 +49,7 @@ public final class DeleteCommand extends CommandAdapter {
                 context.args.getMandatoryUserId("owner") : null;
 
         LOGGER.debug("delete command - alert_id : {}, owner : {}, ticker_pair : {}", alertId, ownerId, tickerOrPair);
-        alertsDao.transactional(() -> context.noMoreArgs().reply(responseTtlSeconds, delete(context, alertId, ownerId, tickerOrPair)));
+        context.alertsDao.transactional(() -> context.noMoreArgs().reply(responseTtlSeconds, delete(context, alertId, ownerId, tickerOrPair)));
     }
 
     static void validateExclusiveArguments(@Nullable Long alertId, @Nullable String tickerOrPair) {
@@ -76,7 +75,7 @@ public final class DeleteCommand extends CommandAdapter {
 
     private EmbedBuilder deleteById(@NotNull CommandContext context, long alertId) {
         AnswerColorSmiley answer = securedAlertUpdate(alertId, context, type -> {
-            alertsDao.deleteAlert(alertId);
+            context.alertsDao.deleteAlert(alertId);
             return "Alert " + alertId + " deleted";
         });
         return embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer());
@@ -84,8 +83,8 @@ public final class DeleteCommand extends CommandAdapter {
 
     private EmbedBuilder deleteByOwnerOrTickerPair(@NotNull CommandContext context, @Nullable Long ownerId, @Nullable String tickerOrPair) {
         long deleted = null == tickerOrPair || DELETE_ALL.equalsIgnoreCase(tickerOrPair) ?
-                alertsDao.deleteAlerts(context.serverId(), null != ownerId ? ownerId : context.user.getIdLong()) :
-                alertsDao.deleteAlerts(context.serverId(), null != ownerId ? ownerId : context.user.getIdLong(), tickerOrPair.toUpperCase());
+                context.alertsDao.deleteAlerts(context.serverId(), null != ownerId ? ownerId : context.user.getIdLong()) :
+                context.alertsDao.deleteAlerts(context.serverId(), null != ownerId ? ownerId : context.user.getIdLong(), tickerOrPair.toUpperCase());
         return embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), Color.green, deleted + " " + (deleted > 1 ? " alerts" : " alert") + " deleted");
     }
 }

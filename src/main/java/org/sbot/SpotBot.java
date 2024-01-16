@@ -2,9 +2,6 @@ package org.sbot;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jetbrains.annotations.NotNull;
-import org.sbot.commands.*;
-import org.sbot.discord.CommandListener;
 import org.sbot.discord.Discord;
 import org.sbot.services.AlertsWatcher;
 import org.sbot.services.MarketDataService;
@@ -20,7 +17,6 @@ import org.sbot.utils.PropertiesReader;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Stream;
 
@@ -52,7 +48,7 @@ public class SpotBot {
             LastCandlesticksDao lastCandlestickDao = memoryDao ? new LastCandlesticksMemory() : new LastCandlesticksSQLite(repository);
 
             // load services
-            Discord discord = new Discord(alertsDao, loadDiscordCommands(alertsDao));
+            Discord discord = new Discord(alertsDao);
             MarketDataService marketDataService =  new MarketDataService(lastCandlestickDao);
             AlertsWatcher alertsWatcher = new AlertsWatcher(discord, alertsDao, marketDataService);
 
@@ -76,26 +72,5 @@ public class SpotBot {
         LocalDateTime currentTime = LocalDateTime.now();
         LocalDateTime startOfNextHour = currentTime.truncatedTo(HOURS).plusHours(1L).plusMinutes(1L);
         return ChronoUnit.MINUTES.between(currentTime, startOfNextHour);
-    }
-
-    @NotNull
-    private static List<CommandListener> loadDiscordCommands(@NotNull AlertsDao alertsDao) {
-        return List.of(
-                new RangeCommand(alertsDao),
-                new DeleteCommand(alertsDao),
-                new TrendCommand(alertsDao),
-                new ListCommand(alertsDao),
-                new OwnerCommand(alertsDao),
-                new PairCommand(alertsDao),
-                new RepeatCommand(alertsDao),
-                new RepeatDelayCommand(alertsDao),
-                new MarginCommand(alertsDao),
-                new MessageCommand(alertsDao),
-                new RemainderCommand(alertsDao),
-                new MigrateCommand(alertsDao),
-                new SpotBotCommand(alertsDao),
-                new UtcCommand(alertsDao),
-                new QuoteCommand(alertsDao),
-                new UpTimeCommand(alertsDao));
     }
 }

@@ -10,7 +10,6 @@ import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.ArgumentValidator;
 
 import java.awt.*;
@@ -30,7 +29,7 @@ import static org.sbot.utils.ArgumentValidator.*;
 
 public final class MigrateCommand extends CommandAdapter {
 
-    public static final String NAME = "migrate";
+    private static final String NAME = "migrate";
     static final String DESCRIPTION = "migrate an alert to your private channel or on another guild that we have access to";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
@@ -50,8 +49,8 @@ public final class MigrateCommand extends CommandAdapter {
                             SERVER_ID_OPTION,
                             option(USER, "owner", "for admin only, owner of the alerts to migrate", false)));
 
-    public MigrateCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
+    public MigrateCommand() {
+        super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
@@ -77,7 +76,7 @@ public final class MigrateCommand extends CommandAdapter {
 
         LOGGER.debug("migrate command - alert_id : {}, server_id : {}, tickerOrPair : {}, ownerId : {}", alertId, serverId, tickerOrPair, ownerId);
         Runnable[] notificationCallBack = new Runnable[1];
-        alertsDao.transactional(() ->
+        context.alertsDao.transactional(() ->
                 context.noMoreArgs().reply(responseTtlSeconds, migrate(context, finalServerId, alertId, finalOwnerId, tickerOrPair, notificationCallBack)));
         // perform user notification of its alerts being migrated, if needed, once transaction is done.
         Optional.ofNullable(notificationCallBack[0]).ifPresent(Runnable::run);
@@ -102,7 +101,7 @@ public final class MigrateCommand extends CommandAdapter {
                 throw new IllegalArgumentException("Alert " + alertId + " is already into " + (null == guild ? "the private channel" : "guild " + guildName(guild)));
             }
             if(null == guild || isGuildMember(guild, alert.userId())) {
-                alertsDao.updateServerId(alertId, null != guild ? guild.getIdLong() : PRIVATE_ALERT);
+                context.alertsDao.updateServerId(alertId, null != guild ? guild.getIdLong() : PRIVATE_ALERT);
                 if(context.user.getIdLong() != alert.userId()) {
                     outNotificationCallBack[0] = () -> notifyAlertOwner(context, alertId, alert.userId(), requireNonNull(context.member), guild);
                 }
@@ -134,8 +133,8 @@ public final class MigrateCommand extends CommandAdapter {
             throw new IllegalArgumentException("User <@" + userId + "> is not a member of guild " + guildName(guild));
         }
         long migrated = MIGRATE_ALL.equalsIgnoreCase(tickerOrPair) ?
-                alertsDao.updateServerIdOfUserAndServerId(userId, context.serverId(), null != guild ? guild.getIdLong() : PRIVATE_ALERT) :
-                alertsDao.updateServerIdOfUserAndServerIdAndTickers(userId, context.serverId(), tickerOrPair.toUpperCase(), null != guild ? guild.getIdLong() : PRIVATE_ALERT);
+                context.alertsDao.updateServerIdOfUserAndServerId(userId, context.serverId(), null != guild ? guild.getIdLong() : PRIVATE_ALERT) :
+                context.alertsDao.updateServerIdOfUserAndServerIdAndTickers(userId, context.serverId(), tickerOrPair.toUpperCase(), null != guild ? guild.getIdLong() : PRIVATE_ALERT);
         if(migrated > 0 && null != ownerId && context.user.getIdLong() != ownerId) {
             outNotificationCallBack[0] = () -> notifyAlertOwner(context, tickerOrPair, ownerId, requireNonNull(context.member), guild, migrated);
         }

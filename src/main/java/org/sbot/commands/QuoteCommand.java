@@ -9,7 +9,6 @@ import org.sbot.chart.Candlestick;
 import org.sbot.chart.TimeFrame;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.exchanges.Exchanges;
-import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
@@ -29,7 +28,7 @@ import static org.sbot.utils.ArgumentValidator.*;
 
 public final class QuoteCommand extends CommandAdapter {
 
-    public static final String NAME = "quote";
+    private static final String NAME = "quote";
     static final String DESCRIPTION = "get the last quotation of a pair on the given exchange (1 minute time frame)";
     private static final int RESPONSE_TTL_SECONDS = 300;
 
@@ -46,8 +45,8 @@ public final class QuoteCommand extends CommandAdapter {
 
 
 
-    public QuoteCommand(@NotNull AlertsDao alertsDao) {
-        super(alertsDao, NAME, options, RESPONSE_TTL_SECONDS);
+    public QuoteCommand() {
+        super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
     @Override
