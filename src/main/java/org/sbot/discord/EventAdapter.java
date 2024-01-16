@@ -67,18 +67,28 @@ final class EventAdapter extends ListenerAdapter {
 
     private void migrateUserAlertsToPrivateChannel(@Nullable Long userId, @NotNull Guild guild, @NotNull String reason) {
         if(null != userId) {
-            migrateAndNotify(userId, guild, reason);
+            long nbMigrated = alertsDao.transactional(() -> alertsDao.updateServerIdOfUserAndServerId(userId, guild.getIdLong(), PRIVATE_ALERT));
+            notifyPrivateAlertMigration(userId, guild, reason, nbMigrated);
+            LOGGER.debug("Migrated to private {} alerts of user {} on server {}, reason : {}", nbMigrated, userId, guild.getIdLong(), reason);
+        } else { // guild removed this bot, migrate all the alerts of this guild to private and notify each user
+            List<Long> userIds = alertsDao.transactional(() -> {
+                var ids = alertsDao.getUserIdsByServerId(guild.getIdLong());
+                long totalMigrated = alertsDao.updateServerIdPrivate(guild.getIdLong());
+                LOGGER.debug("Migrated to private {} alerts on server {}, reason : {}", totalMigrated, guild.getIdLong(), reason);
+                return ids;
+            });
+            userIds.forEach(uid -> notifyPrivateAlertMigration(uid, guild, reason, null));
         }
-        alertsDao.transactional(() -> alertsDao.getUserIdsByServerId(guild.getIdLong()))
-                .forEach(id -> migrateAndNotify(id, guild, reason));
+
     }
 
-    private void migrateAndNotify(long userId, @NotNull Guild guild, @NotNull String reason) {
-        long nbMigrated = alertsDao.transactional(() -> alertsDao.updateServerIdOfUserAndServerId(userId, guild.getIdLong(), PRIVATE_ALERT));
-        if(nbMigrated > 0) {
+    private void notifyPrivateAlertMigration(long userId, @NotNull Guild guild, @NotNull String reason, Long nbMigrated) {
+        if(null == nbMigrated || nbMigrated > 0) {
             discord.userChannel(userId).ifPresent(channel ->
-                    channel.sendMessages(List.of(embedBuilder("Notice of " + (nbMigrated > 1 ? "alerts" : "alert") + " migration", Color.lightGray,
-                            reason + (nbMigrated > 1 ? ", all your alerts (" + nbMigrated + ") on this guild were " : ", your alert on this guild was ") + "migrated to your private channel")), emptyList()));
+                    channel.sendMessages(List.of(embedBuilder("Notice of " + (null == nbMigrated || nbMigrated > 1 ? "alerts" : "alert") + " migration", Color.lightGray,
+                            reason + ((nbMigrated == null ? ", all your alerts on this guild were " :
+                                    (nbMigrated > 1 ? ", all your alerts (" + nbMigrated + ") on this guild were " :
+                                            ", your alert on this guild was "))) + "migrated to your private channel")), emptyList()));
         }
     }
 

@@ -19,10 +19,9 @@ import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
-import static org.sbot.alerts.Alert.MARGIN_DISABLED;
+import static org.sbot.alerts.Alert.*;
 import static org.sbot.alerts.Alert.Type.range;
 import static org.sbot.alerts.Alert.Type.remainder;
-import static org.sbot.alerts.Alert.hasRepeat;
 
 public final class AlertsMemory implements AlertsDao {
 
@@ -62,7 +61,7 @@ public final class AlertsMemory implements AlertsDao {
         LOGGER.debug("fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats {} {}", exchange, pair);
         long[] read = new long[] {0L};
         alertsConsumer.accept(havingRepeatAndDelayOverWithActiveRange(
-                alerts.values().stream()
+                new ArrayList<>(alerts.values()).stream()
                 .filter(alert -> alert.exchange.equals(exchange))
                 .filter(alert -> alert.pair.equals(pair)))
                 .map(alert -> alert.withMessage("")) // erase the message to simulate the SQL layer
@@ -74,7 +73,7 @@ public final class AlertsMemory implements AlertsDao {
     public long fetchAlertsHavingRepeatZeroAndLastTriggerBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
         LOGGER.debug("fetchAlertsHavingRepeatZeroAndLastTriggerBefore {}", expirationDate);
         long[] read = new long[] {0L};
-        alertsConsumer.accept(alerts.values().stream()
+        alertsConsumer.accept(new ArrayList<>(alerts.values()).stream()
                 .filter(alert -> alert.repeat <= 0)
                 .filter(alert -> requireNonNull(alert.lastTrigger).isBefore(expirationDate))
                 .filter(alert -> ++read[0] != 0));
@@ -85,7 +84,7 @@ public final class AlertsMemory implements AlertsDao {
     public long fetchRangeAlertsHavingToDateBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
         LOGGER.debug("fetchRangeAlertsHavingToDateBefore {}", expirationDate);
         long[] read = new long[] {0L};
-        alertsConsumer.accept(alerts.values().stream()
+        alertsConsumer.accept(new ArrayList<>(alerts.values()).stream()
                 .filter(alert -> alert.type == range)
                 .filter(alert -> requireNonNull(alert.toDate).isBefore(expirationDate))
                 .filter(alert -> ++read[0] != 0));
@@ -229,6 +228,16 @@ public final class AlertsMemory implements AlertsDao {
     public void updateServerId(long alertId, long serverId) {
         LOGGER.debug("updateServerId {} {}", alertId, serverId);
         alerts.computeIfPresent(alertId, (id, alert) -> alert.withServerId(serverId));
+    }
+
+    @Override
+    public long updateServerIdPrivate(long serverId) {
+        LOGGER.debug("updateServerIdPrivate {}", serverId);
+        long[] updatedAlerts = new long[] {0L};
+        alerts.replaceAll((alertId, alert) ->
+                alert.serverId == serverId &&
+                ++updatedAlerts[0] != 0 ? alert.withServerId(PRIVATE_ALERT) : alert);
+        return updatedAlerts[0];
     }
 
     @Override

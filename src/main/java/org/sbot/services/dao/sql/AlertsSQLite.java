@@ -33,6 +33,7 @@ import java.util.stream.Stream;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
+import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.utils.Dates.parseDateTimeOrNull;
 
 public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
@@ -98,6 +99,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String DELETE_BY_USER_ID_AND_SERVER_ID_AND_TICKER_OR_PAIR = "DELETE FROM alerts WHERE user_id=:userId AND server_id=:serverId AND pair LIKE '%:tickerOrPair%'";
         String INSERT_ALERT = "INSERT INTO alerts (id,type,user_id,server_id,exchange,pair,message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze) VALUES (:id,:type,:userId,:serverId,:exchange,:pair,:message,:fromPrice,:toPrice,:fromDate,:toDate,:lastTrigger,:margin,:repeat,:snooze)";
         String UPDATE_ALERTS_SERVER_ID_BY_ID = "UPDATE alerts SET server_id=:serverId WHERE id=:id";
+        String UPDATE_ALERTS_SERVER_ID_PRIVATE = "UPDATE alerts SET server_id=" + PRIVATE_ALERT + " WHERE server_id=:serverId";
         String UPDATE_ALERTS_SERVER_ID_BY_USER_ID_AND_SERVER_ID = "UPDATE alerts SET server_id=:newServerId WHERE user_id=:userId AND server_id=:serverId";
         String UPDATE_ALERTS_SERVER_ID_BY_USER_ID_AND_SERVER_ID_TICKER_OR_PAIR = "UPDATE alerts SET server_id=:newServerId WHERE user_id=:userId AND server_id=:serverId AND pair LIKE '%:tickerOrPair%'";
         String UPDATE_ALERTS_MESSAGE = "UPDATE alerts SET message=:message WHERE id=:id";
@@ -351,6 +353,13 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         LOGGER.debug("updateServerId {} {}", alertId, serverId);
         update(SQL.UPDATE_ALERTS_SERVER_ID_BY_ID,
                 Map.of("id", alertId, "serverId", serverId));
+    }
+
+    @Override
+    public long updateServerIdPrivate(long serverId) {
+        LOGGER.debug("updateServerIdPrivate {}", serverId);
+        return update(SQL.UPDATE_ALERTS_SERVER_ID_PRIVATE,
+                Map.of("serverId", serverId));
     }
 
     @Override

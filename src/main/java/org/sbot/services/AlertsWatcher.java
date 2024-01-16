@@ -175,14 +175,14 @@ public final class AlertsWatcher {
     }
 
     private void batchAlertsUpdates(@NotNull Stream<MatchingAlert> matchingAlerts) {
-        alertsDao.matchedAlertBatchUpdates(matchedUpdate ->
-                alertsDao.marginAlertBatchUpdates(marginUpdate ->
-                        alertsDao.alertBatchDeletes(remainderDelete ->
+        alertsDao.matchedAlertBatchUpdates(matchedUpdater ->
+                alertsDao.marginAlertBatchUpdates(marginUpdater ->
+                        alertsDao.alertBatchDeletes(remainderDeleter ->
                             matchingAlerts.forEach(matchingAlert -> {
                                 Alert alert = matchingAlert.alert();
                                 (switch (matchingAlert.status()) {
-                                    case MATCHED -> (alert.type == remainder ? remainderDelete : matchedUpdate);
-                                    case MARGIN -> marginUpdate;
+                                    case MATCHED -> (alert.type == remainder ? remainderDeleter : matchedUpdater);
+                                    case MARGIN -> marginUpdater;
                                     case NOT_MATCHING -> (BatchEntry) Function.identity();
                                 }).batchId(alert.id);
                         }))));
