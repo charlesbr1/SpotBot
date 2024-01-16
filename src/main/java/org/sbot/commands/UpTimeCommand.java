@@ -15,7 +15,7 @@ import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
 public final class UpTimeCommand extends CommandAdapter {
 
     private static final String NAME = "uptime";
-    static final String DESCRIPTION = "returns the time since this bot is up";
+    static final String DESCRIPTION = "returns the time since this bot is up (no slash command for this one)";
     private static final int RESPONSE_TTL_SECONDS = 10;
 
     static final SlashCommandData options = Commands.slash(NAME, DESCRIPTION);
@@ -23,6 +23,11 @@ public final class UpTimeCommand extends CommandAdapter {
 
     public UpTimeCommand() {
         super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
+    }
+
+    @Override
+    public boolean isSlashCommand() {
+        return false; // only a text command
     }
 
     @Override

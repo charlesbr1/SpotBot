@@ -5,6 +5,8 @@ import org.sbot.alerts.Alert.Type;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
+import java.util.Optional;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static java.util.Objects.requireNonNull;
@@ -106,5 +108,12 @@ public interface ArgumentValidator {
         if (remainder == type) {
             throw new IllegalArgumentException("You can't set the " + name + " of a remainder alert");
         }
+    }
+
+    static long requireUser(@NotNull String userMention) {
+        Matcher matcher = DISCORD_USER_ID_PATTERN.matcher(userMention);
+        if(!matcher.matches())
+            throw new IllegalArgumentException("Provided string is not an user mention : " + userMention);
+        return Long.parseLong(matcher.group(1));
     }
 }

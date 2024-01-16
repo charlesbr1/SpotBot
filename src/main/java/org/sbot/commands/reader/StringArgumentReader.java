@@ -1,6 +1,7 @@
 package org.sbot.commands.reader;
 
 import org.jetbrains.annotations.NotNull;
+import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
@@ -16,6 +17,7 @@ import java.util.regex.Matcher;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static org.sbot.utils.ArgumentValidator.DISCORD_USER_ID_PATTERN;
+import static org.sbot.utils.ArgumentValidator.requireUser;
 
 public final class StringArgumentReader implements ArgumentReader {
 
@@ -59,12 +61,7 @@ public final class StringArgumentReader implements ArgumentReader {
 
     @Override
     public Optional<Long> getUserId(@NotNull String unused) {
-        return getNext(id -> {
-            Matcher matcher = DISCORD_USER_ID_PATTERN.matcher(id);
-            if(!matcher.matches())
-                throw new IllegalArgumentException();
-            return Long.parseLong(matcher.group(1));
-        });
+        return getNext(ArgumentValidator::requireUser);
     }
 
     private <U> Optional<U> getNext(@NotNull Function<? super String, ? extends U> mapper) {

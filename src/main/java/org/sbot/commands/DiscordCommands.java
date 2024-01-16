@@ -9,15 +9,13 @@ public interface DiscordCommands {
     // Register new commands here
     List<CommandListener> DISCORD_COMMANDS = List.of(
             new SpotBotCommand(),
+            new ListCommand(),
             new RangeCommand(),
             new TrendCommand(),
             new RemainderCommand(),
-            new DeleteCommand(),
-            new ListCommand(),
-            new OwnerCommand(),
-            new PairCommand(),
             new UpdateCommand(),
             new MigrateCommand(),
+            new DeleteCommand(),
             new QuoteCommand(),
             new UtcCommand(),
             new UpTimeCommand());

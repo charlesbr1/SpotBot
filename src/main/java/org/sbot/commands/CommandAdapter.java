@@ -68,7 +68,7 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected record AnswerColorSmiley(@NotNull String answer, @NotNull Color color, @NotNull String smiley) {}
 
-    protected AnswerColorSmiley securedAlertUpdate(long alertId, @NotNull CommandContext context, @NotNull Function<UserIdServerIdType, String> updateHandler) {
+    protected AnswerColorSmiley securedAlertAccess(long alertId, @NotNull CommandContext context, @NotNull Function<UserIdServerIdType, String> updateHandler) {
 
         UserIdServerIdType alert = context.alertsDao.getUserIdAndServerIdAndType(alertId).orElse(null);
 

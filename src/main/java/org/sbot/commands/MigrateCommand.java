@@ -96,7 +96,7 @@ public final class MigrateCommand extends CommandAdapter {
     }
 
     private EmbedBuilder migrateById(@NotNull CommandContext context, @Nullable Guild guild, long alertId, Runnable[] outNotificationCallBack) {
-        AnswerColorSmiley answer = securedAlertUpdate(alertId, context, alert -> {
+        AnswerColorSmiley answer = securedAlertAccess(alertId, context, alert -> {
             if((isPrivate(alert.serverId()) && null == guild) || (null != guild && guild.getIdLong() == alert.serverId())) {
                 throw new IllegalArgumentException("Alert " + alertId + " is already into " + (null == guild ? "the private channel" : "guild " + guildName(guild)));
             }

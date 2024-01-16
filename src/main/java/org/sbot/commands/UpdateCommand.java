@@ -75,7 +75,7 @@ public final class UpdateCommand extends CommandAdapter {
 
         (CHOICE_MESSAGE.equals(field) ? context : context.noMoreArgs()).
                 alertsDao.transactional(() -> {
-                    AnswerColorSmiley answer = securedAlertUpdate(alertId, context, updater);
+                    AnswerColorSmiley answer = securedAlertAccess(alertId, context, updater);
                     context.reply(responseTtlSeconds, embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer()));
                 });
     }
