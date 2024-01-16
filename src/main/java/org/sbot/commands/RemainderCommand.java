@@ -37,7 +37,7 @@ public final class RemainderCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         String pair = requirePairFormat(context.args.getMandatoryString("pair").toUpperCase());
         ZonedDateTime date = requireInFuture(context.args.getMandatoryDateTime("date"));
-        String message = requireAlertMessageLength(context.args.getLastArgs("message")
+        String message = requireAlertMessageMaxLength(context.args.getLastArgs("message")
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
 
         LOGGER.debug("remainder command - pair : {}, date : {}, remainder {}", pair, date, message);

@@ -24,7 +24,7 @@ import static org.sbot.utils.Dates.formatUTC;
 public final class TrendCommand extends CommandAdapter {
 
     private static final String NAME = "trend";
-    static final String DESCRIPTION = "create a new trend alert on pair ticker1/ticker2, a trend is defined by two prices and two dates";
+    static final String DESCRIPTION = "create a new trend alert on a pair, a trend is defined by two prices and two dates";
     private static final int RESPONSE_TTL_SECONDS = 60;
 
     static final SlashCommandData options =
@@ -55,7 +55,7 @@ public final class TrendCommand extends CommandAdapter {
         ZonedDateTime fromDate = context.args.getMandatoryDateTime("from_date");
         BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("to_price"));
         ZonedDateTime toDate = context.args.getMandatoryDateTime("to_date");
-        String message = requireAlertMessageLength(context.args.getLastArgs("message")
+        String message = requireAlertMessageMaxLength(context.args.getLastArgs("message")
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
 
         LOGGER.debug("trend command - exchange : {}, pair : {}, from_price : {}, from_date : {}, to_price : {}, to_date : {}, message : {}",

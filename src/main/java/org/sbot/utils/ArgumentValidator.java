@@ -1,11 +1,14 @@
 package org.sbot.utils;
 
 import org.jetbrains.annotations.NotNull;
+import org.sbot.alerts.Alert.Type;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.regex.Pattern;
 
+import static java.util.Objects.requireNonNull;
+import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
 import static org.sbot.utils.Dates.formatUTC;
@@ -75,7 +78,7 @@ public interface ArgumentValidator {
         return tickerPair;
     }
 
-    static String requireAlertMessageLength(@NotNull String message) {
+    static String requireAlertMessageMaxLength(@NotNull String message) {
         if (message.length() > ALERT_MESSAGE_ARG_MAX_LENGTH) {
             throw new IllegalArgumentException("Provided message is too long (" + message.length() + " chars, max is " + ALERT_MESSAGE_ARG_MAX_LENGTH + ") : " + message);
         }
@@ -96,5 +99,12 @@ public interface ArgumentValidator {
                     " (actual UTC time : " + formatUTC(ZonedDateTime.now()) + ')');
         }
         return zonedDateTime;
+    }
+
+    static void requireNotRemainder(@NotNull Type type, @NotNull String name) {
+        requireNonNull(name);
+        if (remainder == type) {
+            throw new IllegalArgumentException("You can't set the " + name + " of a remainder alert");
+        }
     }
 }

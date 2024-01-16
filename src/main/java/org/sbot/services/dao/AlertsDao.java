@@ -1,6 +1,7 @@
 package org.sbot.services.dao;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
 import org.sbot.alerts.Alert.Type;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
@@ -60,10 +61,14 @@ public interface AlertsDao extends TransactionalCtx {
     long updateServerIdPrivate(long serverId);
     long updateServerIdOfUserAndServerId(long userId, long serverId, long newServerId);
     long updateServerIdOfUserAndServerIdAndTickers(long userId, long serverId, @NotNull String tickerOrPair, long newServerId);
+    void updateFromPrice(long alertId, @NotNull BigDecimal fromPrice);
+    void updateToPrice(long alertId, @NotNull BigDecimal toPrice);
+    void updateFromDate(long alertId, @Nullable ZonedDateTime fromDate);
+    void updateToDate(long alertId, @Nullable ZonedDateTime toDate);
     void updateMessage(long alertId, @NotNull String message);
     void updateMargin(long alertId, @NotNull BigDecimal margin);
-    void updateRepeat(long alertId, short repeat);
-    void updateSnooze(long alertId, short snooze);
+    void updateRepeatAndLastTrigger(long alertId, short repeat, @Nullable ZonedDateTime lastTrigger);
+    void updateSnoozeAndLastTrigger(long alertId, short snooze, @Nullable ZonedDateTime lastTrigger);
 
     void deleteAlert(long alertId);
     long deleteAlerts(long serverId, long userId);

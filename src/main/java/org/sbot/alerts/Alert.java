@@ -76,7 +76,7 @@ public abstract class Alert {
         this.serverId = serverId;
         this.exchange = requireSupportedExchange(exchange.toLowerCase()).intern();
         this.pair = requirePairFormat(pair.toUpperCase()).intern();
-        this.message = requireAlertMessageLength(message);
+        this.message = requireAlertMessageMaxLength(message);
         this.fromPrice = Optional.ofNullable(fromPrice).map(BigDecimal::stripTrailingZeros).orElse(null);
         this.toPrice = Optional.ofNullable(toPrice).map(BigDecimal::stripTrailingZeros).orElse(null);
         this.fromDate = fromDate;
@@ -150,6 +150,26 @@ public abstract class Alert {
     }
 
     @NotNull
+    public final Alert withFromPrice(@NotNull BigDecimal fromPrice) {
+        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+    }
+
+    @NotNull
+    public final Alert withToPrice(@NotNull BigDecimal toPrice) {
+        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+    }
+
+    @NotNull
+    public final Alert withFromDate(@Nullable ZonedDateTime fromDate) {
+        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+    }
+
+    @NotNull
+    public final Alert withToDate(@Nullable ZonedDateTime toDate) {
+        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+    }
+
+    @NotNull
     public final Alert withMessage(@NotNull String message) {
         return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
@@ -160,12 +180,7 @@ public abstract class Alert {
     }
 
     @NotNull
-    public final Alert withRepeat(short repeat) {
-        return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
-    }
-
-    @NotNull
-    public final Alert withSnooze(short snooze) {
+    public final Alert withLastTriggerRepeatSnooze(@Nullable ZonedDateTime lastTrigger, short repeat, short snooze) {
         return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 

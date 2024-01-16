@@ -50,7 +50,7 @@ public final class ListCommand extends CommandAdapter {
         }
         long finalOffset = offset;
         LOGGER.debug("list command - choice : {}, offset : {}", choice, offset);
-        context.alertsDao.transactional(() -> context.noMoreArgs().reply(responseTtlSeconds, list(context, choice, finalOffset)));
+        context.noMoreArgs().alertsDao.transactional(() -> context.reply(responseTtlSeconds, list(context, choice, finalOffset)));
     }
 
     private List<EmbedBuilder> list(@NotNull CommandContext context, @NotNull String choice, long offset) {

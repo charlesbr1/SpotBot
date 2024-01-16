@@ -47,7 +47,7 @@ public final class OwnerCommand extends CommandAdapter {
         }
         var finalOffset = offset;
         LOGGER.debug("owner command - user : {}, ticker_pair : {}, offset : {}", ownerId, tickerOrPair, finalOffset);
-        context.alertsDao.transactional(() -> context.noMoreArgs().reply(responseTtlSeconds, owner(context, tickerOrPair, ownerId, requirePositive(finalOffset))));
+        context.noMoreArgs().alertsDao.transactional(() -> context.reply(responseTtlSeconds, owner(context, tickerOrPair, ownerId, requirePositive(finalOffset))));
     }
 
     private List<EmbedBuilder> owner(@NotNull CommandContext context, @Nullable String tickerOrPair, long ownerId, long offset) {

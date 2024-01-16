@@ -43,8 +43,8 @@ public final class MigrateCommand extends CommandAdapter {
                             option(INTEGER, "alert_id", "id of one alert to migrate", true)
                                     .setMinValue(0),
                             SERVER_ID_OPTION),
-                    new SubcommandData("all_or_ticker_or_pair", "migrate all your alerts or filtered by pair or ticker").addOptions(
-                            option(STRING, "all_ticker_pair", "a filter to select the alerts having a ticker or a pair (can be '" + MIGRATE_ALL + "')", true)
+                    new SubcommandData("filtered", "migrate all your alerts or filtered by a pair or a ticker").addOptions(
+                            option(STRING, "search_filter", "a filter to select the alerts having a ticker or a pair (can be '" + MIGRATE_ALL + "')", true)
                                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
                             SERVER_ID_OPTION,
                             option(USER, "owner", "for admin only, owner of the alerts to migrate", false)));
@@ -57,7 +57,7 @@ public final class MigrateCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         Long alertId = context.args.getLong("alert_id").map(ArgumentValidator::requirePositive).orElse(null);
         Long serverId = context.args.getLong("guild_id").orElse(null);
-        String tickerOrPair = context.args.getString("all_ticker_pair")
+        String tickerOrPair = context.args.getString("search_filter")
                 .map(t -> null != alertId ? t : requireTickerPairLength(t)).orElse(null);
         validateExclusiveArguments(alertId, tickerOrPair);
         Long ownerId = null;
@@ -76,8 +76,8 @@ public final class MigrateCommand extends CommandAdapter {
 
         LOGGER.debug("migrate command - alert_id : {}, server_id : {}, tickerOrPair : {}, ownerId : {}", alertId, serverId, tickerOrPair, ownerId);
         Runnable[] notificationCallBack = new Runnable[1];
-        context.alertsDao.transactional(() ->
-                context.noMoreArgs().reply(responseTtlSeconds, migrate(context, finalServerId, alertId, finalOwnerId, tickerOrPair, notificationCallBack)));
+        context.noMoreArgs().alertsDao.transactional(() ->
+                context.reply(responseTtlSeconds, migrate(context, finalServerId, alertId, finalOwnerId, tickerOrPair, notificationCallBack)));
         // perform user notification of its alerts being migrated, if needed, once transaction is done.
         Optional.ofNullable(notificationCallBack[0]).ifPresent(Runnable::run);
     }

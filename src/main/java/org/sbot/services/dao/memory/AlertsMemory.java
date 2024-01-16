@@ -3,6 +3,7 @@ package org.sbot.services.dao.memory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
@@ -61,7 +62,7 @@ public final class AlertsMemory implements AlertsDao {
         LOGGER.debug("fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats {} {}", exchange, pair);
         long[] read = new long[] {0L};
         alertsConsumer.accept(havingRepeatAndDelayOverWithActiveRange(
-                new ArrayList<>(alerts.values()).stream()
+                alerts.values().stream()
                 .filter(alert -> alert.exchange.equals(exchange))
                 .filter(alert -> alert.pair.equals(pair)))
                 .map(alert -> alert.withMessage("")) // erase the message to simulate the SQL layer
@@ -73,7 +74,7 @@ public final class AlertsMemory implements AlertsDao {
     public long fetchAlertsHavingRepeatZeroAndLastTriggerBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
         LOGGER.debug("fetchAlertsHavingRepeatZeroAndLastTriggerBefore {}", expirationDate);
         long[] read = new long[] {0L};
-        alertsConsumer.accept(new ArrayList<>(alerts.values()).stream()
+        alertsConsumer.accept(alerts.values().stream()
                 .filter(alert -> alert.repeat <= 0)
                 .filter(alert -> requireNonNull(alert.lastTrigger).isBefore(expirationDate))
                 .filter(alert -> ++read[0] != 0));
@@ -84,7 +85,7 @@ public final class AlertsMemory implements AlertsDao {
     public long fetchRangeAlertsHavingToDateBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
         LOGGER.debug("fetchRangeAlertsHavingToDateBefore {}", expirationDate);
         long[] read = new long[] {0L};
-        alertsConsumer.accept(new ArrayList<>(alerts.values()).stream()
+        alertsConsumer.accept(alerts.values().stream()
                 .filter(alert -> alert.type == range)
                 .filter(alert -> requireNonNull(alert.toDate).isBefore(expirationDate))
                 .filter(alert -> ++read[0] != 0));
@@ -264,6 +265,30 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
+    public void updateFromPrice(long alertId, @NotNull BigDecimal fromPrice) {
+        LOGGER.debug("updateFromPrice {} {}", alertId, fromPrice);
+        alerts.computeIfPresent(alertId, (id, alert) -> alert.withFromPrice(fromPrice));
+    }
+
+    @Override
+    public void updateToPrice(long alertId, @NotNull BigDecimal toPrice) {
+        LOGGER.debug("updateToPrice {} {}", alertId, toPrice);
+        alerts.computeIfPresent(alertId, (id, alert) -> alert.withToPrice(toPrice));
+    }
+
+    @Override
+    public void updateFromDate(long alertId, @Nullable ZonedDateTime fromDate) {
+        LOGGER.debug("updateFromDate {} {}", alertId, fromDate);
+        alerts.computeIfPresent(alertId, (id, alert) -> alert.withFromDate(fromDate));
+    }
+
+    @Override
+    public void updateToDate(long alertId, @Nullable ZonedDateTime toDate) {
+        LOGGER.debug("updateToDate {} {}", alertId, toDate);
+        alerts.computeIfPresent(alertId, (id, alert) -> alert.withToDate(toDate));
+    }
+
+    @Override
     public void updateMessage(long alertId, @NotNull String message) {
         LOGGER.debug("updateMessage {} {}", alertId, message);
         alerts.computeIfPresent(alertId, (id, alert) -> alert.withMessage(message));
@@ -276,16 +301,16 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public void updateRepeat(long alertId, short repeat) {
-        LOGGER.debug("updateRepeat {} {}", alertId, repeat);
-        alerts.computeIfPresent(alertId, (id, alert) -> alert.withRepeat(repeat));
+    public void updateRepeatAndLastTrigger(long alertId, short repeat, @Nullable ZonedDateTime lastTrigger) {
+        LOGGER.debug("updateRepeatAndLastTrigger {} {} {}", alertId, repeat, lastTrigger);
+        alerts.computeIfPresent(alertId, (id, alert) -> alert.withLastTriggerRepeatSnooze(lastTrigger, repeat, alert.snooze));
 
     }
 
     @Override
-    public void updateSnooze(long alertId, short snooze) {
-        LOGGER.debug("updateSnooze {} {}", alertId, snooze);
-        alerts.computeIfPresent(alertId, (id, alert) -> alert.withSnooze(snooze));
+    public void updateSnoozeAndLastTrigger(long alertId, short snooze, @Nullable ZonedDateTime lastTrigger) {
+        LOGGER.debug("updateSnoozeAndLastTrigger {} {} {}", alertId, snooze, lastTrigger);
+        alerts.computeIfPresent(alertId, (id, alert) -> alert.withLastTriggerRepeatSnooze(lastTrigger, alert.repeat, snooze));
 
     }
 

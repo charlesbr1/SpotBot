@@ -12,7 +12,7 @@ public interface ArgumentReader {
 
     @NotNull
     default String getMandatoryString(@NotNull String fieldName) {
-        return getString(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing value for argument '" + fieldName + '\''));
+        return getString(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing text for argument '" + fieldName + '\''));
     }
 
     @NotNull

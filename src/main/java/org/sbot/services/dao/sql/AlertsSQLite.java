@@ -7,6 +7,7 @@ import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.SqlStatement;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
 import org.sbot.alerts.Alert.Type;
 import org.sbot.alerts.RangeAlert;
@@ -21,10 +22,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.ZonedDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.LongStream;
@@ -102,12 +100,16 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String UPDATE_ALERTS_SERVER_ID_PRIVATE = "UPDATE alerts SET server_id=" + PRIVATE_ALERT + " WHERE server_id=:serverId";
         String UPDATE_ALERTS_SERVER_ID_BY_USER_ID_AND_SERVER_ID = "UPDATE alerts SET server_id=:newServerId WHERE user_id=:userId AND server_id=:serverId";
         String UPDATE_ALERTS_SERVER_ID_BY_USER_ID_AND_SERVER_ID_TICKER_OR_PAIR = "UPDATE alerts SET server_id=:newServerId WHERE user_id=:userId AND server_id=:serverId AND pair LIKE '%:tickerOrPair%'";
+        String UPDATE_ALERTS_FROM_PRICE = "UPDATE alerts SET from_price=:fromPrice WHERE id=:id";
+        String UPDATE_ALERTS_TO_PRICE = "UPDATE alerts SET to_price=:toPrice WHERE id=:id";
+        String UPDATE_ALERTS_FROM_DATE = "UPDATE alerts SET from_date=:fromDate WHERE id=:id";
+        String UPDATE_ALERTS_TO_DATE = "UPDATE alerts SET to_date=:toDate WHERE id=:id";
         String UPDATE_ALERTS_MESSAGE = "UPDATE alerts SET message=:message WHERE id=:id";
         String UPDATE_ALERTS_MARGIN = "UPDATE alerts SET margin=:margin WHERE id=:id";
         String UPDATE_ALERTS_SET_MARGIN_ZERO = "UPDATE alerts SET margin = O WHERE id=:id";
         String UPDATE_ALERTS_SET_MARGIN_ZERO_DECREMENT_REPEAT_SET_LAST_TRIGGER_NOW = "UPDATE alerts SET margin = 0, repeat = MAX(0, repeat - 1) , last_trigger = 1000 * unixepoch('now', 'utc') WHERE id=:id";
-        String UPDATE_ALERTS_REPEAT = "UPDATE alerts SET repeat=:repeat WHERE id=:id";
-        String UPDATE_ALERTS_SNOOZE = "UPDATE alerts SET snooze=:snooze WHERE id=:id";
+        String UPDATE_ALERTS_REPEAT_AND_LAST_TRIGGER = "UPDATE alerts SET repeat=:repeat,last_trigger=:lastTrigger WHERE id=:id";
+        String UPDATE_ALERTS_SNOOZE_AND_LAST_TRIGGER = "UPDATE alerts SET snooze=:snooze,last_trigger=:lastTrigger WHERE id=:id";
     }
 
     // from jdbi SQL to Alert
@@ -377,6 +379,38 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     }
 
     @Override
+    public void updateFromPrice(long alertId, @NotNull BigDecimal fromPrice) {
+        LOGGER.debug("updateFromPrice {} {}", alertId, fromPrice);
+        update(SQL.UPDATE_ALERTS_FROM_PRICE,
+                Map.of("id", alertId, "fromPrice", fromPrice));
+    }
+
+    @Override
+    public void updateToPrice(long alertId, @NotNull BigDecimal toPrice) {
+        LOGGER.debug("updateToPrice {} {}", alertId, toPrice);
+        update(SQL.UPDATE_ALERTS_TO_PRICE,
+                Map.of("id", alertId, "toPrice", toPrice));
+    }
+
+    @Override
+    public void updateFromDate(long alertId, @Nullable ZonedDateTime fromDate) {
+        LOGGER.debug("updateFromDate {} {}", alertId, fromDate);
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("id", alertId);
+        parameters.put("fromDate", fromDate);
+        update(SQL.UPDATE_ALERTS_FROM_DATE, parameters);
+    }
+
+    @Override
+    public void updateToDate(long alertId, @Nullable ZonedDateTime toDate) {
+        LOGGER.debug("updateToDate {} {}", alertId, toDate);
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("id", alertId);
+        parameters.put("toDate", toDate);
+        update(SQL.UPDATE_ALERTS_TO_DATE, parameters);
+    }
+
+    @Override
     public void updateMessage(long alertId, @NotNull String message) {
         LOGGER.debug("updateMessage {} {}", alertId, message);
         update(SQL.UPDATE_ALERTS_MESSAGE,
@@ -391,17 +425,23 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     }
 
     @Override
-    public void updateRepeat(long alertId, short repeat) {
-        LOGGER.debug("updateRepeat {} {}", alertId, repeat);
-        update(SQL.UPDATE_ALERTS_REPEAT,
-                Map.of("id", alertId, "repeat", repeat));
+    public void updateRepeatAndLastTrigger(long alertId, short repeat, @Nullable ZonedDateTime lastTrigger) {
+        LOGGER.debug("updateRepeatAndLastTrigger {} {} {}", alertId, repeat, lastTrigger);
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("id", alertId);
+        parameters.put("repeat", repeat);
+        parameters.put("lastTrigger", lastTrigger);
+        update(SQL.UPDATE_ALERTS_REPEAT_AND_LAST_TRIGGER, parameters);
     }
 
     @Override
-    public void updateSnooze(long alertId, short snooze) {
-        LOGGER.debug("updateSnooze {} {}", alertId, snooze);
-        update(SQL.UPDATE_ALERTS_SNOOZE,
-                Map.of("id", alertId, "snooze", snooze));
+    public void updateSnoozeAndLastTrigger(long alertId, short snooze, @Nullable ZonedDateTime lastTrigger) {
+        LOGGER.debug("updateSnoozeAndLastTrigger {} {} {}", alertId, snooze, lastTrigger);
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("id", alertId);
+        parameters.put("snooze", snooze);
+        parameters.put("lastTrigger", lastTrigger);
+        update(SQL.UPDATE_ALERTS_SNOOZE_AND_LAST_TRIGGER, parameters);
     }
 
     @Override

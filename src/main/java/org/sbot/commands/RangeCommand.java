@@ -26,7 +26,7 @@ import static org.sbot.utils.Dates.formatUTC;
 public final class RangeCommand extends CommandAdapter {
 
     private static final String NAME = "range";
-    static final String DESCRIPTION = "create a new range alert on pair ticker1/ticker2, defined by two prices and two optional dates";
+    static final String DESCRIPTION = "create a new range alert on a pair, defined by two prices and two optional dates";
     private static final int RESPONSE_TTL_SECONDS = 60;
 
     static final SlashCommandData options =
@@ -56,7 +56,7 @@ public final class RangeCommand extends CommandAdapter {
         BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("high"));
         ZonedDateTime fromDate = context.args.getDateTime("from_date").orElse(null);
         ZonedDateTime toDate = null != fromDate ? context.args.getDateTime("to_date").map(ArgumentValidator::requireInFuture).orElse(null) : null;
-        String message = requireAlertMessageLength(context.args.getLastArgs("message").orElse(""));
+        String message = requireAlertMessageMaxLength(context.args.getLastArgs("message").orElse(""));
 
         LOGGER.debug("range command - exchange : {}, pair : {}, low : {}, high : {}, from_date : {}, to_date : {}, message : {}",
                 exchange, pair, fromPrice, toPrice, fromDate, toDate, message);

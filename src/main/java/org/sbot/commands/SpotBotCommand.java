@@ -57,9 +57,21 @@ public final class SpotBotCommand extends CommandAdapter {
             
             An asset is a pair of two tickers, like ETH/USDT, ADA/BTC, EUR/USD, etc.
             
-            A box is a range defined by two prices, with some optionally starting and ending dates (during which the alert is active), thus forming a box.
+            **range alert**
 
-            A trend is a line defined by two points on a price chart, each having a price and a date or time as coordinates.
+            A range alert is defined by two prices, with some optionally starting and ending dates (during which the alert is active), thus forming a box. It will raise when the price enter this box.
+
+            **trend alert**
+
+            A trend is a line defined by two points on a price chart, each having a price and a date as coordinates. It will raise when the price cross this line.
+            
+            **remainder**
+            
+            This third kind of alert let you receive a notification at a specified date in the future, with a message you can prepare in advance. This allows to you to set a remainder for events you don't want to miss.
+
+
+            > Use **range**, **trend**, or **remainder** commands to set new alerts, this bot will check every hours for price change then you'll get notified when your asset reach your price !
+            
             
             A price can use a comma or a dot separator and is expected to be positive : 23.6 or 38,2 are ok.
             
@@ -68,8 +80,6 @@ public final class SpotBotCommand extends CommandAdapter {
             The expected date time format is :``` {date-format}```
             For instance now it's {date-now} UTC
 
-            > Use **range**, **trend**, or **remainder** commands to set new alerts, this bot will check every hours for price change then you'll get notified when your asset reach your price !
-            
             **margin**
 
             Both ranges and trend alerts can have a *margin*, this is a value in currency of the watched asset, like 1000$ on the BTC/USD pair.
@@ -78,21 +88,17 @@ public final class SpotBotCommand extends CommandAdapter {
 
             Initially a new alert has no margin set, it should be added using the **margin** command.
 
-            Once triggered (either a margin pre alert or an alert) the alert's margin is reset, that is no more margin.
+            Once raised (either a margin pre alert or an alert) the alert's margin is reset, that is no more margin.
             
             **snooze**
 
             Range and margin alerts also have two parameters, *repeat* and *snooze*, that can be set using the commands of their respective names.
-            * **repeat** : the number of times a triggered alert will be re thrown. (default : {repeat})
-            * **snooze** : the time in hours to wait before the alert can be raised again. (default : {snooze} hours)
+            * **repeat** : the number of times a triggered alert will be raised (default : {repeat})
+            * **snooze** : the time in hours to wait before the alert can be raised again (default : {snooze} hours)
 
-            Once an alert has been raised, it decreases in number of *repeat* and becomes ignored during *snooze* hours.
-            If it's number of repeat reach 0, the alert is disabled and will be deleted one month later, this let time to enable it again, if never.
-            
-            **remainder**
-            
-            This third kind of alert let you receive a notification at a specified date in the future, with a message you can prepare in advance. This allows to you to set a remainder for events you don't want to miss.
-            A remainder alert is always deleted after it has been raise, as there is no margin or repeat for them.
+            Once an alert is raised, it decreases in number of *repeat* and becomes ignored during *snooze* hours.
+            If it's number of repeat reach 0, the alert is disabled and will be deleted one month later, this let you time to enable it again, if never.
+            A remainder alert is always deleted after it has been raised, as there is no margin or repeat for them.
 
             
             For all theses alerts, including remainders, the accuracy of updates is hourly, so do not expect a notification in the micro second after the event occurred.
@@ -197,7 +203,7 @@ public final class SpotBotCommand extends CommandAdapter {
                 .map(command -> new Command(command.name(), command.description() ,command.options()));
 
         // split the list because it exceeds max discord message length
-        return split(10, commands)
+        return split(9, commands)
                 .map(cmdList -> embedBuilder(null, Color.green, cmdList.stream()
                         .map(cmd -> "** " + cmd.name + "**\n\n" + SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + cmd.description + commandDescription(cmd.options))
                         .collect(joining("\n\n\n")))).toList();

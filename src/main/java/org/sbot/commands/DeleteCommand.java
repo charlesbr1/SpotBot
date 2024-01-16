@@ -30,8 +30,8 @@ public final class DeleteCommand extends CommandAdapter {
                     new SubcommandData("id", "delete an alert by id").addOptions(
                             option(INTEGER, "alert_id", "id of one alert to delete", true)
                                     .setMinValue(0)),
-                    new SubcommandData("all_or_ticker_or_pair", "delete all your alerts or filtered by pair or ticker").addOptions(
-                            option(STRING, "all_ticker_pair", "a filter to select the alerts having a ticker or a pair (can be '" + DELETE_ALL + "')", true)
+                    new SubcommandData("filtered", "delete all your alerts or filtered by pair or ticker").addOptions(
+                            option(STRING, "search_filter", "a pair or a ticker to filter the alerts to delete (can be '" + DELETE_ALL + "')", true)
                                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
                             option(USER, "owner", "for admin only, a member to drop the alerts on your server", false)));
 
@@ -42,14 +42,14 @@ public final class DeleteCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         Long alertId = context.args.getLong("alert_id").map(ArgumentValidator::requirePositive).orElse(null);
-        String tickerOrPair = context.args.getString("all_ticker_pair")
+        String tickerOrPair = context.args.getString("search_filter")
                 .map(t -> null != alertId ? t : requireTickerPairLength(t)).orElse(null);
         validateExclusiveArguments(alertId, tickerOrPair);
         Long ownerId = null != tickerOrPair && context.args.getLastArgs("owner").filter(not(String::isBlank)).isPresent() ?
                 context.args.getMandatoryUserId("owner") : null;
 
         LOGGER.debug("delete command - alert_id : {}, owner : {}, ticker_pair : {}", alertId, ownerId, tickerOrPair);
-        context.alertsDao.transactional(() -> context.noMoreArgs().reply(responseTtlSeconds, delete(context, alertId, ownerId, tickerOrPair)));
+        context.noMoreArgs().alertsDao.transactional(() -> context.reply(responseTtlSeconds, delete(context, alertId, ownerId, tickerOrPair)));
     }
 
     static void validateExclusiveArguments(@Nullable Long alertId, @Nullable String tickerOrPair) {
