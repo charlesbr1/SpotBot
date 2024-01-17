@@ -78,7 +78,7 @@ public final class RangeCommand extends CommandAdapter {
             fromDate = toDate;
             toDate = swap;
         }
-        RangeAlert rangeAlert = new RangeAlert(0L, context.user.getIdLong(),
+        RangeAlert rangeAlert = new RangeAlert(NULL_ALERT_ID, context.user.getIdLong(),
                 context.serverId(),
                 exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);

@@ -1,6 +1,5 @@
 package org.sbot.alerts;
 
-import org.jdbi.v3.core.mapper.reflect.ColumnName;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.MatchingAlert.MatchingStatus;
@@ -38,15 +37,16 @@ public abstract class Alert {
     public static final BigDecimal MARGIN_DISABLED = BigDecimal.ZERO;
     public static final short DEFAULT_REPEAT = 10;
     public static final short DEFAULT_SNOOZE_HOURS = 8;
-    public static final long PRIVATE_ALERT = 0;
+    public static final long PRIVATE_ALERT = 0L;
+    public static final long NULL_ALERT_ID = 0L;
 
     public final long id;
 
     public final Type type;
 
-    @ColumnName("user_id")
+//    @ColumnName("user_id")
     public final long userId;
-    @ColumnName("server_id")
+//    @ColumnName("server_id")
     public final long serverId; // = PRIVATE_ALERT for private channel
 
     public final String exchange;
@@ -59,7 +59,7 @@ public abstract class Alert {
     public final ZonedDateTime toDate;
 
     @Nullable // updated by dao when saving updates
-    @ColumnName("last_trigger")
+//    @ColumnName("last_trigger")
     public final ZonedDateTime lastTrigger;
 
     public final BigDecimal margin;
@@ -95,12 +95,12 @@ public abstract class Alert {
         return repeat > 0;
     }
 
-    public final boolean isSnoozeOver(long epochSeconds) {
-        return null == lastTrigger || (lastTrigger.toEpochSecond() + (3600L * snooze)) <= epochSeconds;
-    }
-
     public static boolean hasMargin(@NotNull BigDecimal margin) {
         return MARGIN_DISABLED.compareTo(margin) < 0;
+    }
+
+    public final boolean isSnoozeOver(long epochSeconds) {
+        return null == lastTrigger || (lastTrigger.toEpochSecond() + (3600L * snooze)) <= epochSeconds;
     }
 
 
@@ -118,11 +118,6 @@ public abstract class Alert {
     }
 
     @NotNull
-    public final String getMessage() {
-        return message;
-    }
-
-    @NotNull
     public final String getPair() {
         return pair;
     }
@@ -132,14 +127,20 @@ public abstract class Alert {
         return pair.substring(pair.indexOf('/') + 1);
     }
 
+    @NotNull
+    public final String getMessage() {
+        return message;
+    }
+
+    @NotNull
     protected abstract Alert build(long id, long userId, long serverId, @NotNull String exchange, @NotNull String pair, @NotNull String message,
                                BigDecimal fromPrice, BigDecimal toPrice, ZonedDateTime fromDate, ZonedDateTime toDate,
                                ZonedDateTime lastTrigger, BigDecimal margin, short repeat, short snooze);
 
     @NotNull
     public final Alert withId(@NotNull Supplier<Long> idGenerator) {
-        if(0 != this.id) {
-            throw new IllegalArgumentException("Can't update the id of an already stored alert");
+        if(NULL_ALERT_ID != this.id) {
+            throw new IllegalStateException("Can't update the id of an already stored alert");
         }
         return build(idGenerator.get(), userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
@@ -198,7 +199,7 @@ public abstract class Alert {
     }
 
     @NotNull
-    public final String triggeredMessage(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
+    public final String onRaiseMessage(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
         return asMessage(matchingStatus, previousCandlestick);
     }
 

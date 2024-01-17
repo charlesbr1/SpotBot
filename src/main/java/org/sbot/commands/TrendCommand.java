@@ -78,7 +78,7 @@ public final class TrendCommand extends CommandAdapter {
         }
         //TODO if toPrice = fromPrice -> create range alert
 
-        TrendAlert trendAlert = new TrendAlert(0L, context.user.getIdLong(),
+        TrendAlert trendAlert = new TrendAlert(NULL_ALERT_ID, context.user.getIdLong(),
                 context.serverId(),
                 exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);

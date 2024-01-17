@@ -250,7 +250,7 @@ public final class AlertsWatcher {
         }
         return embedBuilder(title(alert, matchingAlert.status()),
                 matchingAlert.status().isMatched() ? Color.green : Color.orange,
-                alert.triggeredMessage(matchingAlert.status(), matchingAlert.matchingCandlestick()));
+                alert.onRaiseMessage(matchingAlert.status(), matchingAlert.matchingCandlestick()));
     }
 
     private static String title(@NotNull Alert alert, @NotNull MatchingStatus matchingStatus) {

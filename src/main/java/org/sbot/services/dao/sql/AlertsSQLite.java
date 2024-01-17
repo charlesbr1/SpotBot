@@ -32,6 +32,7 @@ import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
+import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.utils.Dates.parseDateTimeOrNull;
 
 public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
@@ -123,20 +124,21 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
             String exchange = rs.getString("exchange");
             String pair = rs.getString("pair");
             String message = rs.getString("message");
-            ZonedDateTime lastTrigger = parseDateTimeOrNull(rs.getTimestamp("last_trigger"));
-            BigDecimal margin = rs.getBigDecimal("margin");
-            short repeat = rs.getShort("repeat");
-            short snooze = rs.getShort("snooze");
 
-            BigDecimal fromPrice = rs.getBigDecimal("from_price");
-            BigDecimal toPrice = rs.getBigDecimal("to_price");
+            BigDecimal fromPrice = remainder == type ? null : rs.getBigDecimal("from_price");
+            BigDecimal toPrice = remainder == type ? null : rs.getBigDecimal("to_price");
             ZonedDateTime fromDate = parseDateTimeOrNull(rs.getTimestamp("from_date"));
-            ZonedDateTime toDate = parseDateTimeOrNull(rs.getTimestamp("to_date"));
+            ZonedDateTime toDate = remainder == type ? null : parseDateTimeOrNull(rs.getTimestamp("to_date"));
+
+            ZonedDateTime lastTrigger = remainder == type ? null : parseDateTimeOrNull(rs.getTimestamp("last_trigger"));
+            BigDecimal margin = remainder == type ? null : rs.getBigDecimal("margin");
+            short repeat = remainder == type ? 0 : rs.getShort("repeat");
+            short snooze = remainder == type ? 0 : rs.getShort("snooze");
 
             return switch (type) {
                 case range -> new RangeAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
                 case trend -> new TrendAlert(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, requireNonNull(fromDate, "missing from_date on trend alert " + id), requireNonNull(toDate, "missing to_date on a trend alert " + id), lastTrigger, margin, repeat, snooze);
-                case remainder -> new RemainderAlert(id, userId, serverId, pair, message, requireNonNull(fromDate, "missing from_date on a remainder alert " + id), lastTrigger, margin, repeat);
+                case remainder -> new RemainderAlert(id, userId, serverId, pair, message, requireNonNull(fromDate, "missing from_date on a remainder alert " + id));
             };
         }
     }

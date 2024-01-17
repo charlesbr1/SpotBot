@@ -63,7 +63,7 @@ public final class MigrateCommand extends CommandAdapter {
             if(null == serverId) {
                 throw new IllegalArgumentException("Missing guild id");
             }
-        } else { // command all_or_ticker_or_pair
+        } else { // command filtered
             serverId = null != serverId ? serverId : context.args.getLong("guild_id").orElse(null);
             ownerId = context.args.getLastArgs("owner").filter(not(String::isBlank)).isPresent() ?
                     context.args.getMandatoryUserId("owner") : null;

@@ -162,7 +162,7 @@ public final class ListCommand extends CommandAdapter {
         return embedBuilder('[' + alert.pair + "] " + alert.message,
                 !hasRepeat(alert.repeat) ? Color.black : (isPrivate(alert.serverId) ? Color.blue : Color.green),
                 alert.descriptionMessage() + (isPrivate(context.serverId()) && !isPrivate(alert.serverId) ?
-                        "\n\nGuild : " + context.discord.getGuildServer(alert.serverId).map(Discord::guildName).orElse("unknown") : ""));
+                        "\n\nguild : " + context.discord.getGuildServer(alert.serverId).map(Discord::guildName).orElse("unknown") : ""));
     }
 
     //TODO doc mutation of list messages argument

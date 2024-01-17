@@ -33,6 +33,7 @@ public final class TrendAlert extends Alert {
     }
 
     @Override
+    @NotNull
     public TrendAlert build(long id, long userId, long serverId, @NotNull String exchange, @NotNull String pair, @NotNull String message,
                             BigDecimal fromPrice, BigDecimal toPrice, ZonedDateTime fromDate, ZonedDateTime toDate,
                             ZonedDateTime lastTrigger, BigDecimal margin, short repeat, short snooze) {
