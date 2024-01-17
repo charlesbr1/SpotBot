@@ -129,7 +129,7 @@ public abstract class Alert {
 
     @NotNull
     public final String getTicker2() {
-        return pair.substring(pair.indexOf('/'));
+        return pair.substring(pair.indexOf('/') + 1);
     }
 
     protected abstract Alert build(long id, long userId, long serverId, @NotNull String exchange, @NotNull String pair, @NotNull String message,

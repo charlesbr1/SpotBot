@@ -13,10 +13,8 @@ import org.sbot.commands.reader.CommandContext;
 import org.sbot.utils.ArgumentValidator;
 
 import java.awt.*;
-import java.util.List;
 import java.util.Optional;
 
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
@@ -103,7 +101,7 @@ public final class MigrateCommand extends CommandAdapter {
             if(null == guild || isGuildMember(guild, alert.userId())) {
                 context.alertsDao.updateServerId(alertId, null != guild ? guild.getIdLong() : PRIVATE_ALERT);
                 if(context.user.getIdLong() != alert.userId()) {
-                    outNotificationCallBack[0] = () -> notifyAlertOwner(context, alertId, alert.userId(), requireNonNull(context.member), guild);
+                    outNotificationCallBack[0] = () -> sendUpdateNotification(context, alert.userId(), ownerMigrateNotification(alertId, requireNonNull(context.member), guild));
                 }
                 return "Alert migrated to " + (null == guild ? "user private channel" : "guild " + guildName(guild));
             }
@@ -136,25 +134,23 @@ public final class MigrateCommand extends CommandAdapter {
                 context.alertsDao.updateServerIdOfUserAndServerId(userId, context.serverId(), null != guild ? guild.getIdLong() : PRIVATE_ALERT) :
                 context.alertsDao.updateServerIdOfUserAndServerIdAndTickers(userId, context.serverId(), tickerOrPair.toUpperCase(), null != guild ? guild.getIdLong() : PRIVATE_ALERT);
         if(migrated > 0 && null != ownerId && context.user.getIdLong() != ownerId) {
-            outNotificationCallBack[0] = () -> notifyAlertOwner(context, tickerOrPair, ownerId, requireNonNull(context.member), guild, migrated);
+            outNotificationCallBack[0] = () -> sendUpdateNotification(context, ownerId, ownerMigrateNotification(tickerOrPair, requireNonNull(context.member), guild, migrated));
         }
         return embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), Color.green, migrated + " " + (migrated > 1 ? " alerts" : " alert") +
                 " migrated to " + (null == guild ? "user private channel" : "guild " +guildName(guild)));
     }
 
-    private void notifyAlertOwner(@NotNull CommandContext context, long alertId, long userId, @NotNull Member member, @Nullable Guild guild) {
-        context.discord.userChannel(userId).ifPresent(channel ->
-                channel.sendMessages(List.of(embedBuilder("Notice of alert migration", Color.lightGray,
-                        "Your alert " + alertId + " was migrated from guild " + guildName(member.getGuild()) + " to " +
-                                (null != guild ? guildName(guild) : "your private channel"))), emptyList()));
+    private EmbedBuilder ownerMigrateNotification(long alertId, @NotNull Member member, @Nullable Guild guild) {
+        return embedBuilder("Notice of alert migration", Color.lightGray,
+                "Your alert " + alertId + " was migrated from guild " + guildName(member.getGuild()) + " to " +
+                        (null != guild ? guildName(guild) : "your private channel"));
     }
 
-    private void notifyAlertOwner(@NotNull CommandContext context, @NotNull String tickerOrPair, long userId, @NotNull Member member, @Nullable Guild guild, long nbMigrated) {
-        context.discord.userChannel(userId).ifPresent(channel ->
-                channel.sendMessages(List.of(embedBuilder("Notice of " + (nbMigrated > 1 ? "alerts" : "alert") + " migration", Color.lightGray,
-                        (MIGRATE_ALL.equalsIgnoreCase(tickerOrPair) ? "All your alerts were" :
-                                (nbMigrated > 1 ? nbMigrated + " of your alerts having pair or ticker '" + tickerOrPair + "' were" : "Your alert was") +
-                        " migrated from guild " + guildName(member.getGuild()) + " to " +
-                                (null != guild ? guildName(guild) : "your private channel")))), emptyList()));
+    private EmbedBuilder ownerMigrateNotification(@NotNull String tickerOrPair, @NotNull Member member, @Nullable Guild guild, long nbMigrated) {
+        return embedBuilder("Notice of " + (nbMigrated > 1 ? "alerts" : "alert") + " migration", Color.lightGray,
+                (MIGRATE_ALL.equalsIgnoreCase(tickerOrPair) ? "All your alerts were" :
+                        (nbMigrated > 1 ? nbMigrated + " of your alerts having pair or ticker '" + tickerOrPair + "' were" : "Your alert was") +
+                                " migrated from guild " + guildName(member.getGuild()) + " to " +
+                                (null != guild ? guildName(guild) : "your private channel")));
     }
 }

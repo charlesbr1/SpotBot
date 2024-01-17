@@ -5,16 +5,21 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.sbot.alerts.Alert;
 import org.sbot.commands.reader.CommandContext;
+import org.sbot.discord.Discord;
 import org.sbot.utils.ArgumentValidator;
 
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
+import static org.sbot.alerts.Alert.hasRepeat;
+import static org.sbot.alerts.Alert.isPrivate;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.discord.Discord.MULTI_LINE_BLOCK_QUOTE_MARKDOWN;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
@@ -151,6 +156,41 @@ public final class ListCommand extends CommandAdapter {
                     () -> "list " + tickerOrPair + " " + (offset + MESSAGE_PAGE_SIZE - 1),
                     () -> " for ticker or pair '" + tickerOrPair + (offset > 0 ? "', and offset : " + offset : "'"));
         });
+    }
+
+    private static EmbedBuilder toMessage(@NotNull CommandContext context, @NotNull Alert alert) {
+        return embedBuilder('[' + alert.pair + "] " + alert.message,
+                !hasRepeat(alert.repeat) ? Color.black : (isPrivate(alert.serverId) ? Color.blue : Color.green),
+                alert.descriptionMessage() + (isPrivate(context.serverId()) && !isPrivate(alert.serverId) ?
+                        "\n\nGuild : " + context.discord.getGuildServer(alert.serverId).map(Discord::guildName).orElse("unknown") : ""));
+    }
+
+    //TODO doc mutation of list messages argument
+    private static List<EmbedBuilder> paginatedAlerts(@NotNull List<EmbedBuilder> messages, long offset, long total, @NotNull Supplier<String> nextCommand, @NotNull Supplier<String> command) {
+        if(messages.isEmpty()) {
+            messages.add(embedBuilder("Alerts search", Color.yellow,
+                    "No alert found" + command.get()));
+        } else {
+            addFooterNumber(messages, offset, total);
+            shrinkToPageSize(messages, offset, nextCommand);
+        }
+        return messages;
+    }
+
+    private static void addFooterNumber(@NotNull List<EmbedBuilder> messages, long offset, long total) {
+        for(int i = messages.size(); i-- != 0;) {
+            messages.get(i).setFooter("(" + (i + 1 + offset) + '/' + total + ')');
+        }
+    }
+
+    private static void shrinkToPageSize(@NotNull List<EmbedBuilder> messages, long offset, @NotNull Supplier<String> nextCommand) {
+        if(messages.size() > MESSAGE_PAGE_SIZE) {
+            while(messages.size() >= MESSAGE_PAGE_SIZE) {
+                messages.remove(messages.size() - 1);
+            }
+            messages.add(embedBuilder("...", Color.green, "More results found, to get them type command with offset " +
+                    (offset + MESSAGE_PAGE_SIZE - 1) + " : " + nextCommand.get()));
+        }
     }
 
     private List<EmbedBuilder> exchanges() {

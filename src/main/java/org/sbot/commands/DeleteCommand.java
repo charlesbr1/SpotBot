@@ -1,6 +1,7 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
@@ -10,11 +11,14 @@ import org.sbot.commands.reader.CommandContext;
 import org.sbot.utils.ArgumentValidator;
 
 import java.awt.*;
+import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
 import static org.sbot.alerts.Alert.isPrivate;
 import static org.sbot.commands.SecurityAccess.hasRightOnUser;
+import static org.sbot.discord.Discord.guildName;
 import static org.sbot.utils.ArgumentValidator.*;
 
 public final class DeleteCommand extends CommandAdapter {
@@ -49,7 +53,10 @@ public final class DeleteCommand extends CommandAdapter {
                 context.args.getMandatoryUserId("owner") : null;
 
         LOGGER.debug("delete command - alert_id : {}, owner : {}, ticker_pair : {}", alertId, ownerId, tickerOrPair);
-        context.noMoreArgs().alertsDao.transactional(() -> context.reply(responseTtlSeconds, delete(context, alertId, ownerId, tickerOrPair)));
+        Runnable[] notificationCallBack = new Runnable[1];
+        context.noMoreArgs().alertsDao.transactional(() -> context.reply(responseTtlSeconds, delete(context, alertId, ownerId, null != tickerOrPair ? tickerOrPair : DELETE_ALL, notificationCallBack)));
+        // perform user notification of its alerts being deleted, if needed, once transaction is done.
+        Optional.ofNullable(notificationCallBack[0]).ifPresent(Runnable::run);
     }
 
     static void validateExclusiveArguments(@Nullable Long alertId, @Nullable String tickerOrPair) {
@@ -61,30 +68,49 @@ public final class DeleteCommand extends CommandAdapter {
         }
     }
 
-    private EmbedBuilder delete(@NotNull CommandContext context, @Nullable Long alertId, @Nullable Long ownerId, @Nullable String tickerOrPair) {
+    private EmbedBuilder delete(@NotNull CommandContext context, @Nullable Long alertId, @Nullable Long ownerId, @NotNull String tickerOrPair, @NotNull Runnable[] outNotificationCallBack) {
         if (null != alertId) { // single id delete
-            return deleteById(context, alertId);
+            return deleteById(context, alertId, outNotificationCallBack);
         } else if (null == ownerId || // if ownerId is null -> delete all alerts of current user, or filtered by ticker or pair
                 hasRightOnUser(context, ownerId)) { // ownerId != null -> only an admin can delete alerts of other users on his server
-            return deleteByOwnerOrTickerPair(context, ownerId, tickerOrPair);
+            return deleteByOwnerOrTickerPair(context, ownerId, tickerOrPair, outNotificationCallBack);
         } else {
             return embedBuilder(":clown:" + ' ' + context.user.getEffectiveName(), Color.black, "You are not allowed to delete your mates' alerts" +
                     (isPrivate(context.serverId()) ? ", you are on a private channel." : ""));
         }
     }
 
-    private EmbedBuilder deleteById(@NotNull CommandContext context, long alertId) {
+    private EmbedBuilder deleteById(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         AnswerColorSmiley answer = securedAlertAccess(alertId, context, alert -> {
             context.alertsDao.deleteAlert(alertId);
+            if(context.user.getIdLong() != alert.userId()) {
+                outNotificationCallBack[0] = () -> sendUpdateNotification(context, alert.userId(), ownerDeleteNotification(alertId, requireNonNull(context.member)));
+            }
             return "Alert " + alertId + " deleted";
         });
         return embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer());
     }
 
-    private EmbedBuilder deleteByOwnerOrTickerPair(@NotNull CommandContext context, @Nullable Long ownerId, @Nullable String tickerOrPair) {
-        long deleted = null == tickerOrPair || DELETE_ALL.equalsIgnoreCase(tickerOrPair) ?
+    private EmbedBuilder deleteByOwnerOrTickerPair(@NotNull CommandContext context, @Nullable Long ownerId, @NotNull String tickerOrPair, @NotNull Runnable[] outNotificationCallBack) {
+        long deleted = DELETE_ALL.equalsIgnoreCase(tickerOrPair) ?
                 context.alertsDao.deleteAlerts(context.serverId(), null != ownerId ? ownerId : context.user.getIdLong()) :
                 context.alertsDao.deleteAlerts(context.serverId(), null != ownerId ? ownerId : context.user.getIdLong(), tickerOrPair.toUpperCase());
+        if(deleted > 0 && null != ownerId && context.user.getIdLong() != ownerId) {
+            outNotificationCallBack[0] = () -> sendUpdateNotification(context, ownerId, ownerDeleteNotification(tickerOrPair, requireNonNull(context.member), deleted));
+        }
         return embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), Color.green, deleted + " " + (deleted > 1 ? " alerts" : " alert") + " deleted");
+    }
+
+
+    private EmbedBuilder ownerDeleteNotification(long alertId, @NotNull Member member) {
+        return embedBuilder("Notice of alert deletion", Color.lightGray,
+                "Your alert " + alertId + " was deleted on guild " + guildName(member.getGuild()));
+    }
+
+    private EmbedBuilder ownerDeleteNotification(@NotNull String tickerOrPair, @NotNull Member member, long nbDeleted) {
+        return embedBuilder("Notice of " + (nbDeleted > 1 ? "alerts" : "alert") + " deletion", Color.lightGray,
+                (DELETE_ALL.equalsIgnoreCase(tickerOrPair) ? "All your alerts were" :
+                        (nbDeleted > 1 ? nbDeleted + " of your alerts having pair or ticker '" + tickerOrPair + "' were" : "Your alert was") +
+                                " deleted on guild " + guildName(member.getGuild())));
     }
 }

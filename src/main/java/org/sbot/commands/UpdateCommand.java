@@ -7,14 +7,18 @@ import org.sbot.commands.reader.CommandContext;
 import org.sbot.services.dao.AlertsDao.UserIdServerIdType;
 import org.sbot.utils.Dates;
 
+import java.awt.*;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
+import java.util.Optional;
 import java.util.function.Function;
 
+import static java.util.Objects.requireNonNull;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.alerts.Alert.*;
 import static org.sbot.alerts.Alert.Type.*;
+import static org.sbot.discord.Discord.guildName;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.formatUTC;
 
@@ -60,16 +64,19 @@ public final class UpdateCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         String field = context.args.getMandatoryString("field");
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
+
         LOGGER.debug("update command - field : {}, alert_id : {}, value : {}", field, alertId, context.args.getLastArgs("value").orElse(""));
+        Runnable[] notificationCallBack = new Runnable[1];
+
         var updater = switch (field) {
-            case CHOICE_MESSAGE -> message(context, alertId);
-            case CHOICE_FROM_PRICE -> fromPrice(context, alertId);
-            case CHOICE_TO_PRICE -> toPrice(context, alertId);
-            case CHOICE_FROM_DATE -> fromDate(context, alertId);
-            case CHOICE_TO_DATE -> toDate(context, alertId);
-            case CHOICE_MARGIN -> margin(context, alertId);
-            case CHOICE_REPEAT -> repeat(context, alertId);
-            case CHOICE_SNOOZE -> snooze(context, alertId);
+            case CHOICE_MESSAGE -> message(context, alertId, notificationCallBack);
+            case CHOICE_FROM_PRICE -> fromPrice(context, alertId, notificationCallBack);
+            case CHOICE_TO_PRICE -> toPrice(context, alertId, notificationCallBack);
+            case CHOICE_FROM_DATE -> fromDate(context, alertId, notificationCallBack);
+            case CHOICE_TO_DATE -> toDate(context, alertId, notificationCallBack);
+            case CHOICE_MARGIN -> margin(context, alertId, notificationCallBack);
+            case CHOICE_REPEAT -> repeat(context, alertId, notificationCallBack);
+            case CHOICE_SNOOZE -> snooze(context, alertId, notificationCallBack);
             default -> throw new IllegalArgumentException("Invalid field : " + field);
         };
 
@@ -78,27 +85,31 @@ public final class UpdateCommand extends CommandAdapter {
                     AnswerColorSmiley answer = securedAlertAccess(alertId, context, updater);
                     context.reply(responseTtlSeconds, embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer()));
                 });
+        // perform user notification of its alerts being updated, if needed, once transaction is done.
+        Optional.ofNullable(notificationCallBack[0]).ifPresent(Runnable::run);
     }
 
-    private Function<UserIdServerIdType, String> fromPrice(@NotNull CommandContext context, long alertId) {
+    private Function<UserIdServerIdType, String> fromPrice(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         BigDecimal fromPrice = requirePositive(context.args.getMandatoryNumber("value").stripTrailingZeros());
         return alert -> {
             requireNotRemainder(alert.type(), "from_price");
             context.alertsDao.updateFromPrice(alertId, fromPrice);
+            ownerUpdateNotification(context, alertId, alert.userId(), "from_price", fromPrice.toPlainString(), outNotificationCallBack);
             return "Value from_price of alert " + alertId + " updated to *" + fromPrice.toPlainString() + "*";
         };
     }
 
-    private Function<UserIdServerIdType, String> toPrice(@NotNull CommandContext context, long alertId) {
+    private Function<UserIdServerIdType, String> toPrice(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("value").stripTrailingZeros());
         return alert -> {
             requireNotRemainder(alert.type(), "to_price");
             context.alertsDao.updateToPrice(alertId, toPrice);
+            ownerUpdateNotification(context, alertId, alert.userId(), "to_price", toPrice.toPlainString(), outNotificationCallBack);
             return "Value to_price of alert " + alertId + " updated to *" + toPrice.toPlainString() + "*";
         };
     }
 
-    private Function<UserIdServerIdType, String> fromDate(@NotNull CommandContext context, long alertId) {
+    private Function<UserIdServerIdType, String> fromDate(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         ZonedDateTime fromDate = context.args.getDateTime("value").orElse(null);
         return alert -> {
             if(alert.type() != range) {
@@ -109,11 +120,13 @@ public final class UpdateCommand extends CommandAdapter {
                 }
             }
             context.alertsDao.updateFromDate(alertId, fromDate);
-            return "Value from_date of alert " + alertId + " updated to *" + (null != fromDate ? formatUTC(fromDate) : "null") + "*";
+            String date = null != fromDate ? formatUTC(fromDate) : "null";
+            ownerUpdateNotification(context, alertId, alert.userId(), "from_date", date, outNotificationCallBack);
+            return "Value from_date of alert " + alertId + " updated to *" + date + "*";
         };
     }
 
-    private Function<UserIdServerIdType, String> toDate(@NotNull CommandContext context, long alertId) {
+    private Function<UserIdServerIdType, String> toDate(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         ZonedDateTime toDate = context.args.getDateTime("value").orElse(null);
         return alert -> {
             requireNotRemainder(alert.type(), "to_date");
@@ -125,48 +138,62 @@ public final class UpdateCommand extends CommandAdapter {
                 requireInFuture(toDate);
             }
             context.alertsDao.updateToDate(alertId, toDate);
-            return "Value to_date of alert " + alertId + " updated to *" + (null != toDate ? formatUTC(toDate) : "null") + "*";
+            String date = null != toDate ? formatUTC(toDate) : "null";
+            ownerUpdateNotification(context, alertId, alert.userId(), "to_date", date, outNotificationCallBack);
+            return "Value to_date of alert " + alertId + " updated to *" + date + "*";
         };
     }
 
-    private Function<UserIdServerIdType, String> message(@NotNull CommandContext context, long alertId) {
+    private Function<UserIdServerIdType, String> message(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         String message = requireAlertMessageMaxLength(context.args.getLastArgs("value").orElse(""));
         return alert -> {
             context.alertsDao.updateMessage(alertId, message);
+            ownerUpdateNotification(context, alertId, alert.userId(), "message", message, outNotificationCallBack);
             return "Message of alert " + alertId + " updated to *" + message + "*" +
                     (remainder != alert.type() ? alertMessageTips(message, alertId) : "");
         };
     }
 
-    private Function<UserIdServerIdType, String> margin(@NotNull CommandContext context, long alertId) {
-        BigDecimal margin = requirePositive(context.args.getMandatoryNumber("value"));
+    private Function<UserIdServerIdType, String> margin(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
+        BigDecimal margin = requirePositive(context.args.getMandatoryNumber("value").stripTrailingZeros());
         return alert -> {
             requireNotRemainder(alert.type(), "margin");
             context.alertsDao.updateMargin(alertId, margin);
+            ownerUpdateNotification(context, alertId, alert.userId(), "margin", margin.toPlainString(), outNotificationCallBack);
             return "Margin of alert " + alertId + " updated to " + margin +
                     (hasMargin(margin) ? "" : " (disabled)");
         };
     }
 
-    private Function<UserIdServerIdType, String> repeat(@NotNull CommandContext context, long alertId) {
+    private Function<UserIdServerIdType, String> repeat(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         short repeat = requirePositiveShort(context.args.getMandatoryLong("value"));
         return alert -> {
             requireNotRemainder(alert.type(), "repeat");
             context.alertsDao.updateRepeatAndLastTrigger(alertId, repeat, hasRepeat(repeat) ? null : ZonedDateTime.now());
+            ownerUpdateNotification(context, alertId, alert.userId(), "repeat", Short.toString(repeat), outNotificationCallBack);
             return "Repeat of alert " + alertId + " updated to " + repeat +
                     (!hasRepeat(repeat) ? " (disabled)" : ", the alert can be raise now");
         };
     }
 
-    private Function<UserIdServerIdType, String> snooze(@NotNull CommandContext context, long alertId) {
+    private Function<UserIdServerIdType, String> snooze(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         short snooze = requirePositiveShort(context.args.getMandatoryLong("value"));
         return alert -> {
             requireNotRemainder(alert.type(), "snooze");
             context.alertsDao.updateSnoozeAndLastTrigger(alertId, 0 != snooze ? snooze : DEFAULT_SNOOZE_HOURS, null);
+            ownerUpdateNotification(context, alertId, alert.userId(), "snooze", Short.toString(snooze), outNotificationCallBack);
             return "Snooze of alert " + alertId + " updated to " +
                     (0 != snooze ? snooze : "default " + DEFAULT_SNOOZE_HOURS) +
                     (snooze > 1 ? " hours" : " hour") + ", the alert can be raise now";
         };
     }
 
+    private void ownerUpdateNotification(@NotNull CommandContext context, long alertId, long userId, @NotNull String field, @NotNull String newValue, @NotNull Runnable[] outNotificationCallBack) {
+        if(context.user.getIdLong() != userId) {
+            outNotificationCallBack[0] = () -> sendUpdateNotification(context, userId,
+                    embedBuilder("Notice of alert update", Color.lightGray,
+                "Your alert " + alertId + " was updated on guild " + guildName(requireNonNull(context.member).getGuild()) +
+                        ", " + field + " = " + newValue));
+        }
+    }
 }
