@@ -95,17 +95,18 @@ public final class MigrateCommand extends CommandAdapter {
 
     private EmbedBuilder migrateById(@NotNull CommandContext context, @Nullable Guild guild, long alertId, Runnable[] outNotificationCallBack) {
         AnswerColorSmiley answer = securedAlertAccess(alertId, context, alert -> {
-            if((isPrivate(alert.serverId()) && null == guild) || (null != guild && guild.getIdLong() == alert.serverId())) {
-                throw new IllegalArgumentException("Alert " + alertId + " is already into " + (null == guild ? "the private channel" : "guild " + guildName(guild)));
+            if((isPrivate(alert.serverId) && null == guild) || (null != guild && guild.getIdLong() == alert.serverId)) {
+                return "Alert " + alertId + " is already into " + (null == guild ? "the private channel" : "guild " + guildName(guild));
             }
-            if(null == guild || isGuildMember(guild, alert.userId())) {
-                context.alertsDao.updateServerId(alertId, null != guild ? guild.getIdLong() : PRIVATE_ALERT);
-                if(context.user.getIdLong() != alert.userId()) {
-                    outNotificationCallBack[0] = () -> sendUpdateNotification(context, alert.userId(), ownerMigrateNotification(alertId, requireNonNull(context.member), guild));
+            if(null == guild || isGuildMember(guild, alert.userId)) {
+                long serverId = null != guild ? guild.getIdLong() : PRIVATE_ALERT;
+                context.alertsDao.updateServerId(alertId, serverId);
+                if(context.user.getIdLong() != alert.userId) {
+                    outNotificationCallBack[0] = () -> sendUpdateNotification(context, alert.userId, ownerMigrateNotification(alertId, requireNonNull(context.member), guild));
                 }
                 return "Alert migrated to " + (null == guild ? "user private channel" : "guild " + guildName(guild));
             }
-            throw new IllegalArgumentException("User <@" + alert.userId() + "> is not a member of guild " + guildName(guild));
+            throw new IllegalArgumentException("User <@" + alert.userId + "> is not a member of guild " + guildName(guild));
         });
         return embedBuilder(answer.smiley() + ' ' + context.user.getEffectiveName(), answer.color(), answer.answer());
     }

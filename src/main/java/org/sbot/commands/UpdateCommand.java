@@ -3,8 +3,8 @@ package org.sbot.commands;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.jetbrains.annotations.NotNull;
+import org.sbot.alerts.Alert;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.dao.AlertsDao.UserIdServerIdType;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
@@ -89,99 +89,109 @@ public final class UpdateCommand extends CommandAdapter {
         Optional.ofNullable(notificationCallBack[0]).ifPresent(Runnable::run);
     }
 
-    private Function<UserIdServerIdType, String> fromPrice(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
+    private Function<Alert, String> fromPrice(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         BigDecimal fromPrice = requirePositive(context.args.getMandatoryNumber("value").stripTrailingZeros());
         return alert -> {
-            requireNotRemainder(alert.type(), "from_price");
-            context.alertsDao.updateFromPrice(alertId, fromPrice);
-            ownerUpdateNotification(context, alertId, alert.userId(), "from_price", fromPrice.toPlainString(), outNotificationCallBack);
-            return "Value from_price of alert " + alertId + " updated to *" + fromPrice.toPlainString() + "*";
+            if(fromPrice.compareTo(alert.fromPrice) != 0) {
+                context.alertsDao.updateFromPrice(alertId, alert.withFromPrice(fromPrice).fromPrice);
+                ownerUpdateNotification(context, alertId, alert.userId, "from_price", fromPrice.toPlainString(), outNotificationCallBack);
+                return "Value from_price of alert " + alertId + " updated to *" + fromPrice.toPlainString() + "*";
+            }
+            return "Alert " +  + alertId + ", from_price is already set to " + fromPrice.toPlainString();
         };
     }
 
-    private Function<UserIdServerIdType, String> toPrice(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
+    private Function<Alert, String> toPrice(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("value").stripTrailingZeros());
         return alert -> {
-            requireNotRemainder(alert.type(), "to_price");
-            context.alertsDao.updateToPrice(alertId, toPrice);
-            ownerUpdateNotification(context, alertId, alert.userId(), "to_price", toPrice.toPlainString(), outNotificationCallBack);
-            return "Value to_price of alert " + alertId + " updated to *" + toPrice.toPlainString() + "*";
+            if(toPrice.compareTo(alert.toPrice) != 0) {
+                context.alertsDao.updateToPrice(alertId, alert.withToPrice(toPrice).toPrice);
+                ownerUpdateNotification(context, alertId, alert.userId, "to_price", toPrice.toPlainString(), outNotificationCallBack);
+                return "Value to_price of alert " + alertId + " updated to *" + toPrice.toPlainString() + "*";
+            }
+            return "Alert " +  + alertId + ", to_price is already set to " + toPrice.toPlainString();
         };
     }
 
-    private Function<UserIdServerIdType, String> fromDate(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
+    private Function<Alert, String> fromDate(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         ZonedDateTime fromDate = context.args.getDateTime("value").orElse(null);
         return alert -> {
-            if(alert.type() != range) {
-                if(null == fromDate) {
-                    throw new IllegalArgumentException("Missing from_date value, expected format : " + Dates.DATE_TIME_FORMAT + " UTC");
-                } else if(alert.type() == remainder) {
-                    requireInFuture(fromDate);
-                }
+            if(null == fromDate && (alert.type == trend || alert.type == remainder)) {
+                throw new IllegalArgumentException("Missing from_date value, expected format : " + Dates.DATE_TIME_FORMAT + " UTC");
+            } else if(alert.type == remainder) {
+                requireInFuture(fromDate);
             }
-            context.alertsDao.updateFromDate(alertId, fromDate);
             String date = null != fromDate ? formatUTC(fromDate) : "null";
-            ownerUpdateNotification(context, alertId, alert.userId(), "from_date", date, outNotificationCallBack);
-            return "Value from_date of alert " + alertId + " updated to *" + date + "*";
+            if((null != fromDate && null == alert.fromDate) ||
+                    (null != fromDate && fromDate.compareTo(alert.fromDate) != 0) ||
+                    (null == fromDate && null != alert.fromDate)) {
+                context.alertsDao.updateFromDate(alertId, alert.withFromDate(fromDate).fromDate);
+                ownerUpdateNotification(context, alertId, alert.userId, "from_date", date, outNotificationCallBack);
+                return "Value from_date of alert " + alertId + " updated to *" + date + "*";
+            }
+            return "Alert " +  + alertId + ", from_date is already set to " + date;
         };
     }
 
-    private Function<UserIdServerIdType, String> toDate(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
+    private Function<Alert, String> toDate(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         ZonedDateTime toDate = context.args.getDateTime("value").orElse(null);
         return alert -> {
-            requireNotRemainder(alert.type(), "to_date");
-            if(alert.type() == trend) {
+            if(alert.type == trend) {
                 if(null == toDate) {
                     throw new IllegalArgumentException("Missing to_date value, expected format : " + Dates.DATE_TIME_FORMAT + " UTC");
                 }
             } else if(null != toDate) {
                 requireInFuture(toDate);
             }
-            context.alertsDao.updateToDate(alertId, toDate);
             String date = null != toDate ? formatUTC(toDate) : "null";
-            ownerUpdateNotification(context, alertId, alert.userId(), "to_date", date, outNotificationCallBack);
-            return "Value to_date of alert " + alertId + " updated to *" + date + "*";
+            if((null != toDate && null == alert.toDate) ||
+                    (null != toDate && toDate.compareTo(alert.toDate) != 0) ||
+                    (null == toDate && null != alert.toDate)) {
+                context.alertsDao.updateToDate(alertId, alert.withToDate(toDate).toDate);
+                ownerUpdateNotification(context, alertId, alert.userId, "to_date", date, outNotificationCallBack);
+                return "Value to_date of alert " + alertId + " updated to *" + date + "*";
+            }
+            return "Alert " +  + alertId + ", to_date is already set to " + date;
         };
     }
 
-    private Function<UserIdServerIdType, String> message(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
+    private Function<Alert, String> message(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         String message = requireAlertMessageMaxLength(context.args.getLastArgs("value").orElse(""));
         return alert -> {
-            context.alertsDao.updateMessage(alertId, message);
-            ownerUpdateNotification(context, alertId, alert.userId(), "message", message, outNotificationCallBack);
+            context.alertsDao.updateMessage(alertId, alert.withMessage(message).message);
+            ownerUpdateNotification(context, alertId, alert.userId, "message", message, outNotificationCallBack);
             return "Message of alert " + alertId + " updated to *" + message + "*" +
-                    (remainder != alert.type() ? alertMessageTips(message, alertId) : "");
+                    (remainder != alert.type ? alertMessageTips(message, alertId) : "");
         };
     }
 
-    private Function<UserIdServerIdType, String> margin(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
+    private Function<Alert, String> margin(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         BigDecimal margin = requirePositive(context.args.getMandatoryNumber("value").stripTrailingZeros());
         return alert -> {
-            requireNotRemainder(alert.type(), "margin");
-            context.alertsDao.updateMargin(alertId, margin);
-            ownerUpdateNotification(context, alertId, alert.userId(), "margin", margin.toPlainString(), outNotificationCallBack);
+            context.alertsDao.updateMargin(alertId, alert.withMargin(margin).margin);
+            ownerUpdateNotification(context, alertId, alert.userId, "margin", margin.toPlainString(), outNotificationCallBack);
             return "Margin of alert " + alertId + " updated to " + margin +
                     (hasMargin(margin) ? "" : " (disabled)");
         };
     }
 
-    private Function<UserIdServerIdType, String> repeat(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
+    private Function<Alert, String> repeat(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         short repeat = requirePositiveShort(context.args.getMandatoryLong("value"));
         return alert -> {
-            requireNotRemainder(alert.type(), "repeat");
-            context.alertsDao.updateRepeatAndLastTrigger(alertId, repeat, hasRepeat(repeat) ? null : ZonedDateTime.now());
-            ownerUpdateNotification(context, alertId, alert.userId(), "repeat", Short.toString(repeat), outNotificationCallBack);
+            alert = alert.withLastTriggerMarginRepeat(hasRepeat(repeat) ? null : ZonedDateTime.now(), alert.margin, repeat);
+            context.alertsDao.updateRepeatAndLastTrigger(alertId, alert.repeat, alert.lastTrigger);
+            ownerUpdateNotification(context, alertId, alert.userId, "repeat", Short.toString(repeat), outNotificationCallBack);
             return "Repeat of alert " + alertId + " updated to " + repeat +
                     (!hasRepeat(repeat) ? " (disabled)" : ", the alert can be raise now");
         };
     }
 
-    private Function<UserIdServerIdType, String> snooze(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
+    private Function<Alert, String> snooze(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         short snooze = requirePositiveShort(context.args.getMandatoryLong("value"));
         return alert -> {
-            requireNotRemainder(alert.type(), "snooze");
-            context.alertsDao.updateSnoozeAndLastTrigger(alertId, 0 != snooze ? snooze : DEFAULT_SNOOZE_HOURS, null);
-            ownerUpdateNotification(context, alertId, alert.userId(), "snooze", Short.toString(snooze), outNotificationCallBack);
+            alert = alert.withLastTriggerRepeatSnooze(null, alert.repeat, 0 != snooze ? snooze : DEFAULT_SNOOZE_HOURS);
+            context.alertsDao.updateSnoozeAndLastTrigger(alertId, alert.snooze, alert.lastTrigger);
+            ownerUpdateNotification(context, alertId, alert.userId, "snooze", Short.toString(snooze), outNotificationCallBack);
             return "Snooze of alert " + alertId + " updated to " +
                     (0 != snooze ? snooze : "default " + DEFAULT_SNOOZE_HOURS) +
                     (snooze > 1 ? " hours" : " hour") + ", the alert can be raise now";

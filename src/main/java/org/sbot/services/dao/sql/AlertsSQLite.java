@@ -66,7 +66,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
 
         String SELECT_MAX_ID = "SELECT MAX(id) FROM alerts";
         String SELECT_BY_ID = "SELECT * FROM alerts WHERE id=:id";
-        String SELECT_USER_ID_AND_SERVER_ID_AND_TYPE_BY_ID = "SELECT user_id,server_id,type FROM alerts WHERE id=:id";
+        String SELECT_WITHOUT_MESSAGE_BY_ID = "SELECT id,type,user_id,server_id,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts WHERE id=:id";
         String SELECT_USER_ID_BY_SERVER_ID = "SELECT user_id FROM alerts WHERE server_id=:serverId";
         String SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE = "SELECT id,type,user_id,server_id,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts " +
                 "WHERE exchange=:exchange AND pair=:pair AND repeat > 0 " +
@@ -148,20 +148,10 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         query.bindFields(alert); // this bind common public fields from class Alert
     }
 
-    private static final class UserIdServerIdTypeMapper implements RowMapper<UserIdServerIdType> {
-        @Override
-        public UserIdServerIdType map(ResultSet rs, StatementContext ctx) throws SQLException {
-            return new UserIdServerIdType(
-                    rs.getLong("user_id"),
-                    rs.getLong("server_id"),
-                    Type.valueOf(rs.getString("type")));
-        }
-    }
-
     private final AtomicLong idGenerator;
 
     public AlertsSQLite(@NotNull JDBIRepository repository) {
-        super(repository, new AlertMapper(), new UserIdServerIdTypeMapper());
+        super(repository, new AlertMapper());
         LOGGER.debug("Loading SQLite storage for alerts");
         idGenerator = new AtomicLong(transactional(this::getMaxId) + 1);
     }
@@ -190,9 +180,9 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     }
 
     @Override
-    public Optional<UserIdServerIdType> getUserIdAndServerIdAndType(long alertId) {
-        LOGGER.debug("getUserIdAndServerId {}", alertId);
-        return findOne(SQL.SELECT_USER_ID_AND_SERVER_ID_AND_TYPE_BY_ID, UserIdServerIdType.class,
+    public Optional<Alert> getAlertWithoutMessage(long alertId) {
+        LOGGER.debug("getAlertWithoutMessage {}", alertId);
+        return findOne(SQL.SELECT_WITHOUT_MESSAGE_BY_ID, Alert.class,
                 Map.of("id", alertId));
     }
 

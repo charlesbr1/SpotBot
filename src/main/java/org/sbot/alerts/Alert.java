@@ -186,7 +186,7 @@ public abstract class Alert {
     }
 
     @NotNull
-    public final Alert withLastTriggerMarginRepeat(@NotNull ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat) {
+    public final Alert withLastTriggerMarginRepeat(@Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat) {
         return build(id, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 

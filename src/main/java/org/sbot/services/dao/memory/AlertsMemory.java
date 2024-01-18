@@ -43,10 +43,10 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public Optional<UserIdServerIdType> getUserIdAndServerIdAndType(long alertId) {
-        LOGGER.debug("getUserIdAndServerId {}", alertId);
+    public Optional<Alert> getAlertWithoutMessage(long alertId) {
+        LOGGER.debug("getAlertWithoutMessage {}", alertId);
         return Optional.ofNullable(alerts.get(alertId))
-                .map(alert -> new UserIdServerIdType(alert.userId, alert.serverId, alert.type));
+                .map(alert -> alert.withMessage("")); // erase the message to simulate the SQL layer
     }
 
     @Override

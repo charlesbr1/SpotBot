@@ -1,16 +1,12 @@
 package org.sbot.utils;
 
 import org.jetbrains.annotations.NotNull;
-import org.sbot.alerts.Alert.Type;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
-import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static java.util.Objects.requireNonNull;
-import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
 import static org.sbot.utils.Dates.formatUTC;
@@ -101,13 +97,6 @@ public interface ArgumentValidator {
                     " (actual UTC time : " + formatUTC(ZonedDateTime.now()) + ')');
         }
         return zonedDateTime;
-    }
-
-    static void requireNotRemainder(@NotNull Type type, @NotNull String name) {
-        requireNonNull(name);
-        if (remainder == type) {
-            throw new IllegalArgumentException("You can't set the " + name + " of a remainder alert");
-        }
     }
 
     static long requireUser(@NotNull String userMention) {

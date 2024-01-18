@@ -4,23 +4,23 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.sbot.alerts.Alert;
 import org.sbot.commands.reader.CommandContext;
-import org.sbot.services.dao.AlertsDao.UserIdServerIdType;
 
 import static net.dv8tion.jda.api.Permission.ADMINISTRATOR;
 import static org.sbot.alerts.Alert.isPrivate;
 
 interface SecurityAccess {
 
-    static boolean notFound(@NotNull CommandContext context, @Nullable UserIdServerIdType alert) {
+    static boolean notFound(@NotNull CommandContext context, @Nullable Alert alert) {
         return null == alert || //TODO bug si sur private channel, doit pouvoir trouver ses alerts sur autres guild
-                (isPrivate(alert.serverId()) && !alertBelongToUser(context.user, alert.userId())) ||
-                (!isPrivate(alert.serverId()) && !alertIsOnMemberServer(context.member, alert.serverId()));
+                (isPrivate(alert.serverId) && !alertBelongToUser(context.user, alert.userId)) ||
+                (!isPrivate(alert.serverId) && !alertIsOnMemberServer(context.member, alert.serverId));
     }
 
-    static boolean isDenied(@NotNull CommandContext context, @NotNull UserIdServerIdType alert) {
-        return !(alertBelongToUser(context.user, alert.userId()) ||
-                (alertIsOnMemberServer(context.member, alert.serverId()) && isAdminMember(context.member)));
+    static boolean isDenied(@NotNull CommandContext context, @NotNull Alert alert) {
+        return !(alertBelongToUser(context.user, alert.userId) ||
+                (alertIsOnMemberServer(context.member, alert.serverId) && isAdminMember(context.member)));
     }
 
     static boolean hasRightOnUser(@NotNull CommandContext context, long userId) {

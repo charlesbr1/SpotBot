@@ -9,9 +9,9 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.SpotBot;
+import org.sbot.alerts.Alert;
 import org.sbot.commands.reader.CommandContext;
 import org.sbot.discord.CommandListener;
-import org.sbot.services.dao.AlertsDao.UserIdServerIdType;
 
 
 import java.awt.*;
@@ -65,9 +65,9 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected record AnswerColorSmiley(@NotNull String answer, @NotNull Color color, @NotNull String smiley) {}
 
-    protected AnswerColorSmiley securedAlertAccess(long alertId, @NotNull CommandContext context, @NotNull Function<UserIdServerIdType, String> updateHandler) {
+    protected AnswerColorSmiley securedAlertAccess(long alertId, @NotNull CommandContext context, @NotNull Function<Alert, String> updateHandler) {
 
-        UserIdServerIdType alert = context.alertsDao.getUserIdAndServerIdAndType(alertId).orElse(null);
+        Alert alert = context.alertsDao.getAlertWithoutMessage(alertId).orElse(null);
 
         if(SecurityAccess.notFound(context, alert)) {
             return new AnswerColorSmiley("Alert " + alertId + " not found", Color.red, ":ghost:");

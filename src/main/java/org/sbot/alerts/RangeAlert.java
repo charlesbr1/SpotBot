@@ -25,6 +25,9 @@ public final class RangeAlert extends Alert {
         if(fromPrice.compareTo(toPrice) > 0) {
             throw new IllegalArgumentException("from_price is higher than to_price");
         }
+        if(null != fromDate && null != toDate && fromDate.isAfter(toDate)) {
+            throw new IllegalArgumentException("from_date is after to_date");
+        }
         requirePositive(fromPrice);
         requirePositive(toPrice);
     }
@@ -41,7 +44,7 @@ public final class RangeAlert extends Alert {
     @NotNull
     public MatchingAlert match(@NotNull List<Candlestick> candlesticks, @Nullable Candlestick previousCandlestick) {
         for(Candlestick candlestick : candlesticks) {
-            if(isNewerCandleStick(candlestick, previousCandlestick)) {
+            if(datesInLimits(candlestick, fromDate, toDate) && isNewerCandleStick(candlestick, previousCandlestick)) {
                 if(priceInRange(candlestick, fromPrice, toPrice, MARGIN_DISABLED) || priceCrossedRange(candlestick, fromPrice, toPrice, previousCandlestick)) {
                     return new MatchingAlert(this, MATCHED, candlestick);
                 } else if(priceInRange(candlestick, fromPrice,toPrice, margin)) {
@@ -53,17 +56,21 @@ public final class RangeAlert extends Alert {
         return new MatchingAlert(this, NOT_MATCHING, null);
     }
 
-    private static boolean priceInRange(@NotNull Candlestick candlestick, @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice, @NotNull BigDecimal margin) {
+    static boolean datesInLimits(@NotNull Candlestick candlestick, @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate) {
+        return (null == fromDate || fromDate.compareTo(candlestick.closeTime()) <= 0) &&
+                (null == toDate || toDate.compareTo(candlestick.closeTime()) >= 0);
+    }
+
+    static boolean priceInRange(@NotNull Candlestick candlestick, @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice, @NotNull BigDecimal margin) {
         return candlestick.low().compareTo(toPrice.add(margin)) <= 0 &&
                 candlestick.high().compareTo(fromPrice.subtract(margin)) >= 0;
     }
 
-    private static boolean priceCrossedRange(@NotNull Candlestick candlestick, @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice, @Nullable Candlestick previousCandlestick) {
+    static boolean priceCrossedRange(@NotNull Candlestick candlestick, @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice, @Nullable Candlestick previousCandlestick) {
         return null != previousCandlestick &&
                 previousCandlestick.low().min(candlestick.low()).compareTo(toPrice) <= 0 &&
                 previousCandlestick.high().max(candlestick.high()).compareTo(fromPrice) >= 0;
     }
-
 
     @Override
     @NotNull

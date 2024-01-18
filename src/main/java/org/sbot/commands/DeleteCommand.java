@@ -83,8 +83,8 @@ public final class DeleteCommand extends CommandAdapter {
     private EmbedBuilder deleteById(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         AnswerColorSmiley answer = securedAlertAccess(alertId, context, alert -> {
             context.alertsDao.deleteAlert(alertId);
-            if(context.user.getIdLong() != alert.userId()) {
-                outNotificationCallBack[0] = () -> sendUpdateNotification(context, alert.userId(), ownerDeleteNotification(alertId, requireNonNull(context.member)));
+            if(context.user.getIdLong() != alert.userId) {
+                outNotificationCallBack[0] = () -> sendUpdateNotification(context, alert.userId, ownerDeleteNotification(alertId, requireNonNull(context.member)));
             }
             return "Alert " + alertId + " deleted";
         });

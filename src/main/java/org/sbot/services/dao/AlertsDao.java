@@ -3,7 +3,6 @@ package org.sbot.services.dao;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.Alert;
-import org.sbot.alerts.Alert.Type;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 
 import java.math.BigDecimal;
@@ -19,8 +18,7 @@ public interface AlertsDao extends TransactionalCtx {
 
     Optional<Alert> getAlert(long id);
 
-    record UserIdServerIdType(long userId, long serverId, @NotNull Type type) {}
-    Optional<UserIdServerIdType> getUserIdAndServerIdAndType(long alertId);
+    Optional<Alert> getAlertWithoutMessage(long alertId);
     List<Long> getUserIdsByServerId(long serverId);
 
     long fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer);

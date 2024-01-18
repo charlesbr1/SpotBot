@@ -26,7 +26,7 @@ public final class TrendAlert extends Alert {
                       short repeat, short snooze) {
         super(id, Type.trend, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
         if(fromDate.isAfter(toDate)) {
-            throw new IllegalArgumentException("first date is after second date");
+            throw new IllegalArgumentException("from_date is after to_date");
         }
         requirePositive(fromPrice);
         requirePositive(toPrice);
@@ -70,12 +70,12 @@ public final class TrendAlert extends Alert {
 
     @NotNull
     private BigDecimal currentTrendPrice() {
-        BigDecimal delta = priceDeltaByHour().multiply(hoursSinceDate1());
+        BigDecimal delta = priceDeltaByHour().multiply(hoursSinceFromDate());
         return fromPrice.add(delta);
     }
 
     @NotNull
-    private BigDecimal hoursSinceDate1() {
+    private BigDecimal hoursSinceFromDate() {
         BigDecimal durationSec = new BigDecimal(Duration.between(fromDate, ZonedDateTime.now()).abs().toSeconds());
         return durationSec.divide(new BigDecimal(3600), FLOOR);
     }
@@ -98,5 +98,6 @@ public final class TrendAlert extends Alert {
                 "\n* to price :\t" + toPrice.toPlainString() + ' ' + getSymbol(getTicker2()) +
                 "\n* to date :\t" + formatUTC(toDate) +
                 footer(matchingStatus, previousCandlestick);
+        //TODO : display actual computed trend price
     }
 }
