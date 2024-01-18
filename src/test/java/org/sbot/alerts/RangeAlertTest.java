@@ -5,7 +5,9 @@ import org.sbot.chart.Candlestick;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
+import java.util.function.Function;
 
+import static java.math.BigDecimal.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.alerts.Alert.*;
 import static org.sbot.alerts.Alert.Type.range;
@@ -31,28 +33,37 @@ class RangeAlertTest {
         assertDoesNotThrow(() -> new RangeAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // prices not null
         assertThrows(NullPointerException.class, () -> new RangeAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         assertThrows(NullPointerException.class, () -> new RangeAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, null, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // null dates ok
         assertDoesNotThrow(() -> new RangeAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, null, null, null,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // same from and to price
         assertDoesNotThrow(() -> new RangeAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_FROM_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // from price above to price
         assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
-                TEST_FROM_PRICE.add(BigDecimal.ONE), TEST_FROM_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
+                TEST_FROM_PRICE.add(ONE), TEST_FROM_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // positive prices
         assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE.negate(), TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE.negate(), TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
-        // check from et to date
+        // from date after to date
+        assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_TO_DATE, TEST_FROM_DATE, TEST_LAST_TRIGGER,
+                TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+
     }
 
     @Test
@@ -76,7 +87,7 @@ class RangeAlertTest {
     void datesInLimits() {
         ZonedDateTime closeTime = ZonedDateTime.now();
         Candlestick candlestick = new Candlestick(ZonedDateTime.now().minusMinutes(1L), closeTime,
-                BigDecimal.TWO, BigDecimal.TWO, BigDecimal.ONE, BigDecimal.TEN);
+                TWO, TWO, ONE, TEN);
 
         assertTrue(RangeAlert.datesInLimits(candlestick, null, null));
 
@@ -97,45 +108,142 @@ class RangeAlertTest {
 
     @Test
     void priceInRange() {
+        BigDecimal low = new BigDecimal(30L);
+        BigDecimal high = new BigDecimal(40L);
+        BigDecimal openClose = new BigDecimal(35L);
 
-        Candlestick candlestick = new Candlestick(ZonedDateTime.now(), (ZonedDateTime.now().plusHours(1L)),
-                BigDecimal.TWO, BigDecimal.TWO, BigDecimal.ONE, BigDecimal.TEN);
+        Candlestick candlestick = new Candlestick(
+                ZonedDateTime.now(), ZonedDateTime.now().plusHours(1L),
+                openClose, openClose,
+                high, low);
 
-        // Scénario 1: Les prix sont dans la plage avec une marge suffisante
-        assertTrue(RangeAlert.priceInRange(
-                candlestick,
-                new BigDecimal("50.00"),
-                new BigDecimal("100.00"),
-                new BigDecimal("5.00")
-        ));
+        assertThrows(NullPointerException.class, () -> RangeAlert.priceInRange(null, null, null, null));
+        assertThrows(NullPointerException.class, () -> RangeAlert.priceInRange(candlestick, low, high, null));
+        assertThrows(NullPointerException.class, () -> RangeAlert.priceInRange(candlestick, low, null, ZERO));
+        assertThrows(NullPointerException.class, () -> RangeAlert.priceInRange(candlestick, null, high, ZERO));
+        assertThrows(NullPointerException.class, () -> RangeAlert.priceInRange(null, low, high, ZERO));
 
-        // Scénario 2: Le prix le plus bas est en dehors de la plage avec une marge suffisante
-        assertFalse(RangeAlert.priceInRange(
-                candlestick,
-                new BigDecimal("60.00"),
-                new BigDecimal("100.00"),
-                new BigDecimal("5.00")
-        ));
+        // prices in range
+        BigDecimal fromPrice = low;
+        BigDecimal toPrice = high;
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, ZERO));
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, BigDecimal.valueOf(1000L)));
 
-        // Scénario 3: Le prix le plus haut est en dehors de la plage avec une marge suffisante
-        assertFalse(RangeAlert.priceInRange(
-                candlestick,
-                new BigDecimal("50.00"),
-                new BigDecimal("90.00"),
-                new BigDecimal("5.00")
-        ));
+        // prices inner range
+        fromPrice = low.subtract(ONE);
+        toPrice = high.add(ONE);
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, ZERO));
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, BigDecimal.valueOf(1000L)));
 
-        // Scénario 4: Les prix sont en dehors de la plage avec une marge insuffisante
-        assertFalse(RangeAlert.priceInRange(
-                candlestick,
-                new BigDecimal("60.00"),
-                new BigDecimal("90.00"),
-                new BigDecimal("5.00")
-        ));
+        // prices over range
+        fromPrice = low.add(ONE);
+        toPrice = high.subtract(ONE);
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, ZERO));
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, BigDecimal.valueOf(1000L)));
+
+        // low price out of range
+        fromPrice = low.add(ONE);
+        toPrice = high.add(ONE);
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, ZERO));
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, BigDecimal.valueOf(1000L)));
+
+        // high price out of range
+        fromPrice = low.subtract(ONE);
+        toPrice = high.subtract(ONE);
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, ZERO));
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, BigDecimal.valueOf(1000L)));
+
+        // low and high price below range
+        fromPrice = high.add(TEN);
+        toPrice = fromPrice.add(TEN);
+        assertFalse(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, ZERO));
+        assertFalse(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, BigDecimal.valueOf(9L)));
+        // low and high price below range with enough margin
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, BigDecimal.valueOf(10L)));
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, BigDecimal.valueOf(1000L)));
+
+        // low and high price above range
+        toPrice = low.subtract(TEN);
+        fromPrice = toPrice.subtract(TEN);
+        assertFalse(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, ZERO));
+        assertFalse(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, BigDecimal.valueOf(9L)));
+        // low and high price above range with enough margin
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, BigDecimal.valueOf(10L)));
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, BigDecimal.valueOf(1000L)));
+
+        // line range
+        fromPrice = low;
+        toPrice = fromPrice;
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, ZERO));
+        fromPrice = low.add(ONE); // in range
+        toPrice = fromPrice;
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, ZERO));
+        fromPrice = low.subtract(ONE); // above range
+        toPrice = fromPrice;
+        assertFalse(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, ZERO));
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, ONE));
+
+        toPrice = high;
+        fromPrice = toPrice;
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, ZERO));
+        toPrice = high.subtract(ONE); // in range
+        fromPrice = toPrice;
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, ZERO));
+        toPrice = high.add(ONE); // below range
+        fromPrice = toPrice;
+        assertFalse(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, ZERO));
+        assertTrue(RangeAlert.priceInRange(candlestick, fromPrice, toPrice, ONE));
     }
 
     @Test
     void priceCrossedRange() {
+
+        BigDecimal fromPrice = new BigDecimal(30L);
+        BigDecimal toPrice = new BigDecimal(35L);
+
+        Function<BigDecimal, Candlestick> newCandle = price -> new Candlestick(
+                ZonedDateTime.now(), ZonedDateTime.now().plusHours(1L),
+                price.add(ONE), price.add(ONE),
+                price.add(TEN), price);
+
+        assertFalse(RangeAlert.priceCrossedRange(null, null, null, null));
+
+        // prices are above the range
+        Candlestick current = newCandle.apply(toPrice.add(TEN));
+        Candlestick previous = newCandle.apply(toPrice.add(TWO));
+        assertFalse(RangeAlert.priceCrossedRange(current, fromPrice, toPrice, previous));
+
+        // prices are above the range since previous candlestick
+        current = newCandle.apply(toPrice.add(TEN));
+        previous = newCandle.apply(toPrice);
+        assertFalse(RangeAlert.priceCrossedRange(current, fromPrice, toPrice, previous));
+
+        // prices crossed up the range since previous candlestick
+        current = newCandle.apply(toPrice.add(TEN));
+        previous = newCandle.apply(toPrice.subtract(ONE));
+        assertTrue(RangeAlert.priceCrossedRange(current, fromPrice, toPrice, previous));
+        assertFalse(RangeAlert.priceCrossedRange(current, fromPrice, toPrice, null));
+
+        newCandle = price -> new Candlestick(
+                ZonedDateTime.now(), ZonedDateTime.now().plusHours(1L),
+                price.add(ONE), price.add(ONE),
+                price, price.subtract(TEN));
+
+        // prices are below the range
+        current = newCandle.apply(fromPrice.subtract(TEN));
+        previous = newCandle.apply(fromPrice.subtract(TWO));
+        assertFalse(RangeAlert.priceCrossedRange(current, fromPrice, toPrice, previous));
+
+        // prices are below the range since previous candlestick
+        current = newCandle.apply(fromPrice.subtract(TEN));
+        previous = newCandle.apply(fromPrice);
+        assertFalse(RangeAlert.priceCrossedRange(current, fromPrice, toPrice, previous));
+
+        // prices crossed down the range since previous candlestick
+        current = newCandle.apply(fromPrice.subtract(TEN));
+        previous = newCandle.apply(fromPrice.add(ONE));
+        assertTrue(RangeAlert.priceCrossedRange(current, fromPrice, toPrice, previous));
+        assertFalse(RangeAlert.priceCrossedRange(current, fromPrice, toPrice, null));
     }
 
     @Test

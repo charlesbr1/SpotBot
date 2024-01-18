@@ -91,30 +91,39 @@ class AlertTest {
         assertDoesNotThrow(() -> new TestAlert(NULL_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // type not null
         assertThrows(NullPointerException.class, () -> new TestAlert(NULL_ALERT_ID, null, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // known exchange
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NULL_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, "bad exchange", TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // well formatted pair
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NULL_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, "bad pair", TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // message not null
         assertThrows(NullPointerException.class, () -> new TestAlert(NULL_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, null,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // message not too long
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NULL_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, "null".repeat(10000),
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // last trigger not in the future
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NULL_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, ZonedDateTime.now().plusMinutes(1L),
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // margin positive
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NULL_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 BigDecimal.valueOf(-1L), DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // repeat positive
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NULL_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, (short) -1, DEFAULT_SNOOZE_HOURS));
+        // snooze positive
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NULL_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, (short) -1));

@@ -68,8 +68,8 @@ public final class RangeAlert extends Alert {
 
     static boolean priceCrossedRange(@NotNull Candlestick candlestick, @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice, @Nullable Candlestick previousCandlestick) {
         return null != previousCandlestick &&
-                previousCandlestick.low().min(candlestick.low()).compareTo(toPrice) <= 0 &&
-                previousCandlestick.high().max(candlestick.high()).compareTo(fromPrice) >= 0;
+                (previousCandlestick.low().compareTo(toPrice) < 0 || candlestick.low().compareTo(toPrice) <= 0) &&
+                (previousCandlestick.high().compareTo(fromPrice) > 0 || candlestick.high().compareTo(fromPrice) >= 0);
     }
 
     @Override

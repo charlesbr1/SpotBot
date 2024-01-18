@@ -39,6 +39,7 @@ class RemainderAlertTest {
     @Test
     void constructorCheck() {
         assertDoesNotThrow(() -> new RemainderAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_PAIR, TEST_MESSAGE, TEST_TO_DATE));
+        // from date not null
         assertThrows(NullPointerException.class, () -> new RemainderAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_PAIR, TEST_MESSAGE, null));
     }
 
@@ -49,30 +50,38 @@ class RemainderAlertTest {
         assertNotNull(alert.build(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, null, TEST_FROM_DATE, null, null,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // from date not null
         assertThrows(NullPointerException.class, () -> alert.build(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, null, null, null, null,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // remainder exchange
         assertThrows(IllegalArgumentException.class, () -> alert.build(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, "bad exchange", TEST_PAIR, TEST_MESSAGE,
                 null, null, TEST_FROM_DATE, null, null,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // no margin
         assertThrows(IllegalArgumentException.class, () -> alert.build(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, null, TEST_FROM_DATE, null, null,
                 BigDecimal.ONE, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // no prices
         assertThrows(IllegalArgumentException.class, () -> alert.build(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 BigDecimal.ONE, null, TEST_FROM_DATE, null, null,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         assertThrows(IllegalArgumentException.class, () -> alert.build(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, BigDecimal.ONE, TEST_FROM_DATE, null, null,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // no to date
         assertThrows(IllegalArgumentException.class, () -> alert.build(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, null, TEST_FROM_DATE, ZonedDateTime.now(), null,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // no last trigger
         assertThrows(IllegalArgumentException.class, () -> alert.build(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, null, TEST_FROM_DATE, null, ZonedDateTime.now(),
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // no repeat
         assertThrows(IllegalArgumentException.class, () -> alert.build(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, null, TEST_FROM_DATE, null, null,
                 MARGIN_DISABLED, (short) (1 + REMAINDER_DEFAULT_REPEAT), DEFAULT_SNOOZE_HOURS));
+        // no snooze
         assertThrows(IllegalArgumentException.class, () -> alert.build(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, null, TEST_FROM_DATE, null, null,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, (short) (1 + DEFAULT_SNOOZE_HOURS)));
@@ -93,6 +102,7 @@ class RemainderAlertTest {
         assertNotNull(alert.match(now));
         assertTrue(alert.match(now).status().isMatched());
 
+        // match since any time after the date
         assertTrue(alert.match(TEST_FROM_DATE).status().isMatched());
         assertTrue(alert.match(TEST_FROM_DATE.plusMinutes(1L)).status().isMatched());
         assertTrue(alert.match(TEST_FROM_DATE.plusMinutes(3L)).status().isMatched());
@@ -101,11 +111,13 @@ class RemainderAlertTest {
         assertTrue(alert.match(TEST_FROM_DATE.plusMonths(3L)).status().isMatched());
         assertTrue(alert.match(TEST_FROM_DATE.plusYears(3L)).status().isMatched());
 
+        // match until 31 minutes to date
         assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(1L)).status().isMatched());
         assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(29L)).status().isMatched());
         assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(30L)).status().isMatched());
         assertFalse(alert.match(TEST_FROM_DATE.minusMinutes(31L)).status().isMatched());
 
+        // never match a date that is above 31 minutes later in the future
         assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(31L)).status().notMatching());
         assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(32L)).status().notMatching());
         assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(33L)).status().notMatching());
