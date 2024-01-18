@@ -62,6 +62,7 @@ class AlertTest {
     @Test
     void constructor() {
         Alert alert = createTestAlert();
+
         assertEquals(NULL_ALERT_ID, alert.id);
         assertEquals(NULL_ALERT_ID, alert.getId());
         assertEquals(TEST_TYPE, alert.type);
