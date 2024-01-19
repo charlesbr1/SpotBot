@@ -39,9 +39,8 @@ class MatchingAlertTest {
     @Test
     void matchingCandlestick() {
         Candlestick candlestick = new Candlestick(ZonedDateTime.now().minusMinutes(1L), ZonedDateTime.now(),
-                BigDecimal.TWO, BigDecimal.TWO, BigDecimal.ONE, BigDecimal.TEN);
+                BigDecimal.TWO, BigDecimal.TWO, BigDecimal.TEN, BigDecimal.ONE);
         assertEquals(candlestick, new MatchingAlert(createTestAlert(), MATCHED, candlestick).matchingCandlestick());
-
     }
 
     @Test

@@ -49,14 +49,16 @@ public final class RangeAlert extends Alert {
     @NotNull
     public MatchingAlert match(@NotNull List<Candlestick> candlesticks, @Nullable Candlestick previousCandlestick) {
         for(Candlestick candlestick : candlesticks) {
-            if(datesInLimits(candlestick, fromDate, toDate) && isNewerCandleStick(candlestick, previousCandlestick)) {
-                if(priceInRange(candlestick, fromPrice, toPrice, MARGIN_DISABLED) || priceCrossedRange(candlestick, fromPrice, toPrice, previousCandlestick)) {
-                    return new MatchingAlert(this, MATCHED, candlestick);
-                } else if(priceInRange(candlestick, fromPrice,toPrice, margin)) {
-                    return new MatchingAlert(this, MARGIN, candlestick);
+            if(isNewerCandleStick(candlestick, previousCandlestick)) {
+                if (datesInLimits(candlestick, fromDate, toDate)) {
+                    if (priceInRange(candlestick, fromPrice, toPrice, MARGIN_DISABLED) || priceCrossedRange(candlestick, fromPrice, toPrice, previousCandlestick)) {
+                        return new MatchingAlert(this, MATCHED, candlestick);
+                    } else if (priceInRange(candlestick, fromPrice, toPrice, margin)) {
+                        return new MatchingAlert(this, MARGIN, candlestick);
+                    }
                 }
+                previousCandlestick = candlestick;
             }
-            previousCandlestick = candlestick;
         }
         return new MatchingAlert(this, NOT_MATCHING, null);
     }

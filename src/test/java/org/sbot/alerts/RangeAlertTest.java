@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.function.Function;
 
 import static java.math.BigDecimal.*;
+import static java.time.ZonedDateTime.now;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.alerts.Alert.*;
 import static org.sbot.alerts.Alert.Type.range;
@@ -88,53 +89,185 @@ class RangeAlertTest {
 
     @Test
     void match() {
+        assertThrows(NullPointerException.class, () -> createTestRangeAlert().match(null, null));
+
         Alert alert = createTestRangeAlert();
-        assertThrows(NullPointerException.class, () -> alert.match(null, null));
-        assertThrows(NullPointerException.class, () -> alert.match(null, null));
         assertEquals(alert, alert.match(Collections.emptyList(), null).alert());
         assertEquals(NOT_MATCHING, alert.match(Collections.emptyList(), null).status());
-/*
-        for(Candlestick candlestick : candlesticks) {
-            if(datesInLimits(candlestick, fromDate, toDate) && isNewerCandleStick(candlestick, previousCandlestick)) {
-                if(priceInRange(candlestick, fromPrice, toPrice, MARGIN_DISABLED) || priceCrossedRange(candlestick, fromPrice, toPrice, previousCandlestick)) {
-                    return new MatchingAlert(this, MATCHED, candlestick);
-                } else if(priceInRange(candlestick, fromPrice,toPrice, margin)) {
-                    return new MatchingAlert(this, MARGIN, candlestick);
 
- */
-        // Créer une liste de Candlesticks pour le test
-        List<Candlestick> candlesticks = List.of(
-                new Candlestick(ZonedDateTime.now().minusMinutes(30), ZonedDateTime.now(), ONE, ONE, ONE, ONE),
-                new Candlestick(ZonedDateTime.now().minusMinutes(15), ZonedDateTime.now(), new BigDecimal(55), new BigDecimal(65), ONE, ONE),
-                new Candlestick(ZonedDateTime.now(), ZonedDateTime.now(), new BigDecimal(45), new BigDecimal(55), ONE, ONE)
-        );
-        //
         // previousCandlestick null
-        // datesInLimits true, priceInRange true, priceCrossedRange true -> MATCHED
-        assertEquals(MATCHED, alert.match(Collections.emptyList(), null).status());
+        // datesInLimits true, priceInRange true -> MATCHED
+        alert = alert.withFromDate(null).withToDate(null); // ensure datesInLimits true
+        alert = alert.withFromPrice(ONE).withToPrice(TWO).withMargin(ZERO);
+        ZonedDateTime now = ZonedDateTime.now();
 
-        // datesInLimits true, priceInRange true, priceCrossedRange false -> MATCHED
+        Candlestick candlestick = new Candlestick(now, now, ONE, ONE, TWO, ONE);
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
+        assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+
+        Candlestick candlestick2 = new Candlestick(now, now.plusMinutes(1L), ONE, ONE, TEN, TWO);
+        assertEquals(MATCHED, alert.match(List.of(candlestick2), null).status());
+        assertNotNull(alert.match(List.of(candlestick2), null).matchingCandlestick());
+
+        Candlestick candlestick3 = new Candlestick(now.minusMinutes(2L), now.minusMinutes(1L), TEN, TEN, TEN, TWO.add(ONE));
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick3), null).status());
+        assertNull(alert.match(List.of(candlestick3), null).matchingCandlestick());
+
+        assertEquals(candlestick, alert.match(List.of(candlestick, candlestick3, candlestick2), null).matchingCandlestick());
+        assertEquals(candlestick, alert.match(List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
+        assertEquals(candlestick2, alert.match(List.of(candlestick3, candlestick2), null).matchingCandlestick());
+
+        // test previous candlestick, should ignore candlestick with same closeTime
+        candlestick3 = new Candlestick(now, now, TEN, TEN, TEN, TWO.add(ONE));
+        assertEquals(candlestick2, alert.match(List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
+        candlestick2 = new Candlestick(now, now, ONE, ONE, TEN, TWO);
+        assertNull(alert.match(List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick3, candlestick, candlestick2), null).status());
+        assertNull(alert.match(List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
+
         // datesInLimits true, priceInRange false, priceCrossedRange true -> MATCHED
-        // datesInLimits true, priceInRange false, priceCrossedRange false  margin true -> MARGIN
+        alert = alert.withFromDate(null).withToDate(null); // ensure datesInLimits true
+        alert = alert.withToPrice(BigDecimal.valueOf(6L)).withFromPrice(BigDecimal.valueOf(5L)).withMargin(ZERO);
+
+        candlestick = new Candlestick(now, now, BigDecimal.valueOf(7L), BigDecimal.valueOf(7L), BigDecimal.valueOf(8L), BigDecimal.valueOf(7L));
+        candlestick2 = new Candlestick(now, now.plusMinutes(1L), BigDecimal.valueOf(3L), BigDecimal.valueOf(4L), BigDecimal.valueOf(4L), BigDecimal.valueOf(3L));
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick2), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+        assertNull(alert.match(List.of(candlestick2), null).matchingCandlestick());
+        assertEquals(MATCHED, alert.match(List.of(candlestick, candlestick2), null).status());
+        assertNotNull(alert.match(List.of(candlestick, candlestick2), null).matchingCandlestick());
+
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick2, candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick2, candlestick), null).matchingCandlestick());
+        candlestick2 = new Candlestick(now.minusMinutes(2L), now.minusMinutes(1L), BigDecimal.valueOf(3L), BigDecimal.valueOf(4L), BigDecimal.valueOf(4L), BigDecimal.valueOf(3L));
+        assertEquals(MATCHED, alert.match(List.of(candlestick2, candlestick), null).status());
+        assertNotNull(alert.match(List.of(candlestick2, candlestick), null).matchingCandlestick());
+
+
         // datesInLimits true, priceInRange false, priceCrossedRange false  margin false -> NOT_MATCHED
+        alert = alert.withFromDate(null).withToDate(null); // ensure datesInLimits true
+        alert = alert.withFromPrice(BigDecimal.valueOf(3L)).withToPrice(BigDecimal.valueOf(4L)).withMargin(ZERO);
+        candlestick = new Candlestick(now, now, BigDecimal.valueOf(7L), BigDecimal.valueOf(7L), BigDecimal.valueOf(8L), BigDecimal.valueOf(7L));
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+        alert = alert.withMargin(TWO);
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
 
-        // datesInLimits false, priceInRange true, priceCrossedRange true -> NOT_MATCHED
-        // datesInLimits false, priceInRange true, priceCrossedRange false -> NOT_MATCHED
+        // datesInLimits true, priceInRange false, priceCrossedRange false  margin true -> MARGIN
+        alert = alert.withMargin(BigDecimal.valueOf(3L));
+        assertEquals(MARGIN, alert.match(List.of(candlestick), null).status());
+        assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+
+        alert = alert.withMargin(ZERO);
+        candlestick = new Candlestick(now, now, ONE, ONE, TWO, ONE);
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+        alert = alert.withMargin(TWO);
+        assertEquals(MARGIN, alert.match(List.of(candlestick), null).status());
+        assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+
+        // datesInLimits false, priceInRange true -> NOT_MATCHED
+        alert = alert.withFromDate(null).withToDate(null); // ensure datesInLimits true
+        alert = alert.withFromPrice(ONE).withToPrice(TWO).withMargin(ZERO);
+        candlestick = new Candlestick(now, now, ONE, ONE, TWO, ONE);
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
+        assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+        alert = alert.withFromDate(now.minusMinutes(1L));
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
+        assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+        alert = alert.withFromDate(now.plusMinutes(1L)); // ensure datesInLimits false
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+        alert = alert.withFromDate(now.plusHours(1L));
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+        alert = alert.withFromDate(null).withToDate(now);
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
+        assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+        alert = alert.withToDate(now.plusMinutes(1L));
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
+        assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+        alert = alert.withToDate(now.minusMinutes(1L));
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+        alert = alert.withToDate(now.minusHours(1L));
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+
         // datesInLimits false, priceInRange false, priceCrossedRange true -> NOT_MATCHED
+        alert = alert.withFromDate(null).withToDate(null); // ensure datesInLimits true
+        alert = alert.withToPrice(BigDecimal.valueOf(6L)).withFromPrice(BigDecimal.valueOf(5L)).withMargin(ZERO);
+        candlestick = new Candlestick(now, now, BigDecimal.valueOf(7L), BigDecimal.valueOf(7L), BigDecimal.valueOf(8L), BigDecimal.valueOf(7L));
+        candlestick2 = new Candlestick(now, now.plusMinutes(1L), BigDecimal.valueOf(3L), BigDecimal.valueOf(4L), BigDecimal.valueOf(4L), BigDecimal.valueOf(3L));
+        assertEquals(MATCHED, alert.match(List.of(candlestick, candlestick2), null).status());
+        assertNotNull(alert.match(List.of(candlestick, candlestick2), null).matchingCandlestick());
+        alert = alert.withFromDate(now.plusMinutes(2L)); // ensure datesInLimits false
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick, candlestick2), null).status());
+        assertNull(alert.match(List.of(candlestick, candlestick2), null).matchingCandlestick());
+        alert = alert.withFromDate(null).withToDate(now.plusMinutes(1L));
+        assertEquals(MATCHED, alert.match(List.of(candlestick, candlestick2), null).status());
+        assertNotNull(alert.match(List.of(candlestick, candlestick2), null).matchingCandlestick());
+        alert = alert.withToDate(now);
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick, candlestick2), null).status());
+        assertNull(alert.match(List.of(candlestick, candlestick2), null).matchingCandlestick());
+
         // datesInLimits false, priceInRange false, priceCrossedRange false  margin true -> NOT_MATCHED
-        // datesInLimits false, priceInRange false, priceCrossedRange false  margin false -> NOT_MATCHED
+        alert = alert.withFromDate(null).withToDate(null); // ensure datesInLimits true
+        alert = alert.withFromPrice(BigDecimal.valueOf(3L)).withToPrice(BigDecimal.valueOf(4L));
+        candlestick = new Candlestick(now, now, BigDecimal.valueOf(7L), BigDecimal.valueOf(7L), BigDecimal.valueOf(8L), BigDecimal.valueOf(7L));
+        alert = alert.withMargin(BigDecimal.valueOf(3L));
+        assertEquals(MARGIN, alert.match(List.of(candlestick), null).status());
+        assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+        alert = alert.withFromDate(now.plusMinutes(1L));
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+        alert = alert.withFromDate(null).withToDate(now.minusMinutes(1L));
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
 
-        // previousCandlestick true
-        // all test -> same NOT_MATCHED
-//        assertNotNull(matchingAlert.matchingCandlestick());
 
+        // previousCandlestick provided
+        // datesInLimits true, priceInRange true -> MATCHED
+        alert = alert.withFromDate(null).withToDate(null); // ensure datesInLimits true
+        alert = alert.withFromPrice(ONE).withToPrice(TWO).withMargin(ZERO);
+        candlestick = new Candlestick(now, now, ONE, ONE, TWO, ONE);
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
+        Candlestick previousCandlestick = new Candlestick(now, now, ONE, ONE, TWO, ONE);
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), previousCandlestick).status());
+        previousCandlestick = new Candlestick(now.minusMinutes(2L), now.minusMinutes(1L), ONE, ONE, TWO, ONE);
+        assertEquals(MATCHED, alert.match(List.of(candlestick), previousCandlestick).status());
+
+        // previousCandlestick provided
+        // datesInLimits true, priceInRange false, priceCrossedRange true -> MATCHED
+        alert = alert.withFromDate(null).withToDate(null); // ensure datesInLimits true
+        alert = alert.withToPrice(BigDecimal.valueOf(6L)).withFromPrice(BigDecimal.valueOf(5L)).withMargin(ZERO);
+
+        candlestick = new Candlestick(now, now, BigDecimal.valueOf(7L), BigDecimal.valueOf(7L), BigDecimal.valueOf(8L), BigDecimal.valueOf(7L));
+        candlestick2 = new Candlestick(now, now.plusMinutes(1L), BigDecimal.valueOf(3L), BigDecimal.valueOf(4L), BigDecimal.valueOf(4L), BigDecimal.valueOf(3L));
+        assertEquals(MATCHED, alert.match(List.of(candlestick, candlestick2), null).status());
+        previousCandlestick = new Candlestick(now, now.plusMinutes(3L), ONE, ONE, TWO, ONE);
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick, candlestick2), previousCandlestick).status());
+        previousCandlestick = new Candlestick(now.minusMinutes(2L), now.minusMinutes(1L), ONE, ONE, TWO, ONE);
+        assertEquals(MATCHED, alert.match(List.of(candlestick, candlestick2), previousCandlestick).status());
+
+        // previousCandlestick provided
+        // datesInLimits true, priceInRange false, priceCrossedRange false  margin true -> MARGIN
+        alert = alert.withFromPrice(BigDecimal.valueOf(3L)).withToPrice(BigDecimal.valueOf(4L));
+        alert = alert.withMargin(BigDecimal.valueOf(3L));
+        candlestick = new Candlestick(now, now, ONE, ONE, ONE, ONE);
+        assertEquals(MARGIN, alert.match(List.of(candlestick), null).status());
+        previousCandlestick = new Candlestick(now, now.plusMinutes(1L), ONE, ONE, TWO, ONE);
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), previousCandlestick).status());
+        previousCandlestick = new Candlestick(now.minusMinutes(2L), now.minusMinutes(1L), ONE, ONE, TWO, ONE);
+        assertEquals(MARGIN, alert.match(List.of(candlestick), previousCandlestick).status());
     }
 
     @Test
     void datesInLimits() {
-        ZonedDateTime closeTime = ZonedDateTime.now();
-        Candlestick candlestick = new Candlestick(ZonedDateTime.now().minusMinutes(1L), closeTime,
-                TWO, TWO, ONE, TEN);
+        ZonedDateTime closeTime = now();
+        Candlestick candlestick = new Candlestick(now().minusMinutes(1L), closeTime, TWO, TWO, TEN, ONE);
 
         assertTrue(RangeAlert.datesInLimits(candlestick, null, null));
 
@@ -146,7 +279,7 @@ class RangeAlertTest {
         // close is after to date
         assertTrue(RangeAlert.datesInLimits(candlestick, null, closeTime));
         assertTrue(RangeAlert.datesInLimits(candlestick, null, closeTime.plusMinutes(1L)));
-        assertFalse(RangeAlert.datesInLimits(candlestick, null, ZonedDateTime.now().minusMinutes(1)));
+        assertFalse(RangeAlert.datesInLimits(candlestick, null, now().minusMinutes(1)));
 
         // close is between from and to date
         assertTrue(RangeAlert.datesInLimits(candlestick, closeTime, closeTime));
@@ -160,7 +293,7 @@ class RangeAlertTest {
         BigDecimal openClose = new BigDecimal(35L);
 
         Candlestick candlestick = new Candlestick(
-                ZonedDateTime.now(), ZonedDateTime.now().plusHours(1L),
+                now(), now().plusHours(1L),
                 openClose, openClose,
                 high, low);
 
@@ -249,7 +382,7 @@ class RangeAlertTest {
         BigDecimal toPrice = new BigDecimal(35L);
 
         Function<BigDecimal, Candlestick> newCandle = price -> new Candlestick(
-                ZonedDateTime.now(), ZonedDateTime.now().plusHours(1L),
+                now(), now().plusHours(1L),
                 price.add(ONE), price.add(ONE),
                 price.add(TEN), price);
 
@@ -276,7 +409,7 @@ class RangeAlertTest {
         assertFalse(RangeAlert.priceCrossedRange(current, toPrice, toPrice, null));
 
         newCandle = price -> new Candlestick(
-                ZonedDateTime.now(), ZonedDateTime.now().plusHours(1L),
+                now(), now().plusHours(1L),
                 price.add(ONE), price.add(ONE),
                 price, price.subtract(TEN));
 

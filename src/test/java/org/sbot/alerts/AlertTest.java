@@ -276,13 +276,13 @@ class AlertTest {
     void isNewerCandleStick() {
         ZonedDateTime closeTime = ZonedDateTime.now();
         Candlestick candlestick = new Candlestick(ZonedDateTime.now().minusMinutes(1L), closeTime,
-                BigDecimal.TWO, BigDecimal.TWO, BigDecimal.ONE, BigDecimal.TEN);
+                BigDecimal.TWO, BigDecimal.TWO, BigDecimal.TEN, BigDecimal.ONE);
 
         assertThrows(NullPointerException.class, () -> Alert.isNewerCandleStick(null, candlestick));
         assertTrue(Alert.isNewerCandleStick(candlestick, null));
         assertFalse(Alert.isNewerCandleStick(candlestick, candlestick));
 
-        Candlestick olderCandlestick = new Candlestick(candlestick.openTime(), closeTime.minusMinutes(1L),
+        Candlestick olderCandlestick = new Candlestick(candlestick.openTime().minusMinutes(2L), closeTime.minusMinutes(1L),
                 candlestick.open(), candlestick.close(), candlestick.high(), candlestick.low());
         assertTrue(Alert.isNewerCandleStick(candlestick, olderCandlestick));
 
