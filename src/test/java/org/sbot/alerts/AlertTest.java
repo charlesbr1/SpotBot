@@ -3,6 +3,7 @@ package org.sbot.alerts;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.sbot.alerts.MatchingAlert.MatchingStatus;
 import org.sbot.chart.Candlestick;
 import org.sbot.utils.Dates;
 
@@ -15,20 +16,20 @@ import static org.sbot.alerts.Alert.*;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 
-class AlertTest {
+public class AlertTest {
 
-    static final Type TEST_TYPE = Type.range;
-    static final long TEST_USER_ID = 1234L;
-    static final long TEST_SERVER_ID = 4321L;
-    static final String TEST_EXCHANGE = SUPPORTED_EXCHANGES.get(0);
-    static final String TEST_PAIR = "btc/usd";
-    static final String TEST_MESSAGE = "test message";
-    static final BigDecimal TEST_FROM_PRICE = BigDecimal.valueOf(10L);
-    static final BigDecimal TEST_TO_PRICE = BigDecimal.valueOf(20L);
-    static final ZonedDateTime TEST_FROM_DATE = Dates.parseUTC("01/01/2000-20:00");
-    static final ZonedDateTime TEST_TO_DATE = TEST_FROM_DATE.plusDays(1L);
-    static final ZonedDateTime TEST_LAST_TRIGGER = TEST_FROM_DATE.plusHours(1L);
-    static final BigDecimal TEST_MARGIN = BigDecimal.TEN;
+    public static final Type TEST_TYPE = Type.range;
+    public static final long TEST_USER_ID = 1234L;
+    public static final long TEST_SERVER_ID = 4321L;
+    public static final String TEST_EXCHANGE = SUPPORTED_EXCHANGES.get(0);
+    public static final String TEST_PAIR = "btc/usd";
+    public static final String TEST_MESSAGE = "test message";
+    public static final BigDecimal TEST_FROM_PRICE = BigDecimal.valueOf(10L);
+    public static final BigDecimal TEST_TO_PRICE = BigDecimal.valueOf(20L);
+    public static final ZonedDateTime TEST_FROM_DATE = Dates.parseUTC("01/01/2000-20:00");
+    public static final ZonedDateTime TEST_TO_DATE = TEST_FROM_DATE.plusDays(1L);
+    public static final ZonedDateTime TEST_LAST_TRIGGER = TEST_FROM_DATE.plusHours(1L);
+    public static final BigDecimal TEST_MARGIN = BigDecimal.TEN;
 
 
     private static final class TestAlert extends Alert {
@@ -46,15 +47,44 @@ class AlertTest {
         public MatchingAlert match(@NotNull List<Candlestick> candlesticks, @Nullable Candlestick previousCandlestick) {
             return new MatchingAlert(this, NOT_MATCHING, null);
         }
+
         @NotNull
         @Override
-        protected String asMessage(@NotNull MatchingAlert.MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
-            return matchingStatus.name();
+        protected String asMessage(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick) {
+            return "TestAlert{" +
+                    "id=" + id +
+                    ", type=" + type +
+                    ", userId=" + userId +
+                    ", serverId=" + serverId +
+                    ", exchange='" + exchange + '\'' +
+                    ", pair='" + pair + '\'' +
+                    ", message='" + message + '\'' +
+                    ", fromPrice=" + fromPrice +
+                    ", toPrice=" + toPrice +
+                    ", fromDate=" + fromDate +
+                    ", toDate=" + toDate +
+                    ", lastTrigger=" + lastTrigger +
+                    ", margin=" + margin +
+                    ", repeat=" + repeat +
+                    ", snooze=" + snooze +
+                    '}' + matchingStatus.name();
         }
     }
 
-    static Alert createTestAlert() {
+    public static Alert createTestAlert() {
         return new TestAlert(NULL_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
+                TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
+    }
+
+    public static Alert createTestAlertWithUserId(long userId) {
+        return new TestAlert(NULL_ALERT_ID, TEST_TYPE, userId, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
+                TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
+    }
+
+    public static Alert createTestAlertWithUserIdAndPair(long userId, String pair) {
+        return new TestAlert(NULL_ALERT_ID, TEST_TYPE, userId, TEST_SERVER_ID, TEST_EXCHANGE, pair, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
     }
@@ -294,15 +324,15 @@ class AlertTest {
     @Test
     void onRaiseMessage() {
         Alert alert = createTestAlert();
-        assertEquals(NOT_MATCHING.name(), alert.onRaiseMessage(NOT_MATCHING, null));
-        assertEquals(MATCHED.name(), alert.onRaiseMessage(MATCHED, null));
-        assertEquals(MARGIN.name(), alert.onRaiseMessage(MARGIN, null));
+        assertTrue(alert.onRaiseMessage(NOT_MATCHING, null).contains(NOT_MATCHING.name()));
+        assertTrue(alert.onRaiseMessage(MATCHED, null).contains(MATCHED.name()));
+        assertTrue(alert.onRaiseMessage(MARGIN, null).contains(MARGIN.name()));
     }
 
     @Test
     void descriptionMessage() {
         Alert alert = createTestAlert();
-        assertEquals(NOT_MATCHING.name(), alert.descriptionMessage());
+        assertTrue(alert.descriptionMessage().contains(NOT_MATCHING.name()));
     }
 
     @Test

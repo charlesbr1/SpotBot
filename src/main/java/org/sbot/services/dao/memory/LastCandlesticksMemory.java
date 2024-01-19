@@ -17,7 +17,7 @@ public final class LastCandlesticksMemory implements LastCandlesticksDao {
 
     private static final Logger LOGGER = LogManager.getLogger(LastCandlesticksMemory.class);
 
-    private static final Map<String, Candlestick> lastCandlesticks = new ConcurrentHashMap<>();
+    private final Map<String, Candlestick> lastCandlesticks = new ConcurrentHashMap<>();
 
     {
         LOGGER.debug("Loading memory storage for last_candlesticks");

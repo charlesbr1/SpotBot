@@ -33,13 +33,13 @@ public interface Ticker {
         } else if (absPrice.compareTo(BigDecimal.ONE) >= 0) { // 4 digits after the comma
             decimalFormat.setMaximumFractionDigits(4);
         } else { // 5 digits after the zeros after the comma
-            BigDecimal fractionalPart = absPrice.remainder(BigDecimal.ONE).multiply(BigDecimal.TEN);
-            int zeros = 0;
+            BigDecimal fractionalPart = absPrice.remainder(BigDecimal.ONE);
+            int nbZerosPlusOne = 0;
             while (fractionalPart.compareTo(BigDecimal.ONE) < 0) {
                 fractionalPart = fractionalPart.multiply(BigDecimal.TEN);
-                zeros++;
+                nbZerosPlusOne++;
             }
-            decimalFormat.setMaximumFractionDigits(Math.min(16, zeros + 5));
+            decimalFormat.setMaximumFractionDigits(Math.min(16, nbZerosPlusOne + 4));
         }
         return decimalFormat.format(price) + ' ' + getSymbol(ticker);
     }

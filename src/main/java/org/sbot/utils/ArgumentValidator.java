@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.LongStream;
 
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
@@ -104,5 +105,11 @@ public interface ArgumentValidator {
         if(!matcher.matches())
             throw new IllegalArgumentException("Provided string is not an user mention : " + userMention);
         return Long.parseLong(matcher.group(1));
+    }
+
+    static int stringLength(long[] values) {
+        return LongStream.of(values).mapToInt(number -> number == 0 ? 1 :
+                ((int) (Math.log10(Math.abs(number)) + (number < 0 ? 2 : 1)))) // < 0 need + 1 char : '-'
+                .sum();
     }
 }

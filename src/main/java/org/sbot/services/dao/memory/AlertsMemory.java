@@ -30,7 +30,7 @@ public final class AlertsMemory implements AlertsDao {
 
     private final Map<Long, Alert> alerts = new ConcurrentHashMap<>();
 
-    private final AtomicLong idGenerator = new AtomicLong(0L);
+    private final AtomicLong idGenerator = new AtomicLong(1L);
 
     {
         LOGGER.debug("Loading memory storage for alerts");
@@ -235,7 +235,7 @@ public final class AlertsMemory implements AlertsDao {
     public long updateServerIdPrivate(long serverId) {
         LOGGER.debug("updateServerIdPrivate {}", serverId);
         long[] updatedAlerts = new long[] {0L};
-        alerts.replaceAll((alertId, alert) ->
+        alerts.replaceAll((_, alert) ->
                 alert.serverId == serverId &&
                 ++updatedAlerts[0] != 0 ? alert.withServerId(PRIVATE_ALERT) : alert);
         return updatedAlerts[0];

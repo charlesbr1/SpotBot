@@ -33,6 +33,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.alerts.Alert.Type.remainder;
+import static org.sbot.utils.ArgumentValidator.stringLength;
 import static org.sbot.utils.Dates.parseDateTimeOrNull;
 
 public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
@@ -153,7 +154,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     public AlertsSQLite(@NotNull JDBIRepository repository) {
         super(repository, new AlertMapper());
         LOGGER.debug("Loading SQLite storage for alerts");
-        idGenerator = new AtomicLong(transactional(this::getMaxId) + 1);
+        idGenerator = new AtomicLong(transactional(this::getMaxId) + 1); // id starts from 1
     }
 
     @Override
@@ -169,7 +170,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     public long getMaxId() {
         LOGGER.debug("getMaxId");
         return findOneLong(SQL.SELECT_MAX_ID, emptyMap())
-                    .orElse(-1L); // id starts from 0, so returns -1 if no one is found
+                    .orElse(0L);
     }
 
     @Override
@@ -228,7 +229,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     private static String selectAlertIdAndMessageByIdIn(long[] alertIds) {
         String sql = "SELECT id,message FROM alerts WHERE id IN (";
         return LongStream.of(alertIds).collect(
-                        () -> new StringBuilder(sql.length() + 1 + (alertIds.length * 20)),
+                        () -> new StringBuilder(sql.length() + stringLength(alertIds) + alertIds.length),
                         (sb, value) -> sb.append(sb.isEmpty() ? sql : "," ).append(value),
                         StringBuilder::append)
                 .append(')').toString();

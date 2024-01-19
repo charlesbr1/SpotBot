@@ -92,8 +92,8 @@ class TrendAlertTest {
         // previousCandlestick null
         // priceOnTrend true -> MATCHED
         ZonedDateTime now = ZonedDateTime.now();
-        alert = alert.withToDate(now.plusHours(1L)).withFromDate(now); // ensure datesInLimits true
-        alert = alert.withFromPrice(TWO).withToPrice(TWO.add(ONE)).withMargin(ZERO);
+        alert = alert.withToDate(now.plusHours(1L)).withFromDate(now); // test alert increment 1 by hour
+        alert = alert.withFromPrice(TWO).withToPrice(BigDecimal.valueOf(3L)).withMargin(ZERO);
 
         Candlestick candlestick = new Candlestick(now, now, ONE, ONE, new BigDecimal("2.5"), ONE);
         assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
@@ -119,8 +119,48 @@ class TrendAlertTest {
         assertEquals(NOT_MATCHING, alert.match(List.of(candlestick3, candlestick, candlestick2), null).status());
         assertNull(alert.match(List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
 
+        // test current price changes
+        alert = alert.withFromPrice(TWO).withToPrice(BigDecimal.valueOf(3L)).withMargin(ZERO);
+        alert = alert.withToDate(now.plusHours(2L)).withFromDate(now.plusHours(1L));
+        candlestick = new Candlestick(now, now, TWO, TWO, TWO, TWO);
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+        candlestick = new Candlestick(now, now, TEN, TEN, TEN, new BigDecimal(3L));
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+        candlestick = new Candlestick(now, now, ONE, ONE, ONE, ONE);
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
+        assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+
+        // trend should be caped to ZERO on the south
+        alert = alert.withToDate(now.plusHours(2L).plusMinutes(10L)).withFromDate(now.plusHours(2L)); // alert increment 6 by hour
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+        candlestick = new Candlestick(now, now, new BigDecimal("0.00000001"), new BigDecimal("0.00000001"), new BigDecimal("0.00000001"), new BigDecimal("0.00000001"));
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+        candlestick = new Candlestick(now, now, ZERO, ZERO, ZERO, ZERO);
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
+        assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+
+        // trend should increase in the future
+        alert = alert.withFromDate(now.minusHours(3L).minusMinutes(40L)).withToDate(now.minusHours(3L).minusMinutes(30L));
+        candlestick = new Candlestick(now, now, // alert increment 6 by hour, so 18 + 3 for 3h30, = 21 + to price (3) = 24
+                BigDecimal.valueOf(23L), BigDecimal.valueOf(23L), BigDecimal.valueOf(23L), BigDecimal.valueOf(23L));
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertEquals(MARGIN, alert.withMargin(ONE).match(List.of(candlestick), null).status());
+        candlestick = new Candlestick(now, now,
+                BigDecimal.valueOf(25L), BigDecimal.valueOf(25L), BigDecimal.valueOf(25L), BigDecimal.valueOf(25L));
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertEquals(MARGIN, alert.withMargin(ONE).match(List.of(candlestick), null).status());
+        candlestick = new Candlestick(now, now,
+                BigDecimal.valueOf(24L), BigDecimal.valueOf(24L), BigDecimal.valueOf(24L), BigDecimal.valueOf(24L));
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
+
+
         // priceOnTrend false, priceCrossedTrend true -> MATCHED
-        alert = alert.withMargin(ZERO);
+        alert = alert.withToDate(now.plusHours(1L)).withFromDate(now); // test alert increment 1 by hour
+        alert = alert.withFromPrice(TWO).withToPrice(BigDecimal.valueOf(3L)).withMargin(ZERO);
 
         candlestick = new Candlestick(now, now, ONE, ONE, ONE, ONE);
         candlestick2 = new Candlestick(now, now.plusMinutes(1L), TEN, TEN, TEN, TEN);
