@@ -105,7 +105,7 @@ class RangeAlertTest {
         assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
         assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
 
-        Candlestick candlestick2 = new Candlestick(now, now.plusMinutes(1L), ONE, ONE, TEN, TWO);
+        Candlestick candlestick2 = new Candlestick(now, now.plusMinutes(1L), TWO, TWO, TEN, TWO);
         assertEquals(MATCHED, alert.match(List.of(candlestick2), null).status());
         assertNotNull(alert.match(List.of(candlestick2), null).matchingCandlestick());
 
@@ -117,11 +117,10 @@ class RangeAlertTest {
         assertEquals(candlestick, alert.match(List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
         assertEquals(candlestick2, alert.match(List.of(candlestick3, candlestick2), null).matchingCandlestick());
 
-        // test previous candlestick, should ignore candlestick with same closeTime
+        // test newer candlestick, should ignore candlestick with same closeTime
         candlestick3 = new Candlestick(now, now, TEN, TEN, TEN, TWO.add(ONE));
         assertEquals(candlestick2, alert.match(List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
-        candlestick2 = new Candlestick(now, now, ONE, ONE, TEN, TWO);
-        assertNull(alert.match(List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
+        candlestick2 = new Candlestick(now, now, TWO, TWO, TEN, TWO);
         assertEquals(NOT_MATCHING, alert.match(List.of(candlestick3, candlestick, candlestick2), null).status());
         assertNull(alert.match(List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
 

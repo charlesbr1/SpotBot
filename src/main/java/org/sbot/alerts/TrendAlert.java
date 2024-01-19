@@ -56,8 +56,8 @@ public final class TrendAlert extends Alert {
                 } else if(priceOnTrend(candlestick, currentTrendPrice, margin)) {
                     return new MatchingAlert(this, MARGIN, candlestick);
                 }
+                previousCandlestick = candlestick;
             }
-            previousCandlestick = candlestick;
         }
         return new MatchingAlert(this, NOT_MATCHING, null);
     }
