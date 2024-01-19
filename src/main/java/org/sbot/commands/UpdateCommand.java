@@ -28,25 +28,33 @@ public final class UpdateCommand extends CommandAdapter {
     static final String DESCRIPTION = "update an alert (only 'message' and 'from_date' fields can be updated on a remainder alert)";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
-    private static final String CHOICE_MESSAGE = "message";
+    private static final String DISPLAY_FROM_PRICE_OR_LOW = "from price (or low)";
+    private static final String DISPLAY_FROM_PRICE = "from price";
     private static final String CHOICE_FROM_PRICE = "from_price";
+    private static final String CHOICE_LOW = "low";
+    private static final String DISPLAY_TO_PRICE_OR_HIGH = "to price (or high)";
+    private static final String DISPLAY_TO_PRICE = "to price";
     private static final String CHOICE_TO_PRICE = "to_price";
+    private static final String CHOICE_HIGH = "high";
+    private static final String DISPLAY_FROM_DATE = "from date";
     private static final String CHOICE_FROM_DATE = "from_date";
+    private static final String DISPLAY_TO_DATE = "to date";
     private static final String CHOICE_TO_DATE = "to_date";
+    private static final String CHOICE_MESSAGE = "message";
     private static final String CHOICE_MARGIN = "margin";
     private static final String CHOICE_REPEAT = "repeat";
     private static final String CHOICE_SNOOZE = "snooze";
 
     static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(
-                    option(STRING, "field", "the field to update (" + CHOICE_MESSAGE + ", " + CHOICE_FROM_PRICE +
-                            ", " + CHOICE_TO_PRICE + ", " + CHOICE_FROM_DATE + ", " + CHOICE_TO_DATE +
-                            ", " + CHOICE_MARGIN + ", " + CHOICE_REPEAT + ", " + CHOICE_SNOOZE + ')', true)
+                    option(STRING, "field", CHOICE_MESSAGE + ", " + DISPLAY_FROM_PRICE_OR_LOW +
+                            ", " + DISPLAY_TO_PRICE_OR_HIGH + ", " + DISPLAY_FROM_DATE + ", " + DISPLAY_TO_DATE +
+                            ", " + CHOICE_MARGIN + ", " + CHOICE_REPEAT + ", or " + CHOICE_SNOOZE, true)
                             .addChoice(CHOICE_MESSAGE, CHOICE_MESSAGE)
-                            .addChoice(CHOICE_FROM_PRICE, CHOICE_FROM_PRICE)
-                            .addChoice(CHOICE_TO_PRICE, CHOICE_TO_PRICE)
-                            .addChoice(CHOICE_FROM_DATE, CHOICE_FROM_DATE)
-                            .addChoice(CHOICE_TO_DATE, CHOICE_TO_DATE)
+                            .addChoice(DISPLAY_FROM_PRICE_OR_LOW, CHOICE_FROM_PRICE)
+                            .addChoice(DISPLAY_TO_PRICE_OR_HIGH, CHOICE_TO_PRICE)
+                            .addChoice(DISPLAY_FROM_DATE, CHOICE_FROM_DATE)
+                            .addChoice(DISPLAY_TO_DATE, CHOICE_TO_DATE)
                             .addChoice(CHOICE_MARGIN, CHOICE_MARGIN)
                             .addChoice(CHOICE_REPEAT, CHOICE_REPEAT)
                             .addChoice(CHOICE_SNOOZE, CHOICE_SNOOZE),
@@ -70,8 +78,8 @@ public final class UpdateCommand extends CommandAdapter {
 
         var updater = switch (field) {
             case CHOICE_MESSAGE -> message(context, alertId, notificationCallBack);
-            case CHOICE_FROM_PRICE -> fromPrice(context, alertId, notificationCallBack);
-            case CHOICE_TO_PRICE -> toPrice(context, alertId, notificationCallBack);
+            case CHOICE_FROM_PRICE, CHOICE_LOW -> fromPrice(context, alertId, notificationCallBack);
+            case CHOICE_TO_PRICE, CHOICE_HIGH -> toPrice(context, alertId, notificationCallBack);
             case CHOICE_FROM_DATE -> fromDate(context, alertId, notificationCallBack);
             case CHOICE_TO_DATE -> toDate(context, alertId, notificationCallBack);
             case CHOICE_MARGIN -> margin(context, alertId, notificationCallBack);
@@ -92,24 +100,24 @@ public final class UpdateCommand extends CommandAdapter {
     private Function<Alert, String> fromPrice(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         BigDecimal fromPrice = requirePositive(context.args.getMandatoryNumber("value"));
         return alert -> {
+            String fieldName = range == alert.type ? CHOICE_LOW : DISPLAY_FROM_PRICE;
             if(fromPrice.compareTo(alert.fromPrice) != 0) {
-                context.alertsDao.updateFromPrice(alertId, alert.withFromPrice(fromPrice).fromPrice);
-                ownerUpdateNotification(context, alertId, alert.userId, "from_price", fromPrice.toPlainString(), outNotificationCallBack);
-                return "Value from_price of alert " + alertId + " updated to *" + fromPrice.toPlainString() + "*";
+                context.alertsDao.updateFromPrice(alertId, (alert = alert.withFromPrice(fromPrice)).fromPrice);
+                return successMessage(context, alert, fieldName, fromPrice.toPlainString(), outNotificationCallBack);
             }
-            return "Alert " +  + alertId + ", from_price is already set to " + fromPrice.toPlainString();
+            return alreadySet(alertId, fieldName, fromPrice.toPlainString());
         };
     }
 
     private Function<Alert, String> toPrice(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("value"));
         return alert -> {
+            String fieldName = range == alert.type ? CHOICE_HIGH : DISPLAY_TO_PRICE;
             if(toPrice.compareTo(alert.toPrice) != 0) {
-                context.alertsDao.updateToPrice(alertId, alert.withToPrice(toPrice).toPrice);
-                ownerUpdateNotification(context, alertId, alert.userId, "to_price", toPrice.toPlainString(), outNotificationCallBack);
-                return "Value to_price of alert " + alertId + " updated to *" + toPrice.toPlainString() + "*";
+                context.alertsDao.updateToPrice(alertId, (alert = alert.withToPrice(toPrice)).toPrice);
+                return successMessage(context, alert, fieldName, toPrice.toPlainString(), outNotificationCallBack);
             }
-            return "Alert " +  + alertId + ", to_price is already set to " + toPrice.toPlainString();
+            return alreadySet(alertId, fieldName, toPrice.toPlainString());
         };
     }
 
@@ -125,11 +133,10 @@ public final class UpdateCommand extends CommandAdapter {
             if((null != fromDate && null == alert.fromDate) ||
                     (null != fromDate && fromDate.compareTo(alert.fromDate) != 0) ||
                     (null == fromDate && null != alert.fromDate)) {
-                context.alertsDao.updateFromDate(alertId, alert.withFromDate(fromDate).fromDate);
-                ownerUpdateNotification(context, alertId, alert.userId, "from_date", date, outNotificationCallBack);
-                return "Value from_date of alert " + alertId + " updated to *" + date + "*";
+                context.alertsDao.updateFromDate(alertId, (alert = alert.withFromDate(fromDate)).fromDate);
+                return successMessage(context, alert, DISPLAY_FROM_DATE, date, outNotificationCallBack);
             }
-            return "Alert " +  + alertId + ", from_date is already set to " + date;
+            return alreadySet(alertId, DISPLAY_FROM_DATE, date);
         };
     }
 
@@ -147,20 +154,18 @@ public final class UpdateCommand extends CommandAdapter {
             if((null != toDate && null == alert.toDate) ||
                     (null != toDate && toDate.compareTo(alert.toDate) != 0) ||
                     (null == toDate && null != alert.toDate)) {
-                context.alertsDao.updateToDate(alertId, alert.withToDate(toDate).toDate);
-                ownerUpdateNotification(context, alertId, alert.userId, "to_date", date, outNotificationCallBack);
-                return "Value to_date of alert " + alertId + " updated to *" + date + "*";
+                context.alertsDao.updateToDate(alertId, (alert = alert.withToDate(toDate)).toDate);
+                return successMessage(context, alert, DISPLAY_TO_DATE, date, outNotificationCallBack);
             }
-            return "Alert " +  + alertId + ", to_date is already set to " + date;
+            return alreadySet(alertId, DISPLAY_TO_DATE, date);
         };
     }
 
     private Function<Alert, String> message(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         String message = requireAlertMessageMaxLength(context.args.getLastArgs("value").orElse(""));
         return alert -> {
-            context.alertsDao.updateMessage(alertId, alert.withMessage(message).message);
-            ownerUpdateNotification(context, alertId, alert.userId, "message", message, outNotificationCallBack);
-            return "Message of alert " + alertId + " updated to *" + message + "*" +
+            context.alertsDao.updateMessage(alertId, (alert = alert.withMessage(message)).message);
+            return successMessage(context, alert, CHOICE_MESSAGE, message, outNotificationCallBack) +
                     (remainder != alert.type ? alertMessageTips(message, alertId) : "");
         };
     }
@@ -168,10 +173,11 @@ public final class UpdateCommand extends CommandAdapter {
     private Function<Alert, String> margin(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         BigDecimal margin = requirePositive(context.args.getMandatoryNumber("value"));
         return alert -> {
-            context.alertsDao.updateMargin(alertId, alert.withMargin(margin).margin);
-            ownerUpdateNotification(context, alertId, alert.userId, "margin", margin.toPlainString(), outNotificationCallBack);
-            return "Margin of alert " + alertId + " updated to " + margin +
-                    (hasMargin(margin) ? "" : " (disabled)");
+            if(margin.compareTo(alert.margin) != 0) {
+                context.alertsDao.updateMargin(alertId, (alert = alert.withMargin(margin)).margin);
+                return successMessage(context, alert, CHOICE_MARGIN, margin.toPlainString(), outNotificationCallBack);
+            }
+            return alreadySet(alertId, CHOICE_MARGIN, margin.toPlainString());
         };
     }
 
@@ -180,9 +186,8 @@ public final class UpdateCommand extends CommandAdapter {
         return alert -> {
             alert = alert.withLastTriggerMarginRepeat(hasRepeat(repeat) ? null : ZonedDateTime.now(), alert.margin, repeat);
             context.alertsDao.updateRepeatAndLastTrigger(alertId, alert.repeat, alert.lastTrigger);
-            ownerUpdateNotification(context, alertId, alert.userId, "repeat", Short.toString(repeat), outNotificationCallBack);
-            return "Repeat of alert " + alertId + " updated to " + repeat +
-                    (!hasRepeat(repeat) ? " (disabled)" : ", the alert can be raise now");
+            return successMessage(context, alert, CHOICE_REPEAT, repeat + (!hasRepeat(repeat) ? " (disabled)" : ""), outNotificationCallBack) +
+                    (hasRepeat(repeat) ? "\n\nThis alert can be raise now" : "");
         };
     }
 
@@ -191,11 +196,19 @@ public final class UpdateCommand extends CommandAdapter {
         return alert -> {
             alert = alert.withLastTriggerRepeatSnooze(null, alert.repeat, 0 != snooze ? snooze : DEFAULT_SNOOZE_HOURS);
             context.alertsDao.updateSnoozeAndLastTrigger(alertId, alert.snooze, alert.lastTrigger);
-            ownerUpdateNotification(context, alertId, alert.userId, "snooze", Short.toString(snooze), outNotificationCallBack);
-            return "Snooze of alert " + alertId + " updated to " +
-                    (0 != snooze ? snooze : "default " + DEFAULT_SNOOZE_HOURS) +
-                    (snooze > 1 ? " hours" : " hour") + ", the alert can be raise now";
+            return successMessage(context, alert, CHOICE_SNOOZE,
+                    (0 != snooze ? "" + snooze : "(default) " + DEFAULT_SNOOZE_HOURS) + (snooze > 1 ? " hours" : " hour"), outNotificationCallBack) +
+                    "\n\nThis alert can be raise now";
         };
+    }
+
+    private String successMessage(@NotNull CommandContext context, @NotNull Alert alert, @NotNull String fieldName, @NotNull String newValue, @NotNull Runnable[] outNotificationCallBack) {
+        ownerUpdateNotification(context, alert.id, alert.userId, fieldName, newValue, outNotificationCallBack);
+        return "Field **" + requireNonNull(fieldName) + "** updated !\n\n" + alert.descriptionMessage();
+    }
+
+    private static String alreadySet(long alertId, @NotNull String fieldName, @NotNull String newValue) {
+        return "Alert " +  + alertId + ", **" + fieldName + "** is already set to " + newValue;
     }
 
     private void ownerUpdateNotification(@NotNull CommandContext context, long alertId, long userId, @NotNull String field, @NotNull String newValue, @NotNull Runnable[] outNotificationCallBack) {
