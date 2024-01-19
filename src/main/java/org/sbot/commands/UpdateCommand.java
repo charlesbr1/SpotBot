@@ -90,7 +90,7 @@ public final class UpdateCommand extends CommandAdapter {
     }
 
     private Function<Alert, String> fromPrice(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
-        BigDecimal fromPrice = requirePositive(context.args.getMandatoryNumber("value").stripTrailingZeros());
+        BigDecimal fromPrice = requirePositive(context.args.getMandatoryNumber("value"));
         return alert -> {
             if(fromPrice.compareTo(alert.fromPrice) != 0) {
                 context.alertsDao.updateFromPrice(alertId, alert.withFromPrice(fromPrice).fromPrice);
@@ -102,7 +102,7 @@ public final class UpdateCommand extends CommandAdapter {
     }
 
     private Function<Alert, String> toPrice(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
-        BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("value").stripTrailingZeros());
+        BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("value"));
         return alert -> {
             if(toPrice.compareTo(alert.toPrice) != 0) {
                 context.alertsDao.updateToPrice(alertId, alert.withToPrice(toPrice).toPrice);
@@ -166,7 +166,7 @@ public final class UpdateCommand extends CommandAdapter {
     }
 
     private Function<Alert, String> margin(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
-        BigDecimal margin = requirePositive(context.args.getMandatoryNumber("value").stripTrailingZeros());
+        BigDecimal margin = requirePositive(context.args.getMandatoryNumber("value"));
         return alert -> {
             context.alertsDao.updateMargin(alertId, alert.withMargin(margin).margin);
             ownerUpdateNotification(context, alertId, alert.userId, "margin", margin.toPlainString(), outNotificationCallBack);

@@ -12,6 +12,7 @@ import java.util.List;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.*;
 import static org.sbot.chart.Ticker.getSymbol;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
+import static org.sbot.utils.Dates.formatUTC;
 
 public final class RangeAlert extends Alert {
 
@@ -25,8 +26,12 @@ public final class RangeAlert extends Alert {
         if(fromPrice.compareTo(toPrice) > 0) {
             throw new IllegalArgumentException("from_price is higher than to_price");
         }
-        if(null != fromDate && null != toDate && fromDate.isAfter(toDate)) {
-            throw new IllegalArgumentException("from_date is after to_date");
+        if(null != fromDate && null != toDate) {
+            if(fromDate.isAfter(toDate)) {
+                throw new IllegalArgumentException("from_date is after to_date");
+            } else if(fromDate.compareTo(toDate) == 0) {
+                throw new IllegalArgumentException("from_date and to_date can not be the same");
+            }
         }
         requirePositive(fromPrice);
         requirePositive(toPrice);
@@ -79,6 +84,8 @@ public final class RangeAlert extends Alert {
                 "\n\n* id :\t" + id +
                 "\n* low :\t" + fromPrice.toPlainString() + ' ' + getSymbol(getTicker2()) +
                 "\n* high :\t" + toPrice.toPlainString() + ' ' + getSymbol(getTicker2()) +
+                (null != fromDate ? "\n* from date :\t" + formatUTC(fromDate) : "") +
+                (null != toDate ? "\n* to date :\t" + formatUTC(toDate) : "") +
                 footer(matchingStatus, previousCandlestick);
     }
 }

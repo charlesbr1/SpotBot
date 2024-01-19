@@ -76,7 +76,7 @@ public final class TrendCommand extends CommandAdapter {
             fromPrice = toPrice;
             toPrice = value;
         }
-        //TODO if toPrice = fromPrice -> create range alert
+        //TODO if toPrice = fromPrice -> create range alert ?
 
         TrendAlert trendAlert = new TrendAlert(NULL_ALERT_ID, context.user.getIdLong(),
                 context.serverId(),

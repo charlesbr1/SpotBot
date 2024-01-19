@@ -22,6 +22,7 @@ import static java.time.ZoneId.SHORT_IDS;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
+import static org.sbot.chart.Ticker.formatPrice;
 import static org.sbot.chart.Ticker.getSymbol;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
@@ -73,8 +74,7 @@ public final class QuoteCommand extends CommandAdapter {
         return candlestick.stream()
                 .sorted(comparing(Candlestick::closeTime).reversed())
                 .map(c ->
-                "**[" + pair + "]**\n\n> " +
-                c.close().stripTrailingZeros().toPlainString() + ' ' + getSymbol(ticker2) +
+                "**[" + pair + "]**\n\n> " + formatPrice(c.close(), ticker2) +
                 "\n\n" + dateFormatter.apply(c.closeTime()) + (null != zoneId ? " (" + zoneId + ')' : " (UTC)"))
                 .findFirst().orElse("No market data found for pair " + pair);
     }

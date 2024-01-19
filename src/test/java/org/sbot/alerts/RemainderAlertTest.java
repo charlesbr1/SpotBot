@@ -1,13 +1,14 @@
 package org.sbot.alerts;
 
 import org.junit.jupiter.api.Test;
+import org.sbot.chart.Candlestick;
 import org.sbot.utils.Dates;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 
+import static java.math.BigDecimal.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.alerts.Alert.*;
 import static org.sbot.alerts.Alert.Type.remainder;
@@ -61,13 +62,13 @@ class RemainderAlertTest {
         // no margin
         assertThrows(IllegalArgumentException.class, () -> alert.build(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, null, TEST_FROM_DATE, null, null,
-                BigDecimal.ONE, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+                ONE, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // no prices
         assertThrows(IllegalArgumentException.class, () -> alert.build(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
-                BigDecimal.ONE, null, TEST_FROM_DATE, null, null,
+                ONE, null, TEST_FROM_DATE, null, null,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         assertThrows(IllegalArgumentException.class, () -> alert.build(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
-                null, BigDecimal.ONE, TEST_FROM_DATE, null, null,
+                null, ONE, TEST_FROM_DATE, null, null,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // no to date
         assertThrows(IllegalArgumentException.class, () -> alert.build(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
@@ -130,14 +131,17 @@ class RemainderAlertTest {
     @Test
     void asMessage() {
         Alert alert = createTestRemainderAlert().withId(() -> 456L);
+        Candlestick candlestick = new Candlestick(ZonedDateTime.now(), ZonedDateTime.now(), TWO, ONE, TEN, ONE);
 
         assertThrows(NullPointerException.class, () -> alert.asMessage(null, null));
         String message = alert.asMessage(MatchingAlert.MatchingStatus.MATCHED, null);
         assertNotNull(message);
         assertTrue(message.startsWith("<@" + alert.userId + ">"));
-        assertTrue(message.contains(alert.message));
         assertTrue(message.contains(String.valueOf(alert.id)));
         assertTrue(message.contains(Dates.formatUTC(alert.fromDate)));
+        assertTrue(message.contains(alert.message));
+        // no candlestick
+        assertEquals(message, alert.asMessage(MatchingAlert.MatchingStatus.MATCHED, candlestick));
 
         assertEquals(message, alert.asMessage(MatchingAlert.MatchingStatus.MARGIN, null));
 
@@ -145,8 +149,9 @@ class RemainderAlertTest {
         assertNotNull(message);
         assertFalse(message.startsWith("<@" + alert.userId + ">"));
         assertTrue(message.contains("<@" + alert.userId + ">"));
-        assertTrue(message.contains(alert.message));
         assertTrue(message.contains(String.valueOf(alert.id)));
         assertTrue(message.contains(Dates.formatUTC(alert.fromDate)));
+        assertTrue(message.contains(alert.message));
+        assertEquals(message, alert.asMessage(MatchingAlert.MatchingStatus.NOT_MATCHING, candlestick));
     }
 }

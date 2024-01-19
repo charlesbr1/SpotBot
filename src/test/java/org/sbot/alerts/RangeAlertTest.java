@@ -2,9 +2,12 @@ package org.sbot.alerts;
 
 import org.junit.jupiter.api.Test;
 import org.sbot.chart.Candlestick;
+import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Function;
 
 import static java.math.BigDecimal.*;
@@ -12,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.alerts.Alert.*;
 import static org.sbot.alerts.Alert.Type.range;
 import static org.sbot.alerts.AlertTest.*;
+import static org.sbot.alerts.MatchingAlert.MatchingStatus.*;
 import static org.sbot.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
 
 class RangeAlertTest {
@@ -44,6 +48,14 @@ class RangeAlertTest {
         assertDoesNotThrow(() -> new RangeAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, null, null, null,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // from date after to date
+        assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_TO_DATE, TEST_FROM_DATE, TEST_LAST_TRIGGER,
+                TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // same dates
+        assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_FROM_DATE, TEST_LAST_TRIGGER,
+                TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // same from and to price
         assertDoesNotThrow(() -> new RangeAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_FROM_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
@@ -59,11 +71,6 @@ class RangeAlertTest {
         assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE.negate(), TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
-        // from date after to date
-        assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
-                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_TO_DATE, TEST_FROM_DATE, TEST_LAST_TRIGGER,
-                TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
-
     }
 
     @Test
@@ -81,6 +88,46 @@ class RangeAlertTest {
 
     @Test
     void match() {
+        Alert alert = createTestRangeAlert();
+        assertThrows(NullPointerException.class, () -> alert.match(null, null));
+        assertThrows(NullPointerException.class, () -> alert.match(null, null));
+        assertEquals(alert, alert.match(Collections.emptyList(), null).alert());
+        assertEquals(NOT_MATCHING, alert.match(Collections.emptyList(), null).status());
+/*
+        for(Candlestick candlestick : candlesticks) {
+            if(datesInLimits(candlestick, fromDate, toDate) && isNewerCandleStick(candlestick, previousCandlestick)) {
+                if(priceInRange(candlestick, fromPrice, toPrice, MARGIN_DISABLED) || priceCrossedRange(candlestick, fromPrice, toPrice, previousCandlestick)) {
+                    return new MatchingAlert(this, MATCHED, candlestick);
+                } else if(priceInRange(candlestick, fromPrice,toPrice, margin)) {
+                    return new MatchingAlert(this, MARGIN, candlestick);
+
+ */
+        // Créer une liste de Candlesticks pour le test
+        List<Candlestick> candlesticks = List.of(
+                new Candlestick(ZonedDateTime.now().minusMinutes(30), ZonedDateTime.now(), ONE, ONE, ONE, ONE),
+                new Candlestick(ZonedDateTime.now().minusMinutes(15), ZonedDateTime.now(), new BigDecimal(55), new BigDecimal(65), ONE, ONE),
+                new Candlestick(ZonedDateTime.now(), ZonedDateTime.now(), new BigDecimal(45), new BigDecimal(55), ONE, ONE)
+        );
+        //
+        // previousCandlestick null
+        // datesInLimits true, priceInRange true, priceCrossedRange true -> MATCHED
+        assertEquals(MATCHED, alert.match(Collections.emptyList(), null).status());
+
+        // datesInLimits true, priceInRange true, priceCrossedRange false -> MATCHED
+        // datesInLimits true, priceInRange false, priceCrossedRange true -> MATCHED
+        // datesInLimits true, priceInRange false, priceCrossedRange false  margin true -> MARGIN
+        // datesInLimits true, priceInRange false, priceCrossedRange false  margin false -> NOT_MATCHED
+
+        // datesInLimits false, priceInRange true, priceCrossedRange true -> NOT_MATCHED
+        // datesInLimits false, priceInRange true, priceCrossedRange false -> NOT_MATCHED
+        // datesInLimits false, priceInRange false, priceCrossedRange true -> NOT_MATCHED
+        // datesInLimits false, priceInRange false, priceCrossedRange false  margin true -> NOT_MATCHED
+        // datesInLimits false, priceInRange false, priceCrossedRange false  margin false -> NOT_MATCHED
+
+        // previousCandlestick true
+        // all test -> same NOT_MATCHED
+//        assertNotNull(matchingAlert.matchingCandlestick());
+
     }
 
     @Test
@@ -212,17 +259,21 @@ class RangeAlertTest {
         Candlestick current = newCandle.apply(toPrice.add(TEN));
         Candlestick previous = newCandle.apply(toPrice.add(TWO));
         assertFalse(RangeAlert.priceCrossedRange(current, fromPrice, toPrice, previous));
+        assertFalse(RangeAlert.priceCrossedRange(current, toPrice, toPrice, previous));
 
         // prices are above the range since previous candlestick
         current = newCandle.apply(toPrice.add(TEN));
         previous = newCandle.apply(toPrice);
         assertFalse(RangeAlert.priceCrossedRange(current, fromPrice, toPrice, previous));
+        assertFalse(RangeAlert.priceCrossedRange(current, toPrice, toPrice, previous));
 
         // prices crossed up the range since previous candlestick
         current = newCandle.apply(toPrice.add(TEN));
         previous = newCandle.apply(toPrice.subtract(ONE));
         assertTrue(RangeAlert.priceCrossedRange(current, fromPrice, toPrice, previous));
+        assertTrue(RangeAlert.priceCrossedRange(current, toPrice, toPrice, previous));
         assertFalse(RangeAlert.priceCrossedRange(current, fromPrice, toPrice, null));
+        assertFalse(RangeAlert.priceCrossedRange(current, toPrice, toPrice, null));
 
         newCandle = price -> new Candlestick(
                 ZonedDateTime.now(), ZonedDateTime.now().plusHours(1L),
@@ -233,20 +284,105 @@ class RangeAlertTest {
         current = newCandle.apply(fromPrice.subtract(TEN));
         previous = newCandle.apply(fromPrice.subtract(TWO));
         assertFalse(RangeAlert.priceCrossedRange(current, fromPrice, toPrice, previous));
+        assertFalse(RangeAlert.priceCrossedRange(current, fromPrice, fromPrice, previous));
 
         // prices are below the range since previous candlestick
         current = newCandle.apply(fromPrice.subtract(TEN));
         previous = newCandle.apply(fromPrice);
         assertFalse(RangeAlert.priceCrossedRange(current, fromPrice, toPrice, previous));
+        assertFalse(RangeAlert.priceCrossedRange(current, fromPrice, fromPrice, previous));
 
         // prices crossed down the range since previous candlestick
         current = newCandle.apply(fromPrice.subtract(TEN));
         previous = newCandle.apply(fromPrice.add(ONE));
         assertTrue(RangeAlert.priceCrossedRange(current, fromPrice, toPrice, previous));
+        assertTrue(RangeAlert.priceCrossedRange(current, fromPrice, fromPrice, previous));
         assertFalse(RangeAlert.priceCrossedRange(current, fromPrice, toPrice, null));
+        assertFalse(RangeAlert.priceCrossedRange(current, fromPrice, fromPrice, null));
     }
 
     @Test
     void asMessage() {
+        Alert alert = createTestRangeAlert().withId(() -> 456L);
+        ZonedDateTime closeTime = Dates.parseUTC("01/01/2000-00:03");
+        Candlestick candlestick = new Candlestick(closeTime.minusHours(1L), closeTime, TWO, ONE, TEN, ONE);
+        assertThrows(NullPointerException.class, () -> alert.asMessage(null, null));
+
+        String message = alert.asMessage(MATCHED, null);
+        assertNotNull(message);
+        assertTrue(message.startsWith("<@" + alert.userId + ">"));
+        assertTrue(message.contains("range"));
+        assertTrue(message.contains(alert.exchange));
+        assertTrue(message.contains(alert.pair));
+        assertTrue(message.contains(String.valueOf(alert.id)));
+        assertTrue(message.contains(alert.fromPrice.toPlainString()));
+        assertTrue(message.contains(alert.toPrice.toPlainString()));
+        assertFalse(message.contains(alert.message));
+        assertFalse(message.contains("threshold"));
+        // with candlestick
+        assertNotEquals(message, alert.asMessage(MATCHED, candlestick));
+        assertTrue(alert.asMessage(MATCHED, candlestick).contains(Dates.formatUTC(closeTime)));
+        // with no repeat or last trigger
+        assertFalse(message.contains("DISABLED"));
+        assertFalse(message.contains(Dates.formatUTC(alert.lastTrigger)));
+        assertFalse(alert.withLastTriggerMarginRepeat(null, alert.margin, (short) 0)
+                .asMessage(MATCHED, candlestick).contains("DISABLED"));
+        // with dates
+        assertTrue(message.contains(Dates.formatUTC(alert.fromDate)));
+        assertFalse(alert.withFromDate(null).asMessage(MATCHED, null).contains(Dates.formatUTC(alert.fromDate)));
+        assertTrue(message.contains(Dates.formatUTC(alert.toDate)));
+        assertFalse(alert.withToDate(null).asMessage(MATCHED, null).contains(Dates.formatUTC(alert.toDate)));
+
+        // MARGIN
+        assertNotEquals(message, alert.asMessage(MARGIN, null));
+        message = alert.asMessage(MARGIN, null);
+        assertNotNull(message);
+        assertTrue(message.startsWith("<@" + alert.userId + ">"));
+        assertTrue(message.contains("range"));
+        assertTrue(message.contains(alert.exchange));
+        assertTrue(message.contains(alert.pair));
+        assertTrue(message.contains(String.valueOf(alert.id)));
+        assertTrue(message.contains(alert.fromPrice.toPlainString()));
+        assertTrue(message.contains(alert.toPrice.toPlainString()));
+        assertFalse(message.contains(alert.message));
+        assertTrue(message.contains("threshold"));
+        // with candlestick
+        assertNotEquals(message, alert.asMessage(MARGIN, candlestick));
+        assertTrue(alert.asMessage(MARGIN, candlestick).contains(Dates.formatUTC(closeTime)));
+        // with no repeat or last trigger
+        assertFalse(message.contains("DISABLED"));
+        assertFalse(message.contains(Dates.formatUTC(alert.lastTrigger)));
+        assertFalse(alert.withLastTriggerMarginRepeat(null, alert.margin, (short) 0)
+                .asMessage(MARGIN, candlestick).contains("DISABLED"));
+        // with dates
+        assertTrue(message.contains(Dates.formatUTC(alert.fromDate)));
+        assertFalse(alert.withFromDate(null).asMessage(MARGIN, null).contains(Dates.formatUTC(alert.fromDate)));
+        assertTrue(message.contains(Dates.formatUTC(alert.toDate)));
+        assertFalse(alert.withToDate(null).asMessage(MARGIN, null).contains(Dates.formatUTC(alert.toDate)));
+
+        // NOT MATCHING
+        message = alert.asMessage(NOT_MATCHING, null);
+        assertNotNull(message);
+        assertTrue(message.startsWith("Range Alert set by"));
+        assertTrue(message.contains(alert.exchange));
+        assertTrue(message.contains(alert.pair));
+        assertTrue(message.contains(String.valueOf(alert.id)));
+        assertTrue(message.contains(alert.fromPrice.toPlainString()));
+        assertTrue(message.contains(alert.toPrice.toPlainString()));
+        assertFalse(message.contains(alert.message));
+        assertFalse(message.contains("threshold"));
+        // with candlestick
+        assertEquals(message, alert.asMessage(NOT_MATCHING, candlestick));
+        assertFalse(alert.asMessage(NOT_MATCHING, candlestick).contains(Dates.formatUTC(closeTime)));
+        // with no repeat or last trigger
+        assertFalse(message.contains("DISABLED"));
+        assertTrue(message.contains(Dates.formatUTC(alert.lastTrigger)));
+        assertTrue(alert.withLastTriggerMarginRepeat(null, alert.margin, (short) 0)
+                .asMessage(NOT_MATCHING, candlestick).contains("DISABLED"));
+        // with dates
+        assertTrue(message.contains(Dates.formatUTC(alert.fromDate)));
+        assertFalse(alert.withFromDate(null).asMessage(NOT_MATCHING, null).contains(Dates.formatUTC(alert.fromDate)));
+        assertTrue(message.contains(Dates.formatUTC(alert.toDate)));
+        assertFalse(alert.withToDate(null).asMessage(NOT_MATCHING, null).contains(Dates.formatUTC(alert.toDate)));
     }
 }

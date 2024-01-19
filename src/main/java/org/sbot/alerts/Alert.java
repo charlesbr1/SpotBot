@@ -4,6 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.alerts.MatchingAlert.MatchingStatus;
 import org.sbot.chart.Candlestick;
+import org.sbot.chart.Ticker;
 import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
@@ -77,12 +78,12 @@ public abstract class Alert {
         this.exchange = requireSupportedExchange(exchange.toLowerCase()).intern();
         this.pair = requirePairFormat(pair.toUpperCase()).intern();
         this.message = requireAlertMessageMaxLength(message);
-        this.fromPrice = Optional.ofNullable(fromPrice).map(BigDecimal::stripTrailingZeros).orElse(null);
-        this.toPrice = Optional.ofNullable(toPrice).map(BigDecimal::stripTrailingZeros).orElse(null);
+        this.fromPrice = fromPrice;
+        this.toPrice = toPrice;
         this.fromDate = fromDate;
         this.toDate = toDate;
         this.lastTrigger = null != lastTrigger ? requireInPast(lastTrigger) : null;
-        this.margin = requirePositive(margin).stripTrailingZeros();
+        this.margin = requirePositive(margin);
         this.repeat = requirePositiveShort(repeat);
         this.snooze = requirePositiveShort(snooze);
     }
@@ -229,13 +230,11 @@ public abstract class Alert {
                 (matchingStatus.notMatching() && hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(getTicker2()) : "disabled") +
                 " / " + (!hasRepeat(nextRepeat) ? "disabled" : nextRepeat) +
                 " / " + snooze + (snooze > 1 ? " hours" : " hour") +
-                Optional.ofNullable(previousCandlestick).map(Candlestick::close)
-                        .map(BigDecimal::stripTrailingZeros)
-                        .map(BigDecimal::toPlainString)
-                        .map(price -> "\n\nLast close : " + price + ' ' + getSymbol(getTicker2()) +
-                                " at " + formatUTC(previousCandlestick.closeTime()))
-                        .orElse("") +
-                (matchingStatus.notMatching() ? Optional.ofNullable(lastTrigger).map(Dates::formatUTC).map("\n\nLast time triggered : "::concat).orElse("") : "");
+                (matchingStatus.notMatching() ? Optional.ofNullable(lastTrigger).map(Dates::formatUTC).map("\n\nLast time raised : "::concat).orElse("") :
+                        Optional.ofNullable(previousCandlestick).map(Candlestick::close)
+                                .map(price -> Ticker.formatPrice(price, getTicker2()))
+                                .map(price -> "\n\nLast close : " + price + " at " + formatUTC(previousCandlestick.closeTime()))
+                                .orElse(""));
     }
 
     @Override

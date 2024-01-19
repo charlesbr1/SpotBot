@@ -76,12 +76,12 @@ class AlertTest {
         assertEquals(TEST_PAIR.toUpperCase(), alert.getPair());
         assertEquals(TEST_MESSAGE, alert.message);
         assertEquals(TEST_MESSAGE, alert.getMessage());
-        assertEquals(TEST_FROM_PRICE.stripTrailingZeros(), alert.fromPrice);
-        assertEquals(TEST_TO_PRICE.stripTrailingZeros(), alert.toPrice);
+        assertEquals(TEST_FROM_PRICE, alert.fromPrice);
+        assertEquals(TEST_TO_PRICE, alert.toPrice);
         assertEquals(TEST_FROM_DATE, alert.fromDate);
         assertEquals(TEST_TO_DATE, alert.toDate);
         assertEquals(TEST_LAST_TRIGGER, alert.lastTrigger);
-        assertEquals(TEST_MARGIN.stripTrailingZeros(), alert.margin);
+        assertEquals(TEST_MARGIN, alert.margin);
         assertEquals(DEFAULT_REPEAT, alert.repeat);
         assertEquals(DEFAULT_SNOOZE_HOURS, alert.snooze);
     }
@@ -262,7 +262,7 @@ class AlertTest {
         assertEquals(0, alert.withLastTriggerMarginRepeat(null, BigDecimal.ZERO, (short) 0).repeat);
 
         ZonedDateTime lastTrigger = ZonedDateTime.now().minusMinutes(1L);
-        BigDecimal margin = BigDecimal.valueOf(120L).stripTrailingZeros();
+        BigDecimal margin = BigDecimal.valueOf(120L);
         short repeat = 1;
         assertEquals(lastTrigger, alert.withLastTriggerMarginRepeat(lastTrigger, margin, repeat).lastTrigger);
         assertEquals(margin, alert.withLastTriggerMarginRepeat(lastTrigger, margin, repeat).margin);
