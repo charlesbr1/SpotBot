@@ -24,7 +24,7 @@ public final class RemainderAlert extends Alert {
 
     public RemainderAlert(long id, long userId, long serverId,
                           @NotNull String pair, @NotNull String message,
-                          @Nullable ZonedDateTime fromDate) {
+                          @NotNull ZonedDateTime fromDate) {
         super(id, remainder, userId, serverId, REMAINDER_VIRTUAL_EXCHANGE, pair, message, null, null, fromDate, null, null, MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
         requireNonNull(fromDate, "missing RemainderAlert fromDate");
     }

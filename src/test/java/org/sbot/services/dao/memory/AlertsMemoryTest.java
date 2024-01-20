@@ -9,14 +9,15 @@ import org.sbot.services.dao.AlertsDao;
 
 import java.time.ZonedDateTime;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import static java.math.BigDecimal.ONE;
-import static java.math.BigDecimal.TWO;
+import static java.math.BigDecimal.*;
 import static java.time.ZonedDateTime.now;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.alerts.Alert.*;
+import static org.sbot.alerts.Alert.Type.*;
 import static org.sbot.alerts.AlertTest.*;
 
 class AlertsMemoryTest {
@@ -48,7 +49,7 @@ class AlertsMemoryTest {
                 Objects.equals(alert.margin, other.margin));
     }
 
-    static Alert setId(@NotNull Alert alert, long id) {
+    private static Alert setId(@NotNull Alert alert, long id) {
         return alert.withId(() -> id);
     }
 
@@ -107,10 +108,95 @@ class AlertsMemoryTest {
 
     @Test
     void fetchAlertsHavingRepeatZeroAndLastTriggerBefore() {
+        ZonedDateTime date = ZonedDateTime.now();
+        Alert alert1 = createTestAlert().withLastTriggerMarginRepeat(date.minusMinutes(40L), MARGIN_DISABLED, (short) 0);
+        long alertId1 = alerts.addAlert(alert1);
+        Alert alert2 = createTestAlert().withLastTriggerMarginRepeat(date.minusHours(3L), MARGIN_DISABLED, (short) 0);
+        long alertId2 = alerts.addAlert(alert2);
+        Alert alert3 = createTestAlert().withLastTriggerMarginRepeat(date.minusHours(10L), MARGIN_DISABLED, (short) 20);
+        long alertId3 = alerts.addAlert(alert3);
+        Alert alert4 = createTestAlert().withLastTriggerMarginRepeat(date.minusDays(1L).minusMinutes(34L), MARGIN_DISABLED, (short) 0);
+        long alertId4 = alerts.addAlert(alert4);
+        alerts.addAlert(createTestAlert().withLastTriggerMarginRepeat(null, MARGIN_DISABLED, (short) 7));
+        alerts.addAlert(createTestAlert().withLastTriggerMarginRepeat(null, MARGIN_DISABLED, (short) 0));
+        alerts.addAlert(createTestAlert().withLastTriggerMarginRepeat(null, MARGIN_DISABLED, (short) 17));
+        alerts.addAlert(createTestAlert().withLastTriggerMarginRepeat(null, MARGIN_DISABLED, (short) 0));
+        alerts.addAlert(createTestAlert().withLastTriggerMarginRepeat(null, MARGIN_DISABLED, (short) 3));
+        alerts.addAlert(createTestAlert().withLastTriggerMarginRepeat(null, MARGIN_DISABLED, (short) 0));
+
+        assertEquals(10, alerts.countAlertsOfUser(TEST_USER_ID));
+        assertEquals(0, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBefore(date.minusDays(2L),
+                stream -> assertEquals(0, stream.count())));
+        assertEquals(0, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBefore(date.minusDays(1L).minusMinutes(34L),
+                stream -> assertEquals(0, stream.count())));
+        assertEquals(1, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBefore(date.minusDays(1L).minusMinutes(33L),
+                stream -> assertTrue(stream.allMatch(a -> alertId4 == a.id))));
+
+        assertEquals(1, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBefore(date.minusHours(3L),
+                stream -> assertTrue(stream.allMatch(a -> alertId4 == a.id))));
+        assertEquals(2, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBefore(date.minusHours(3L).plusMinutes(1L),
+                stream -> assertEquals(1, stream.filter(a -> a.id == alertId2).count())));
+        assertEquals(2, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBefore(date.minusHours(3L).plusMinutes(1L),
+                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId4, alertId2).contains(a.id)))));
+        assertEquals(2, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBefore(date.minusMinutes(40L),
+                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId4, alertId2).contains(a.id)))));
+        assertEquals(3, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBefore(date.minusMinutes(39L),
+                stream -> assertEquals(1, stream.filter(a -> a.id == alertId1).count())));
+        assertEquals(3, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBefore(date.minusMinutes(39L),
+                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId4, alertId2, alertId1).contains(a.id)))));
+        assertEquals(3, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBefore(date,
+                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId4, alertId2, alertId1).contains(a.id)))));
     }
 
     @Test
     void fetchRangeAlertsHavingToDateBefore() {
+        ZonedDateTime date = ZonedDateTime.now();
+        Alert alert1 = createTestAlertWithType(range).withToDate(date.plusMinutes(40L));
+        long alertId1 = alerts.addAlert(alert1);
+        Alert alert2 = createTestAlertWithType(range).withToDate(date.plusHours(3L));
+        long alertId2 = alerts.addAlert(alert2);
+        Alert alert3 = createTestAlertWithType(range).withToDate(date.plusHours(10L));
+        long alertId3 = alerts.addAlert(alert3);
+        Alert alert4 = createTestAlertWithType(range).withToDate(date.plusDays(1L).plusHours(2L));
+        long alertId4 = alerts.addAlert(alert4);
+        alerts.addAlert(createTestAlertWithType(range).withToDate(null));
+        alerts.addAlert(createTestAlertWithType(remainder).withToDate(date.plusMinutes(40L)));
+        alerts.addAlert(createTestAlertWithType(trend).withToDate(date.plusMinutes(10L)));
+        alerts.addAlert(createTestAlertWithType(remainder).withToDate(date.plusMinutes(50L)));
+        alerts.addAlert(createTestAlertWithType(trend).withToDate(date.plusHours(3L)));
+        alerts.addAlert(createTestAlertWithType(remainder).withToDate(date.plusHours(2L)));
+        alerts.addAlert(createTestAlertWithType(trend).withToDate(date.plusHours(4L)));
+        alerts.addAlert(createTestAlertWithType(trend).withToDate(date.plusHours(10L)));
+        alerts.addAlert(createTestAlertWithType(remainder).withToDate(date.plusHours(12L)));
+        alerts.addAlert(createTestAlertWithType(remainder).withToDate(date.plusDays(1L).plusHours(2L)));
+        alerts.addAlert(createTestAlertWithType(trend).withToDate(date.plusDays(1L).plusHours(2L).plusMinutes(13L)));
+
+        assertEquals(15, alerts.countAlertsOfUser(TEST_USER_ID));
+        assertEquals(0, alerts.fetchRangeAlertsHavingToDateBefore(date,
+                stream -> assertEquals(0, stream.count())));
+        assertEquals(0, alerts.fetchRangeAlertsHavingToDateBefore(date.plusMinutes(40L),
+                stream -> assertEquals(0, stream.count())));
+
+        assertEquals(1, alerts.fetchRangeAlertsHavingToDateBefore(date.plusMinutes(41L),
+                stream -> assertTrue(stream.allMatch(a -> alertId1 == a.id))));
+        assertEquals(1, alerts.fetchRangeAlertsHavingToDateBefore(date.plusHours(3L),
+                stream -> assertTrue(stream.allMatch(a -> alertId1 == a.id))));
+        assertEquals(2, alerts.fetchRangeAlertsHavingToDateBefore(date.plusHours(3L).plusMinutes(1L),
+                stream -> assertEquals(1, stream.filter(a -> a.id == alertId2).count())));
+        assertEquals(2, alerts.fetchRangeAlertsHavingToDateBefore(date.plusHours(3L).plusMinutes(1L),
+                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2).contains(a.id)))));
+        assertEquals(2, alerts.fetchRangeAlertsHavingToDateBefore(date.plusHours(10L),
+                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2).contains(a.id)))));
+        assertEquals(3, alerts.fetchRangeAlertsHavingToDateBefore(date.plusHours(10L).plusMinutes(1L),
+                stream -> assertEquals(1, stream.filter(a -> a.id == alertId3).count())));
+        assertEquals(3, alerts.fetchRangeAlertsHavingToDateBefore(date.plusHours(10L).plusMinutes(1L),
+                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId3).contains(a.id)))));
+        assertEquals(3, alerts.fetchRangeAlertsHavingToDateBefore(date.plusDays(1L).plusHours(2L),
+                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId3).contains(a.id)))));
+        assertEquals(4, alerts.fetchRangeAlertsHavingToDateBefore(date.plusDays(1L).plusHours(2L).plusMinutes(1L),
+                stream -> assertEquals(1, stream.filter(a -> a.id == alertId4).count())));
+        assertEquals(4, alerts.fetchRangeAlertsHavingToDateBefore(date.plusDays(1L).plusHours(2L).plusMinutes(1L),
+                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId3, alertId4).contains(a.id)))));
     }
 
     @Test
@@ -438,6 +524,10 @@ class AlertsMemoryTest {
                 .filter(alert -> alert.userId == user1).count());
         assertEquals(2, alerts.getAlertsOfUserAndTickers(user1, 0, 2, "ETH/BTC").size());
         assertEquals(1, alerts.getAlertsOfUserAndTickers(user1, 0, 1, "ETH/BTC").size());
+        assertEquals(1, alerts.getAlertsOfUserAndTickers(user1, 1, 2, "ETH/BTC").size());
+        assertEquals(0, alerts.getAlertsOfUserAndTickers(user1, 0, 0, "ETH/BTC").size());
+        assertEquals(0, alerts.getAlertsOfUserAndTickers(user1, 2, 3, "ETH/BTC").size());
+        assertEquals(0, alerts.getAlertsOfUserAndTickers(user1, 20, 3, "ETH/BTC").size());
 
         assertEquals(3, alerts.getAlertsOfUserAndTickers(user1, 0, 1000, "ETH").size());
         assertEquals(3, alerts.getAlertsOfUserAndTickers(user1, 0, 3, "ETH").stream()
@@ -500,6 +590,10 @@ class AlertsMemoryTest {
                 .filter(alert -> alert.serverId == server1).count());
         assertEquals(2, alerts.getAlertsOfServer(server1, 0, 2).size());
         assertEquals(1, alerts.getAlertsOfServer(server1, 0, 1).size());
+        assertEquals(1, alerts.getAlertsOfServer(server1, 1, 2).size());
+        assertEquals(0, alerts.getAlertsOfServer(server1, 0, 0).size());
+        assertEquals(0, alerts.getAlertsOfServer(server1, 2, 3).size());
+        assertEquals(0, alerts.getAlertsOfServer(server1, 20, 3).size());
 
         assertEquals(3, alerts.getAlertsOfServer(server2, 0, 1000).size());
         assertEquals(3, alerts.getAlertsOfServer(server2, 0, 1000).stream()
@@ -551,6 +645,12 @@ class AlertsMemoryTest {
                 .filter(alert -> alert.userId == user1)
                 .count());
         assertEquals(2, alerts.getAlertsOfServerAndUser(server2, user1, 0, 2).size());
+        assertEquals(1, alerts.getAlertsOfServerAndUser(server2, user1, 0, 1).size());
+        assertEquals(1, alerts.getAlertsOfServerAndUser(server2, user1, 1, 2).size());
+        assertEquals(0, alerts.getAlertsOfServerAndUser(server2, user1, 0, 0).size());
+        assertEquals(0, alerts.getAlertsOfServerAndUser(server2, user1, 2, 3).size());
+        assertEquals(0, alerts.getAlertsOfServerAndUser(server2, user1, 20, 3).size());
+
         assertEquals(0, alerts.getAlertsOfServerAndUser(server2, user2, 0, 1000).size());
         assertEquals(1, alerts.getAlertsOfServerAndUser(server2, user3, 0, 1000).size());
         assertEquals(1, alerts.getAlertsOfServerAndUser(server2, user3, 0, 1000).stream()
@@ -630,6 +730,13 @@ class AlertsMemoryTest {
                 .filter(alert -> alert.pair.contains("ETH"))
                 .count());
         assertEquals(3, alerts.getAlertsOfServerAndTickers(server2, 0, 3, "ETH").size());
+        assertEquals(1, alerts.getAlertsOfServerAndTickers(server2, 2, 3, "ETH").size());
+        assertEquals(2, alerts.getAlertsOfServerAndTickers(server2, 1, 2, "ETH").size());
+        assertEquals(1, alerts.getAlertsOfServerAndTickers(server2, 2, 2, "ETH").size());
+        assertEquals(0, alerts.getAlertsOfServerAndTickers(server2, 3, 2, "ETH").size());
+        assertEquals(0, alerts.getAlertsOfServerAndTickers(server2, 0, 0, "ETH").size());
+        assertEquals(0, alerts.getAlertsOfServerAndTickers(server2, 3, 4, "ETH").size());
+        assertEquals(0, alerts.getAlertsOfServerAndTickers(server2, 30, 1, "ETH").size());
 
         assertEquals(1, alerts.getAlertsOfServerAndTickers(server2, 0, 1000, "USD").size());
         assertEquals(1, alerts.getAlertsOfServerAndTickers(server2, 0, 1000, "USD").stream()
@@ -715,6 +822,12 @@ class AlertsMemoryTest {
                 .filter(alert -> alert.pair.contains("ETH"))
                 .count());
         assertEquals(2, alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 0, 2, "ETH").size());
+        assertEquals(1, alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 0, 1, "ETH").size());
+        assertEquals(1, alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 1, 2, "ETH").size());
+        assertEquals(0, alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 2, 1, "ETH").size());
+        assertEquals(0, alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 3, 1, "ETH").size());
+        assertEquals(0, alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 0, 0, "ETH").size());
+        assertEquals(0, alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 30, 0, "ETH").size());
 
         assertEquals(1, alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 0, 1000, "USD").size());
         assertEquals(1, alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 0, 1000, "USD").stream()
@@ -852,10 +965,103 @@ class AlertsMemoryTest {
 
     @Test
     void updateServerIdOfUserAndServerId() {
+        long user1 = 123L;
+        long user2 = 222L;
+        long user3 = 321L;
+        long server1 = 789L;
+        long server2 = 987L;
+        Alert alertU1S1 = createTestAlertWithUserId(user1).withServerId(server1);
+        alertU1S1 = setId(alertU1S1, alerts.addAlert(alertU1S1));
+        Alert alertU1S2 = createTestAlertWithUserId(user1).withServerId(server2);
+        alertU1S2 = setId(alertU1S2, alerts.addAlert(alertU1S2));
+        Alert alert2U1S2 = createTestAlertWithUserId(user1).withServerId(server2);
+        alert2U1S2 = setId(alert2U1S2, alerts.addAlert(alert2U1S2));
+        Alert alertU2S1 = createTestAlertWithUserId(user2).withServerId(server1);
+        alertU2S1 = setId(alertU2S1, alerts.addAlert(alertU2S1));
+        Alert alertU3S2 = createTestAlertWithUserId(user3).withServerId(server2);
+        alertU3S2 = setId(alertU3S2, alerts.addAlert(alertU3S2));
+
+        assertTrue(alerts.getAlertsOfServer(server1, 0, 1000).contains(alertU1S1));
+        assertTrue(alerts.getAlertsOfServer(server2, 0, 1000).contains(alertU1S2));
+        assertTrue(alerts.getAlertsOfServer(server2, 0, 1000).contains(alert2U1S2));
+        assertTrue(alerts.getAlertsOfServer(server1, 0, 1000).contains(alertU2S1));
+        assertTrue(alerts.getAlertsOfServer(server2, 0, 1000).contains(alertU3S2));
+
+        long newServerId = 987654321L;
+        assertEquals(1, alerts.updateServerIdOfUserAndServerId(user1, server1, newServerId));
+        assertFalse(alerts.getAlertsOfServer(server1, 0, 1000).contains(alertU1S1));
+        assertTrue(alerts.getAlertsOfServer(newServerId, 0, 1000).contains(alertU1S1));
+        assertEquals(0, alerts.updateServerIdOfUserAndServerId(user1, server1, newServerId));
+        assertEquals(1, alerts.updateServerIdOfUserAndServerId(user3, server2, newServerId));
+        assertFalse(alerts.getAlertsOfServer(server1, 0, 1000).contains(alertU3S2));
+        assertTrue(alerts.getAlertsOfServer(newServerId, 0, 1000).contains(alertU3S2));
+        assertTrue(alerts.getAlertsOfServer(newServerId, 0, 1000).contains(alertU1S1));
+        assertEquals(2, alerts.updateServerIdOfUserAndServerId(user1, server2, newServerId));
+        assertFalse(alerts.getAlertsOfServer(server2, 0, 1000).contains(alertU1S2));
+        assertFalse(alerts.getAlertsOfServer(server2, 0, 1000).contains(alert2U1S2));
+        assertTrue(alerts.getAlertsOfServer(newServerId, 0, 1000).contains(alertU1S2));
+        assertTrue(alerts.getAlertsOfServer(newServerId, 0, 1000).contains(alert2U1S2));
+        assertEquals(1, alerts.updateServerIdOfUserAndServerId(user2, server1, newServerId));
+        assertFalse(alerts.getAlertsOfServer(server1, 0, 1000).contains(alertU2S1));
+        assertTrue(alerts.getAlertsOfServer(newServerId, 0, 1000).contains(alertU2S1));
     }
 
     @Test
     void updateServerIdOfUserAndServerIdAndTickers() {
+        long user1 = 123L;
+        long user2 = 222L;
+        long user3 = 321L;
+        long server1 = 789L;
+        long server2 = 987L;
+        Alert alertU1S1 = createTestAlertWithUserIdAndPair(user1, "ETH/BTC").withServerId(server1);
+        alertU1S1 = setId(alertU1S1, alerts.addAlert(alertU1S1));
+        Alert alertU1S2 = createTestAlertWithUserIdAndPair(user1, "ETH/USD").withServerId(server2);
+        alertU1S2 = setId(alertU1S2, alerts.addAlert(alertU1S2));
+        Alert alert2U1S2 = createTestAlertWithUserIdAndPair(user1, "ETH/BTC").withServerId(server2);
+        alert2U1S2 = setId(alert2U1S2, alerts.addAlert(alert2U1S2));
+        Alert alertU2S1 = createTestAlertWithUserIdAndPair(user2, "DOT/BTC").withServerId(server1);
+        alertU2S1 = setId(alertU2S1, alerts.addAlert(alertU2S1));
+        Alert alertU3S2 = createTestAlertWithUserIdAndPair(user3, "ETH/BTC").withServerId(server2);
+        alertU3S2 = setId(alertU3S2, alerts.addAlert(alertU3S2));
+
+
+        assertTrue(alerts.getAlertsOfServerAndUserAndTickers(server1, user1, 0, 1000, "ETH/BTC").contains(alertU1S1));
+        assertTrue(alerts.getAlertsOfServerAndUserAndTickers(server1, user1, 0, 1000, "BTC").contains(alertU1S1));
+        assertTrue(alerts.getAlertsOfServerAndUserAndTickers(server1, user2, 0, 1000, "BTC").contains(alertU2S1));
+        assertTrue(alerts.getAlertsOfServerAndUserAndTickers(server1, user2, 0, 1000, "DOT").contains(alertU2S1));
+
+        assertTrue(alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 0, 1000, "ETH").contains(alertU1S2));
+        assertTrue(alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 0, 1000, "USD").contains(alertU1S2));
+        assertTrue(alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 0, 1000, "ETH").contains(alert2U1S2));
+        assertTrue(alerts.getAlertsOfServerAndUserAndTickers(server2, user3, 0, 1000, "ETH").contains(alertU3S2));
+
+        long newServerId = 987654321L;
+        assertEquals(0, alerts.updateServerIdOfUserAndServerIdAndTickers(user1, server1, "WAG/BSD", newServerId));
+        assertEquals(1, alerts.updateServerIdOfUserAndServerIdAndTickers(user1, server1, "ETH/BTC", newServerId));
+        assertFalse(alerts.getAlertsOfServerAndUserAndTickers(server1, user1, 0, 1000, "ETH/BTC").contains(alertU1S1));
+        assertTrue(alerts.getAlertsOfServerAndUserAndTickers(newServerId, user1, 0, 1000, "ETH/BTC").contains(alertU1S1));
+
+        assertEquals(1, alerts.updateServerIdOfUserAndServerIdAndTickers(user2, server1, "DOT", newServerId));
+        assertFalse(alerts.getAlertsOfServerAndUserAndTickers(server1, user2, 0, 1000, "DOT").contains(alertU2S1));
+        assertFalse(alerts.getAlertsOfServerAndUserAndTickers(server1, user2, 0, 1000, "BTC").contains(alertU2S1));
+        assertTrue(alerts.getAlertsOfServerAndUserAndTickers(newServerId, user2, 0, 1000, "DOT").contains(alertU2S1));
+
+        assertEquals(2, alerts.updateServerIdOfUserAndServerIdAndTickers(user1, server2, "ETH", newServerId));
+        assertFalse(alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 0, 1000, "ETH").contains(alertU1S2));
+        assertFalse(alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 0, 1000, "USD").contains(alertU1S2));
+        assertFalse(alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 0, 1000, "ETH").contains(alert2U1S2));
+        assertTrue(alerts.getAlertsOfServerAndUserAndTickers(newServerId, user1, 0, 1000, "ETH").contains(alertU1S2));
+        assertTrue(alerts.getAlertsOfServerAndUserAndTickers(newServerId, user1, 0, 1000, "USD").contains(alertU1S2));
+        assertTrue(alerts.getAlertsOfServerAndUserAndTickers(newServerId, user1, 0, 1000, "ETH").contains(alert2U1S2));
+        assertEquals(3, alerts.getAlertsOfServerAndUserAndTickers(newServerId, user1, 0, 1000, "ETH").size());
+
+        assertFalse(alerts.getAlertsOfServerAndUserAndTickers(newServerId, user3, 0, 1000, "ETH").contains(alertU3S2));
+        assertFalse(alerts.getAlertsOfServerAndUserAndTickers(newServerId, user3, 0, 1000, "BTC").contains(alertU3S2));
+        assertEquals(1, alerts.updateServerIdOfUserAndServerIdAndTickers(user3, server2, "BTC", newServerId));
+        assertFalse(alerts.getAlertsOfServerAndUserAndTickers(server2, user3, 0, 1000, "ETH/BTC").contains(alertU3S2));
+        assertFalse(alerts.getAlertsOfServerAndUserAndTickers(server2, user3, 0, 1000, "BTC").contains(alertU3S2));
+        assertTrue(alerts.getAlertsOfServerAndUserAndTickers(newServerId, user3, 0, 1000, "ETH").contains(alertU3S2));
+        assertTrue(alerts.getAlertsOfServerAndUserAndTickers(newServerId, user3, 0, 1000, "BTC").contains(alertU3S2));
     }
 
     @Test
@@ -922,7 +1128,7 @@ class AlertsMemoryTest {
 
     @Test
     void updateRepeatAndLastTrigger() {
-        ZonedDateTime date = now();
+        ZonedDateTime date = now().minusMonths(1L);
         Alert alert = createTestAlert().withLastTriggerRepeatSnooze(date, (short) 13, DEFAULT_SNOOZE_HOURS);
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());
@@ -935,7 +1141,7 @@ class AlertsMemoryTest {
 
     @Test
     void updateSnoozeAndLastTrigger() {
-        ZonedDateTime date = now();
+        ZonedDateTime date = now().minusMonths(1L);
         Alert alert = createTestAlert().withLastTriggerRepeatSnooze(date, DEFAULT_REPEAT, (short) 51);
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());
@@ -956,18 +1162,246 @@ class AlertsMemoryTest {
     }
 
     @Test
-    void deleteAlerts() {
+    void deleteAlertsOfUserAndServerId() {
+        long user1 = 123L;
+        long user2 = 222L;
+        long user3 = 321L;
+        long server1 = 789L;
+        long server2 = 987L;
+        Alert alertU1S1 = createTestAlertWithUserId(user1).withServerId(server1);
+        alertU1S1 = setId(alertU1S1, alerts.addAlert(alertU1S1));
+        Alert alertU1S2 = createTestAlertWithUserId(user1).withServerId(server2);
+        alertU1S2 = setId(alertU1S2, alerts.addAlert(alertU1S2));
+        Alert alert2U1S2 = createTestAlertWithUserId(user1).withServerId(server2);
+        alert2U1S2 = setId(alert2U1S2, alerts.addAlert(alert2U1S2));
+        Alert alertU2S1 = createTestAlertWithUserId(user2).withServerId(server1);
+        alertU2S1 = setId(alertU2S1, alerts.addAlert(alertU2S1));
+        Alert alertU3S2 = createTestAlertWithUserId(user3).withServerId(server2);
+        alertU3S2 = setId(alertU3S2, alerts.addAlert(alertU3S2));
+
+        assertEquals(1, alerts.getAlertsOfServerAndUser(server1, user1, 0, 1000).size());
+        assertEquals(2, alerts.getAlertsOfServerAndUser(server2, user1, 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOfServerAndUser(server1, user2, 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOfServerAndUser(server2, user3, 0, 1000).size());
+
+        assertEquals(1, alerts.deleteAlerts(server1, user1));
+        assertEquals(0, alerts.deleteAlerts(server1, user1));
+        assertEquals(0, alerts.getAlertsOfServerAndUser(server1, user1, 0, 1000).size());
+        assertEquals(2, alerts.deleteAlerts(server2, user1));
+        assertEquals(0, alerts.deleteAlerts(server2, user1));
+        assertEquals(0, alerts.getAlertsOfServerAndUser(server2, user1, 0, 1000).size());
+        assertEquals(1, alerts.deleteAlerts(server1, user2));
+        assertEquals(0, alerts.deleteAlerts(server1, user2));
+        assertEquals(0, alerts.getAlertsOfServerAndUser(server1, user2, 0, 1000).size());
+        assertEquals(1, alerts.deleteAlerts(server2, user3));
+        assertEquals(0, alerts.deleteAlerts(server2, user3));
+        assertEquals(0, alerts.getAlertsOfServerAndUser(server2, user3, 0, 1000).size());
+    }
+
+    @Test
+    void deleteAlertsOfUserAndServerIdAndTickers() {
+        long user1 = 123L;
+        long user2 = 222L;
+        long user3 = 321L;
+        long server1 = 789L;
+        long server2 = 987L;
+        Alert alertU1S1 = createTestAlertWithUserIdAndPair(user1, "ETH/BTC").withServerId(server1);
+        alertU1S1 = setId(alertU1S1, alerts.addAlert(alertU1S1));
+        Alert alertU1S2 = createTestAlertWithUserIdAndPair(user1, "ETH/USD").withServerId(server2);
+        alertU1S2 = setId(alertU1S2, alerts.addAlert(alertU1S2));
+        Alert alert2U1S2 = createTestAlertWithUserIdAndPair(user1, "ETH/BTC").withServerId(server2);
+        alert2U1S2 = setId(alert2U1S2, alerts.addAlert(alert2U1S2));
+        Alert alertU2S1 = createTestAlertWithUserIdAndPair(user2, "DOT/BTC").withServerId(server1);
+        alertU2S1 = setId(alertU2S1, alerts.addAlert(alertU2S1));
+        Alert alertU3S2 = createTestAlertWithUserIdAndPair(user3, "ETH/BTC").withServerId(server2);
+        alertU3S2 = setId(alertU3S2, alerts.addAlert(alertU3S2));
+
+
+        assertEquals(1, alerts.getAlertsOfServerAndUserAndTickers(server1, user1, 0, 1000, "ETH/BTC").size());
+        assertEquals(1, alerts.getAlertsOfServerAndUserAndTickers(server1, user1, 0, 1000, "BTC").size());
+        assertEquals(1, alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 0, 1000, "ETH/BTC").size());
+        assertEquals(2, alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 0, 1000, "ETH").size());
+        assertEquals(1, alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 0, 1000, "USD").size());
+
+        assertEquals(1, alerts.getAlertsOfServerAndUserAndTickers(server1, user2, 0, 1000, "BTC").size());
+        assertEquals(1, alerts.getAlertsOfServerAndUserAndTickers(server1, user2, 0, 1000, "DOT").size());
+
+        assertEquals(1, alerts.getAlertsOfServerAndUserAndTickers(server2, user3, 0, 1000, "ETH").size());
+
+
+        assertEquals(1, alerts.deleteAlerts(server1, user1, "ETH/BTC"));
+        assertEquals(0, alerts.deleteAlerts(server1, user1, "ETH/BTC"));
+        assertEquals(0, alerts.getAlertsOfServerAndUserAndTickers(server1, user1, 0, 1000, "ETH/BTC").size());
+        assertEquals(0, alerts.getAlertsOfServerAndUserAndTickers(server1, user1, 0, 1000, "BTC").size());
+
+        assertEquals(2, alerts.deleteAlerts(server2, user1, "ETH"));
+        assertEquals(0, alerts.deleteAlerts(server2, user1, "ETH"));
+        assertEquals(0, alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 0, 1000, "ETH/BTC").size());
+        assertEquals(0, alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 0, 1000, "USD").size());
+        assertEquals(0, alerts.getAlertsOfServerAndUserAndTickers(server2, user1, 0, 1000, "BTC").size());
+
+        assertEquals(1, alerts.deleteAlerts(server1, user2, "DOT"));
+        assertEquals(0, alerts.deleteAlerts(server1, user2, "DOT"));
+        assertEquals(0, alerts.getAlertsOfServerAndUserAndTickers(server1, user2, 0, 1000, "BTC").size());
+        assertEquals(0, alerts.getAlertsOfServerAndUserAndTickers(server1, user2, 0, 1000, "DOT").size());
+
+        assertEquals(1, alerts.deleteAlerts(server2, user3, "BTC"));
+        assertEquals(0, alerts.deleteAlerts(server2, user3, "BTC"));
+        assertEquals(0, alerts.getAlertsOfServerAndUserAndTickers(server2, user3, 0, 1000, "BTC").size());
+        assertEquals(0, alerts.getAlertsOfServerAndUserAndTickers(server2, user3, 0, 1000, "ETH").size());
+        assertEquals(0, alerts.getAlertsOfServerAndUserAndTickers(server2, user3, 0, 1000, "ETH/BTC").size());
     }
 
     @Test
     void matchedAlertBatchUpdates() {
+        ZonedDateTime lastTrigger = ZonedDateTime.now().minusDays(3L);
+        Alert alert1 = createTestAlert().withLastTriggerMarginRepeat(lastTrigger, ONE, (short) 18);
+        alert1 = setId(alert1, alerts.addAlert(alert1));
+        Alert alert2 = createTestAlert().withLastTriggerMarginRepeat(lastTrigger, TEN, (short) 19);
+        alert2 = setId(alert2, alerts.addAlert(alert2));
+        Alert alert3 = createTestAlert().withLastTriggerMarginRepeat(lastTrigger, TWO, (short) 0);
+        alert3 = setId(alert3, alerts.addAlert(alert3));
+        Alert alert4 = createTestAlert().withLastTriggerMarginRepeat(lastTrigger, TEN, (short) 21);
+        alert4 = setId(alert4, alerts.addAlert(alert4));
+
+        assertTrue(alerts.getAlert(alert1.id).isPresent());
+        assertEquals(lastTrigger, alerts.getAlert(alert1.id).get().lastTrigger);
+        assertEquals(ONE, alerts.getAlert(alert1.id).get().margin);
+        assertEquals(18, alerts.getAlert(alert1.id).get().repeat);
+        assertTrue(alerts.getAlert(alert2.id).isPresent());
+        assertEquals(lastTrigger, alerts.getAlert(alert2.id).get().lastTrigger);
+        assertEquals(TEN, alerts.getAlert(alert2.id).get().margin);
+        assertEquals(19, alerts.getAlert(alert2.id).get().repeat);
+        assertTrue(alerts.getAlert(alert3.id).isPresent());
+        assertEquals(lastTrigger, alerts.getAlert(alert3.id).get().lastTrigger);
+        assertEquals(TWO, alerts.getAlert(alert3.id).get().margin);
+        assertEquals(0, alerts.getAlert(alert3.id).get().repeat);
+        assertTrue(alerts.getAlert(alert4.id).isPresent());
+        assertEquals(lastTrigger, alerts.getAlert(alert4.id).get().lastTrigger);
+        assertEquals(TEN, alerts.getAlert(alert4.id).get().margin);
+        assertEquals(21, alerts.getAlert(alert4.id).get().repeat);
+
+        var alertIds = List.of(alert2.id, alert3.id, alert4.id);
+        alerts.matchedAlertBatchUpdates(updater -> alertIds.forEach(updater::batchId));
+
+        assertEquals(lastTrigger, alerts.getAlert(alert1.id).get().lastTrigger);
+        assertEquals(ONE, alerts.getAlert(alert1.id).get().margin);
+        assertEquals(18, alerts.getAlert(alert1.id).get().repeat);
+
+        assertNotEquals(lastTrigger, alerts.getAlert(alert2.id).get().lastTrigger);
+        assertNotNull(alerts.getAlert(alert2.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert2.id).get().margin);
+        assertEquals(19-1, alerts.getAlert(alert2.id).get().repeat);
+
+        assertNotEquals(lastTrigger, alerts.getAlert(alert3.id).get().lastTrigger);
+        assertNotNull(alerts.getAlert(alert3.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert3.id).get().margin);
+        assertEquals(0, alerts.getAlert(alert3.id).get().repeat);
+
+        assertNotEquals(lastTrigger, alerts.getAlert(alert4.id).get().lastTrigger);
+        assertNotNull(alerts.getAlert(alert4.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert4.id).get().margin);
+        assertEquals(21-1, alerts.getAlert(alert4.id).get().repeat);
+
+        long alertId1 = alert1.id;
+        long alertId2 = alert2.id;
+
+        alerts.matchedAlertBatchUpdates(updater -> {
+            updater.batchId(alertId1);
+            updater.batchId(alertId2);
+        });
+
+        assertNotEquals(lastTrigger, alerts.getAlert(alert1.id).get().lastTrigger);
+        assertNotNull(alerts.getAlert(alert1.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert1.id).get().margin);
+        assertEquals(18-1, alerts.getAlert(alert1.id).get().repeat);
+
+        assertNotEquals(lastTrigger, alerts.getAlert(alert2.id).get().lastTrigger);
+        assertNotNull(alerts.getAlert(alert2.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert2.id).get().margin);
+        assertEquals(19-2, alerts.getAlert(alert2.id).get().repeat);
+
+        assertNotEquals(lastTrigger, alerts.getAlert(alert3.id).get().lastTrigger);
+        assertNotNull(alerts.getAlert(alert3.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert3.id).get().margin);
+        assertEquals(0, alerts.getAlert(alert3.id).get().repeat);
+
+        assertNotEquals(lastTrigger, alerts.getAlert(alert4.id).get().lastTrigger);
+        assertNotNull(alerts.getAlert(alert4.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert4.id).get().margin);
+        assertEquals(21-1, alerts.getAlert(alert4.id).get().repeat);
     }
 
     @Test
     void marginAlertBatchUpdates() {
+        Alert alert1 = createTestAlert().withMargin(ONE);
+        alert1 = setId(alert1, alerts.addAlert(alert1));
+        Alert alert2 = createTestAlert().withMargin(TWO);
+        alert2 = setId(alert2, alerts.addAlert(alert2));
+        Alert alert3 = createTestAlert().withMargin(TEN);
+        alert3 = setId(alert3, alerts.addAlert(alert3));
+        Alert alert4 = createTestAlert().withMargin(TEN);
+        alert4 = setId(alert4, alerts.addAlert(alert4));
+
+        assertTrue(alerts.getAlert(alert1.id).isPresent());
+        assertEquals(ONE, alerts.getAlert(alert1.id).get().margin);
+        assertTrue(alerts.getAlert(alert2.id).isPresent());
+        assertEquals(TWO, alerts.getAlert(alert2.id).get().margin);
+        assertTrue(alerts.getAlert(alert3.id).isPresent());
+        assertEquals(TEN, alerts.getAlert(alert3.id).get().margin);
+        assertTrue(alerts.getAlert(alert4.id).isPresent());
+        assertEquals(TEN, alerts.getAlert(alert4.id).get().margin);
+
+        var alertIds = List.of(alert2.id, alert3.id, alert4.id);
+        alerts.marginAlertBatchUpdates(updater -> alertIds.forEach(updater::batchId));
+
+        assertEquals(ONE, alerts.getAlert(alert1.id).get().margin);
+        assertNotEquals(TWO, alerts.getAlert(alert2.id).get().margin);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert2.id).get().margin);
+        assertNotEquals(TEN, alerts.getAlert(alert3.id).get().margin);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert3.id).get().margin);
+        assertNotEquals(TEN, alerts.getAlert(alert4.id).get().margin);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert4.id).get().margin);
+
+        long alertId1 = alert1.id;
+        alerts.marginAlertBatchUpdates(updater -> updater.batchId(alertId1));
+        assertNotEquals(ONE, alerts.getAlert(alert1.id).get().margin);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert1.id).get().margin);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert2.id).get().margin);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert3.id).get().margin);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert4.id).get().margin);
     }
 
     @Test
     void alertBatchDeletes() {
+        long alertId1 = alerts.addAlert(createTestAlert());
+        long alertId2 = alerts.addAlert(createTestAlert());
+        long alertId3 = alerts.addAlert(createTestAlert());
+        long alertId4 = alerts.addAlert(createTestAlert());
+
+        assertTrue(alerts.getAlert(alertId1).isPresent());
+        assertTrue(alerts.getAlert(alertId2).isPresent());
+        assertTrue(alerts.getAlert(alertId3).isPresent());
+        assertTrue(alerts.getAlert(alertId4).isPresent());
+
+        alerts.alertBatchDeletes(deleter -> deleter.batchId(alertId2));
+        assertTrue(alerts.getAlert(alertId2).isEmpty());
+        assertTrue(alerts.getAlert(alertId1).isPresent());
+        assertFalse(alerts.getAlert(alertId2).isPresent());
+        assertTrue(alerts.getAlert(alertId3).isPresent());
+        assertTrue(alerts.getAlert(alertId4).isPresent());
+
+        alerts.alertBatchDeletes(deleter -> {
+            deleter.batchId(alertId1);
+            deleter.batchId(alertId3);
+            deleter.batchId(alertId4);
+        });
+        assertTrue(alerts.getAlert(alertId1).isEmpty());
+        assertTrue(alerts.getAlert(alertId3).isEmpty());
+        assertTrue(alerts.getAlert(alertId4).isEmpty());
+        assertFalse(alerts.getAlert(alertId1).isPresent());
+        assertFalse(alerts.getAlert(alertId2).isPresent());
+        assertFalse(alerts.getAlert(alertId3).isPresent());
+        assertFalse(alerts.getAlert(alertId4).isPresent());
     }
 }

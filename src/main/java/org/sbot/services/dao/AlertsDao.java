@@ -72,7 +72,11 @@ public interface AlertsDao extends TransactionalCtx {
     long deleteAlerts(long serverId, long userId);
     long deleteAlerts(long serverId, long userId, @NotNull String tickerOrPair);
 
+    // this set the alert' margin to MARGIN_DISABLED, lastTrigger to now, and decrease repeat if not zero
     void matchedAlertBatchUpdates(@NotNull Consumer<BatchEntry> updater);
+
+    // this set the alert' margin to MARGIN_DISABLED
     void marginAlertBatchUpdates(@NotNull Consumer<BatchEntry> updater);
+
     void alertBatchDeletes(@NotNull Consumer<BatchEntry> deleter);
 }

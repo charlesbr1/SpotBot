@@ -157,6 +157,22 @@ class TrendAlertTest {
                 BigDecimal.valueOf(24L), BigDecimal.valueOf(24L), BigDecimal.valueOf(24L), BigDecimal.valueOf(24L));
         assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
 
+        // negative trend should decrease in the future, capped to zero
+        alert = alert.withToDate(now.minusHours(2L)).withFromDate(now.minusHours(3L))
+                .withFromPrice(TEN).withToPrice(BigDecimal.valueOf(7L));
+        candlestick = new Candlestick(now, now, // alert decrease 3 by hour, so -6 since 2 hours, = -6 + to price (7) = 1
+                BigDecimal.valueOf(0.9d), BigDecimal.valueOf(0.9d), BigDecimal.valueOf(0.9d), BigDecimal.valueOf(0.9d));
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertEquals(MARGIN, alert.withMargin(BigDecimal.valueOf(0.2d)).match(List.of(candlestick), null).status());
+        candlestick = new Candlestick(now, now,
+                TWO, TWO, TWO, TWO);
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertEquals(MARGIN, alert.withMargin(ONE).match(List.of(candlestick), null).status());
+        alert = alert.withFromPrice(TEN).withToPrice(BigDecimal.valueOf(5L));
+        candlestick = new Candlestick(now, now, // capped to zero
+                ZERO, ZERO, ZERO, ZERO);
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
+
 
         // priceOnTrend false, priceCrossedTrend true -> MATCHED
         alert = alert.withToDate(now.plusHours(1L)).withFromDate(now); // test alert increment 1 by hour

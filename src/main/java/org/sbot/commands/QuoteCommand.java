@@ -23,7 +23,6 @@ import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.chart.Ticker.formatPrice;
-import static org.sbot.chart.Ticker.getSymbol;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
 

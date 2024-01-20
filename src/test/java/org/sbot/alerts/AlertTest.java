@@ -67,12 +67,18 @@ public class AlertTest {
                     ", margin=" + margin +
                     ", repeat=" + repeat +
                     ", snooze=" + snooze +
-                    '}' + matchingStatus.name();
+                    ", status =" + matchingStatus.name() + '}';
         }
     }
 
     public static Alert createTestAlert() {
         return new TestAlert(NULL_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
+                TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
+    }
+
+    public static Alert createTestAlertWithType(Type type) {
+        return new TestAlert(NULL_ALERT_ID, type, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
     }

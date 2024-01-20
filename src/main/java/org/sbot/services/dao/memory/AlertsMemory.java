@@ -76,7 +76,7 @@ public final class AlertsMemory implements AlertsDao {
         long[] read = new long[] {0L};
         alertsConsumer.accept(alerts.values().stream()
                 .filter(alert -> alert.repeat <= 0)
-                .filter(alert -> requireNonNull(alert.lastTrigger).isBefore(expirationDate))
+                .filter(alert -> null != alert.lastTrigger && alert.lastTrigger.isBefore(expirationDate))
                 .filter(alert -> ++read[0] != 0));
         return read[0];
     }
@@ -87,7 +87,7 @@ public final class AlertsMemory implements AlertsDao {
         long[] read = new long[] {0L};
         alertsConsumer.accept(alerts.values().stream()
                 .filter(alert -> alert.type == range)
-                .filter(alert -> requireNonNull(alert.toDate).isBefore(expirationDate))
+                .filter(alert -> null != alert.toDate && alert.toDate.isBefore(expirationDate))
                 .filter(alert -> ++read[0] != 0));
         return read[0];
     }
@@ -100,7 +100,7 @@ public final class AlertsMemory implements AlertsDao {
         long nowSeconds = now.plusMinutes(5).toEpochSecond();
         return alerts.filter(alert -> hasRepeat(alert.repeat))
                 .filter(alert -> alert.isSnoozeOver(nowSeconds))
-                .filter(alert -> alert.type != remainder || alert.fromDate.isBefore(nowPlus60) ||alert.fromDate.isAfter(nowMinus60))
+                .filter(alert -> alert.type != remainder || alert.fromDate.isBefore(nowPlus60) || alert.fromDate.isAfter(nowMinus60))
                 .filter(alert -> alert.type != range || null  == alert.fromDate ||
                         (alert.fromDate.isBefore(nowPlus60) && (null == alert.toDate || alert.toDate.isAfter(nowMinus60))));
     }
@@ -235,7 +235,7 @@ public final class AlertsMemory implements AlertsDao {
     public long updateServerIdPrivate(long serverId) {
         LOGGER.debug("updateServerIdPrivate {}", serverId);
         long[] updatedAlerts = new long[] {0L};
-        alerts.replaceAll((_, alert) ->
+        alerts.replaceAll((id, alert) ->
                 alert.serverId == serverId &&
                 ++updatedAlerts[0] != 0 ? alert.withServerId(PRIVATE_ALERT) : alert);
         return updatedAlerts[0];

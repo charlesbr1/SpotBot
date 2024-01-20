@@ -74,9 +74,9 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
                 "AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * snooze)) <= (1000 * (300 + unixepoch('now', 'utc')))) " +
                 "AND (type NOT LIKE 'remainder' OR (from_date < (3600 + unixepoch('now', 'utc'))) OR (from_date > (unixepoch('now', 'utc') - 3600))) " +
                 "AND (type NOT LIKE 'range' OR from_date IS NULL OR (from_date < (3600 + unixepoch('now', 'utc')) AND (to_date IS NULL OR to_date > (unixepoch('now', 'utc') - 3600))))";
-        String SELECT_HAVING_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE = "SELECT * FROM alerts WHERE repeat=0 AND last_trigger<=:expirationDate";
+        String SELECT_HAVING_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE = "SELECT * FROM alerts WHERE repeat=0 AND last_trigger IS NOT NULL AND last_trigger<=:expirationDate";
 
-        String SELECT_HAVING_RANGE_ALERT_WITH_TO_DATE_BEFORE = "SELECT * FROM alerts WHERE type LIKE 'range' AND to_date<=:expirationDate";
+        String SELECT_HAVING_RANGE_ALERT_WITH_TO_DATE_BEFORE = "SELECT * FROM alerts WHERE type LIKE 'range' AND to_date IS NOT NULL AND to_date<=:expirationDate";
 
         String SELECT_PAIRS_BY_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE = "SELECT DISTINCT exchange,pair AS pair FROM alerts " +
                 "WHERE repeat > 0 AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * snooze)) <= (1000 * (300 + unixepoch('now', 'utc')))) " +
