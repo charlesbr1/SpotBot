@@ -18,7 +18,7 @@ import org.sbot.exchanges.Exchanges;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 import org.sbot.utils.Dates;
-import org.sbot.utils.Dates.DaysHours;
+import org.sbot.utils.Dates.DaysHoursMinutes;
 
 import java.awt.*;
 import java.time.Duration;
@@ -143,15 +143,19 @@ public final class AlertsWatcher {
     }
 
     private List<Candlestick> getCandlesticksSince(@NotNull Exchange exchange, @NotNull String pair, @Nullable ZonedDateTime previousCloseTime) {
-        DaysHours daysHours = Optional.ofNullable(previousCloseTime).map(Dates::daysHoursSince)
-                .orElse(DaysHours.ZERO);
-        LOGGER.debug("Computed {} days and {} hours since the last price close time {}", daysHours.days(), daysHours.hours(), previousCloseTime);
+        DaysHoursMinutes delay = Optional.ofNullable(previousCloseTime).map(Dates::daysHoursMinutesSince)
+                .orElse(DaysHoursMinutes.ZERO);
+        LOGGER.debug("Computed {} days, {} hours, {} minutes since the last price close time {}", delay.days(), delay.hours(), delay.minutes(), previousCloseTime);
 
-        List<Candlestick> prices = new ArrayList<>(daysHours.days() + daysHours.hours() + 1);
-        if(daysHours.days() > 0) {
-            prices.addAll(getCandlesticks(exchange, pair, TimeFrame.DAILY, daysHours.days()));
+        List<Candlestick> prices = new ArrayList<>(delay.days() + delay.hours() + delay.minutes() + 1);
+        if(delay.days() > 0) {
+            prices.addAll(getCandlesticks(exchange, pair, TimeFrame.DAILY, delay.days()));
         }
-        prices.addAll(getCandlesticks(exchange, pair, TimeFrame.HOURLY, daysHours.hours() + 1));
+        if(delay.hours() > 0) {
+            prices.addAll(getCandlesticks(exchange, pair, TimeFrame.HOURLY, delay.hours()));
+        }
+        prices.addAll(getCandlesticks(exchange, pair, TimeFrame.ONE_MINUTE, delay.minutes() + 1));
+
         return prices;
     }
 

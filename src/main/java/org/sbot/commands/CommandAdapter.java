@@ -37,7 +37,7 @@ public abstract class CommandAdapter implements CommandListener {
         this.name = requireNonNull(name, "missing CommandAdapter name");
         this.description = requireNonNull(description, "missing CommandAdapter description");
         this.options = requireNonNull(options, "missing CommandAdapter options");
-        this.responseTtlSeconds = requirePositive(SpotBot.appProperties.getIntOr("command." + name + ".ttlSeconds", responseTtlSeconds));
+        this.responseTtlSeconds = requirePositive(SpotBot.appProperties.getIntOr("command." + name + ".ttl-seconds", responseTtlSeconds));
         LOGGER.debug("Created new CommandAdapter {}, responseTtlSeconds : {}, options : {}", name, this.responseTtlSeconds, options.toData());
     }
 

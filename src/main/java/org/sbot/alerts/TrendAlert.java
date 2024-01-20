@@ -27,14 +27,13 @@ public final class TrendAlert extends Alert {
                       @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate,
                       @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin,
                       short repeat, short snooze) {
-        super(id, Type.trend, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        super(id, Type.trend, userId, serverId, exchange, pair, message, requirePositive(fromPrice), requirePositive(toPrice),
+                fromDate, toDate, lastTrigger, margin, repeat, snooze);
         if(fromDate.isAfter(toDate)) {
             throw new IllegalArgumentException("from_date is after to_date");
         } else if(fromDate.compareTo(toDate) == 0) {
             throw new IllegalArgumentException("from_date and to_date can not be the same");
         }
-        requirePositive(fromPrice);
-        requirePositive(toPrice);
     }
 
     @Override

@@ -10,6 +10,7 @@ import java.time.ZonedDateTime;
 
 import static java.math.BigDecimal.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.sbot.SpotBot.ALERTS_CHECK_PERIOD_MIN;
 import static org.sbot.alerts.Alert.*;
 import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.alerts.AlertTest.*;
@@ -103,7 +104,7 @@ class RemainderAlertTest {
         assertNotNull(alert.match(now));
         assertTrue(alert.match(now).status().isMatched());
 
-        // match since any time after the date
+        // match since any time before the date
         assertTrue(alert.match(TEST_FROM_DATE).status().isMatched());
         assertTrue(alert.match(TEST_FROM_DATE.plusMinutes(1L)).status().isMatched());
         assertTrue(alert.match(TEST_FROM_DATE.plusMinutes(3L)).status().isMatched());
@@ -112,21 +113,21 @@ class RemainderAlertTest {
         assertTrue(alert.match(TEST_FROM_DATE.plusMonths(3L)).status().isMatched());
         assertTrue(alert.match(TEST_FROM_DATE.plusYears(3L)).status().isMatched());
 
-        // match until 31 minutes to date
+        // match until ALERTS_CHECK_PERIOD_MIN / 2 + 1 minutes after date
         assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(1L)).status().isMatched());
-        assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(29L)).status().isMatched());
-        assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(30L)).status().isMatched());
-        assertFalse(alert.match(TEST_FROM_DATE.minusMinutes(31L)).status().isMatched());
+        assertTrue(alert.match(TEST_FROM_DATE.minusMinutes((ALERTS_CHECK_PERIOD_MIN / 2) - 1)).status().isMatched());
+        assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(ALERTS_CHECK_PERIOD_MIN / 2)).status().isMatched());
+        assertFalse(alert.match(TEST_FROM_DATE.minusMinutes((ALERTS_CHECK_PERIOD_MIN / 2) + 1)).status().isMatched());
 
         // never match a date that is above 31 minutes later in the future
-        assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(31L)).status().notMatching());
-        assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(32L)).status().notMatching());
-        assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(33L)).status().notMatching());
-        assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(60L)).status().notMatching());
-        assertTrue(alert.match(TEST_FROM_DATE.minusHours(3L)).status().notMatching());
-        assertTrue(alert.match(TEST_FROM_DATE.minusDays(3L)).status().notMatching());
-        assertTrue(alert.match(TEST_FROM_DATE.minusMonths(3L)).status().notMatching());
-        assertTrue(alert.match(TEST_FROM_DATE.minusYears(3L)).status().notMatching());
+        assertTrue(alert.match(TEST_FROM_DATE.minusMinutes((ALERTS_CHECK_PERIOD_MIN / 2) + 2)).status().notMatching());
+        assertTrue(alert.match(TEST_FROM_DATE.minusMinutes((ALERTS_CHECK_PERIOD_MIN / 2) + 3)).status().notMatching());
+        assertTrue(alert.match(TEST_FROM_DATE.minusMinutes((ALERTS_CHECK_PERIOD_MIN / 2) + 7)).status().notMatching());
+        assertTrue(alert.match(TEST_FROM_DATE.minusMinutes((ALERTS_CHECK_PERIOD_MIN / 2) + 1 + 60)).status().notMatching());
+        assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(ALERTS_CHECK_PERIOD_MIN / 2).minusHours(3L)).status().notMatching());
+        assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(ALERTS_CHECK_PERIOD_MIN / 2).minusDays(3L)).status().notMatching());
+        assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(ALERTS_CHECK_PERIOD_MIN / 2).minusMonths(3L)).status().notMatching());
+        assertTrue(alert.match(TEST_FROM_DATE.minusMinutes(ALERTS_CHECK_PERIOD_MIN / 2).minusYears(3L)).status().notMatching());
     }
     @Test
     void asMessage() {

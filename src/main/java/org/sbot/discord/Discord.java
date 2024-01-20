@@ -53,7 +53,7 @@ public final class Discord {
     public static final String DISCORD_BOT_CHANNEL = SpotBot.appProperties.get("discord.bot.channel");
     public static final String DISCORD_BOT_ROLE = SpotBot.appProperties.get("discord.bot.role");
 
-    private static final int PRIVATE_CHANNEL_CACHE_TLL_MIN = SpotBot.appProperties.getIntOr("discord.private-channel.cache.ttlMin", 5);
+    private static final int PRIVATE_CHANNEL_CACHE_TLL_MIN = Math.max(1, SpotBot.appProperties.getIntOr("discord.private-channel.cache.ttl-minutes", 5));
 
 
     @FunctionalInterface

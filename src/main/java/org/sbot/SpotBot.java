@@ -21,6 +21,7 @@ import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Stream;
 
 import static java.time.temporal.ChronoUnit.HOURS;
+import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.PropertiesReader.loadProperties;
 
 
@@ -34,7 +35,8 @@ public class SpotBot {
 
     private static final String DISCORD_BOT_TOKEN_FILE = "discord.token";
 
-    private static final int ALERTS_HOURLY_CHECK_DELTA_MIN = appProperties.getInt("alerts.hourly-check.delta");
+    private static final int ALERTS_HOURLY_SYNC_DELTA_MIN = requirePositive(appProperties.getInt("alerts.check.hourly-sync.delta-minutes"));
+    public static final int ALERTS_CHECK_PERIOD_MIN = Math.max(1, appProperties.getIntOr("alerts.check.period-minutes", 15));
 
 
     public static void main(String[] args) {
@@ -58,7 +60,7 @@ public class SpotBot {
 
             for(;;) {
                 alertsWatcher.checkAlerts();
-                long sleepingMinutes = minutesUntilNextHour() + ALERTS_HOURLY_CHECK_DELTA_MIN;
+                long sleepingMinutes = minutesUntilNextCheck() + ALERTS_HOURLY_SYNC_DELTA_MIN;
                 LOGGER.info("Main thread now sleeping for {} minutes...", sleepingMinutes);
                 LockSupport.parkNanos(Math.max(Duration.ofMinutes(1L).toNanos(),
                         Duration.ofMinutes(sleepingMinutes).toNanos()));
@@ -70,9 +72,10 @@ public class SpotBot {
         }
     }
 
-    private static long minutesUntilNextHour() {
+    private static long minutesUntilNextCheck() {
         LocalDateTime currentTime = LocalDateTime.now();
         LocalDateTime startOfNextHour = currentTime.truncatedTo(HOURS).plusHours(1L).plusMinutes(1L);
-        return ChronoUnit.MINUTES.between(currentTime, startOfNextHour);
+        return Math.min(ChronoUnit.MINUTES.between(currentTime, startOfNextHour),
+                        ChronoUnit.MINUTES.between(currentTime, currentTime.plusMinutes(ALERTS_CHECK_PERIOD_MIN)));
     }
 }

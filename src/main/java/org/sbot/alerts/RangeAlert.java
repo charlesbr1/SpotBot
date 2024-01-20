@@ -22,7 +22,8 @@ public final class RangeAlert extends Alert {
                       @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate,
                       @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin,
                       short repeat, short snooze) {
-        super(id, Type.range, userId, serverId, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        super(id, Type.range, userId, serverId, exchange, pair, message, requirePositive(fromPrice), requirePositive(toPrice),
+                fromDate, toDate, lastTrigger, margin, repeat, snooze);
         if(fromPrice.compareTo(toPrice) > 0) {
             throw new IllegalArgumentException("from_price is higher than to_price");
         }
@@ -33,8 +34,6 @@ public final class RangeAlert extends Alert {
                 throw new IllegalArgumentException("from_date and to_date can not be the same");
             }
         }
-        requirePositive(fromPrice);
-        requirePositive(toPrice);
     }
 
     @Override

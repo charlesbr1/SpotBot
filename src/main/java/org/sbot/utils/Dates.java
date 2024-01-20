@@ -42,13 +42,13 @@ public interface Dates {
                 .map(dateTime -> dateTime.toLocalDateTime().atZone(ZoneOffset.UTC)).orElse(null);
     }
 
-    record DaysHours(int days, int hours) {
-        public static final DaysHours ZERO = new DaysHours(0, 0);
+    record DaysHoursMinutes(int days, int hours, int minutes) {
+        public static final DaysHoursMinutes ZERO = new DaysHoursMinutes(0, 0, 0);
     }
 
     @NotNull
-    static DaysHours daysHoursSince(@NotNull ZonedDateTime lastTime) {
+    static DaysHoursMinutes daysHoursMinutesSince(@NotNull ZonedDateTime lastTime) {
         Duration duration = Duration.between(requireInPast(lastTime), ZonedDateTime.now());
-        return new DaysHours(duration.toHoursPart(), duration.toHoursPart());
+        return new DaysHoursMinutes(duration.toHoursPart(), duration.toHoursPart(), duration.toMinutesPart());
     }
 }

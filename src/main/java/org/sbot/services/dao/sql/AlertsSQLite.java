@@ -69,6 +69,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String SELECT_BY_ID = "SELECT * FROM alerts WHERE id=:id";
         String SELECT_WITHOUT_MESSAGE_BY_ID = "SELECT id,type,user_id,server_id,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts WHERE id=:id";
         String SELECT_USER_ID_BY_SERVER_ID = "SELECT user_id FROM alerts WHERE server_id=:serverId";
+        //TODO adapt ALERTS_CHECK_PERIOD_MIN
         String SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE = "SELECT id,type,user_id,server_id,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts " +
                 "WHERE exchange=:exchange AND pair=:pair AND repeat > 0 " +
                 "AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * snooze)) <= (1000 * (300 + unixepoch('now', 'utc')))) " +
@@ -77,7 +78,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String SELECT_HAVING_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE = "SELECT * FROM alerts WHERE repeat=0 AND last_trigger IS NOT NULL AND last_trigger<=:expirationDate";
 
         String SELECT_HAVING_RANGE_ALERT_WITH_TO_DATE_BEFORE = "SELECT * FROM alerts WHERE type LIKE 'range' AND to_date IS NOT NULL AND to_date<=:expirationDate";
-
+        //TODO adapt ALERTS_CHECK_PERIOD_MIN
         String SELECT_PAIRS_BY_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE = "SELECT DISTINCT exchange,pair AS pair FROM alerts " +
                 "WHERE repeat > 0 AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * snooze)) <= (1000 * (300 + unixepoch('now', 'utc')))) " +
                 "AND (type NOT LIKE 'remainder' OR (from_date < (3600 + unixepoch('now', 'utc'))) OR (from_date > (unixepoch('now', 'utc') - 3600))) " +

@@ -12,6 +12,7 @@ import java.time.ZonedDateTime;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
+import static org.sbot.SpotBot.ALERTS_CHECK_PERIOD_MIN;
 import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.MATCHED;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.NOT_MATCHING;
@@ -25,8 +26,9 @@ public final class RemainderAlert extends Alert {
     public RemainderAlert(long id, long userId, long serverId,
                           @NotNull String pair, @NotNull String message,
                           @NotNull ZonedDateTime fromDate) {
-        super(id, remainder, userId, serverId, REMAINDER_VIRTUAL_EXCHANGE, pair, message, null, null, fromDate, null, null, MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
-        requireNonNull(fromDate, "missing RemainderAlert fromDate");
+        super(id, remainder, userId, serverId, REMAINDER_VIRTUAL_EXCHANGE, pair, message, null, null,
+                requireNonNull(fromDate, "missing RemainderAlert fromDate"),
+                null, null, MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
     }
 
     @Override
@@ -48,7 +50,7 @@ public final class RemainderAlert extends Alert {
     }
 
     MatchingAlert match(@NotNull ZonedDateTime now) {
-        if(fromDate.isBefore(now.plusMinutes(31L))) { // check is done hourly, so alert precision is +- 30 minutes
+        if(fromDate.isBefore(now.plusMinutes((ALERTS_CHECK_PERIOD_MIN / 2) + 1L))) { // alert accuracy is +- ALERTS_CHECK_FREQUENCY_MIN / 2
             return new MatchingAlert(this, MATCHED, null);
         }
         return new MatchingAlert(this, NOT_MATCHING, null);
