@@ -18,8 +18,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
+import static org.sbot.SpotBot.ALERTS_CHECK_PERIOD_MIN;
 import static org.sbot.alerts.Alert.*;
 import static org.sbot.alerts.Alert.Type.range;
 import static org.sbot.alerts.Alert.Type.remainder;
@@ -95,14 +95,16 @@ public final class AlertsMemory implements AlertsDao {
     @NotNull
     private static Stream<Alert> havingRepeatAndDelayOverWithActiveRange(@NotNull Stream<Alert> alerts) {
         ZonedDateTime now = Instant.now().atZone(ZoneOffset.UTC);
-        ZonedDateTime nowMinus60 = now.minusMinutes(60);
-        ZonedDateTime nowPlus60 = now.plusMinutes(60);
-        long nowSeconds = now.plusMinutes(5).toEpochSecond();
+        int delta = (ALERTS_CHECK_PERIOD_MIN / 2) + 1;
+        ZonedDateTime nowMinusDelta = now.minusMinutes(delta);
+        ZonedDateTime nowPlusDelta = now.plusMinutes(delta);
+        long nowSeconds = nowPlusDelta.toEpochSecond();
         return alerts.filter(alert -> hasRepeat(alert.repeat))
                 .filter(alert -> alert.isSnoozeOver(nowSeconds))
-                .filter(alert -> alert.type != remainder || alert.fromDate.isBefore(nowPlus60) || alert.fromDate.isAfter(nowMinus60))
-                .filter(alert -> alert.type != range || null  == alert.fromDate ||
-                        (alert.fromDate.isBefore(nowPlus60) && (null == alert.toDate || alert.toDate.isAfter(nowMinus60))));
+                .filter(alert -> alert.type != remainder || alert.fromDate.isBefore(nowPlusDelta))
+                .filter(alert -> alert.type != range ||
+                        ((null == alert.fromDate || alert.fromDate.isBefore(nowPlusDelta)) &&
+                                (null == alert.toDate || alert.toDate.isAfter(nowMinusDelta))));
     }
 
     @Override

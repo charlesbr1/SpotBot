@@ -19,8 +19,6 @@ import static org.sbot.utils.Dates.formatUTC;
 
 public final class TrendAlert extends Alert {
 
-    static final BigDecimal ONE_HOUR_SECONDS = new BigDecimal(Duration.ofHours(1L).toSeconds());
-
     public TrendAlert(long id, long userId, long serverId, @NotNull String exchange,
                       @NotNull String pair, @NotNull String message,
                       @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,

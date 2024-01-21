@@ -31,6 +31,8 @@ import java.util.stream.Stream;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
+import static org.sbot.SpotBot.ALERTS_CHECK_PERIOD_MIN;
+import static org.sbot.alerts.Alert.ONE_HOUR_SECONDS;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.utils.ArgumentValidator.stringLength;
@@ -40,6 +42,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
 
     private static final Logger LOGGER = LogManager.getLogger(AlertsSQLite.class);
 
+    private static final int HALF_CHECK_PERIOD_SECONDS = 1000 * 60 * ((ALERTS_CHECK_PERIOD_MIN / 2) + 1);
 
     private interface SQL {
         String CREATE_TABLE = """
@@ -69,20 +72,20 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String SELECT_BY_ID = "SELECT * FROM alerts WHERE id=:id";
         String SELECT_WITHOUT_MESSAGE_BY_ID = "SELECT id,type,user_id,server_id,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts WHERE id=:id";
         String SELECT_USER_ID_BY_SERVER_ID = "SELECT user_id FROM alerts WHERE server_id=:serverId";
-        //TODO adapt ALERTS_CHECK_PERIOD_MIN
-        String SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE = "SELECT id,type,user_id,server_id,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts " +
-                "WHERE exchange=:exchange AND pair=:pair AND repeat > 0 " +
-                "AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * snooze)) <= (1000 * (300 + unixepoch('now', 'utc')))) " +
-                "AND (type NOT LIKE 'remainder' OR (from_date < (3600 + unixepoch('now', 'utc'))) OR (from_date > (unixepoch('now', 'utc') - 3600))) " +
-                "AND (type NOT LIKE 'range' OR from_date IS NULL OR (from_date < (3600 + unixepoch('now', 'utc')) AND (to_date IS NULL OR to_date > (unixepoch('now', 'utc') - 3600))))";
+
+        String HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE =
+                "repeat > 0 AND (last_trigger IS NULL OR (last_trigger + (" + (1000 * ONE_HOUR_SECONDS.longValue()) + " * snooze)) <= (1000 * (" + HALF_CHECK_PERIOD_SECONDS + " + unixepoch('now', 'utc')))) " +
+                        "AND (type NOT LIKE 'remainder' OR (from_date < 1000 * (" + HALF_CHECK_PERIOD_SECONDS + " + unixepoch('now', 'utc')))) " +
+                        "AND (type NOT LIKE 'range' OR ((from_date IS NULL OR (from_date < 1000 * (" + HALF_CHECK_PERIOD_SECONDS + " + unixepoch('now', 'utc')))) AND (to_date IS NULL OR (to_date > 1000 * (unixepoch('now', 'utc') - " + HALF_CHECK_PERIOD_SECONDS + ")))))";
+        String SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE =
+                "SELECT id,type,user_id,server_id,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts " +
+                "WHERE exchange=:exchange AND pair=:pair AND " + HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE;
+
         String SELECT_HAVING_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE = "SELECT * FROM alerts WHERE repeat=0 AND last_trigger IS NOT NULL AND last_trigger<=:expirationDate";
 
         String SELECT_HAVING_RANGE_ALERT_WITH_TO_DATE_BEFORE = "SELECT * FROM alerts WHERE type LIKE 'range' AND to_date IS NOT NULL AND to_date<=:expirationDate";
-        //TODO adapt ALERTS_CHECK_PERIOD_MIN
-        String SELECT_PAIRS_BY_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE = "SELECT DISTINCT exchange,pair AS pair FROM alerts " +
-                "WHERE repeat > 0 AND (last_trigger IS NULL OR (last_trigger + (3600 * 1000 * snooze)) <= (1000 * (300 + unixepoch('now', 'utc')))) " +
-                "AND (type NOT LIKE 'remainder' OR (from_date < (3600 + unixepoch('now', 'utc'))) OR (from_date > (unixepoch('now', 'utc') - 3600))) " +
-                "AND (type NOT LIKE 'range' OR from_date IS NULL OR (from_date < (3600 + unixepoch('now', 'utc')) AND (to_date IS NULL OR to_date > (unixepoch('now', 'utc') - 3600))))";
+        String SELECT_PAIRS_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE =
+                "SELECT DISTINCT exchange,pair FROM alerts WHERE " + HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE;
         String COUNT_ALERTS_OF_USER = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId";
         String ALERTS_OF_USER = "SELECT * FROM alerts WHERE user_id=:userId LIMIT :limit OFFSET :offset";
         String COUNT_ALERTS_OF_USER_AND_TICKER_OR_PAIR = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId AND pair LIKE '%'||:tickerOrPair||'%'";
@@ -240,7 +243,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     @NotNull
     public Map<String, Set<String>> getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange() {
         LOGGER.debug("getPairsByExchanges");
-        try (var query = getHandle().createQuery(SQL.SELECT_PAIRS_BY_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE)) {
+        try (var query = getHandle().createQuery(SQL.SELECT_PAIRS_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE)) {
             return query.collectRows(groupingBy(
                     rowView -> rowView.getColumn("exchange", String.class),
                     mapping(rowView -> rowView.getColumn("pair", String.class), toSet())));

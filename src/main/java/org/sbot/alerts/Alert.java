@@ -8,6 +8,7 @@ import org.sbot.chart.Ticker;
 import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -40,6 +41,9 @@ public abstract class Alert {
     public static final short DEFAULT_SNOOZE_HOURS = 8;
     public static final long PRIVATE_ALERT = 0L;
     public static final long NULL_ALERT_ID = 0L;
+
+    public static final BigDecimal ONE_HOUR_SECONDS = new BigDecimal(Duration.ofHours(1L).toSeconds());
+
 
     public final long id;
 
@@ -101,7 +105,7 @@ public abstract class Alert {
     }
 
     public final boolean isSnoozeOver(long epochSeconds) {
-        return null == lastTrigger || (lastTrigger.toEpochSecond() + (3600L * snooze)) <= epochSeconds;
+        return null == lastTrigger || (lastTrigger.toEpochSecond() + (ONE_HOUR_SECONDS.longValue() * snooze)) <= epochSeconds;
     }
 
 

@@ -50,7 +50,7 @@ public final class RemainderAlert extends Alert {
     }
 
     MatchingAlert match(@NotNull ZonedDateTime now) {
-        if(fromDate.isBefore(now.plusMinutes((ALERTS_CHECK_PERIOD_MIN / 2) + 1L))) { // alert accuracy is +- ALERTS_CHECK_FREQUENCY_MIN / 2
+        if(fromDate.isBefore(now.plusMinutes((ALERTS_CHECK_PERIOD_MIN / 2) + 1L))) { // alert accuracy is +- ALERTS_CHECK_PERIOD_MIN / 2
             return new MatchingAlert(this, MATCHED, null);
         }
         return new MatchingAlert(this, NOT_MATCHING, null);
