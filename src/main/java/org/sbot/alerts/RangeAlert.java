@@ -64,7 +64,7 @@ public final class RangeAlert extends Alert {
 
     static boolean datesInLimits(@NotNull Candlestick candlestick, @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate) {
         return (null == fromDate || fromDate.compareTo(candlestick.closeTime()) <= 0) &&
-                (null == toDate || toDate.compareTo(candlestick.closeTime()) >= 0);
+                (null == toDate || toDate.compareTo(candlestick.closeTime()) > 0);
     }
 
     static boolean priceInRange(@NotNull Candlestick candlestick, @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice, @NotNull BigDecimal margin) {

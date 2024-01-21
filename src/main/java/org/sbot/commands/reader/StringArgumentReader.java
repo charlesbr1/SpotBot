@@ -12,15 +12,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
-import static org.sbot.utils.ArgumentValidator.DISCORD_USER_ID_PATTERN;
-import static org.sbot.utils.ArgumentValidator.requireUser;
 
 public final class StringArgumentReader implements ArgumentReader {
 
+    private static final Pattern SPLIT_WORD = Pattern.compile("\\s+");
 
     @NotNull
     private String remainingArguments;
@@ -33,7 +32,7 @@ public final class StringArgumentReader implements ArgumentReader {
     public Optional<String> getString(@NotNull String unused) {
         List<String> values = !remainingArguments.isBlank() ?
                 // this split arguments into two parts : the first word without spaces, then the rest of the string
-                Arrays.asList(remainingArguments.split("\\s+", 2))
+                Arrays.asList(SPLIT_WORD.split(remainingArguments, 2))
                 : Collections.emptyList();
         remainingArguments = values.size() > 1 ? values.get(1) : "";
         return values.stream().findFirst();

@@ -95,16 +95,15 @@ public final class AlertsMemory implements AlertsDao {
     @NotNull
     private static Stream<Alert> havingRepeatAndDelayOverWithActiveRange(@NotNull Stream<Alert> alerts) {
         ZonedDateTime now = Instant.now().atZone(ZoneOffset.UTC);
-        int delta = (ALERTS_CHECK_PERIOD_MIN / 2) + 1;
-        ZonedDateTime nowMinusDelta = now.minusMinutes(delta);
-        ZonedDateTime nowPlusDelta = now.plusMinutes(delta);
-        long nowSeconds = nowPlusDelta.toEpochSecond();
+        ZonedDateTime nowPlusOneSecond = now.plusSeconds(1L);
+        ZonedDateTime nowPlusDelta = now.plusMinutes((ALERTS_CHECK_PERIOD_MIN / 2) + 1L);
+        long nowPlusDeltaSeconds = nowPlusDelta.toEpochSecond();
         return alerts.filter(alert -> hasRepeat(alert.repeat))
-                .filter(alert -> alert.isSnoozeOver(nowSeconds))
+                .filter(alert -> alert.isSnoozeOver(nowPlusDeltaSeconds))
                 .filter(alert -> alert.type != remainder || alert.fromDate.isBefore(nowPlusDelta))
                 .filter(alert -> alert.type != range ||
-                        ((null == alert.fromDate || alert.fromDate.isBefore(nowPlusDelta)) &&
-                                (null == alert.toDate || alert.toDate.isAfter(nowMinusDelta))));
+                        ((null == alert.fromDate || alert.fromDate.compareTo(nowPlusOneSecond) <= 0) &&
+                                (null == alert.toDate || alert.toDate.compareTo(now) > 0)));
     }
 
     @Override

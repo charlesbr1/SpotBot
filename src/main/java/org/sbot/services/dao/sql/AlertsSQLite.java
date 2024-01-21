@@ -42,7 +42,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
 
     private static final Logger LOGGER = LogManager.getLogger(AlertsSQLite.class);
 
-    private static final int HALF_CHECK_PERIOD_SECONDS = 1000 * 60 * ((ALERTS_CHECK_PERIOD_MIN / 2) + 1);
+    private static final int HALF_CHECK_PERIOD_SECONDS =  60 * ((ALERTS_CHECK_PERIOD_MIN / 2) + 1);
 
     private interface SQL {
         String CREATE_TABLE = """
@@ -76,7 +76,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE =
                 "repeat > 0 AND (last_trigger IS NULL OR (last_trigger + (" + (1000 * ONE_HOUR_SECONDS.longValue()) + " * snooze)) <= (1000 * (" + HALF_CHECK_PERIOD_SECONDS + " + unixepoch('now', 'utc')))) " +
                         "AND (type NOT LIKE 'remainder' OR (from_date < 1000 * (" + HALF_CHECK_PERIOD_SECONDS + " + unixepoch('now', 'utc')))) " +
-                        "AND (type NOT LIKE 'range' OR ((from_date IS NULL OR (from_date < 1000 * (" + HALF_CHECK_PERIOD_SECONDS + " + unixepoch('now', 'utc')))) AND (to_date IS NULL OR (to_date > 1000 * (unixepoch('now', 'utc') - " + HALF_CHECK_PERIOD_SECONDS + ")))))";
+                        "AND (type NOT LIKE 'range' OR ((from_date IS NULL OR (from_date <= 1000 * (unixepoch('now', 'utc') + 1))) AND (to_date IS NULL OR (to_date > 1000 * unixepoch('now', 'utc')))))";
         String SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE =
                 "SELECT id,type,user_id,server_id,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts " +
                 "WHERE exchange=:exchange AND pair=:pair AND " + HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE;

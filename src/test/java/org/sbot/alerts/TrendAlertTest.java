@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static java.math.BigDecimal.*;
+import static java.time.ZonedDateTime.now;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.alerts.Alert.*;
 import static org.sbot.alerts.Alert.Type.trend;
@@ -418,6 +419,9 @@ class TrendAlertTest {
         assertFalse(message.contains(Dates.formatUTC(alert.lastTrigger)));
         assertFalse(alert.withLastTriggerMarginRepeat(null, alert.margin, (short) 0)
                 .asMessage(MATCHED, candlestick).contains("DISABLED"));
+        assertFalse(message.contains("quiet for"));
+        assertFalse(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 2).asMessage(MATCHED, candlestick).contains("DISABLED"));
+        assertFalse(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 2).asMessage(MATCHED, candlestick).contains("quiet for"));
 
         // MARGIN
         assertNotEquals(message, alert.asMessage(MARGIN, null));
@@ -442,6 +446,9 @@ class TrendAlertTest {
         assertFalse(message.contains(Dates.formatUTC(alert.lastTrigger)));
         assertFalse(alert.withLastTriggerMarginRepeat(null, alert.margin, (short) 0)
                 .asMessage(MARGIN, candlestick).contains("DISABLED"));
+        assertFalse(message.contains("quiet for"));
+        assertFalse(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 2).asMessage(MARGIN, candlestick).contains("DISABLED"));
+        assertFalse(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 2).asMessage(MARGIN, candlestick).contains("quiet for"));
 
         // NOT MATCHING
         message = alert.asMessage(NOT_MATCHING, null);
@@ -464,5 +471,12 @@ class TrendAlertTest {
         assertTrue(message.contains(Dates.formatUTC(alert.lastTrigger)));
         assertTrue(alert.withLastTriggerMarginRepeat(null, alert.margin, (short) 0)
                 .asMessage(NOT_MATCHING, candlestick).contains("DISABLED"));
+        assertFalse(message.contains("quiet for"));
+        assertFalse(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 1).asMessage(NOT_MATCHING, candlestick).contains("DISABLED"));
+        assertTrue(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 1).asMessage(NOT_MATCHING, candlestick).contains("quiet for 0 hour 59 min"));
+        assertTrue(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 2).asMessage(NOT_MATCHING, candlestick).contains("quiet for 1 hour 59 min"));
+        assertFalse(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 3).asMessage(NOT_MATCHING, candlestick).contains("DISABLED"));
+        assertTrue(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 3).asMessage(NOT_MATCHING, candlestick).contains("quiet for 2 hours 59 min"));
+        assertTrue(alert.withLastTriggerRepeatSnooze(now().minusMinutes(3L), alert.repeat, (short) 3).asMessage(NOT_MATCHING, candlestick).contains("quiet for 2 hours 56 min"));
     }
 }

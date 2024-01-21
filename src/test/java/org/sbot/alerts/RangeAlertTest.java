@@ -183,6 +183,8 @@ class RangeAlertTest {
         assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
         assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
         alert = alert.withFromDate(null).withToDate(now);
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        alert = alert.withToDate(now.plusSeconds(1L));
         assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
         assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
         alert = alert.withToDate(now.plusMinutes(1L));
@@ -205,7 +207,7 @@ class RangeAlertTest {
         alert = alert.withFromDate(now.plusMinutes(2L)); // ensure datesInLimits false
         assertEquals(NOT_MATCHING, alert.match(List.of(candlestick, candlestick2), null).status());
         assertNull(alert.match(List.of(candlestick, candlestick2), null).matchingCandlestick());
-        alert = alert.withFromDate(null).withToDate(now.plusMinutes(1L));
+        alert = alert.withFromDate(null).withToDate(now.plusMinutes(1L).plusSeconds(1L));
         assertEquals(MATCHED, alert.match(List.of(candlestick, candlestick2), null).status());
         assertNotNull(alert.match(List.of(candlestick, candlestick2), null).matchingCandlestick());
         alert = alert.withToDate(now);
@@ -275,13 +277,15 @@ class RangeAlertTest {
         assertTrue(RangeAlert.datesInLimits(candlestick, closeTime.minusMinutes(1L), null));
         assertFalse(RangeAlert.datesInLimits(candlestick, closeTime.plusMinutes(1L), null));
 
-        // close is after to date
-        assertTrue(RangeAlert.datesInLimits(candlestick, null, closeTime));
+        // close is strictly after to date
+        assertFalse(RangeAlert.datesInLimits(candlestick, null, closeTime));
+        assertTrue(RangeAlert.datesInLimits(candlestick, null, closeTime.plusSeconds(1L)));
         assertTrue(RangeAlert.datesInLimits(candlestick, null, closeTime.plusMinutes(1L)));
         assertFalse(RangeAlert.datesInLimits(candlestick, null, now().minusMinutes(1)));
 
         // close is between from and to date
-        assertTrue(RangeAlert.datesInLimits(candlestick, closeTime, closeTime));
+        assertFalse(RangeAlert.datesInLimits(candlestick, closeTime, closeTime));
+        assertTrue(RangeAlert.datesInLimits(candlestick, closeTime, closeTime.plusSeconds(1L)));
         assertTrue(RangeAlert.datesInLimits(candlestick, closeTime.minusMinutes(1L), closeTime.plusMinutes(1L)));
     }
 
@@ -459,6 +463,9 @@ class RangeAlertTest {
         assertFalse(message.contains(Dates.formatUTC(alert.lastTrigger)));
         assertFalse(alert.withLastTriggerMarginRepeat(null, alert.margin, (short) 0)
                 .asMessage(MATCHED, candlestick).contains("DISABLED"));
+        assertFalse(message.contains("quiet for"));
+        assertFalse(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 2).asMessage(MATCHED, candlestick).contains("DISABLED"));
+        assertFalse(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 2).asMessage(MATCHED, candlestick).contains("quiet for"));
         // with dates
         assertTrue(message.contains(Dates.formatUTC(alert.fromDate)));
         assertFalse(alert.withFromDate(null).asMessage(MATCHED, null).contains(Dates.formatUTC(alert.fromDate)));
@@ -486,6 +493,9 @@ class RangeAlertTest {
         assertFalse(message.contains(Dates.formatUTC(alert.lastTrigger)));
         assertFalse(alert.withLastTriggerMarginRepeat(null, alert.margin, (short) 0)
                 .asMessage(MARGIN, candlestick).contains("DISABLED"));
+        assertFalse(message.contains("quiet for"));
+        assertFalse(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 2).asMessage(MARGIN, candlestick).contains("DISABLED"));
+        assertFalse(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 2).asMessage(MARGIN, candlestick).contains("quiet for"));
         // with dates
         assertTrue(message.contains(Dates.formatUTC(alert.fromDate)));
         assertFalse(alert.withFromDate(null).asMessage(MARGIN, null).contains(Dates.formatUTC(alert.fromDate)));
@@ -511,6 +521,13 @@ class RangeAlertTest {
         assertTrue(message.contains(Dates.formatUTC(alert.lastTrigger)));
         assertTrue(alert.withLastTriggerMarginRepeat(null, alert.margin, (short) 0)
                 .asMessage(NOT_MATCHING, candlestick).contains("DISABLED"));
+        assertFalse(message.contains("quiet for"));
+        assertFalse(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 1).asMessage(NOT_MATCHING, candlestick).contains("DISABLED"));
+        assertTrue(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 1).asMessage(NOT_MATCHING, candlestick).contains("quiet for 0 hour 59 min"));
+        assertTrue(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 2).asMessage(NOT_MATCHING, candlestick).contains("quiet for 1 hour 59 min"));
+        assertFalse(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 3).asMessage(NOT_MATCHING, candlestick).contains("DISABLED"));
+        assertTrue(alert.withLastTriggerRepeatSnooze(now(), alert.repeat, (short) 3).asMessage(NOT_MATCHING, candlestick).contains("quiet for 2 hours 59 min"));
+        assertTrue(alert.withLastTriggerRepeatSnooze(now().minusMinutes(3L), alert.repeat, (short) 3).asMessage(NOT_MATCHING, candlestick).contains("quiet for 2 hours 56 min"));
         // with dates
         assertTrue(message.contains(Dates.formatUTC(alert.fromDate)));
         assertFalse(alert.withFromDate(null).asMessage(NOT_MATCHING, null).contains(Dates.formatUTC(alert.fromDate)));

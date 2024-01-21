@@ -9,6 +9,8 @@ import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -234,11 +236,25 @@ public abstract class Alert {
                 (matchingStatus.notMatching() && hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(getTicker2()) : "disabled") +
                 " / " + (!hasRepeat(nextRepeat) ? "disabled" : nextRepeat) +
                 " / " + snooze + (snooze > 1 ? " hours" : " hour") +
-                (matchingStatus.notMatching() ? Optional.ofNullable(lastTrigger).map(Dates::formatUTC).map("\n\nLast time raised : "::concat).orElse("") :
+                (matchingStatus.notMatching() ? Optional.ofNullable(lastTrigger)
+                        .map(Dates::formatUTC)
+                        .map("\n\nLast time raised : "::concat)
+                        .map(this::withSnoozeTime)
+                        .orElse("") :
                         Optional.ofNullable(previousCandlestick).map(Candlestick::close)
                                 .map(price -> Ticker.formatPrice(price, getTicker2()))
                                 .map(price -> "\n\nLast close : " + price + " at " + formatUTC(previousCandlestick.closeTime()))
                                 .orElse(""));
+    }
+
+    private String withSnoozeTime(@NotNull String message) {
+        ZonedDateTime now = Instant.now().atZone(ZoneOffset.UTC);
+        if(null == lastTrigger || isSnoozeOver(now.toEpochSecond())) {
+            return message;
+        }
+        Duration duration = Duration.between(now, lastTrigger.plusHours(snooze));
+        return message + "\t (quiet for " + (duration.toHours()) + (duration.toHours() > 1 ? " hours " : " hour ") +
+                duration.toMinutes() % 60 + " min)";
     }
 
     @Override
