@@ -28,7 +28,7 @@ public interface Dates {
         return parse(dateTime).atZone(ZoneOffset.UTC);
     }
 
-    static String formatAtZone(@NotNull ZonedDateTime dateTime) {
+    static String format(@NotNull ZonedDateTime dateTime) {
         return dateTime.format(DATE_TIME_FORMATTER);
     }
 
@@ -37,9 +37,9 @@ public interface Dates {
     }
 
     @Nullable
-    static ZonedDateTime parseDateTimeOrNull(@Nullable Timestamp timestamp) {
+    static ZonedDateTime parseUtcDateTimeOrNull(@Nullable Timestamp timestamp) {
         return Optional.ofNullable(timestamp)
-                .map(dateTime -> dateTime.toLocalDateTime().atZone(ZoneOffset.UTC)).orElse(null);
+                .map(dateTime -> dateTime.toInstant().atZone(ZoneOffset.UTC)).orElse(null);
     }
 
     record DaysHoursMinutes(int days, int hours, int minutes) {

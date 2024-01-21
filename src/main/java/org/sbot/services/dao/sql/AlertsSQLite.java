@@ -36,7 +36,7 @@ import static org.sbot.alerts.Alert.ONE_HOUR_SECONDS;
 import static org.sbot.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.utils.ArgumentValidator.stringLength;
-import static org.sbot.utils.Dates.parseDateTimeOrNull;
+import static org.sbot.utils.Dates.parseUtcDateTimeOrNull;
 
 public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
 
@@ -132,10 +132,10 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
 
             BigDecimal fromPrice = remainder == type ? null : rs.getBigDecimal("from_price");
             BigDecimal toPrice = remainder == type ? null : rs.getBigDecimal("to_price");
-            ZonedDateTime fromDate = parseDateTimeOrNull(rs.getTimestamp("from_date"));
-            ZonedDateTime toDate = remainder == type ? null : parseDateTimeOrNull(rs.getTimestamp("to_date"));
+            ZonedDateTime fromDate = parseUtcDateTimeOrNull(rs.getTimestamp("from_date"));
+            ZonedDateTime toDate = remainder == type ? null : parseUtcDateTimeOrNull(rs.getTimestamp("to_date"));
 
-            ZonedDateTime lastTrigger = remainder == type ? null : parseDateTimeOrNull(rs.getTimestamp("last_trigger"));
+            ZonedDateTime lastTrigger = remainder == type ? null : parseUtcDateTimeOrNull(rs.getTimestamp("last_trigger"));
             BigDecimal margin = remainder == type ? null : rs.getBigDecimal("margin");
             short repeat = remainder == type ? 0 : rs.getShort("repeat");
             short snooze = remainder == type ? 0 : rs.getShort("snooze");

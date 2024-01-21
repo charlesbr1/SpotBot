@@ -20,7 +20,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 import static org.sbot.utils.ArgumentValidator.requirePairFormat;
-import static org.sbot.utils.Dates.parseDateTimeOrNull;
+import static org.sbot.utils.Dates.parseUtcDateTimeOrNull;
 
 public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCandlesticksDao {
 
@@ -48,8 +48,8 @@ public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCa
     private static final class CandlestickMapper implements RowMapper<Candlestick> {
         @Override
         public Candlestick map(ResultSet rs, StatementContext ctx) throws SQLException {
-            ZonedDateTime openTime = parseDateTimeOrNull(rs.getTimestamp("open_time"));
-            ZonedDateTime closeTime = parseDateTimeOrNull(rs.getTimestamp("close_time"));
+            ZonedDateTime openTime = parseUtcDateTimeOrNull(rs.getTimestamp("open_time"));
+            ZonedDateTime closeTime = parseUtcDateTimeOrNull(rs.getTimestamp("close_time"));
             BigDecimal open = rs.getBigDecimal("open");
             BigDecimal close = rs.getBigDecimal("close");
             BigDecimal high = rs.getBigDecimal("high");

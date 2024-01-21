@@ -69,7 +69,7 @@ public final class QuoteCommand extends CommandAdapter {
         String zoneId = getZoneId(timeZone);
         String ticker2 = pair.substring(pair.indexOf('/') + 1);
         Function<ZonedDateTime, String> dateFormatter = null == zoneId ? Dates::formatUTC :
-                d -> Dates.formatAtZone(d.withZoneSameInstant(ZoneId.of(zoneId)));
+                d -> Dates.format(d.withZoneSameInstant(ZoneId.of(zoneId)));
         return candlestick.stream()
                 .sorted(comparing(Candlestick::closeTime).reversed())
                 .map(c ->
