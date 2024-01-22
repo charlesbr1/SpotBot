@@ -11,6 +11,8 @@ import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.services.dao.TransactionalCtx;
 
+import java.sql.Timestamp;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +39,7 @@ public final class JDBIRepository implements TransactionalCtx {
     private final Jdbi jdbi;
 
     public JDBIRepository(@NotNull String url) {
-        LOGGER.info("Opening database {}", url);
+        LOGGER.info("Loading database {}", url);
         jdbi = Jdbi.create(url);
     }
 
@@ -120,7 +122,8 @@ public final class JDBIRepository implements TransactionalCtx {
 
     public Optional<ZonedDateTime> findOneDateTime(@NotNull String sql, @NotNull Map<String, ?> parameters) {
         try (var query = getHandle().createQuery(sql)) {
-            return query.bindMap(parameters).mapTo(ZonedDateTime.class).findOne();
+            return query.bindMap(parameters).mapTo(Timestamp.class).findOne()
+                    .map(timestamp -> timestamp.toInstant().atZone(ZoneOffset.UTC));
         }
     }
 

@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
 import static net.dv8tion.jda.api.entities.MessageEmbed.TITLE_MAX_LENGTH;
-import static org.sbot.alerts.Alert.Type.remainder;
+import static org.sbot.alerts.Alert.Type.*;
 import static org.sbot.alerts.Alert.isPrivate;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.NOT_MATCHING;
 import static org.sbot.alerts.RemainderAlert.REMAINDER_VIRTUAL_EXCHANGE;
@@ -104,8 +104,14 @@ public final class AlertsWatcher {
 
             alertsDao.transactional(() -> {
                 ZonedDateTime expirationDate = ZonedDateTime.now().minusWeeks(1L);
-                long deleted = alertsDao.fetchRangeAlertsHavingToDateBefore(expirationDate, alertsDeleter);
+                long deleted = alertsDao.fetchAlertsByTypeHavingToDateBefore(range, expirationDate, alertsDeleter);
                 LOGGER.debug("Deleted {} range alerts with toDate < {}", deleted, expirationDate);
+            });
+
+            alertsDao.transactional(() -> {
+                ZonedDateTime expirationDate = ZonedDateTime.now().minusMonths(1L);
+                long deleted = alertsDao.fetchAlertsByTypeHavingToDateBefore(trend, expirationDate, alertsDeleter);
+                LOGGER.debug("Deleted {} trend alerts with toDate < {}", deleted, expirationDate);
             });
         } catch (RuntimeException e) {
             LOGGER.error("Exception thrown while deleting old alerts", e);

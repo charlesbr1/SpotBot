@@ -82,11 +82,11 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public long fetchRangeAlertsHavingToDateBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
-        LOGGER.debug("fetchRangeAlertsHavingToDateBefore {}", expirationDate);
+    public long fetchAlertsByTypeHavingToDateBefore(@NotNull Type type, @NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchAlertsByTypeHavingToDateBefore {} {}", type, expirationDate);
         long[] read = new long[] {0L};
         alertsConsumer.accept(alerts.values().stream()
-                .filter(alert -> alert.type == range)
+                .filter(alert -> alert.type == type)
                 .filter(alert -> null != alert.toDate && alert.toDate.isBefore(expirationDate))
                 .filter(alert -> ++read[0] != 0));
         return read[0];
@@ -126,96 +126,120 @@ public final class AlertsMemory implements AlertsDao {
     @Override
     public long countAlertsOfUser(long userId) {
         LOGGER.debug("countAlertsOfUser {}", userId);
-        return getAlertsOfUser(userId, 0, Long.MAX_VALUE).size();
+        return getAlertsOfUserStream(userId, 0, Long.MAX_VALUE).count();
     }
 
     @Override
     public long countAlertsOfUserAndTickers(long userId, @NotNull String tickerOrPair) {
         LOGGER.debug("countAlertsOfUserAndTickers {} {}", userId, tickerOrPair);
-        return getAlertsOfUserAndTickers(userId, 0, Long.MAX_VALUE, tickerOrPair).size();
+        return getAlertsOfUserAndTickersStream(userId, 0, Long.MAX_VALUE, tickerOrPair).count();
     }
 
     @Override
     public long countAlertsOfServer(long serverId) {
         LOGGER.debug("countAlertsOfServer {}", serverId);
-        return getAlertsOfServer(serverId, 0, Long.MAX_VALUE).size();
+        return getAlertsOfServerStream(serverId, 0, Long.MAX_VALUE).count();
     }
 
     @Override
     public long countAlertsOfServerAndUser(long serverId, long userId) {
         LOGGER.debug("countAlertsOfServerAndUser {} {}", serverId, userId);
-        return getAlertsOfServerAndUser(serverId, userId, 0, Long.MAX_VALUE).size();
+        return getAlertsOfServerAndUserStream(serverId, userId, 0, Long.MAX_VALUE).count();
     }
 
     @Override
     public long countAlertsOfServerAndTickers(long serverId, @NotNull String tickerOrPair) {
         LOGGER.debug("countAlertsOfServerAndTickers {} {}", serverId, tickerOrPair);
-        return getAlertsOfServerAndTickers(serverId, 0, Long.MAX_VALUE, tickerOrPair).size();
+        return getAlertsOfServerAndTickersStream(serverId, 0, Long.MAX_VALUE, tickerOrPair).count();
     }
 
     @Override
     public long countAlertsOfServerAndUserAndTickers(long serverId, long userId, @NotNull String tickerOrPair) {
         LOGGER.debug("countAlertsOfServerAndUserAndTickers {} {} {}", serverId, userId, tickerOrPair);
-        return getAlertsOfServerAndUserAndTickers(serverId, userId, 0, Long.MAX_VALUE, tickerOrPair).size();
+        return getAlertsOfServerAndUserAndTickersStream(serverId, userId, 0, Long.MAX_VALUE, tickerOrPair).count();
     }
 
     @Override
     @NotNull
     public List<Alert> getAlertsOfUser(long userId, long offset, long limit) {
         LOGGER.debug("getAlertsOfUser {} {} {}", userId, offset, limit);
+        return getAlertsOfUserStream(userId, offset, limit).toList();
+    }
+
+    private Stream<Alert> getAlertsOfUserStream(long userId, long offset, long limit) {
         return alerts.values().stream()
                 .filter(alert -> alert.userId == userId)
-                .skip(offset).limit(limit).toList();
+                .skip(offset).limit(limit);
     }
 
     @Override
     @NotNull
     public List<Alert> getAlertsOfUserAndTickers(long userId, long offset, long limit, @NotNull String tickerOrPair) {
         LOGGER.debug("getAlertsOfUserAndTickers {} {} {} {}", userId, offset, limit, tickerOrPair);
+        return getAlertsOfUserAndTickersStream(userId, offset, limit, tickerOrPair).toList();
+    }
+
+    private Stream<Alert> getAlertsOfUserAndTickersStream(long userId, long offset, long limit, @NotNull String tickerOrPair) {
         return alerts.values().stream()
                 .filter(alert -> alert.userId == userId)
                 .filter(alert -> alert.pair.contains(tickerOrPair))
-                .skip(offset).limit(limit).toList();
+                .skip(offset).limit(limit);
     }
 
     @Override
     @NotNull
     public List<Alert> getAlertsOfServer(long serverId, long offset, long limit) {
         LOGGER.debug("getAlertsOfServer {} {} {}", serverId, offset, limit);
+        return getAlertsOfServerStream(serverId, offset, limit).toList();
+    }
+
+    private Stream<Alert> getAlertsOfServerStream(long serverId, long offset, long limit) {
         return alerts.values().stream()
                 .filter(alert -> alert.serverId == serverId)
-                .skip(offset).limit(limit).toList();
+                .skip(offset).limit(limit);
     }
 
     @Override
     @NotNull
     public List<Alert> getAlertsOfServerAndUser(long serverId, long userId, long offset, long limit) {
         LOGGER.debug("getAlertsOfServerAndUser {} {} {} {}", serverId, userId, offset, limit);
+        return getAlertsOfServerAndUserStream(serverId, userId, offset, limit).toList();
+    }
+
+    private Stream<Alert> getAlertsOfServerAndUserStream(long serverId, long userId, long offset, long limit) {
         return alerts.values().stream()
                 .filter(alert -> alert.serverId == serverId)
                 .filter(alert -> alert.userId == userId)
-                .skip(offset).limit(limit).toList();
+                .skip(offset).limit(limit);
     }
 
     @Override
     @NotNull
     public List<Alert> getAlertsOfServerAndTickers(long serverId, long offset, long limit, @NotNull String tickerOrPair) {
         LOGGER.debug("getAlertsOfServerAndTickers {} {} {} {}", serverId, offset, limit, tickerOrPair);
+        return getAlertsOfServerAndTickersStream(serverId, offset, limit, tickerOrPair).toList();
+    }
+
+    private Stream<Alert> getAlertsOfServerAndTickersStream(long serverId, long offset, long limit, @NotNull String tickerOrPair) {
         return alerts.values().stream()
                 .filter(alert -> alert.serverId == serverId)
                 .filter(alert -> alert.pair.contains(tickerOrPair))
-                .skip(offset).limit(limit).toList();
+                .skip(offset).limit(limit);
     }
 
     @Override
     @NotNull
     public List<Alert> getAlertsOfServerAndUserAndTickers(long serverId, long userId, long offset, long limit, @NotNull String tickerOrPair) {
         LOGGER.debug("getAlertsOfServerAndUserAndTickers {} {} {} {} {}", serverId, userId, offset, limit, tickerOrPair);
+        return getAlertsOfServerAndUserAndTickersStream(serverId, userId, offset, limit, tickerOrPair).toList();
+    }
+
+    private Stream<Alert> getAlertsOfServerAndUserAndTickersStream(long serverId, long userId, long offset, long limit, @NotNull String tickerOrPair) {
         return alerts.values().stream()
                 .filter(alert -> alert.serverId == serverId)
                 .filter(alert -> alert.userId == userId)
                 .filter(alert -> alert.pair.contains(tickerOrPair))
-                .skip(offset).limit(limit).toList();
+                .skip(offset).limit(limit);
     }
 
     @Override

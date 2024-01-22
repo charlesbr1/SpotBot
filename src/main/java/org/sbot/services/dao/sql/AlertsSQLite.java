@@ -83,7 +83,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
 
         String SELECT_HAVING_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE = "SELECT * FROM alerts WHERE repeat=0 AND last_trigger IS NOT NULL AND last_trigger<=:expirationDate";
 
-        String SELECT_HAVING_RANGE_ALERT_WITH_TO_DATE_BEFORE = "SELECT * FROM alerts WHERE type LIKE 'range' AND to_date IS NOT NULL AND to_date<=:expirationDate";
+        String SELECT_BY_TYPE_HAVING_TO_DATE_BEFORE = "SELECT * FROM alerts WHERE type LIKE :type AND to_date IS NOT NULL AND to_date<=:expirationDate";
         String SELECT_PAIRS_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE =
                 "SELECT DISTINCT exchange,pair FROM alerts WHERE " + HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE;
         String COUNT_ALERTS_OF_USER = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId";
@@ -212,10 +212,10 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     }
 
     @Override
-    public long fetchRangeAlertsHavingToDateBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
-        LOGGER.debug("fetchRangeAlertsHavingToDateBefore {}", expirationDate);
-        return fetch(SQL.SELECT_HAVING_RANGE_ALERT_WITH_TO_DATE_BEFORE, Alert.class,
-                Map.of("expirationDate", 1000L * expirationDate.toEpochSecond()), alertsConsumer);
+    public long fetchAlertsByTypeHavingToDateBefore(@NotNull Type type, @NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchAlertsByTypeHavingToDateBefore {} {}", type, expirationDate);
+        return fetch(SQL.SELECT_BY_TYPE_HAVING_TO_DATE_BEFORE, Alert.class,
+                Map.of("type", type, "expirationDate", 1000L * expirationDate.toEpochSecond()), alertsConsumer);
     }
 
     @Override

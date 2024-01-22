@@ -95,6 +95,12 @@ public class AlertTest {
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
     }
 
+    public static Alert createTestAlertWithExchangeAndPairAndType(String exchange, String pair, Type type) {
+        return new TestAlert(NULL_ALERT_ID, type, TEST_USER_ID, TEST_SERVER_ID, exchange, pair, TEST_MESSAGE,
+                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
+                TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
+    }
+
     @Test
     void constructor() {
         Alert alert = createTestAlert();
