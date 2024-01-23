@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
+import static org.sbot.utils.Dates.nowUtc;
 
 class ArgumentValidatorTest {
 
@@ -168,7 +169,7 @@ class ArgumentValidatorTest {
 
     @Test
     void requireInPast() {
-        ZonedDateTime now = ZonedDateTime.now();
+        ZonedDateTime now = nowUtc();
         assertEquals(now, ArgumentValidator.requireInPast(now));
         assertEquals(now.minusSeconds(1L), ArgumentValidator.requireInPast(now.minusSeconds(1L)));
         assertEquals(now.minusMinutes(1L), ArgumentValidator.requireInPast(now.minusMinutes(1L)));
@@ -180,7 +181,7 @@ class ArgumentValidatorTest {
 
     @Test
     void requireInFuture() {
-        ZonedDateTime now = ZonedDateTime.now();
+        ZonedDateTime now = nowUtc();
         assertEquals(now, ArgumentValidator.requireInPast(now));
         assertEquals(now.plusSeconds(1L), ArgumentValidator.requireInFuture(now.plusSeconds(1L)));
         assertEquals(now.plusMinutes(1L), ArgumentValidator.requireInFuture(now.plusMinutes(1L)));

@@ -74,16 +74,16 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String SELECT_USER_ID_BY_SERVER_ID = "SELECT user_id FROM alerts WHERE server_id=:serverId";
 
         String HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE =
-                "repeat > 0 AND (last_trigger IS NULL OR (last_trigger + (" + (1000 * ONE_HOUR_SECONDS.longValue()) + " * snooze)) <= (1000 * (" + HALF_CHECK_PERIOD_SECONDS + " + unixepoch('now', 'utc')))) " +
-                        "AND (type NOT LIKE 'remainder' OR (from_date < 1000 * (" + HALF_CHECK_PERIOD_SECONDS + " + unixepoch('now', 'utc')))) " +
-                        "AND (type NOT LIKE 'range' OR ((from_date IS NULL OR (from_date <= 1000 * (unixepoch('now', 'utc') + 1))) AND (to_date IS NULL OR (to_date > 1000 * unixepoch('now', 'utc')))))";
+                "repeat > 0 AND (last_trigger IS NULL OR (last_trigger + (" + (1000 * ONE_HOUR_SECONDS.longValue()) + " * snooze)) <= (1000 * (" + HALF_CHECK_PERIOD_SECONDS + " + (unixepoch('now') + 1)))) " +
+                        "AND (type NOT LIKE 'remainder' OR (from_date < 1000 * (" + HALF_CHECK_PERIOD_SECONDS + " + (unixepoch('now') + 1)))) " +
+                        "AND (type NOT LIKE 'range' OR ((from_date IS NULL OR (from_date <= 1000 * (unixepoch('now') + 1))) AND (to_date IS NULL OR (to_date > 1000 * (unixepoch('now') + 1)))))";
         String SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE =
                 "SELECT id,type,user_id,server_id,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts " +
                 "WHERE exchange=:exchange AND pair=:pair AND " + HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE;
 
-        String SELECT_HAVING_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE = "SELECT * FROM alerts WHERE repeat=0 AND last_trigger IS NOT NULL AND last_trigger<=:expirationDate";
+        String SELECT_HAVING_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE = "SELECT * FROM alerts WHERE repeat=0 AND last_trigger IS NOT NULL AND last_trigger<:expirationDate";
 
-        String SELECT_BY_TYPE_HAVING_TO_DATE_BEFORE = "SELECT * FROM alerts WHERE type LIKE :type AND to_date IS NOT NULL AND to_date<=:expirationDate";
+        String SELECT_BY_TYPE_HAVING_TO_DATE_BEFORE = "SELECT * FROM alerts WHERE type LIKE :type AND to_date IS NOT NULL AND to_date<:expirationDate";
         String SELECT_PAIRS_EXCHANGES_HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE =
                 "SELECT DISTINCT exchange,pair FROM alerts WHERE " + HAVING_REPEATS_AND_DELAY_BEFORE_NOW_WITH_ACTIVE_RANGE;
         String COUNT_ALERTS_OF_USER = "SELECT COUNT(*) FROM alerts WHERE user_id=:userId";
@@ -95,9 +95,9 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String COUNT_ALERTS_OF_SERVER_AND_USER = "SELECT COUNT(*) FROM alerts WHERE server_id=:serverId AND user_id=:userId";
         String ALERTS_OF_SERVER_AND_USER = "SELECT * FROM alerts WHERE server_id=:serverId AND user_id=:userId LIMIT :limit OFFSET :offset";
         String COUNT_ALERTS_OF_SERVER_AND_TICKER_OR_PAIR = "SELECT COUNT(*) FROM alerts WHERE server_id=:serverId AND pair LIKE '%'||:tickerOrPair||'%'";
-        String ALERTS_OF_SERVER_AND_TICKER_OR_PAIR = "SELECT COUNT * FROM alerts WHERE server_id=:serverId AND pair LIKE '%'||:tickerOrPair||'%' LIMIT :limit OFFSET :offset";
+        String ALERTS_OF_SERVER_AND_TICKER_OR_PAIR = "SELECT * FROM alerts WHERE server_id=:serverId AND pair LIKE '%'||:tickerOrPair||'%' LIMIT :limit OFFSET :offset";
         String COUNT_ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR = "SELECT COUNT(*) FROM alerts WHERE server_id=:serverId AND user_id=:userId AND pair LIKE '%'||:tickerOrPair||'%'";
-        String ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR = "SELECT COUNT * FROM alerts WHERE server_id=:serverId AND user_id=:userId AND pair LIKE '%'||:tickerOrPair||'%' LIMIT :limit OFFSET :offset";
+        String ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR = "SELECT * FROM alerts WHERE server_id=:serverId AND user_id=:userId AND pair LIKE '%'||:tickerOrPair||'%' LIMIT :limit OFFSET :offset";
         String DELETE_BY_ID = "DELETE FROM alerts WHERE id=:id";
         String DELETE_BY_USER_ID_AND_SERVER_ID = "DELETE FROM alerts WHERE user_id=:userId AND server_id=:serverId";
         String DELETE_BY_USER_ID_AND_SERVER_ID_AND_TICKER_OR_PAIR = "DELETE FROM alerts WHERE user_id=:userId AND server_id=:serverId AND pair LIKE '%'||:tickerOrPair||'%'";
@@ -112,14 +112,14 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String UPDATE_ALERTS_TO_DATE = "UPDATE alerts SET to_date=:toDate WHERE id=:id";
         String UPDATE_ALERTS_MESSAGE = "UPDATE alerts SET message=:message WHERE id=:id";
         String UPDATE_ALERTS_MARGIN = "UPDATE alerts SET margin=:margin WHERE id=:id";
-        String UPDATE_ALERTS_SET_MARGIN_ZERO = "UPDATE alerts SET margin = O WHERE id=:id";
-        String UPDATE_ALERTS_SET_MARGIN_ZERO_DECREMENT_REPEAT_SET_LAST_TRIGGER_NOW = "UPDATE alerts SET margin = 0, repeat = MAX(0, repeat - 1) , last_trigger = 1000 * unixepoch('now', 'utc') WHERE id=:id";
+        String UPDATE_ALERTS_SET_MARGIN_ZERO = "UPDATE alerts SET margin=0 WHERE id=:id";
+        String UPDATE_ALERTS_SET_MARGIN_ZERO_DECREMENT_REPEAT_SET_LAST_TRIGGER_NOW = "UPDATE alerts SET margin=0,repeat=MAX(0,repeat-1),last_trigger=1000*unixepoch('now') WHERE id=:id";
         String UPDATE_ALERTS_REPEAT_AND_LAST_TRIGGER = "UPDATE alerts SET repeat=:repeat,last_trigger=:lastTrigger WHERE id=:id";
         String UPDATE_ALERTS_SNOOZE_AND_LAST_TRIGGER = "UPDATE alerts SET snooze=:snooze,last_trigger=:lastTrigger WHERE id=:id";
     }
 
     // from jdbi SQL to Alert
-    private static final class AlertMapper implements RowMapper<Alert> {
+    public static final class AlertMapper implements RowMapper<Alert> {
         @Override
         public Alert map(ResultSet rs, StatementContext ctx) throws SQLException {
             Type type = Type.valueOf(rs.getString("type"));

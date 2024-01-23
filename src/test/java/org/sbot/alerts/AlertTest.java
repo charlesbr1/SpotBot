@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.alerts.Alert.*;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
+import static org.sbot.utils.Dates.nowUtc;
 
 public class AlertTest {
 
@@ -155,7 +156,7 @@ public class AlertTest {
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // last trigger not in the future
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NULL_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
-                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, ZonedDateTime.now().plusMinutes(1L),
+                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, nowUtc().plusMinutes(1L),
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // margin positive
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NULL_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
@@ -249,7 +250,7 @@ public class AlertTest {
     @Test
     void withFromDate() {
         Alert alert = createTestAlert();
-        ZonedDateTime fromDate = ZonedDateTime.now();
+        ZonedDateTime fromDate = nowUtc();
         assertEquals(fromDate, alert.withFromDate(fromDate).fromDate);
         assertNull(alert.withFromDate(null).fromDate);
     }
@@ -257,7 +258,7 @@ public class AlertTest {
     @Test
     void withToDate() {
         Alert alert = createTestAlert();
-        ZonedDateTime toDate = ZonedDateTime.now();
+        ZonedDateTime toDate = nowUtc();
         assertEquals(toDate, alert.withToDate(toDate).toDate);
         assertNull(alert.withToDate(null).toDate);
     }
@@ -285,13 +286,13 @@ public class AlertTest {
         assertEquals(0, alert.withLastTriggerRepeatSnooze(null, (short) 0, (short) 0).repeat);
         assertEquals(0, alert.withLastTriggerRepeatSnooze(null, (short) 0, (short) 0).snooze);
 
-        ZonedDateTime lastTrigger = ZonedDateTime.now().minusMinutes(1L);
+        ZonedDateTime lastTrigger = nowUtc().minusMinutes(1L);
         short repeat = 1;
         short snooze = 2;
         assertEquals(lastTrigger, alert.withLastTriggerRepeatSnooze(lastTrigger, repeat, snooze).lastTrigger);
         assertEquals(repeat, alert.withLastTriggerRepeatSnooze(lastTrigger, repeat, snooze).repeat);
         assertEquals(snooze, alert.withLastTriggerRepeatSnooze(lastTrigger, repeat, snooze).snooze);
-        assertThrows(IllegalArgumentException.class, () -> alert.withLastTriggerRepeatSnooze(ZonedDateTime.now().plusMinutes(1), repeat, snooze));
+        assertThrows(IllegalArgumentException.class, () -> alert.withLastTriggerRepeatSnooze(nowUtc().plusMinutes(1), repeat, snooze));
         assertThrows(IllegalArgumentException.class, () -> alert.withLastTriggerRepeatSnooze(lastTrigger, (short) -1, snooze));
         assertThrows(IllegalArgumentException.class, () -> alert.withLastTriggerRepeatSnooze(lastTrigger, repeat, (short) -1));
     }
@@ -303,21 +304,21 @@ public class AlertTest {
         assertThrows(NullPointerException.class, () -> alert.withLastTriggerMarginRepeat(null, null, (short) 0));
         assertEquals(0, alert.withLastTriggerMarginRepeat(null, BigDecimal.ZERO, (short) 0).repeat);
 
-        ZonedDateTime lastTrigger = ZonedDateTime.now().minusMinutes(1L);
+        ZonedDateTime lastTrigger = nowUtc().minusMinutes(1L);
         BigDecimal margin = BigDecimal.valueOf(120L);
         short repeat = 1;
         assertEquals(lastTrigger, alert.withLastTriggerMarginRepeat(lastTrigger, margin, repeat).lastTrigger);
         assertEquals(margin, alert.withLastTriggerMarginRepeat(lastTrigger, margin, repeat).margin);
         assertEquals(repeat, alert.withLastTriggerMarginRepeat(lastTrigger, margin, repeat).repeat);
-        assertThrows(IllegalArgumentException.class, () -> alert.withLastTriggerMarginRepeat(ZonedDateTime.now().plusMinutes(1), margin, repeat));
+        assertThrows(IllegalArgumentException.class, () -> alert.withLastTriggerMarginRepeat(nowUtc().plusMinutes(1), margin, repeat));
         assertThrows(IllegalArgumentException.class, () -> alert.withLastTriggerMarginRepeat(lastTrigger, BigDecimal.valueOf(-1L), repeat));
         assertThrows(IllegalArgumentException.class, () -> alert.withLastTriggerMarginRepeat(lastTrigger, margin, (short) -1));
     }
 
     @Test
     void isNewerCandleStick() {
-        ZonedDateTime closeTime = ZonedDateTime.now();
-        Candlestick candlestick = new Candlestick(ZonedDateTime.now().minusMinutes(1L), closeTime,
+        ZonedDateTime closeTime = nowUtc();
+        Candlestick candlestick = new Candlestick(nowUtc().minusMinutes(1L), closeTime,
                 BigDecimal.TWO, BigDecimal.TWO, BigDecimal.TEN, BigDecimal.ONE);
 
         assertThrows(NullPointerException.class, () -> Alert.isNewerCandleStick(null, candlestick));

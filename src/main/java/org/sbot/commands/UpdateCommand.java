@@ -184,7 +184,7 @@ public final class UpdateCommand extends CommandAdapter {
     private Function<Alert, String> repeat(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         short repeat = requirePositiveShort(context.args.getMandatoryLong("value"));
         return alert -> {
-            alert = alert.withLastTriggerMarginRepeat(hasRepeat(repeat) ? null : ZonedDateTime.now(), alert.margin, repeat);
+            alert = alert.withLastTriggerMarginRepeat(hasRepeat(repeat) ? null : alert.lastTrigger, alert.margin, repeat);
             context.alertsDao.updateRepeatAndLastTrigger(alertId, alert.repeat, alert.lastTrigger);
             return successMessage(context, alert, CHOICE_REPEAT, repeat + (!hasRepeat(repeat) ? " (disabled)" : ""), outNotificationCallBack) +
                     (hasRepeat(repeat) ? "\n\nThis alert can be raise now" : "");

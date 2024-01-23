@@ -17,17 +17,17 @@ import org.sbot.discord.Discord;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
-import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.alerts.Alert.*;
+import static org.sbot.alerts.Alert.DEFAULT_REPEAT;
+import static org.sbot.alerts.Alert.DEFAULT_SNOOZE_HOURS;
 import static org.sbot.commands.DiscordCommands.DISCORD_COMMANDS;
 import static org.sbot.discord.Discord.*;
+import static org.sbot.utils.Dates.nowUtc;
 import static org.sbot.utils.PartitionSpliterator.split;
 
 public final class SpotBotCommand extends CommandAdapter {
@@ -171,7 +171,7 @@ public final class SpotBotCommand extends CommandAdapter {
         String role = Optional.ofNullable(guild).flatMap(Discord::spotBotRole)
                 .map(Role::getAsMention).orElse("**@" + DISCORD_BOT_ROLE + "**");
         return DOC_HEADER.replace("{date-format}", Dates.DATE_TIME_FORMAT)
-                .replace("{date-now}", Dates.formatUTC(Instant.now().atZone(ZoneOffset.UTC)))
+                .replace("{date-now}", Dates.formatUTC(nowUtc()))
                 .replace("{repeat}", ""+DEFAULT_REPEAT)
                 .replace("{snooze}", "" + DEFAULT_SNOOZE_HOURS)
                 .replace("{channel}", channel).replace("{role}", role)

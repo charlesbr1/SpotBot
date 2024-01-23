@@ -16,6 +16,7 @@ import static org.sbot.chart.Ticker.formatPrice;
 import static org.sbot.chart.Ticker.getSymbol;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.Dates.formatUTC;
+import static org.sbot.utils.Dates.nowUtc;
 
 public final class TrendAlert extends Alert {
 
@@ -69,7 +70,7 @@ public final class TrendAlert extends Alert {
 
     @NotNull
     static BigDecimal currentTrendPrice(@NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice, @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate) {
-        return fromPrice.add(priceDelta(ZonedDateTime.now(), fromPrice, toPrice, fromDate, toDate)).max(BigDecimal.ZERO);
+        return fromPrice.add(priceDelta(nowUtc(), fromPrice, toPrice, fromDate, toDate)).max(BigDecimal.ZERO);
     }
 
     static BigDecimal priceDelta(@NotNull ZonedDateTime atDate, @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice, @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate) {

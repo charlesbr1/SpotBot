@@ -21,8 +21,7 @@ import org.sbot.utils.Dates;
 import org.sbot.utils.Dates.DaysHoursMinutes;
 
 import java.awt.*;
-import java.time.Duration;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -43,6 +42,7 @@ import static org.sbot.alerts.RemainderAlert.REMAINDER_VIRTUAL_EXCHANGE;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
 import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
 import static org.sbot.discord.Discord.spotBotRole;
+import static org.sbot.utils.Dates.nowUtc;
 import static org.sbot.utils.PartitionSpliterator.split;
 
 public final class AlertsWatcher {
@@ -95,21 +95,22 @@ public final class AlertsWatcher {
                             .map(alert -> new MatchingAlert(alert, NOT_MATCHING, null)))
                             .flatMap(this::sendDiscordNotifications)
                             .forEach(matchingAlert -> deleter.batchId(matchingAlert.alert().id)));
+            ZonedDateTime utcTime = nowUtc();
 
             alertsDao.transactional(() -> {
-                ZonedDateTime expirationDate = ZonedDateTime.now().minusMonths(1L);
+                ZonedDateTime expirationDate = utcTime.minusMonths(1L);
                 long deleted = alertsDao.fetchAlertsHavingRepeatZeroAndLastTriggerBefore(expirationDate, alertsDeleter);
                 LOGGER.debug("Deleted {} alerts with repeat = 0 and lastTrigger < {}", deleted, expirationDate);
             });
 
             alertsDao.transactional(() -> {
-                ZonedDateTime expirationDate = ZonedDateTime.now().minusWeeks(1L);
+                ZonedDateTime expirationDate = utcTime.minusWeeks(1L);
                 long deleted = alertsDao.fetchAlertsByTypeHavingToDateBefore(range, expirationDate, alertsDeleter);
                 LOGGER.debug("Deleted {} range alerts with toDate < {}", deleted, expirationDate);
             });
 
             alertsDao.transactional(() -> {
-                ZonedDateTime expirationDate = ZonedDateTime.now().minusMonths(1L);
+                ZonedDateTime expirationDate = utcTime.minusMonths(1L);
                 long deleted = alertsDao.fetchAlertsByTypeHavingToDateBefore(trend, expirationDate, alertsDeleter);
                 LOGGER.debug("Deleted {} trend alerts with toDate < {}", deleted, expirationDate);
             });

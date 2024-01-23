@@ -4,10 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.sql.Timestamp;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
@@ -36,6 +33,10 @@ public interface Dates {
         return dateTime.withZoneSameInstant(ZoneOffset.UTC).format(DATE_TIME_FORMATTER);
     }
 
+    static ZonedDateTime nowUtc() {
+        return ZonedDateTime.now(ZoneOffset.UTC);
+    }
+
     @Nullable
     static ZonedDateTime parseUtcDateTimeOrNull(@Nullable Timestamp timestamp) {
         return Optional.ofNullable(timestamp)
@@ -48,7 +49,7 @@ public interface Dates {
 
     @NotNull
     static DaysHoursMinutes daysHoursMinutesSince(@NotNull ZonedDateTime lastTime) {
-        Duration duration = Duration.between(requireInPast(lastTime), ZonedDateTime.now());
+        Duration duration = Duration.between(requireInPast(lastTime), nowUtc());
         return new DaysHoursMinutes(duration.toHoursPart(), duration.toHoursPart(), duration.toMinutesPart());
     }
 }

@@ -6,18 +6,20 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.sbot.alerts.Alert;
-import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.memory.AlertsMemory;
+import org.sbot.services.dao.sql.AlertsSQLite;
+import org.sbot.services.dao.sql.jdbi.JDBIRepository;
 
+import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static java.math.BigDecimal.*;
-import static java.time.ZonedDateTime.now;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.SpotBot.ALERTS_CHECK_PERIOD_MIN;
 import static org.sbot.alerts.Alert.*;
@@ -25,6 +27,7 @@ import static org.sbot.alerts.Alert.Type.*;
 import static org.sbot.alerts.AlertTest.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
+import static org.sbot.utils.Dates.nowUtc;
 
 class AlertsDaoTest {
 
@@ -55,11 +58,26 @@ class AlertsDaoTest {
 
     static Stream<Arguments> provideDao() {
         return Stream.of(
-                Arguments.of(new AlertsMemory()));
+                Arguments.of("memory"),
+                Arguments.of("sqlite"));
+    }
+
+    private void withDao(String daoName, Consumer<AlertsDao> test) {
+        if ("memory".equals(daoName)) {
+            test.accept(new AlertsMemory());
+        } else {
+            JDBIRepository jdbi = new JDBIRepository("jdbc:sqlite::memory:");
+            jdbi.registerRowMapper(new AlertsSQLite.AlertMapper());
+            jdbi.transactional(() -> test.accept(new AlertsSQLite(jdbi)));
+        }
     }
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void getAlert(String dao) {
+        withDao(dao, this::getAlert);
+    }
+
     void getAlert(AlertsDao alerts) {
         Alert alert = createTestAlert();
         assertEquals(0, alert.id);
@@ -72,6 +90,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void getAlertWithoutMessage(String dao) {
+        withDao(dao, this::getAlertWithoutMessage);
+    }
+
     void getAlertWithoutMessage(AlertsDao alerts) {
         Alert alert = createTestAlert().withMessage("message...");
         long alertId = alerts.addAlert(alert);
@@ -85,6 +107,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void getUserIdsByServerId(String dao) {
+        withDao(dao, this::getUserIdsByServerId);
+    }
+
     void getUserIdsByServerId(AlertsDao alerts) {
         long user1 = 123L;
         long user2 = 222L;
@@ -111,6 +137,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(String dao) {
+        withDao(dao, this::fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange);
+    }
+
     void fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(AlertsDao alerts) {
         // last trigger null, type trend -> ok
         Alert alert1 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT1", trend)
@@ -124,14 +154,14 @@ class AlertsDaoTest {
 
         // last trigger not null, snooze, type trend -> ko
         Alert alert2 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT2", trend)
-                .withLastTriggerRepeatSnooze(ZonedDateTime.now().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 2)), DEFAULT_REPEAT, (short) 1);
+                .withLastTriggerRepeatSnooze(nowUtc().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 2)), DEFAULT_REPEAT, (short) 1);
         alerts.addAlert(alert2);
         assertEquals(0, alerts.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(SUPPORTED_EXCHANGES.get(0), "ALL/ERT2",
                 stream -> assertEquals(0, stream.count())));
 
         // last trigger not null, no snooze, type trend -> ok
         Alert alert3 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT3", trend)
-                .withLastTriggerRepeatSnooze(ZonedDateTime.now().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 1)), DEFAULT_REPEAT, (short) 1);
+                .withLastTriggerRepeatSnooze(nowUtc().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 1)), DEFAULT_REPEAT, (short) 1);
         long alertId3 = alerts.addAlert(alert3);
         assertEquals(1, alerts.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(SUPPORTED_EXCHANGES.get(0), "ALL/ERT3",
                 stream -> assertTrue(stream.allMatch(a -> alertId3 == a.id))));
@@ -150,7 +180,7 @@ class AlertsDaoTest {
         // last trigger null, type range, from date before now, to date null -> ok
         Alert alert5 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT5", range)
                 .withLastTriggerRepeatSnooze(null, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS)
-                .withFromDate(ZonedDateTime.now()).withToDate(null);
+                .withFromDate(nowUtc()).withToDate(null);
         long alertId5 = alerts.addAlert(alert5);
         assertEquals(1, alerts.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(SUPPORTED_EXCHANGES.get(0), "ALL/ERT5",
                 stream -> assertTrue(stream.allMatch(a -> alertId5 == a.id))));
@@ -158,7 +188,7 @@ class AlertsDaoTest {
         // last trigger null, type range, from date after now, to date null -> ko
         Alert alert6 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT6", range)
                 .withLastTriggerRepeatSnooze(null, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS)
-                .withFromDate(ZonedDateTime.now().plusSeconds(2L)).withToDate(null);
+                .withFromDate(nowUtc().plusSeconds(2L)).withToDate(null);
         alerts.addAlert(alert6);
         assertEquals(0, alerts.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(SUPPORTED_EXCHANGES.get(0), "ALL/ERT6",
                 stream -> assertEquals(0, stream.count())));
@@ -166,7 +196,7 @@ class AlertsDaoTest {
         // last trigger null, type range, from date null, to date after now -> ok
         Alert alert7 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT7", range)
                 .withLastTriggerRepeatSnooze(null, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS)
-                .withFromDate(null).withToDate(ZonedDateTime.now().plusSeconds(2L));
+                .withFromDate(null).withToDate(nowUtc().plusSeconds(2L));
         long alertId7 = alerts.addAlert(alert7);
         assertEquals(1, alerts.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(SUPPORTED_EXCHANGES.get(0), "ALL/ERT7",
                 stream -> assertTrue(stream.allMatch(a -> alertId7 == a.id))));
@@ -174,7 +204,7 @@ class AlertsDaoTest {
         // last trigger null, type range, from date null, to date before now -> ko
         Alert alert8 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT8", range)
                 .withLastTriggerRepeatSnooze(null, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS)
-                .withFromDate(null).withToDate(ZonedDateTime.now());
+                .withFromDate(null).withToDate(nowUtc());
         alerts.addAlert(alert8);
         assertEquals(0, alerts.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(SUPPORTED_EXCHANGES.get(0), "ALL/ERT8",
                 stream -> assertEquals(0, stream.count())));
@@ -182,7 +212,7 @@ class AlertsDaoTest {
         // last trigger not null, snooze, type range, from date null, to date null -> ko
         Alert alert9 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT9", range)
                 .withFromDate(null).withToDate(null)
-                .withLastTriggerRepeatSnooze(ZonedDateTime.now().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 2)), DEFAULT_REPEAT, (short) 1);
+                .withLastTriggerRepeatSnooze(nowUtc().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 2)), DEFAULT_REPEAT, (short) 1);
         alerts.addAlert(alert9);
         assertEquals(0, alerts.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(SUPPORTED_EXCHANGES.get(0), "ALL/ERT9",
                 stream -> assertEquals(0, stream.count())));
@@ -190,14 +220,14 @@ class AlertsDaoTest {
         // last trigger not null, no snooze, type range, from date null, to date null -> ok
         Alert alert10 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT10", range)
                 .withFromDate(null).withToDate(null)
-                .withLastTriggerRepeatSnooze(ZonedDateTime.now().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 1)), DEFAULT_REPEAT, (short) 1);
+                .withLastTriggerRepeatSnooze(nowUtc().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 1)), DEFAULT_REPEAT, (short) 1);
         long alertId10 = alerts.addAlert(alert10);
         assertEquals(1, alerts.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(SUPPORTED_EXCHANGES.get(0), "ALL/ERT10",
                 stream -> assertTrue(stream.allMatch(a -> alertId10 == a.id))));
 
         // last trigger null, type remainder, from date before now + delta -> ok
         Alert alert11 = createTestAlertWithExchangeAndPairAndType(VIRTUAL_EXCHANGES.get(0), "ALL/ERT11", remainder)
-                .withFromDate(ZonedDateTime.now().plusMinutes(((ALERTS_CHECK_PERIOD_MIN / 2) + 1)))
+                .withFromDate(nowUtc().plusMinutes(((ALERTS_CHECK_PERIOD_MIN / 2) + 1)))
                 .withLastTriggerRepeatSnooze(null, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
         long alertId11 = alerts.addAlert(alert11);
         assertEquals(1, alerts.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(VIRTUAL_EXCHANGES.get(0), "ALL/ERT11",
@@ -208,7 +238,7 @@ class AlertsDaoTest {
 
         // last trigger null, type remainder, from date after now + delta -> ko
         Alert alert12 = createTestAlertWithExchangeAndPairAndType(VIRTUAL_EXCHANGES.get(0), "ALL/ERT12", remainder)
-                .withFromDate(ZonedDateTime.now().plusMinutes(((ALERTS_CHECK_PERIOD_MIN / 2) + 2)))
+                .withFromDate(nowUtc().plusMinutes(((ALERTS_CHECK_PERIOD_MIN / 2) + 2)))
                 .withLastTriggerRepeatSnooze(null, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
         alerts.addAlert(alert12);
         assertEquals(0, alerts.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(VIRTUAL_EXCHANGES.get(0), "ALL/ERT12",
@@ -216,16 +246,16 @@ class AlertsDaoTest {
 
         // last trigger not null, snooze, type remainder, from date before now + delta -> ko
         Alert alert13 = createTestAlertWithExchangeAndPairAndType(VIRTUAL_EXCHANGES.get(0), "ALL/ERT13", remainder)
-                .withFromDate(ZonedDateTime.now().plusMinutes(((ALERTS_CHECK_PERIOD_MIN / 2) + 1)))
-                .withLastTriggerRepeatSnooze(ZonedDateTime.now().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 2)), DEFAULT_REPEAT, (short) 1);
+                .withFromDate(nowUtc().plusMinutes(((ALERTS_CHECK_PERIOD_MIN / 2) + 1)))
+                .withLastTriggerRepeatSnooze(nowUtc().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 2)), DEFAULT_REPEAT, (short) 1);
         alerts.addAlert(alert13);
         assertEquals(0, alerts.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(VIRTUAL_EXCHANGES.get(0), "ALL/ERT13",
                 stream -> assertEquals(0, stream.count())));
 
         // last trigger not null, no snooze, type remainder, from date before now + delta -> ok
         Alert alert14 = createTestAlertWithExchangeAndPairAndType(VIRTUAL_EXCHANGES.get(0), "ALL/ERT14", remainder)
-                .withFromDate(ZonedDateTime.now().plusMinutes(((ALERTS_CHECK_PERIOD_MIN / 2) + 1)))
-                .withLastTriggerRepeatSnooze(ZonedDateTime.now().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 1)), DEFAULT_REPEAT, (short) 1);
+                .withFromDate(nowUtc().plusMinutes(((ALERTS_CHECK_PERIOD_MIN / 2) + 1)))
+                .withLastTriggerRepeatSnooze(nowUtc().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 1)), DEFAULT_REPEAT, (short) 1);
         long alertId14 = alerts.addAlert(alert14);
         assertEquals(1, alerts.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(VIRTUAL_EXCHANGES.get(0), "ALL/ERT14",
                 stream -> assertTrue(stream.allMatch(a -> alertId14 == a.id))));
@@ -250,14 +280,18 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void fetchAlertsHavingRepeatZeroAndLastTriggerBefore(String dao) {
+        withDao(dao, this::fetchAlertsHavingRepeatZeroAndLastTriggerBefore);
+    }
+
     void fetchAlertsHavingRepeatZeroAndLastTriggerBefore(AlertsDao alerts) {
-        ZonedDateTime date = ZonedDateTime.now();
+        ZonedDateTime date = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         Alert alert1 = createTestAlert().withLastTriggerMarginRepeat(date.minusMinutes(40L), MARGIN_DISABLED, (short) 0);
         long alertId1 = alerts.addAlert(alert1);
         Alert alert2 = createTestAlert().withLastTriggerMarginRepeat(date.minusHours(3L), MARGIN_DISABLED, (short) 0);
         long alertId2 = alerts.addAlert(alert2);
         Alert alert3 = createTestAlert().withLastTriggerMarginRepeat(date.minusHours(10L), MARGIN_DISABLED, (short) 20);
-        long alertId3 = alerts.addAlert(alert3);
+        alerts.addAlert(alert3);
         Alert alert4 = createTestAlert().withLastTriggerMarginRepeat(date.minusDays(1L).minusMinutes(34L), MARGIN_DISABLED, (short) 0);
         long alertId4 = alerts.addAlert(alert4);
         alerts.addAlert(createTestAlert().withLastTriggerMarginRepeat(null, MARGIN_DISABLED, (short) 7));
@@ -293,8 +327,12 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void fetchAlertsByTypeHavingToDateBefore(String dao) {
+        withDao(dao, this::fetchAlertsByTypeHavingToDateBefore);
+    }
+
     void fetchAlertsByTypeHavingToDateBefore(AlertsDao alerts) {
-        ZonedDateTime date = ZonedDateTime.now();
+        ZonedDateTime date = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         Alert alert1 = createTestAlertWithType(range).withToDate(date.plusMinutes(40L));
         long alertId1 = alerts.addAlert(alert1);
         Alert alert2 = createTestAlertWithType(range).withToDate(date.plusHours(3L));
@@ -354,6 +392,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void getAlertMessages(String dao) {
+        withDao(dao, this::getAlertMessages);
+    }
+
     void getAlertMessages(AlertsDao alerts) {
         Alert alert1 = createTestAlert().withMessage("AAAA");
         alert1 = setId(alert1, alerts.addAlert(alert1));
@@ -402,7 +444,12 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange(String dao) {
+        withDao(dao, this::getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange);
+    }
+
     void getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange(AlertsDao alerts) {
+        ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         // last trigger null, type trend -> ok
         Alert alert1 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT1", trend)
                 .withLastTriggerRepeatSnooze(null, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
@@ -413,7 +460,7 @@ class AlertsDaoTest {
 
         // last trigger not null, snooze, type trend -> ko
         Alert alert2 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT2", trend)
-                .withLastTriggerRepeatSnooze(ZonedDateTime.now().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 2)), DEFAULT_REPEAT, (short) 1);
+                .withLastTriggerRepeatSnooze(now.minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 2)), DEFAULT_REPEAT, (short) 1);
         alerts.addAlert(alert2);
         assertEquals(1, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().size());
         assertEquals(1, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().get(SUPPORTED_EXCHANGES.get(0)).size());
@@ -421,7 +468,7 @@ class AlertsDaoTest {
 
         // last trigger not null, no snooze, type trend -> ok
         Alert alert3 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT3", trend)
-                .withLastTriggerRepeatSnooze(ZonedDateTime.now().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 1)), DEFAULT_REPEAT, (short) 1);
+                .withLastTriggerRepeatSnooze(now.minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 1)), DEFAULT_REPEAT, (short) 1);
         alerts.addAlert(alert3);
         assertEquals(1, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().size());
         assertEquals(2, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().get(SUPPORTED_EXCHANGES.get(0)).size());
@@ -439,7 +486,7 @@ class AlertsDaoTest {
         // last trigger null, type range, from date before now, to date null -> ok
         Alert alert5 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT5", range)
                 .withLastTriggerRepeatSnooze(null, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS)
-                .withFromDate(ZonedDateTime.now()).withToDate(null);
+                .withFromDate(now).withToDate(null);
         alerts.addAlert(alert5);
         assertEquals(1, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().size());
         assertEquals(4, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().get(SUPPORTED_EXCHANGES.get(0)).size());
@@ -448,7 +495,7 @@ class AlertsDaoTest {
         // last trigger null, type range, from date after now, to date null -> ko
         Alert alert6 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT6", range)
                 .withLastTriggerRepeatSnooze(null, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS)
-                .withFromDate(ZonedDateTime.now().plusSeconds(2L)).withToDate(null);
+                .withFromDate(now.plusSeconds(2L)).withToDate(null);
         alerts.addAlert(alert6);
         assertEquals(1, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().size());
         assertEquals(4, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().get(SUPPORTED_EXCHANGES.get(0)).size());
@@ -457,7 +504,7 @@ class AlertsDaoTest {
         // last trigger null, type range, from date null, to date after now -> ok
         Alert alert7 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT7", range)
                 .withLastTriggerRepeatSnooze(null, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS)
-                .withFromDate(null).withToDate(ZonedDateTime.now().plusSeconds(2L));
+                .withFromDate(null).withToDate(now.plusSeconds(2L));
         alerts.addAlert(alert7);
         assertEquals(1, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().size());
         assertEquals(5, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().get(SUPPORTED_EXCHANGES.get(0)).size());
@@ -466,7 +513,7 @@ class AlertsDaoTest {
         // last trigger null, type range, from date null, to date before now -> ko
         Alert alert8 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT8", range)
                 .withLastTriggerRepeatSnooze(null, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS)
-                .withFromDate(null).withToDate(ZonedDateTime.now());
+                .withFromDate(null).withToDate(now);
         alerts.addAlert(alert8);
         assertEquals(1, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().size());
         assertEquals(5, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().get(SUPPORTED_EXCHANGES.get(0)).size());
@@ -475,7 +522,7 @@ class AlertsDaoTest {
         // last trigger not null, snooze, type range, from date null, to date null -> ko
         Alert alert9 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT9", range)
                 .withFromDate(null).withToDate(null)
-                .withLastTriggerRepeatSnooze(ZonedDateTime.now().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 2)), DEFAULT_REPEAT, (short) 1);
+                .withLastTriggerRepeatSnooze(now.minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 2)), DEFAULT_REPEAT, (short) 1);
         alerts.addAlert(alert9);
         assertEquals(1, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().size());
         assertEquals(5, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().get(SUPPORTED_EXCHANGES.get(0)).size());
@@ -484,7 +531,7 @@ class AlertsDaoTest {
         // last trigger not null, no snooze, type range, from date null, to date null -> ok
         Alert alert10 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT10", range)
                 .withFromDate(null).withToDate(null)
-                .withLastTriggerRepeatSnooze(ZonedDateTime.now().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 1)), DEFAULT_REPEAT, (short) 1);
+                .withLastTriggerRepeatSnooze(now.minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 1)), DEFAULT_REPEAT, (short) 1);
         alerts.addAlert(alert10);
         assertEquals(1, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().size());
         assertEquals(6, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().get(SUPPORTED_EXCHANGES.get(0)).size());
@@ -492,7 +539,7 @@ class AlertsDaoTest {
 
         // last trigger null, type remainder, from date before now + delta -> ok
         Alert alert11 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT11", remainder)
-                .withFromDate(ZonedDateTime.now().plusMinutes(((ALERTS_CHECK_PERIOD_MIN / 2) + 1)))
+                .withFromDate(now.plusMinutes(((ALERTS_CHECK_PERIOD_MIN / 2) + 1)))
                 .withLastTriggerRepeatSnooze(null, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
         alerts.addAlert(alert11);
         assertEquals(1, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().size());
@@ -501,7 +548,7 @@ class AlertsDaoTest {
 
         // last trigger null, type remainder, from date after now + delta -> ko
         Alert alert12 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT12", remainder)
-                .withFromDate(ZonedDateTime.now().plusMinutes(((ALERTS_CHECK_PERIOD_MIN / 2) + 2)))
+                .withFromDate(now.plusMinutes(((ALERTS_CHECK_PERIOD_MIN / 2) + 2)))
                 .withLastTriggerRepeatSnooze(null, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
         alerts.addAlert(alert12);
         assertEquals(1, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().size());
@@ -510,8 +557,8 @@ class AlertsDaoTest {
 
         // last trigger not null, snooze, type remainder, from date before now + delta -> ko
         Alert alert13 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT13", remainder)
-                .withFromDate(ZonedDateTime.now().plusMinutes(((ALERTS_CHECK_PERIOD_MIN / 2) + 1)))
-                .withLastTriggerRepeatSnooze(ZonedDateTime.now().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 2)), DEFAULT_REPEAT, (short) 1);
+                .withFromDate(now.plusMinutes(((ALERTS_CHECK_PERIOD_MIN / 2) + 1)))
+                .withLastTriggerRepeatSnooze(now.minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 2)), DEFAULT_REPEAT, (short) 1);
         alerts.addAlert(alert13);
         assertEquals(1, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().size());
         assertEquals(7, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().get(SUPPORTED_EXCHANGES.get(0)).size());
@@ -519,8 +566,8 @@ class AlertsDaoTest {
 
         // last trigger not null, no snooze, type remainder, from date before now + delta -> ok
         Alert alert14 = createTestAlertWithExchangeAndPairAndType(SUPPORTED_EXCHANGES.get(0), "ALL/ERT14", remainder)
-                .withFromDate(ZonedDateTime.now().plusMinutes(((ALERTS_CHECK_PERIOD_MIN / 2) + 1)))
-                .withLastTriggerRepeatSnooze(ZonedDateTime.now().minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 1)), DEFAULT_REPEAT, (short) 1);
+                .withFromDate(now.plusMinutes(((ALERTS_CHECK_PERIOD_MIN / 2) + 1)))
+                .withLastTriggerRepeatSnooze(now.minusMinutes(60L - ((ALERTS_CHECK_PERIOD_MIN / 2) + 1)), DEFAULT_REPEAT, (short) 1);
         alerts.addAlert(alert14);
         assertEquals(1, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().size());
         assertEquals(8, alerts.getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange().get(SUPPORTED_EXCHANGES.get(0)).size());
@@ -529,6 +576,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void countAlertsOfUser(String dao) {
+        withDao(dao, this::countAlertsOfUser);
+    }
+
     void countAlertsOfUser(AlertsDao alerts) {
         long user1 = 123L;
         long user2 = 222L;
@@ -553,6 +604,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void countAlertsOfUserAndTickers(String dao) {
+        withDao(dao, this::countAlertsOfUserAndTickers);
+    }
+
     void countAlertsOfUserAndTickers(AlertsDao alerts) {
         long user1 = 123L;
         long user2 = 222L;
@@ -585,6 +640,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void countAlertsOfServer(String dao) {
+        withDao(dao, this::countAlertsOfServer);
+    }
+
     void countAlertsOfServer(AlertsDao alerts) {
         long user1 = 123L;
         long user2 = 222L;
@@ -608,6 +667,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void countAlertsOfServerAndUser(String dao) {
+        withDao(dao, this::countAlertsOfServerAndUser);
+    }
+
     void countAlertsOfServerAndUser(AlertsDao alerts) {
         long user1 = 123L;
         long user2 = 222L;
@@ -635,6 +698,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void countAlertsOfServerAndTickers(String dao) {
+        withDao(dao, this::countAlertsOfServerAndTickers);
+    }
+
     void countAlertsOfServerAndTickers(AlertsDao alerts) {
         long user1 = 123L;
         long user2 = 222L;
@@ -673,6 +740,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void countAlertsOfServerAndUserAndTickers(String dao) {
+        withDao(dao, this::countAlertsOfServerAndUserAndTickers);
+    }
+
     void countAlertsOfServerAndUserAndTickers(AlertsDao alerts) {
         long user1 = 123L;
         long user2 = 222L;
@@ -749,6 +820,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void getAlertsOfUser(String dao) {
+        withDao(dao, this::getAlertsOfUser);
+    }
+
     void getAlertsOfUser(AlertsDao alerts) {
         long user1 = 123L;
         long user2 = 222L;
@@ -786,6 +861,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void getAlertsOfUserAndTickers(String dao) {
+        withDao(dao, this::getAlertsOfUserAndTickers);
+    }
+
     void getAlertsOfUserAndTickers(AlertsDao alerts) {
         long user1 = 123L;
         long user2 = 222L;
@@ -854,6 +933,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void getAlertsOfServer(String dao) {
+        withDao(dao, this::getAlertsOfServer);
+    }
+
     void getAlertsOfServer(AlertsDao alerts) {
         long user1 = 123L;
         long user2 = 222L;
@@ -893,6 +976,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void getAlertsOfServerAndUser(String dao) {
+        withDao(dao, this::getAlertsOfServerAndUser);
+    }
+
     void getAlertsOfServerAndUser(AlertsDao alerts) {
         long user1 = 123L;
         long user2 = 222L;
@@ -948,6 +1035,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void getAlertsOfServerAndTickers(String dao) {
+        withDao(dao, this::getAlertsOfServerAndTickers);
+    }
+
     void getAlertsOfServerAndTickers(AlertsDao alerts) {
         long user1 = 123L;
         long user2 = 222L;
@@ -1048,6 +1139,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void getAlertsOfServerAndUserAndTickers(String dao) {
+        withDao(dao, this::getAlertsOfServerAndUserAndTickers);
+    }
+
     void getAlertsOfServerAndUserAndTickers(AlertsDao alerts) {
         long user1 = 123L;
         long user2 = 222L;
@@ -1226,6 +1321,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void addAlert(String dao) {
+        withDao(dao, this::addAlert);
+    }
+
     void addAlert(AlertsDao alerts) {
         Alert alert = createTestAlert();
         long alertId = alerts.addAlert(alert);
@@ -1235,6 +1334,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void updateServerId(String dao) {
+        withDao(dao, this::updateServerId);
+    }
+
     void updateServerId(AlertsDao alerts) {
         Alert alert = createTestAlert().withServerId(123L);
         long alertId = alerts.addAlert(alert);
@@ -1246,6 +1349,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void updateServerIdPrivate(String dao) {
+        withDao(dao, this::updateServerIdPrivate);
+    }
+
     void updateServerIdPrivate(AlertsDao alerts) {
         Alert alert = createTestAlert().withServerId(123L);
         long alertId = alerts.addAlert(alert);
@@ -1257,6 +1364,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void updateServerIdOfUserAndServerId(String dao) {
+        withDao(dao, this::updateServerIdOfUserAndServerId);
+    }
+
     void updateServerIdOfUserAndServerId(AlertsDao alerts) {
         long user1 = 123L;
         long user2 = 222L;
@@ -1301,6 +1412,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void updateServerIdOfUserAndServerIdAndTickers(String dao) {
+        withDao(dao, this::updateServerIdOfUserAndServerIdAndTickers);
+    }
+
     void updateServerIdOfUserAndServerIdAndTickers(AlertsDao alerts) {
         long user1 = 123L;
         long user2 = 222L;
@@ -1360,6 +1475,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void updateFromPrice(String dao) {
+        withDao(dao, this::updateFromPrice);
+    }
+
     void updateFromPrice(AlertsDao alerts) {
         Alert alert = createTestAlert().withFromPrice(ONE);
         long alertId = alerts.addAlert(alert);
@@ -1371,19 +1490,27 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void updateToPrice(String dao) {
+        withDao(dao, this::updateToPrice);
+    }
+
     void updateToPrice(AlertsDao alerts) {
-        Alert alert = createTestAlert().withToPrice(ONE);
+        Alert alert = createTestAlert().withToPrice(BigDecimal.valueOf(100L));
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());
-        assertEquals(ONE, alerts.getAlert(alertId).get().toPrice);
-        alerts.updateToPrice(alertId, TWO);
-        assertEquals(TWO, alerts.getAlert(alertId).get().toPrice);
+        assertEquals(BigDecimal.valueOf(100L), alerts.getAlert(alertId).get().toPrice);
+        alerts.updateToPrice(alertId, BigDecimal.valueOf(30L));
+        assertEquals(BigDecimal.valueOf(30L), alerts.getAlert(alertId).get().toPrice);
     }
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void updateFromDate(String dao) {
+        withDao(dao, this::updateFromDate);
+    }
+
     void updateFromDate(AlertsDao alerts) {
-        ZonedDateTime date = now();
+        ZonedDateTime date = TEST_FROM_DATE.minusWeeks(2L).withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         Alert alert = createTestAlert().withFromDate(date);
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());
@@ -1394,8 +1521,12 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void updateToDate(String dao) {
+        withDao(dao, this::updateToDate);
+    }
+
     void updateToDate(AlertsDao alerts) {
-        ZonedDateTime date = now();
+        ZonedDateTime date = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         Alert alert = createTestAlert().withToDate(date);
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());
@@ -1406,6 +1537,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void updateMessage(String dao) {
+        withDao(dao, this::updateMessage);
+    }
+
     void updateMessage(AlertsDao alerts) {
         Alert alert = createTestAlert().withMessage("message");
         long alertId = alerts.addAlert(alert);
@@ -1417,6 +1552,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void updateMargin(String dao) {
+        withDao(dao, this::updateMargin);
+    }
+
     void updateMargin(AlertsDao alerts) {
         Alert alert = createTestAlert().withMargin(ONE);
         long alertId = alerts.addAlert(alert);
@@ -1428,8 +1567,13 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void updateRepeatAndLastTrigger(String dao) {
+        withDao(dao, this::updateRepeatAndLastTrigger);
+    }
+
     void updateRepeatAndLastTrigger(AlertsDao alerts) {
-        ZonedDateTime date = now().minusMonths(1L);
+        ZonedDateTime date = nowUtc().withNano(0) // clear the seconds as sqlite save milliseconds and not nanos
+                .minusMonths(1L);
         Alert alert = createTestAlert().withLastTriggerRepeatSnooze(date, (short) 13, DEFAULT_SNOOZE_HOURS);
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());
@@ -1442,8 +1586,13 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void updateSnoozeAndLastTrigger(String dao) {
+        withDao(dao, this::updateSnoozeAndLastTrigger);
+    }
+
     void updateSnoozeAndLastTrigger(AlertsDao alerts) {
-        ZonedDateTime date = now().minusMonths(1L);
+        ZonedDateTime date = nowUtc().withNano(0) // clear the seconds as sqlite save milliseconds and not nanos
+                .minusMonths(1L);
         Alert alert = createTestAlert().withLastTriggerRepeatSnooze(date, DEFAULT_REPEAT, (short) 51);
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());
@@ -1456,6 +1605,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void deleteAlert(String dao) {
+        withDao(dao, this::deleteAlert);
+    }
+
     void deleteAlert(AlertsDao alerts) {
         Alert alert = createTestAlert();
         long alertId = alerts.addAlert(alert);
@@ -1466,6 +1619,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void deleteAlertsOfUserAndServerId(String dao) {
+        withDao(dao, this::deleteAlertsOfUserAndServerId);
+    }
+
     void deleteAlertsOfUserAndServerId(AlertsDao alerts) {
         long user1 = 123L;
         long user2 = 222L;
@@ -1504,6 +1661,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void deleteAlertsOfUserAndServerIdAndTickers(String dao) {
+        withDao(dao, this::deleteAlertsOfUserAndServerIdAndTickers);
+    }
+
     void deleteAlertsOfUserAndServerIdAndTickers(AlertsDao alerts) {
         long user1 = 123L;
         long user2 = 222L;
@@ -1559,8 +1720,13 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void matchedAlertBatchUpdates(String dao) {
+        withDao(dao, this::matchedAlertBatchUpdates);
+    }
+
     void matchedAlertBatchUpdates(AlertsDao alerts) {
-        ZonedDateTime lastTrigger = ZonedDateTime.now().minusDays(3L);
+        ZonedDateTime lastTrigger = nowUtc().withNano(0) // clear the seconds as sqlite save milliseconds and not nanos
+                .minusDays(3L);
         Alert alert1 = createTestAlert().withLastTriggerMarginRepeat(lastTrigger, ONE, (short) 18);
         alert1 = setId(alert1, alerts.addAlert(alert1));
         Alert alert2 = createTestAlert().withLastTriggerMarginRepeat(lastTrigger, TEN, (short) 19);
@@ -1640,6 +1806,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void marginAlertBatchUpdates(String dao) {
+        withDao(dao, this::marginAlertBatchUpdates);
+    }
+
     void marginAlertBatchUpdates(AlertsDao alerts) {
         Alert alert1 = createTestAlert().withMargin(ONE);
         alert1 = setId(alert1, alerts.addAlert(alert1));
@@ -1681,6 +1851,10 @@ class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void alertBatchDeletes(String dao) {
+        withDao(dao, this::alertBatchDeletes);
+    }
+
     void alertBatchDeletes(AlertsDao alerts) {
         long alertId1 = alerts.addAlert(createTestAlert());
         long alertId2 = alerts.addAlert(createTestAlert());

@@ -8,8 +8,6 @@ import org.sbot.services.dao.memory.LastCandlesticksMemory;
 import org.sbot.services.dao.sql.LastCandlesticksSQLite;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository;
 
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -17,33 +15,23 @@ import java.util.stream.Stream;
 import static java.math.BigDecimal.*;
 import static java.time.ZonedDateTime.now;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.sbot.utils.Dates.nowUtc;
 
 class LastCandlesticksDaoTest {
 
     static Stream<Arguments> provideDao() {
         return Stream.of(
-//                Arguments.of("memory"),
+                Arguments.of("memory"),
                 Arguments.of("sqlite"));
     }
 
-    private static class MyError extends Error {}
     private void withDao(String daoName, Consumer<LastCandlesticksDao> test) {
-        LastCandlesticksDao dao = "sqlite".equals(daoName) ?
-                new LastCandlesticksSQLite(new JDBIRepository("jdbc:sqlite::memory:?DB_CLOSE_DELAY=-1")) :
-                new LastCandlesticksMemory();
-        try {
-            dao.transactional(() -> {
-                test.accept(dao);
-                System.err.println("WILL ROLLBACK");
-                throw new MyError();
-            });
-        } catch (MyError e) {
-            System.err.println("ROLLBACK HERE");
-            ;
-        } finally {
-            if(dao instanceof LastCandlesticksSQLite)
-;//                dao.transactional(() -> ((LastCandlesticksSQLite) dao).getRepository()
-   //                 .getHandle().execute("DROP TABLE last_candlesticks"));
+        if ("memory".equals(daoName)) {
+            test.accept(new LastCandlesticksMemory());
+        } else {
+            JDBIRepository jdbi = new JDBIRepository("jdbc:sqlite::memory:");
+            jdbi.registerRowMapper(new LastCandlesticksSQLite.CandlestickMapper());
+            jdbi.transactional(() -> test.accept(new LastCandlesticksSQLite(jdbi)));
         }
     }
 
@@ -55,7 +43,7 @@ class LastCandlesticksDaoTest {
 
     void getLastCandlestickCloseTime(LastCandlesticksDao lastCandlesticks) {
         assertTrue(lastCandlesticks.getLastCandlestickCloseTime("ETH/BTC").isEmpty());
-        ZonedDateTime closeTime = LocalDateTime.now().atZone(ZoneOffset.UTC).withNano(0) // clear the seconds as sqlite save milliseconds and not nanos
+        ZonedDateTime closeTime = nowUtc().withNano(0) // clear the seconds as sqlite save milliseconds and not nanos
                 .plusMinutes(23L);
         Candlestick candlestick = new Candlestick(now(), closeTime, ONE, ONE, ONE, ONE);
         lastCandlesticks.setLastCandlestick("ETH/BTC", candlestick);
@@ -69,7 +57,7 @@ class LastCandlesticksDaoTest {
     }
 
     void getLastCandlestick(LastCandlesticksDao lastCandlesticks) {
-        ZonedDateTime now = LocalDateTime.now().atZone(ZoneOffset.UTC).withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
+        ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         Candlestick candlestick = new Candlestick(now, now, ONE, ONE, ONE, ONE);
         assertTrue(lastCandlesticks.getLastCandlestick("ETH/BTC").isEmpty());
         lastCandlesticks.setLastCandlestick("ETH/BTC", candlestick);
@@ -84,7 +72,7 @@ class LastCandlesticksDaoTest {
     }
 
     void setLastCandlestick(LastCandlesticksDao lastCandlesticks) {
-        ZonedDateTime now = LocalDateTime.now().atZone(ZoneOffset.UTC).withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
+        ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         Candlestick candlestick = new Candlestick(now, now, ONE, ONE, ONE, ONE);
         assertTrue(lastCandlesticks.getLastCandlestick("ETH/BTC").isEmpty());
         lastCandlesticks.setLastCandlestick("ETH/BTC", candlestick);
@@ -100,7 +88,7 @@ class LastCandlesticksDaoTest {
     }
 
     void updateLastCandlestick(LastCandlesticksDao lastCandlesticks) {
-        ZonedDateTime now = LocalDateTime.now().atZone(ZoneOffset.UTC).withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
+        ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         Candlestick candlestick = new Candlestick(now, now, ONE, ONE, ONE, ONE);
         lastCandlesticks.setLastCandlestick("ETH/BTC", candlestick);
         lastCandlesticks.setLastCandlestick("DOT/BTC", candlestick);

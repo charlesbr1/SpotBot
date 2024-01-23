@@ -5,6 +5,8 @@ import org.sbot.chart.Candlestick;
 import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -18,6 +20,7 @@ import static org.sbot.alerts.AlertTest.*;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.*;
 import static org.sbot.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
 import static org.sbot.alerts.TrendAlert.ONE_HOUR_SECONDS;
+import static org.sbot.utils.Dates.nowUtc;
 
 class TrendAlertTest {
 
@@ -92,7 +95,7 @@ class TrendAlertTest {
 
         // previousCandlestick null
         // priceOnTrend true -> MATCHED
-        ZonedDateTime now = ZonedDateTime.now();
+        ZonedDateTime now = nowUtc();
         alert = alert.withToDate(now.plusHours(1L)).withFromDate(now); // test alert increment 1 by hour
         alert = alert.withFromPrice(TWO).withToPrice(BigDecimal.valueOf(3L)).withMargin(ZERO);
 
@@ -251,7 +254,7 @@ class TrendAlertTest {
 
     @Test
     void currentTrendPrice() {
-        ZonedDateTime fromDate = ZonedDateTime.now().minusHours(1L);
+        ZonedDateTime fromDate = nowUtc().minusHours(1L);
         ZonedDateTime inOneHour = fromDate.plusHours(1L);
 
         assertEquals(ONE.add(ONE_HOUR_SECONDS), TrendAlert.currentTrendPrice(ONE, TWO, fromDate, fromDate));

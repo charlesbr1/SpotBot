@@ -18,6 +18,7 @@ import static org.sbot.alerts.Alert.Type.range;
 import static org.sbot.alerts.AlertTest.*;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.*;
 import static org.sbot.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
+import static org.sbot.utils.Dates.nowUtc;
 
 class RangeAlertTest {
 
@@ -99,7 +100,7 @@ class RangeAlertTest {
         // datesInLimits true, priceInRange true -> MATCHED
         alert = alert.withFromDate(null).withToDate(null); // ensure datesInLimits true
         alert = alert.withFromPrice(ONE).withToPrice(TWO).withMargin(ZERO);
-        ZonedDateTime now = ZonedDateTime.now();
+        ZonedDateTime now = nowUtc();
 
         Candlestick candlestick = new Candlestick(now, now, ONE, ONE, TWO, ONE);
         assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());

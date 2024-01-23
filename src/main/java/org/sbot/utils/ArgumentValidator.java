@@ -11,6 +11,7 @@ import java.util.stream.LongStream;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
 import static org.sbot.utils.Dates.formatUTC;
+import static org.sbot.utils.Dates.nowUtc;
 
 public interface ArgumentValidator {
 
@@ -85,17 +86,17 @@ public interface ArgumentValidator {
     }
 
     static ZonedDateTime requireInPast(@NotNull ZonedDateTime zonedDateTime) {
-        if (zonedDateTime.isAfter(ZonedDateTime.now())) {
+        if (zonedDateTime.isAfter(nowUtc())) {
             throw new IllegalArgumentException("Provided date should be before actual UTC time : " + formatUTC(zonedDateTime) +
-                    " (actual UTC time : " + formatUTC(ZonedDateTime.now()) + ')');
+                    " (actual UTC time : " + formatUTC(nowUtc()) + ')');
         }
         return zonedDateTime;
     }
 
     static ZonedDateTime requireInFuture(@NotNull ZonedDateTime zonedDateTime) {
-        if (zonedDateTime.isBefore(ZonedDateTime.now())) {
+        if (zonedDateTime.isBefore(nowUtc())) {
             throw new IllegalArgumentException("Provided date should be after actual UTC time : " + formatUTC(zonedDateTime) +
-                    " (actual UTC time : " + formatUTC(ZonedDateTime.now()) + ')');
+                    " (actual UTC time : " + formatUTC(nowUtc()) + ')');
         }
         return zonedDateTime;
     }

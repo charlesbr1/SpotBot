@@ -9,8 +9,6 @@ import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 
 import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,6 +21,7 @@ import static org.sbot.SpotBot.ALERTS_CHECK_PERIOD_MIN;
 import static org.sbot.alerts.Alert.*;
 import static org.sbot.alerts.Alert.Type.range;
 import static org.sbot.alerts.Alert.Type.remainder;
+import static org.sbot.utils.Dates.nowUtc;
 
 public final class AlertsMemory implements AlertsDao {
 
@@ -94,7 +93,7 @@ public final class AlertsMemory implements AlertsDao {
 
     @NotNull
     private static Stream<Alert> havingRepeatAndDelayOverWithActiveRange(@NotNull Stream<Alert> alerts) {
-        ZonedDateTime now = Instant.now().atZone(ZoneOffset.UTC);
+        ZonedDateTime now = nowUtc();
         ZonedDateTime nowPlusOneSecond = now.plusSeconds(1L);
         ZonedDateTime nowPlusDelta = now.plusMinutes((ALERTS_CHECK_PERIOD_MIN / 2) + 1L);
         long nowPlusDeltaSeconds = nowPlusDelta.toEpochSecond();
@@ -372,7 +371,7 @@ public final class AlertsMemory implements AlertsDao {
     public void matchedAlertBatchUpdates(@NotNull Consumer<BatchEntry> updater) {
         LOGGER.debug("matchedAlertBatchUpdates");
         updater.accept(alertId -> alerts.computeIfPresent(alertId,
-                (id, alert) -> alert.withLastTriggerMarginRepeat(ZonedDateTime.now(), MARGIN_DISABLED, ((short) Math.max(0, alert.repeat - 1)))));
+                (id, alert) -> alert.withLastTriggerMarginRepeat(nowUtc(), MARGIN_DISABLED, ((short) Math.max(0, alert.repeat - 1)))));
     }
 
     @Override

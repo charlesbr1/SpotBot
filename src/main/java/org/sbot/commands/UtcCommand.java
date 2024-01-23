@@ -54,7 +54,7 @@ public final class UtcCommand extends CommandAdapter {
     }
 
     private EmbedBuilder now() {
-        return embedBuilder(" ", Color.green, "Current UTC date time :\n\n> " + Dates.formatUTC(ZonedDateTime.now()));
+        return embedBuilder(" ", Color.green, "Current UTC date time :\n\n> " + Dates.format(Dates.nowUtc()));
     }
 
     private EmbedBuilder list() {

@@ -16,6 +16,7 @@ import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.alerts.AlertTest.*;
 import static org.sbot.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
 import static org.sbot.alerts.RemainderAlert.REMAINDER_VIRTUAL_EXCHANGE;
+import static org.sbot.utils.Dates.nowUtc;
 
 class RemainderAlertTest {
 
@@ -73,11 +74,11 @@ class RemainderAlertTest {
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // no to date
         assertThrows(IllegalArgumentException.class, () -> alert.build(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
-                null, null, TEST_FROM_DATE, ZonedDateTime.now(), null,
+                null, null, TEST_FROM_DATE, nowUtc(), null,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // no last trigger
         assertThrows(IllegalArgumentException.class, () -> alert.build(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
-                null, null, TEST_FROM_DATE, null, ZonedDateTime.now(),
+                null, null, TEST_FROM_DATE, null, nowUtc(),
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // no repeat
         assertThrows(IllegalArgumentException.class, () -> alert.build(NULL_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
@@ -100,7 +101,7 @@ class RemainderAlertTest {
         assertNotNull(alert.match(null, null).status());
         assertTrue(alert.match(null, null).status().isMatched());
 
-        ZonedDateTime now = Instant.now().atZone(ZoneOffset.UTC);
+        ZonedDateTime now = nowUtc();
         assertNotNull(alert.match(now));
         assertTrue(alert.match(now).status().isMatched());
 
@@ -132,7 +133,7 @@ class RemainderAlertTest {
     @Test
     void asMessage() {
         Alert alert = createTestRemainderAlert().withId(() -> 456L);
-        Candlestick candlestick = new Candlestick(ZonedDateTime.now(), ZonedDateTime.now(), TWO, ONE, TEN, ONE);
+        Candlestick candlestick = new Candlestick(nowUtc(), nowUtc(), TWO, ONE, TEN, ONE);
 
         assertThrows(NullPointerException.class, () -> alert.asMessage(null, null));
         String message = alert.asMessage(MatchingAlert.MatchingStatus.MATCHED, null);

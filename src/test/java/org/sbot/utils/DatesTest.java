@@ -67,9 +67,14 @@ class DatesTest {
         Timestamp timestamp = new Timestamp(utcDate.toEpochSecond() * 1000L);
         assertEquals(utcDate, Dates.parseUtcDateTimeOrNull(timestamp));
 
-        utcDate = ZonedDateTime.now().withZoneSameInstant(ZoneOffset.UTC).withSecond(0).withNano(0);
+        utcDate = Dates.nowUtc().withSecond(0).withNano(0);
         timestamp = new Timestamp(utcDate.toEpochSecond() * 1000L);
         assertEquals(utcDate, Dates.parseUtcDateTimeOrNull(timestamp));
+    }
+
+    @Test
+    void nowUtc() {
+        //TODO ZonedDateTime.now(ZoneId.of("UTC"))
     }
 
     @Test

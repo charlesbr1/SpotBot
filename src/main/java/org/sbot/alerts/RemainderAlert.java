@@ -17,6 +17,7 @@ import static org.sbot.alerts.Alert.Type.remainder;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.MATCHED;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.NOT_MATCHING;
 import static org.sbot.utils.Dates.formatUTC;
+import static org.sbot.utils.Dates.nowUtc;
 
 public final class RemainderAlert extends Alert {
 
@@ -46,7 +47,7 @@ public final class RemainderAlert extends Alert {
     @Override
     @NotNull
     public MatchingAlert match(@NotNull List<Candlestick> ignored, @Nullable Candlestick unused) {
-        return match(Instant.now().atZone(ZoneOffset.UTC));
+        return match(nowUtc());
     }
 
     MatchingAlert match(@NotNull ZonedDateTime now) {

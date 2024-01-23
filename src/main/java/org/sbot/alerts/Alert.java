@@ -9,8 +9,6 @@ import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
 import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -23,6 +21,7 @@ import static org.sbot.chart.Ticker.getSymbol;
 import static org.sbot.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.formatUTC;
+import static org.sbot.utils.Dates.nowUtc;
 
 public abstract class Alert {
 
@@ -248,7 +247,7 @@ public abstract class Alert {
     }
 
     private String withSnoozeTime(@NotNull String message) {
-        ZonedDateTime now = Instant.now().atZone(ZoneOffset.UTC);
+        ZonedDateTime now = nowUtc();
         if(null == lastTrigger || isSnoozeOver(now.toEpochSecond())) {
             return message;
         }

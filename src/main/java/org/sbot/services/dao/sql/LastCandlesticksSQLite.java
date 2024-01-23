@@ -44,7 +44,7 @@ public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCa
         String UPDATE_LAST_CANDLESTICK = "UPDATE last_candlesticks SET open_time=:openTime,close_time=:closeTime,open=:open,close=:close,high=:high,low=:low WHERE pair=:pair";
     }
 
-    private static final class CandlestickMapper implements RowMapper<Candlestick> {
+    public static final class CandlestickMapper implements RowMapper<Candlestick> {
         @Override
         public Candlestick map(ResultSet rs, StatementContext ctx) throws SQLException {
             ZonedDateTime openTime = parseUtcDateTimeOrNull(rs.getTimestamp("open_time"));

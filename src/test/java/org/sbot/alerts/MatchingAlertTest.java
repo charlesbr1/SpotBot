@@ -4,12 +4,11 @@ import org.junit.jupiter.api.Test;
 import org.sbot.chart.Candlestick;
 
 import java.math.BigDecimal;
-import java.time.ZonedDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.sbot.alerts.AlertTest.createTestAlert;
 import static org.sbot.alerts.MatchingAlert.MatchingStatus.*;
+import static org.sbot.utils.Dates.nowUtc;
 
 class MatchingAlertTest {
 
@@ -38,7 +37,7 @@ class MatchingAlertTest {
 
     @Test
     void matchingCandlestick() {
-        Candlestick candlestick = new Candlestick(ZonedDateTime.now().minusMinutes(1L), ZonedDateTime.now(),
+        Candlestick candlestick = new Candlestick(nowUtc().minusMinutes(1L), nowUtc(),
                 BigDecimal.TWO, BigDecimal.TWO, BigDecimal.TEN, BigDecimal.ONE);
         assertEquals(candlestick, new MatchingAlert(createTestAlert(), MATCHED, candlestick).matchingCandlestick());
     }
