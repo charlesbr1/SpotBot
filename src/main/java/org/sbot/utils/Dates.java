@@ -4,11 +4,11 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.sql.Timestamp;
-import java.time.*;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
-
-import static org.sbot.utils.ArgumentValidator.requireInPast;
 
 public interface Dates {
 
@@ -41,15 +41,5 @@ public interface Dates {
     static ZonedDateTime parseUtcDateTimeOrNull(@Nullable Timestamp timestamp) {
         return Optional.ofNullable(timestamp)
                 .map(dateTime -> dateTime.toInstant().atZone(ZoneOffset.UTC)).orElse(null);
-    }
-
-    record DaysHoursMinutes(int days, int hours, int minutes) {
-        public static final DaysHoursMinutes ZERO = new DaysHoursMinutes(0, 0, 0);
-    }
-
-    @NotNull
-    static DaysHoursMinutes daysHoursMinutesSince(@NotNull ZonedDateTime lastTime) {
-        Duration duration = Duration.between(requireInPast(lastTime), nowUtc());
-        return new DaysHoursMinutes(duration.toHoursPart(), duration.toHoursPart(), duration.toMinutesPart());
     }
 }

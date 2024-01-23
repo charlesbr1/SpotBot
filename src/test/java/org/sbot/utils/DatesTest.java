@@ -74,11 +74,10 @@ class DatesTest {
 
     @Test
     void nowUtc() {
-        //TODO ZonedDateTime.now(ZoneId.of("UTC"))
-    }
-
-    @Test
-    void daysHoursMinutesSince() {
-        //TODO refactor
+        ZonedDateTime now = ZonedDateTime.now(ZoneId.of("UTC"));
+        ZonedDateTime nowUtc = Dates.nowUtc();
+        assertTrue(nowUtc.isAfter(now.minusSeconds(1L)));
+        now = ZonedDateTime.now(ZoneId.of("UTC"));
+        assertTrue(nowUtc.isBefore(now.plusSeconds(1L)));
     }
 }

@@ -11,27 +11,30 @@ import org.sbot.alerts.Alert;
 import org.sbot.alerts.MatchingAlert;
 import org.sbot.alerts.MatchingAlert.MatchingStatus;
 import org.sbot.chart.Candlestick;
+import org.sbot.chart.Candlestick.CandlestickPeriod;
 import org.sbot.chart.TimeFrame;
 import org.sbot.discord.Discord;
 import org.sbot.exchanges.Exchange;
 import org.sbot.exchanges.Exchanges;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
-import org.sbot.utils.Dates;
-import org.sbot.utils.Dates.DaysHoursMinutes;
 
 import java.awt.*;
-import java.time.*;
-import java.util.ArrayList;
+import java.time.Duration;
+import java.time.ZonedDateTime;
+import java.util.*;
 import java.util.List;
-import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
 import static net.dv8tion.jda.api.entities.MessageEmbed.TITLE_MAX_LENGTH;
@@ -145,25 +148,34 @@ public final class AlertsWatcher {
                 LOGGER.warn("No market data found for {} on exchange {}", pair, exchange);
             }
         } catch(RuntimeException e) {
-            LOGGER.warn("Exception thrown while processing alerts", e);
+            LOGGER.warn("Exception thrown while processing alerts for " + pair + " on exchange " + exchange, e);
         }
     }
 
     private List<Candlestick> getCandlesticksSince(@NotNull Exchange exchange, @NotNull String pair, @Nullable ZonedDateTime previousCloseTime) {
-        DaysHoursMinutes delay = Optional.ofNullable(previousCloseTime).map(Dates::daysHoursMinutesSince)
-                .orElse(DaysHoursMinutes.ZERO);
-        LOGGER.debug("Computed {} days, {} hours, {} minutes since the last price close time {}", delay.days(), delay.hours(), delay.minutes(), previousCloseTime);
+        CandlestickPeriod period = Optional.ofNullable(previousCloseTime)
+                .map(Candlestick::periodSince)
+                .orElse(CandlestickPeriod.ONE_MINUTE);
+        LOGGER.debug("Computed {} days, {} hours, {} minutes since the last price close time {}", period.daily(), period.hourly(), period.minutes(), previousCloseTime);
 
-        List<Candlestick> prices = new ArrayList<>(delay.days() + delay.hours() + delay.minutes() + 1);
-        if(delay.days() > 0) {
-            prices.addAll(getCandlesticks(exchange, pair, TimeFrame.DAILY, delay.days()));
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Candlestick> prices = new ArrayList<>(period.daily() + period.hourly() + period.minutes());
+            Future<List<Candlestick>> daily = completedFuture(emptyList()), hourly = daily;
+            if (period.daily() > 0) {
+                daily = executor.submit(() -> getCandlesticks(exchange, pair, TimeFrame.DAILY, period.daily()));
+            }
+            if (period.hourly() > 0) {
+                hourly = executor.submit(() -> getCandlesticks(exchange, pair, TimeFrame.HOURLY, period.hourly()));
+            }
+            var minutes = getCandlesticks(exchange, pair, TimeFrame.ONE_MINUTE, period.minutes());
+            prices.addAll(daily.get());
+            prices.addAll(hourly.get());
+            prices.addAll(minutes);
+            prices.sort(comparing(Candlestick::closeTime));
+            return prices;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
-        if(delay.hours() > 0) {
-            prices.addAll(getCandlesticks(exchange, pair, TimeFrame.HOURLY, delay.hours()));
-        }
-        prices.addAll(getCandlesticks(exchange, pair, TimeFrame.ONE_MINUTE, delay.minutes() + 1));
-
-        return prices;
     }
 
     private List<Candlestick> getCandlesticks(@NotNull Exchange exchange, @NotNull String pair, @NotNull TimeFrame timeFrame, int limit) {
