@@ -14,7 +14,6 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 
 public final class StringArgumentReader implements ArgumentReader {
@@ -25,7 +24,7 @@ public final class StringArgumentReader implements ArgumentReader {
     private String remainingArguments;
 
     public StringArgumentReader(@NotNull String arguments) {
-        this.remainingArguments = requireNonNull(arguments, "missing StringArgumentReader arguments");
+        this.remainingArguments = arguments.strip();
     }
 
     @Override
