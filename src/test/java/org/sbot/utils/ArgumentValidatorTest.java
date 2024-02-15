@@ -2,16 +2,15 @@ package org.sbot.utils;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
 import java.time.ZonedDateTime;
-import java.util.stream.LongStream;
 
 import static java.math.BigDecimal.*;
-import static java.util.stream.Collectors.joining;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
-import static org.sbot.utils.Dates.nowUtc;
+import static org.sbot.utils.DatesTest.nowUtc;
 
 class ArgumentValidatorTest {
 
@@ -170,25 +169,25 @@ class ArgumentValidatorTest {
     @Test
     void requireInPast() {
         ZonedDateTime now = nowUtc();
-        assertEquals(now, ArgumentValidator.requireInPast(now));
-        assertEquals(now.minusSeconds(1L), ArgumentValidator.requireInPast(now.minusSeconds(1L)));
-        assertEquals(now.minusMinutes(1L), ArgumentValidator.requireInPast(now.minusMinutes(1L)));
-        assertEquals(now.minusDays(3L), ArgumentValidator.requireInPast(now.minusDays(3L)));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInPast(now.plusSeconds(1L)));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInPast(now.plusMinutes(1L)));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInPast(now.plusDays(3L)));
+        assertEquals(now, ArgumentValidator.requireInPast(Clock.systemUTC(), now));
+        assertEquals(now.minusSeconds(1L), ArgumentValidator.requireInPast(Clock.systemUTC(), now.minusSeconds(1L)));
+        assertEquals(now.minusMinutes(1L), ArgumentValidator.requireInPast(Clock.systemUTC(), now.minusMinutes(1L)));
+        assertEquals(now.minusDays(3L), ArgumentValidator.requireInPast(Clock.systemUTC(), now.minusDays(3L)));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInPast(Clock.systemUTC(), now.plusSeconds(1L)));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInPast(Clock.systemUTC(), now.plusMinutes(1L)));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInPast(Clock.systemUTC(), now.plusDays(3L)));
     }
 
     @Test
     void requireInFuture() {
         ZonedDateTime now = nowUtc();
-        assertEquals(now, ArgumentValidator.requireInPast(now));
-        assertEquals(now.plusSeconds(1L), ArgumentValidator.requireInFuture(now.plusSeconds(1L)));
-        assertEquals(now.plusMinutes(1L), ArgumentValidator.requireInFuture(now.plusMinutes(1L)));
-        assertEquals(now.plusDays(3L), ArgumentValidator.requireInFuture(now.plusDays(3L)));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInFuture(now.minusSeconds(1L)));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInFuture(now.minusMinutes(1L)));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInFuture(now.minusDays(3L)));
+        assertEquals(now, ArgumentValidator.requireInFuture(now, now));
+        assertEquals(now.plusSeconds(1L), ArgumentValidator.requireInFuture(now, now.plusSeconds(1L)));
+        assertEquals(now.plusMinutes(1L), ArgumentValidator.requireInFuture(now, now.plusMinutes(1L)));
+        assertEquals(now.plusDays(3L), ArgumentValidator.requireInFuture(now, now.plusDays(3L)));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInFuture(now, now.minusSeconds(1L)));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInFuture(now, now.minusMinutes(1L)));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInFuture(now, now.minusDays(3L)));
     }
 
     @Test
@@ -216,17 +215,5 @@ class ArgumentValidatorTest {
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<@>"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<>"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(""));
-    }
-
-    @Test
-    void stringLength() {
-        long[] ids = new long[] {};
-        assertEquals(LongStream.of(ids).mapToObj(String::valueOf).collect(joining()).length(), ArgumentValidator.stringLength(ids));
-        ids = new long[] {1, 2, 3, 4};
-        assertEquals(LongStream.of(ids).mapToObj(String::valueOf).collect(joining()).length(), ArgumentValidator.stringLength(ids));
-        ids = new long[] {1, 20, 300, 40000};
-        assertEquals(LongStream.of(ids).mapToObj(String::valueOf).collect(joining()).length(), ArgumentValidator.stringLength(ids));
-        ids = new long[] {-1, 20, -300, 40000};
-        assertEquals(LongStream.of(ids).mapToObj(String::valueOf).collect(joining()).length(), ArgumentValidator.stringLength(ids));
     }
 }

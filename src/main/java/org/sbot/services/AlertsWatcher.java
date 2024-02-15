@@ -7,28 +7,32 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.sbot.alerts.Alert;
-import org.sbot.alerts.MatchingAlert;
-import org.sbot.alerts.MatchingAlert.MatchingStatus;
-import org.sbot.chart.Candlestick;
-import org.sbot.chart.Candlestick.CandlestickPeriod;
-import org.sbot.chart.TimeFrame;
-import org.sbot.discord.Discord;
+import org.sbot.entities.Message;
+import org.sbot.entities.alerts.Alert;
+import org.sbot.entities.chart.Candlestick;
+import org.sbot.entities.chart.Candlestick.CandlestickPeriod;
+import org.sbot.entities.chart.TimeFrame;
 import org.sbot.exchanges.Exchange;
 import org.sbot.exchanges.Exchanges;
+import org.sbot.services.MatchingService.MatchingAlert;
+import org.sbot.services.MatchingService.MatchingAlert.MatchingStatus;
+import org.sbot.services.context.Context;
+import org.sbot.services.context.TransactionalContext;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
+import org.sbot.services.discord.Discord;
+import org.sbot.utils.Dates;
 
 import java.awt.*;
-import java.time.Duration;
 import java.time.ZonedDateTime;
-import java.util.*;
 import java.util.List;
+import java.util.*;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
@@ -37,15 +41,13 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
-import static net.dv8tion.jda.api.entities.MessageEmbed.TITLE_MAX_LENGTH;
-import static org.sbot.alerts.Alert.Type.*;
-import static org.sbot.alerts.Alert.isPrivate;
-import static org.sbot.alerts.MatchingAlert.MatchingStatus.NOT_MATCHING;
-import static org.sbot.alerts.RemainderAlert.REMAINDER_VIRTUAL_EXCHANGE;
-import static org.sbot.commands.CommandAdapter.embedBuilder;
-import static org.sbot.discord.Discord.MESSAGE_PAGE_SIZE;
-import static org.sbot.discord.Discord.spotBotRole;
-import static org.sbot.utils.Dates.nowUtc;
+import static org.sbot.entities.alerts.Alert.Type.*;
+import static org.sbot.entities.alerts.Alert.isPrivate;
+import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_VIRTUAL_EXCHANGE;
+import static org.sbot.entities.chart.Candlestick.periodSince;
+import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.NOT_MATCHING;
+import static org.sbot.services.discord.Discord.MESSAGE_PAGE_SIZE;
+import static org.sbot.services.discord.Discord.spotBotRole;
 import static org.sbot.utils.PartitionSpliterator.split;
 
 public final class AlertsWatcher {
@@ -55,94 +57,98 @@ public final class AlertsWatcher {
     private static final int MAX_DBMS_SQL_IN_CLAUSE_VALUES = 1000;
     private static final int STREAM_BUFFER_SIZE = Math.min(MAX_DBMS_SQL_IN_CLAUSE_VALUES, MESSAGE_PAGE_SIZE);
 
-    private final Discord discord;
-    private final AlertsDao alertsDao;
-    private final MarketDataService marketDataService;
+    private final Context context;
 
-    public AlertsWatcher(@NotNull Discord discord, @NotNull AlertsDao alertsDao, @NotNull MarketDataService marketDataService) {
-        this.discord = requireNonNull(discord);
-        this.alertsDao = requireNonNull(alertsDao);
-        this.marketDataService = requireNonNull(marketDataService);
+    public AlertsWatcher(Context context) {
+        this.context = requireNonNull(context);
     }
 
     // this splits in tasks by exchanges and pairs, one rest call must be done by each task to retrieve the candlesticks
     public void checkAlerts() {
+        long start = System.currentTimeMillis();
         try {
-            expiredAlertsCleanup();
+            ZonedDateTime now = Dates.nowUtc(context.clock());
+            context.transaction(txCtx -> expiredAlertsCleanup(txCtx.alertsDao(), now));
 
-            var exchangePairs = alertsDao.transactional(alertsDao::getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange);
-            exchangePairs.forEach((xchange, pairs) -> {  // one task by exchange / pair
-                var pairList = List.copyOf(pairs);
-                Exchanges.get(xchange).ifPresent(exchange -> {
-                    Thread.ofVirtual().start(() -> pairList.forEach(pair -> {
-                        if(exchange.isVirtual()) {
-                            raiseAlerts(exchange, pair);
-                        } else {
-                            Thread.ofVirtual().name('[' + pair + "] SpotBot fetcher")
-                                    .start(() -> getPricesAndRaiseAlerts(exchange, pair));
-                            LockSupport.parkNanos(pair.equals(pairList.get(pairList.size() - 1)) ? 0L : Duration.ofMillis(300L).toNanos()); // no need to flood the exchanges (or discord)
+            //TODO check user not on server anymore
+            var exchangePairs = context.transactional(txCtx -> {
+                var pairs = pairsToCheck(txCtx.alertsDao(), now);
+                removeUnusedLastCandlestick(txCtx, pairs);
+                return pairs;
+            });
+            var tasks = new ArrayList<Callable<Void>>(exchangePairs.size());
+            exchangePairs.forEach((xchange, pairs) -> Exchanges.get(xchange).ifPresentOrElse(exchange -> {
+                if (exchange.isVirtual()) {
+                    tasks.add(() -> { pairs.forEach(pair -> raiseAlerts(now, exchange, pair)); return null; });
+                } else { // one task by exchange
+                    tasks.add(() -> { pairs.forEach(pair -> getPricesAndRaiseAlerts(now, exchange, pair)); return null; });
+                }
+            }, () -> LOGGER.warn("Unknown exchange : " + xchange)));
+            try(var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                executor.invokeAll(tasks);
+                LOGGER.info("Alerts check done, {}ms.", System.currentTimeMillis() - start);
+            }
+        } catch (Exception e) {
+            LOGGER.error("Exception thrown while performing check alerts task", e);
+        }
+    }
+
+    void expiredAlertsCleanup(@NotNull AlertsDao alertsDao, @NotNull ZonedDateTime now) {
+        Consumer<Stream<Alert>> alertsDeleter = alerts -> alertsDao.alertBatchDeletes(deleter ->
+                split(STREAM_BUFFER_SIZE, true, alerts
+                        .map(alert -> new MatchingAlert(alert, NOT_MATCHING, null)))
+                        .flatMap(matchingAlerts -> sendDiscordNotifications(now, matchingAlerts))
+                        .forEach(matchingAlert -> deleter.batchId(matchingAlert.alert().id)));
+
+        ZonedDateTime expirationDate = now.minusMonths(1L);
+        long deleted = alertsDao.fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore(expirationDate, alertsDeleter);
+        LOGGER.debug("Deleted {} alerts with repeat = 0 and lastTrigger or creation date < {}", deleted, expirationDate);
+        deleted = alertsDao.fetchAlertsByTypeHavingToDateBefore(trend, expirationDate, alertsDeleter);
+        LOGGER.debug("Deleted {} trend alerts with toDate < {}", deleted, expirationDate);
+        expirationDate = now.minusWeeks(1L);
+        deleted = alertsDao.fetchAlertsByTypeHavingToDateBefore(range, expirationDate, alertsDeleter);
+        LOGGER.debug("Deleted {} range alerts with toDate < {}", deleted, expirationDate);
+    }
+
+    private Map<String, Set<String>> pairsToCheck(@NotNull AlertsDao alertsDao, @NotNull ZonedDateTime now) {
+        return alertsDao.getPairsByExchangesHavingPastListeningDateWithActiveRange(now, context.parameters().checkPeriodMin());
+    }
+
+    private void removeUnusedLastCandlestick(@NotNull TransactionalContext txCtx, @NotNull Map<String, Set<String>> activeExchangePairs) {
+        var candlesticks = txCtx.lastCandlesticksDao().getPairsByExchanges();
+        txCtx.lastCandlesticksService().lastCandlestickBatchDeletes(deleter ->
+                candlesticks.forEach((exchange, pairs) -> {
+                    var found = activeExchangePairs.get(exchange);
+                    pairs.forEach(pair -> {
+                        if(null == found || !found.contains(pair)) {
+                            deleter.batch(exchange, pair);
                         }
-                    }));
-                    LockSupport.parkNanos(exchange.isVirtual() ? 0L : Duration.ofMillis(300L / (Math.min(10, exchangePairs.size()))).toNanos());
-                });
-            });
-        } catch (RuntimeException e) {
-            LOGGER.error("Exception thrown while performing hourly alerts task", e);
-        }
+                    });
+                }));
     }
 
-    void expiredAlertsCleanup() {
-        try {
-            Consumer<Stream<Alert>> alertsDeleter = alerts -> alertsDao.alertBatchDeletes(deleter ->
-                    split(STREAM_BUFFER_SIZE, true, alerts
-                            .map(alert -> new MatchingAlert(alert, NOT_MATCHING, null)))
-                            .flatMap(this::sendDiscordNotifications)
-                            .forEach(matchingAlert -> deleter.batchId(matchingAlert.alert().id)));
-            ZonedDateTime utcTime = nowUtc();
-
-            alertsDao.transactional(() -> {
-                ZonedDateTime expirationDate = utcTime.minusMonths(1L);
-                long deleted = alertsDao.fetchAlertsHavingRepeatZeroAndLastTriggerBefore(expirationDate, alertsDeleter);
-                LOGGER.debug("Deleted {} alerts with repeat = 0 and lastTrigger < {}", deleted, expirationDate);
-            });
-
-            alertsDao.transactional(() -> {
-                ZonedDateTime expirationDate = utcTime.minusWeeks(1L);
-                long deleted = alertsDao.fetchAlertsByTypeHavingToDateBefore(range, expirationDate, alertsDeleter);
-                LOGGER.debug("Deleted {} range alerts with toDate < {}", deleted, expirationDate);
-            });
-
-            alertsDao.transactional(() -> {
-                ZonedDateTime expirationDate = utcTime.minusMonths(1L);
-                long deleted = alertsDao.fetchAlertsByTypeHavingToDateBefore(trend, expirationDate, alertsDeleter);
-                LOGGER.debug("Deleted {} trend alerts with toDate < {}", deleted, expirationDate);
-            });
-        } catch (RuntimeException e) {
-            LOGGER.error("Exception thrown while deleting old alerts", e);
-        }
-    }
-
-    private void raiseAlerts(@NotNull Exchange virtualExchange, @NotNull String pair) {
+    private void raiseAlerts(@NotNull ZonedDateTime now, @NotNull Exchange virtualExchange, @NotNull String pair) {
         LOGGER.debug("Processing pair [{}] on virtual exchange {}{}...", pair,
                 virtualExchange.name(), REMAINDER_VIRTUAL_EXCHANGE.equals(virtualExchange.name()) ? " (Remainder Alerts)" : "");
-        alertsDao.transactional(() -> processMatchingAlerts(virtualExchange, pair, emptyList(), null));
+        context.transaction(ctx -> processMatchingAlerts(ctx, now, virtualExchange, pair, emptyList(), null));
     }
 
-    private void getPricesAndRaiseAlerts(@NotNull Exchange exchange, @NotNull String pair) {
+    private void getPricesAndRaiseAlerts(@NotNull ZonedDateTime now, @NotNull Exchange exchange, @NotNull String pair) {
         try {
             LOGGER.debug("Retrieving last price for pair [{}] on {}...", pair, exchange);
 
             // retrieve all the candlesticks since the last check occurred from now, or since the last hour,
             // lastClose database read don't need to be part of the following alerts update transaction
-            var lastClose = marketDataService.getLastCandlestickCloseTime(pair).orElse(null);
-            List<Candlestick> prices = getCandlesticksSince(exchange, pair, lastClose);
+            var lastClose = context.transactional(ctx -> ctx.lastCandlesticksDao().getLastCandlestickCloseTime(exchange.name(), pair).orElse(null));
+            List<Candlestick> prices = getCandlesticksSince(lastClose, now, exchange, pair);
 
             if(!prices.isEmpty()) {
                 // load, notify, and update alerts that matches
-                alertsDao.transactional(() -> {
-                    Candlestick previousPrice = marketDataService.getLastCandlestick(pair).orElse(null);
-                    processMatchingAlerts(exchange, pair, prices, previousPrice);
-                    marketDataService.updateLastCandlestick(pair, previousPrice, prices.get(prices.size() - 1));
+                context.transaction(txContext -> {
+                    var lastCandlesticksService = txContext.lastCandlesticksService();
+                    Candlestick previousPrice = lastCandlesticksService.getLastCandlestick(exchange.name(), pair).orElse(null);
+                    processMatchingAlerts(txContext, now, exchange, pair, prices, previousPrice);
+                    lastCandlesticksService.updateLastCandlestick(exchange.name(), pair, previousPrice, prices.get(prices.size() - 1));
                 });
             } else {
                 LOGGER.warn("No market data found for {} on exchange {}", pair, exchange);
@@ -152,11 +158,12 @@ public final class AlertsWatcher {
         }
     }
 
-    private List<Candlestick> getCandlesticksSince(@NotNull Exchange exchange, @NotNull String pair, @Nullable ZonedDateTime previousCloseTime) {
+    private List<Candlestick> getCandlesticksSince(@Nullable ZonedDateTime previousCloseTime, @NotNull ZonedDateTime now, @NotNull Exchange exchange, @NotNull String pair) {
         CandlestickPeriod period = Optional.ofNullable(previousCloseTime)
-                .map(Candlestick::periodSince)
-                .orElse(CandlestickPeriod.ONE_MINUTE);
-        LOGGER.debug("Computed {} days, {} hours, {} minutes since the last price close time {}", period.daily(), period.hourly(), period.minutes(), previousCloseTime);
+                .map(close -> periodSince(close, now))
+                .orElse(CandlestickPeriod.ONE_MINUTE); //TODO retrieve since last period
+        LOGGER.debug("Computed {} daily, {} hourly and {} one minute candlesticks since the last price close time {}",
+                period.daily(), period.hourly(), period.minutes(), previousCloseTime);
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Candlestick> prices = new ArrayList<>(period.daily() + period.hourly() + period.minutes());
@@ -168,10 +175,16 @@ public final class AlertsWatcher {
                 hourly = executor.submit(() -> getCandlesticks(exchange, pair, TimeFrame.HOURLY, period.hourly()));
             }
             var minutes = getCandlesticks(exchange, pair, TimeFrame.ONE_MINUTE, period.minutes());
-            prices.addAll(daily.get());
-            prices.addAll(hourly.get());
-            prices.addAll(minutes);
-            prices.sort(comparing(Candlestick::closeTime));
+            // longer timeframe can overlap the shorter, they should not be mixed by sorting all the candlestick once.
+            // this is best effort for retrieving quotes since a long shutdown, where longer timeframe are likely to overlap
+            // before the alert listening date, in which case they are ignored
+            // one minute timeframe quote won't be available for many days in the past
+            // Usually only bulks of one minute quote are requested, on following checks, hence no overlap issue.
+            // check period should remains below one hour to ensure use of one minute timeframe.
+            //
+            prices.addAll(daily.get().stream().sorted(comparing(Candlestick::closeTime)).toList());
+            prices.addAll(hourly.get().stream().sorted(comparing(Candlestick::closeTime)).toList());
+            prices.addAll(minutes.stream().sorted(comparing(Candlestick::closeTime)).toList());
             return prices;
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -186,20 +199,22 @@ public final class AlertsWatcher {
         return candlesticks;
     }
 
-    private void processMatchingAlerts(@NotNull Exchange exchange, @NotNull String pair, @NotNull List<Candlestick> prices, @Nullable Candlestick previousPrice) {
-        long read = alertsDao.fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(exchange.name(), pair,
-                alerts -> batchAlertsUpdates(
+    private void processMatchingAlerts(@NotNull TransactionalContext context, @NotNull ZonedDateTime now, @NotNull Exchange exchange, @NotNull String pair, @NotNull List<Candlestick> prices, @Nullable Candlestick previousPrice) {
+        var alertsDao = context.alertsDao();
+        var matchingService = context.matchingService();
+        long read = alertsDao.fetchAlertsWithoutMessageByExchangeAndPairHavingPastListeningDateWithActiveRange(exchange.name(), pair, now, context.parameters().checkPeriodMin(),
+                alerts -> batchAlertsUpdates(alertsDao, now,
                         split(STREAM_BUFFER_SIZE, true, alerts
-                                .map(alert -> alert.match(prices, previousPrice))
+                                .map(alert -> matchingService.match(now, alert, prices, previousPrice))
                                 .filter(MatchingAlert::hasMatch))
-                        .map(this::fetchAlertsMessage)
-                        .flatMap(this::sendDiscordNotifications)));
+                        .map(matchingAlerts -> fetchAlertsMessage(alertsDao, matchingAlerts))
+                        .flatMap(matchingAlerts -> sendDiscordNotifications(now, matchingAlerts))));
         LOGGER.debug("Processed {} alerts", read);
     }
 
-    private void batchAlertsUpdates(@NotNull Stream<MatchingAlert> matchingAlerts) {
-        alertsDao.matchedAlertBatchUpdates(matchedUpdater ->
-                alertsDao.marginAlertBatchUpdates(marginUpdater ->
+    private void batchAlertsUpdates(@NotNull AlertsDao alertsDao, @NotNull ZonedDateTime now, @NotNull Stream<MatchingAlert> matchingAlerts) {
+        alertsDao.matchedAlertBatchUpdates(now, matchedUpdater ->
+                alertsDao.marginAlertBatchUpdates(now, marginUpdater ->
                         alertsDao.alertBatchDeletes(remainderDeleter ->
                             matchingAlerts.forEach(matchingAlert -> {
                                 Alert alert = matchingAlert.alert();
@@ -211,29 +226,29 @@ public final class AlertsWatcher {
                         }))));
     }
 
-    private List<MatchingAlert> fetchAlertsMessage(@NotNull List<MatchingAlert> matchingAlerts) {
-        long[] alertIds = matchingAlerts.stream().mapToLong(matchingAlert -> matchingAlert.alert().id).toArray();
-        var alertIdMessages = alertsDao.getAlertMessages(alertIds); // calling code is already into a transactional context
+    private List<MatchingAlert> fetchAlertsMessage(@NotNull AlertsDao alertsDao, @NotNull List<MatchingAlert> matchingAlerts) {
+        LongStream alertIds = matchingAlerts.stream().mapToLong(matchingAlert -> matchingAlert.alert().id);
+        var alertIdMessages = alertsDao.getAlertMessages(alertIds);
         return matchingAlerts.stream().map(matchingAlert ->
                 matchingAlert.withAlert(matchingAlert.alert()
                         .withMessage(alertIdMessages.getOrDefault(matchingAlert.alert().id, matchingAlert.alert().message))))
                 .toList();
     }
 
-    private Stream<MatchingAlert> sendDiscordNotifications(@NotNull List<MatchingAlert> matchingAlerts) {
+    private Stream<MatchingAlert> sendDiscordNotifications(@NotNull ZonedDateTime now, @NotNull List<MatchingAlert> matchingAlerts) {
         matchingAlerts.stream().collect(groupingBy(matchingAlert -> matchingAlert.alert().serverId))
-                .forEach(this::sendAlerts);
+                .forEach((serverId, alerts) -> sendAlerts(now, serverId, alerts));
         return matchingAlerts.stream();
     }
 
-    private void sendAlerts(@NotNull Long serverId, @NotNull List<MatchingAlert> matchingAlerts) {
+    private void sendAlerts(@NotNull ZonedDateTime now, @NotNull Long serverId, @NotNull List<MatchingAlert> matchingAlerts) {
         try {
             if(isPrivate(serverId)) {
-                sendPrivateAlerts(matchingAlerts);
+                sendPrivateAlerts(now, matchingAlerts);
             } else {
-                sendServerAlerts(matchingAlerts, discord.getGuildServer(serverId)
+                sendServerAlerts(matchingAlerts, context.discord().getGuildServer(serverId)
                         .orElseThrow(() -> new IllegalStateException("Failed to get guild server " + serverId +
-                                " : should not be connected to this bot")));
+                                " : should not be connected to this bot")), now);
             }
         } catch (RuntimeException e) {
             String alertIds = matchingAlerts.stream()
@@ -242,50 +257,42 @@ public final class AlertsWatcher {
         }
     }
 
-    private void sendServerAlerts(@NotNull List<MatchingAlert> matchingAlerts, @NotNull Guild guild) {
+    private void sendServerAlerts(@NotNull List<MatchingAlert> matchingAlerts, @NotNull Guild guild, @NotNull ZonedDateTime now) {
         List<String> roles = matchingAlerts.stream().map(MatchingAlert::status).anyMatch(MatchingStatus::notMatching) ? emptyList() : // no @SpotBot mention for a delete notification
                 spotBotRole(guild).map(Role::getId).stream().toList();
-        long[] users = matchingAlerts.stream().map(MatchingAlert::alert).mapToLong(Alert::getUserId).distinct().toArray();
+        var users = matchingAlerts.stream().map(MatchingAlert::alert).map(Alert::getUserId).distinct().map(String::valueOf).toList();
         //TODO user must still be on server check, or else <@123> appears in discord
+        // query each user on server ?
         Discord.spotBotChannel(guild).ifPresent(channel ->
-                channel.sendMessages(toMessages(matchingAlerts),
-                        List.of(message -> requireNonNull(message.mentionRoles(roles).mentionUsers(users)))));
+                channel.sendMessages(List.of(toMessage(now, matchingAlerts, roles, users))));
     }
 
-    private void sendPrivateAlerts(@NotNull List<MatchingAlert> matchingAlerts) {
+    private void sendPrivateAlerts(@NotNull ZonedDateTime now, @NotNull List<MatchingAlert> matchingAlerts) {
         matchingAlerts.stream().collect(groupingBy(matchingAlert -> matchingAlert.alert().userId))
                 .forEach((userId, userAlerts) -> // retrieving user channel is a blocking task (there is a cache though)
                         Thread.ofVirtual().name("SpotBot private channel " + userId)
-                                .start(() -> discord.userChannel(userId)
-                                        .ifPresent(channel -> channel.sendMessages(toMessages(userAlerts), emptyList()))));
+                                .start(() -> context.discord().userChannel(userId)
+                                        .ifPresent(channel -> channel.sendMessages(List.of(toMessage(now, userAlerts))))));
     }
 
     @NotNull
-    private List<EmbedBuilder> toMessages(@NotNull List<MatchingAlert> matchingAlerts) {
-        return matchingAlerts.stream().map(this::toMessage).toList();
+    private Message toMessage(@NotNull ZonedDateTime now, @NotNull List<MatchingAlert> matchingAlerts, @NotNull List<String> roles, @NotNull List<String> users) {
+        return Message.of(matchingAlerts.stream().map(alert -> toMessage(now, alert)).toList(), roles, users);
     }
 
-    private EmbedBuilder toMessage(@NotNull MatchingAlert matchingAlert) {
+    @NotNull
+    private Message toMessage(@NotNull ZonedDateTime now, @NotNull List<MatchingAlert> matchingAlerts) {
+        return Message.of(matchingAlerts.stream().map(alert -> toMessage(now, alert)).toList());
+    }
+
+    private EmbedBuilder toMessage(@NotNull ZonedDateTime now, @NotNull MatchingAlert matchingAlert) {
         Alert alert = matchingAlert.alert();
-        if(matchingAlert.status().notMatching()) { // delete notification
-            return embedBuilder("Delete notification - alert #" + alert.id, Color.black,
-                    "Following alert has expired and will be deleted :\n\n" + alert.descriptionMessage());
+        if (matchingAlert.status().notMatching()) { // delete notification
+            //TODO separate method, guidName
+            var description = alert.descriptionMessage(now, "todo");
+            return description.setDescription("Following alert has expired and will be deleted :\n\n" + description.getDescriptionBuilder())
+                    .setTitle("Delete notification - alert #" + alert.id).setColor(Color.black);
         }
-        return embedBuilder(title(alert, matchingAlert.status()),
-                matchingAlert.status().isMatched() ? Color.green : Color.orange,
-                alert.onRaiseMessage(matchingAlert.status(), matchingAlert.matchingCandlestick()));
-    }
-
-    private static String title(@NotNull Alert alert, @NotNull MatchingStatus matchingStatus) {
-        String title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + alert.type.titleName + (alert.type != remainder ? " ALERT !!!" : "") + " - [" + alert.pair + "] ";
-        if(TITLE_MAX_LENGTH - alert.message.length() < title.length()) {
-            LOGGER.warn("Alert name '{}' will be truncated from the title because it is too long : {}", alert.type.titleName, title);
-            title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + "ALERT !!! - [" + alert.pair + "] ";
-            if(TITLE_MAX_LENGTH - alert.message.length() < title.length()) {
-                LOGGER.warn("Pair '{}' will be truncated from the title because it is too long : {}", alert.pair, title);
-                title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + " ALERT !!! - ";
-            }
-        }
-        return title + (alert.type != remainder ? alert.message : "");
+        return alert.onRaiseMessage(matchingAlert, now);
     }
 }

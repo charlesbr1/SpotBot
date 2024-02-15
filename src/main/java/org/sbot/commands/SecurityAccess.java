@@ -4,11 +4,12 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.sbot.alerts.Alert;
-import org.sbot.commands.reader.CommandContext;
+import org.sbot.entities.alerts.Alert;
+import org.sbot.commands.context.CommandContext;
 
 import static net.dv8tion.jda.api.Permission.ADMINISTRATOR;
-import static org.sbot.alerts.Alert.isPrivate;
+import static org.sbot.commands.CommandAdapter.isPrivateChannel;
+import static org.sbot.entities.alerts.Alert.isPrivate;
 
 interface SecurityAccess {
 
@@ -25,8 +26,8 @@ interface SecurityAccess {
 
     static boolean hasRightOnUser(@NotNull CommandContext context, long userId) {
         boolean alertBelongToUser = alertBelongToUser(context.user, userId);
-        return (isPrivate(context.serverId()) && alertBelongToUser) ||
-                (!isPrivate(context.serverId()) && (alertBelongToUser || isAdminMember(context.member)));
+        return (isPrivateChannel(context) && alertBelongToUser) ||
+                (!isPrivateChannel(context) && (alertBelongToUser || isAdminMember(context.member)));
     }
 
     static boolean alertBelongToUser(@NotNull User user, long userId) {
@@ -38,7 +39,7 @@ interface SecurityAccess {
                 member.getGuild().getIdLong() == serverId;
     }
 
-    private static boolean isAdminMember(@Nullable Member member) {
+    static boolean isAdminMember(@Nullable Member member) {
         return null != member && member.hasPermission(ADMINISTRATOR);
     }
 }

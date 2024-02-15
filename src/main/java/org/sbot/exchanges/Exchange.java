@@ -1,8 +1,8 @@
 package org.sbot.exchanges;
 
 import org.jetbrains.annotations.NotNull;
-import org.sbot.chart.Candlestick;
-import org.sbot.chart.TimeFrame;
+import org.sbot.entities.chart.Candlestick;
+import org.sbot.entities.chart.TimeFrame;
 
 import java.util.Collections;
 import java.util.List;

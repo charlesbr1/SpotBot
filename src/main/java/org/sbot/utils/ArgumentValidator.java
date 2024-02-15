@@ -3,10 +3,10 @@ package org.sbot.utils;
 import org.jetbrains.annotations.NotNull;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.LongStream;
 
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
@@ -21,6 +21,7 @@ public interface ArgumentValidator {
     int ALERT_MAX_TICKER_LENGTH = 5;
     int ALERT_MIN_PAIR_LENGTH = 7;
     int ALERT_MAX_PAIR_LENGTH = 11;
+
 
     Pattern PAIR_PATTERN = Pattern.compile("^[A-Z0-9]{" + ALERT_MIN_TICKER_LENGTH + ',' + ALERT_MAX_TICKER_LENGTH +
             "}/[A-Z0-9]{" + ALERT_MIN_TICKER_LENGTH + ',' + ALERT_MAX_TICKER_LENGTH + "}$"); // TICKER/TICKER format
@@ -54,6 +55,14 @@ public interface ArgumentValidator {
         return (short) value;
     }
 
+    //TODO test
+    static String requireNotBlank(@NotNull String value, @NotNull String name) {
+        if (value.isBlank()) {
+            throw new IllegalArgumentException("Missing value for " + name);
+        }
+        return value;
+    }
+
     @NotNull
     static String requireSupportedExchange(@NotNull String exchange) {
         if(!VIRTUAL_EXCHANGES.contains(exchange.toLowerCase()) && !SUPPORTED_EXCHANGES.contains(exchange.toLowerCase())) {
@@ -85,18 +94,19 @@ public interface ArgumentValidator {
         return message;
     }
 
-    static ZonedDateTime requireInPast(@NotNull ZonedDateTime zonedDateTime) {
-        if (zonedDateTime.isAfter(nowUtc())) {
+    static ZonedDateTime requireInPast(@NotNull Clock clock, @NotNull ZonedDateTime zonedDateTime) {
+        ZonedDateTime now = nowUtc(clock);
+        if (zonedDateTime.isAfter(now)) {
             throw new IllegalArgumentException("Provided date should be before actual UTC time : " + formatUTC(zonedDateTime) +
-                    " (actual UTC time : " + formatUTC(nowUtc()) + ')');
+                    " (actual UTC time : " + formatUTC(now) + ')');
         }
         return zonedDateTime;
     }
 
-    static ZonedDateTime requireInFuture(@NotNull ZonedDateTime zonedDateTime) {
-        if (zonedDateTime.isBefore(nowUtc())) {
+    static ZonedDateTime requireInFuture(@NotNull ZonedDateTime now, @NotNull ZonedDateTime zonedDateTime) {
+        if (zonedDateTime.isBefore(now)) {
             throw new IllegalArgumentException("Provided date should be after actual UTC time : " + formatUTC(zonedDateTime) +
-                    " (actual UTC time : " + formatUTC(nowUtc()) + ')');
+                    " (actual UTC time : " + formatUTC(now) + ')');
         }
         return zonedDateTime;
     }
@@ -106,11 +116,5 @@ public interface ArgumentValidator {
         if(!matcher.matches())
             throw new IllegalArgumentException("Provided string is not an user mention : " + userMention);
         return Long.parseLong(matcher.group(1));
-    }
-
-    static int stringLength(long[] values) {
-        return LongStream.of(values).mapToInt(number -> number == 0 ? 1 :
-                ((int) (Math.log10(Math.abs(number)) + (number < 0 ? 2 : 1)))) // < 0 need + 1 char : '-'
-                .sum();
     }
 }

@@ -4,9 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
@@ -33,13 +31,17 @@ public interface Dates {
         return dateTime.withZoneSameInstant(ZoneOffset.UTC).format(DATE_TIME_FORMATTER);
     }
 
-    static ZonedDateTime nowUtc() {
-        return ZonedDateTime.now(ZoneOffset.UTC);
+    static ZonedDateTime nowUtc(@NotNull Clock clock) {
+        return ZonedDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
+    }
+
+    static Optional<ZonedDateTime> parseUtcDateTime(@Nullable Timestamp timestamp) {
+        return Optional.ofNullable(timestamp)
+                .map(dateTime -> dateTime.toInstant().atZone(ZoneOffset.UTC));
     }
 
     @Nullable
     static ZonedDateTime parseUtcDateTimeOrNull(@Nullable Timestamp timestamp) {
-        return Optional.ofNullable(timestamp)
-                .map(dateTime -> dateTime.toInstant().atZone(ZoneOffset.UTC)).orElse(null);
+        return parseUtcDateTime(timestamp).orElse(null);
     }
 }

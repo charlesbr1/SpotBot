@@ -2,8 +2,8 @@ package org.sbot.services.dao;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.sbot.alerts.Alert;
-import org.sbot.alerts.Alert.Type;
+import org.sbot.entities.alerts.Alert;
+import org.sbot.entities.alerts.Alert.Type;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 
 import java.math.BigDecimal;
@@ -13,24 +13,25 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
-public interface AlertsDao extends TransactionalCtx {
+public interface AlertsDao {
 
     Optional<Alert> getAlert(long id);
 
     Optional<Alert> getAlertWithoutMessage(long alertId);
     List<Long> getUserIdsByServerId(long serverId);
 
-    long fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer);
-    long fetchAlertsHavingRepeatZeroAndLastTriggerBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer);
+    long fetchAlertsWithoutMessageByExchangeAndPairHavingPastListeningDateWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull ZonedDateTime now, int checkPeriodMin, @NotNull Consumer<Stream<Alert>> alertsConsumer);
+    long fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer);
     long fetchAlertsByTypeHavingToDateBefore(@NotNull Type type, @NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer);
 
     @NotNull
-    Map<Long, String> getAlertMessages(@NotNull long[] alertIds);
+    Map<Long, String> getAlertMessages(@NotNull LongStream alertIds);
 
     @NotNull
-    Map<String, Set<String>> getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange();
+    Map<String, Set<String>> getPairsByExchangesHavingPastListeningDateWithActiveRange(@NotNull ZonedDateTime now, int checkPeriodMin);
 
     long countAlertsOfUser(long userId);
     long countAlertsOfServer(long serverId);
@@ -41,17 +42,17 @@ public interface AlertsDao extends TransactionalCtx {
 
 
     @NotNull
-    List<Alert> getAlertsOfUser(long userId, long offset, long limit);
+    List<Alert> getAlertsOfUserOrderByPairId(long userId, long offset, long limit);
     @NotNull
-    List<Alert> getAlertsOfUserAndTickers(long userId, long offset, long limit, @NotNull String tickerOrPair);
+    List<Alert> getAlertsOfUserAndTickersOrderById(long userId, long offset, long limit, @NotNull String tickerOrPair);
     @NotNull
-    List<Alert> getAlertsOfServer(long serverId, long offset, long limit);
+    List<Alert> getAlertsOfServerOrderByPairUserIdId(long serverId, long offset, long limit);
     @NotNull
-    List<Alert> getAlertsOfServerAndUser(long serverId, long userId, long offset, long limit);
+    List<Alert> getAlertsOfServerAndUserOrderByPairId(long serverId, long userId, long offset, long limit);
     @NotNull
-    List<Alert> getAlertsOfServerAndTickers(long serverId, long offset, long limit, @NotNull String tickerOrPair);
+    List<Alert> getAlertsOfServerAndTickersOrderByUserIdId(long serverId, long offset, long limit, @NotNull String tickerOrPair);
     @NotNull
-    List<Alert> getAlertsOfServerAndUserAndTickers(long serverId, long userId, long offset, long limit, @NotNull String tickerOrPair);
+    List<Alert> getAlertsOfServerAndUserAndTickersOrderById(long serverId, long userId, long offset, long limit, @NotNull String tickerOrPair);
 
 
     long addAlert(@NotNull Alert alert);
@@ -66,18 +67,18 @@ public interface AlertsDao extends TransactionalCtx {
     void updateToDate(long alertId, @Nullable ZonedDateTime toDate);
     void updateMessage(long alertId, @NotNull String message);
     void updateMargin(long alertId, @NotNull BigDecimal margin);
-    void updateRepeatAndLastTrigger(long alertId, short repeat, @Nullable ZonedDateTime lastTrigger);
-    void updateSnoozeAndLastTrigger(long alertId, short snooze, @Nullable ZonedDateTime lastTrigger);
+    void updateListeningDateRepeat(long alertId, @Nullable ZonedDateTime listeningDate, short repeat);
+    void updateListeningDateSnooze(long alertId, @Nullable ZonedDateTime listeningDate, short snooze);
 
     void deleteAlert(long alertId);
     long deleteAlerts(long serverId, long userId);
     long deleteAlerts(long serverId, long userId, @NotNull String tickerOrPair);
 
     // this set the alert' margin to MARGIN_DISABLED, lastTrigger to now, and decrease repeat if not zero
-    void matchedAlertBatchUpdates(@NotNull Consumer<BatchEntry> updater);
+    void matchedAlertBatchUpdates(@NotNull ZonedDateTime now, @NotNull Consumer<BatchEntry> updater);
 
     // this set the alert' margin to MARGIN_DISABLED
-    void marginAlertBatchUpdates(@NotNull Consumer<BatchEntry> updater);
+    void marginAlertBatchUpdates(@NotNull ZonedDateTime now, @NotNull Consumer<BatchEntry> updater);
 
     void alertBatchDeletes(@NotNull Consumer<BatchEntry> deleter);
 }

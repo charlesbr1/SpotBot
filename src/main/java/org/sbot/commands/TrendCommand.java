@@ -1,12 +1,13 @@
 package org.sbot.commands;
 
-import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.Command.Choice;
-import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.alerts.TrendAlert;
-import org.sbot.commands.reader.CommandContext;
+import org.sbot.commands.context.CommandContext;
+import org.sbot.entities.Message;
+import org.sbot.entities.alerts.TrendAlert;
+import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
@@ -16,7 +17,7 @@ import java.time.ZonedDateTime;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.alerts.Alert.*;
+import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.formatUTC;
@@ -60,13 +61,13 @@ public final class TrendCommand extends CommandAdapter {
 
         LOGGER.debug("trend command - exchange : {}, pair : {}, from_price : {}, from_date : {}, to_price : {}, to_date : {}, message : {}",
                 exchange, pair, fromPrice, fromDate, toPrice, toDate, message);
-        context.alertsDao.transactional(() -> context.reply(responseTtlSeconds, trend(context, exchange, pair, message, fromPrice, fromDate, toPrice, toDate)));
+        context.transaction(txCtx -> context.reply(trend(context, txCtx.alertsDao(), exchange, pair, message, fromPrice, fromDate, toPrice, toDate), responseTtlSeconds));
     }
 
-    private EmbedBuilder trend(@NotNull CommandContext context, @NotNull String exchange,
-                               @NotNull String pair, @NotNull String message,
-                               @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate,
-                               @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate) {
+    private Message trend(@NotNull CommandContext context, @NotNull AlertsDao alertsDao,
+                          @NotNull String exchange, @NotNull String pair, @NotNull String message,
+                          @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate,
+                          @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate) {
 
         if(fromDate.isAfter(toDate)) { // ensure correct order of prices
             ZonedDateTime swap = fromDate;
@@ -76,14 +77,14 @@ public final class TrendCommand extends CommandAdapter {
             fromPrice = toPrice;
             toPrice = value;
         }
-        //TODO if toPrice = fromPrice -> create range alert ?
-
-        TrendAlert trendAlert = new TrendAlert(NULL_ALERT_ID, context.user.getIdLong(),
-                context.serverId(),
+        var now = Dates.nowUtc(context.clock());
+        TrendAlert trendAlert = new TrendAlert(NEW_ALERT_ID, context.user.getIdLong(),
+                context.serverId(), context.locale, now, // creation date
+                now, // listening date
                 exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
 
-        long alertId = context.alertsDao.addAlert(trendAlert);
+        long alertId = alertsDao.addAlert(trendAlert);
 
         String answer = context.user.getAsMention() + " New trend alert added with id " + alertId +
                 "\n\n* pair : " + trendAlert.pair + "\n* exchange : " + exchange +
@@ -92,6 +93,6 @@ public final class TrendCommand extends CommandAdapter {
                 "\n* message : " + message +
                 alertMessageTips(message, alertId);
 
-        return embedBuilder(NAME, Color.green, answer);
+        return Message.of(embedBuilder(NAME, Color.green, answer));
     }
 }

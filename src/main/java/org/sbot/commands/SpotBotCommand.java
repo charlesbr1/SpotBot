@@ -9,24 +9,27 @@ import net.dv8tion.jda.api.interactions.commands.Command.Choice;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
-import net.dv8tion.jda.api.utils.FileUpload;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.sbot.commands.reader.CommandContext;
-import org.sbot.discord.Discord;
+import org.sbot.commands.context.CommandContext;
+import org.sbot.entities.Message;
+import org.sbot.entities.Message.File;
+import org.sbot.services.discord.Discord;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
+import java.io.IOException;
+import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.alerts.Alert.DEFAULT_REPEAT;
-import static org.sbot.alerts.Alert.DEFAULT_SNOOZE_HOURS;
-import static org.sbot.commands.DiscordCommands.DISCORD_COMMANDS;
-import static org.sbot.discord.Discord.*;
+import static org.sbot.commands.Commands.SPOTBOT_COMMANDS;
+import static org.sbot.entities.alerts.Alert.DEFAULT_REPEAT;
+import static org.sbot.entities.alerts.Alert.DEFAULT_SNOOZE_HOURS;
+import static org.sbot.services.discord.Discord.*;
 import static org.sbot.utils.Dates.nowUtc;
 import static org.sbot.utils.PartitionSpliterator.split;
 
@@ -132,8 +135,15 @@ public final class SpotBotCommand extends CommandAdapter {
             * *remainder 10/03/2019-12:30 A message to receive at this date*
             """;
 
-    private static final FileUpload alertsPicture = FileUpload.fromData(requireNonNull(SpotBotCommand.class
-            .getResourceAsStream(ALERTS_PICTURE_PATH)), ALERTS_PICTURE_FILE);
+    private static final byte[] alertsPicture;
+
+    static {
+        try(var file = requireNonNull(SpotBotCommand.class.getResourceAsStream(ALERTS_PICTURE_PATH), "Missing file " + ALERTS_PICTURE_PATH)) {
+            alertsPicture = file.readAllBytes();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public SpotBotCommand() {
         super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
@@ -143,35 +153,34 @@ public final class SpotBotCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         String choice = context.args.getString("choice").orElse(CHOICE_DOC);
         LOGGER.debug("spotBot command - choice : {}", choice);
-        context.noMoreArgs().reply(responseTtlSeconds, spotBot(choice, context),
-                List.of(CHOICE_DOC.equals(choice) ? message -> message.addFiles(alertsPicture) : m -> {}));
+        context.noMoreArgs().reply(spotBot(choice, context), responseTtlSeconds);
     }
 
-    private List<EmbedBuilder> spotBot(@NotNull String choice, @NotNull CommandContext context) {
+    private List<Message> spotBot(@NotNull String choice, @NotNull CommandContext context) {
         return switch (choice) {
-            case CHOICE_DOC -> doc(context);
+            case CHOICE_DOC -> List.of(doc(context));
             case CHOICE_COMMANDS -> commands();
-            case CHOICE_EXAMPLES -> examples();
+            case CHOICE_EXAMPLES -> List.of(examples());
             default -> throw new IllegalArgumentException("Invalid argument : " + choice);
         };
     }
-    private static List<EmbedBuilder> doc(@NotNull CommandContext context) {
+    private static Message doc(@NotNull CommandContext context) {
         Guild guild = Optional.ofNullable(context.member).map(Member::getGuild).orElse(null);
-        String selfMention = context.channel.getJDA().getSelfUser().getAsMention();
-        EmbedBuilder builder = embedBuilder(null, Color.green, formattedHeader(guild, selfMention));
+        String selfMention = context.discord().spotBotUserMention();
+        EmbedBuilder builder = embedBuilder(null, Color.green, formattedHeader(context.clock(), guild, selfMention));
         builder.addBlankField(false);
         builder.setImage("attachment://" + ALERTS_PICTURE_FILE);
         builder.setFooter(DOC_FOOTER);
-        return List.of(builder);
+        return Message.of(builder, File.of(alertsPicture, ALERTS_PICTURE_FILE));
     }
 
-    private static String formattedHeader(@Nullable Guild guild, @NotNull String selfMention) {
+    private static String formattedHeader(@NotNull Clock clock, @Nullable Guild guild, @NotNull String selfMention) {
         String channel = Optional.ofNullable(guild).flatMap(Discord::getSpotBotChannel)
                 .map(Channel::getAsMention).orElse("**#" + DISCORD_BOT_CHANNEL + "** of your discord server");
         String role = Optional.ofNullable(guild).flatMap(Discord::spotBotRole)
                 .map(Role::getAsMention).orElse("**@" + DISCORD_BOT_ROLE + "**");
         return DOC_HEADER.replace("{date-format}", Dates.DATE_TIME_FORMAT)
-                .replace("{date-now}", Dates.formatUTC(nowUtc()))
+                .replace("{date-now}", Dates.formatUTC(nowUtc(clock)))
                 .replace("{repeat}", ""+DEFAULT_REPEAT)
                 .replace("{snooze}", "" + DEFAULT_SNOOZE_HOURS)
                 .replace("{channel}", channel).replace("{role}", role)
@@ -197,19 +206,19 @@ public final class SpotBotCommand extends CommandAdapter {
                         .collect(joining("\n"));
     }
 
-    private static List<EmbedBuilder> commands() {
+    private static List<Message> commands() {
         record Command(String name, String description, SlashCommandData options) {}
-        var commands = DISCORD_COMMANDS.stream()
+        var commands = SPOTBOT_COMMANDS.stream()
                 .map(command -> new Command(command.name(), command.description() ,command.options()));
 
         // split the list because it exceeds max discord message length
         return split(9, commands)
-                .map(cmdList -> embedBuilder(null, Color.green, cmdList.stream()
+                .map(cmdList -> Message.of(embedBuilder(null, Color.green, cmdList.stream()
                         .map(cmd -> "** " + cmd.name + "**\n\n" + SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + cmd.description + commandDescription(cmd.options))
-                        .collect(joining("\n\n\n")))).toList();
+                        .collect(joining("\n\n\n"))))).toList();
     }
 
-    private static List<EmbedBuilder> examples() {
-        return List.of(embedBuilder("examples", Color.green, EXAMPLES_MESSAGE));
+    private static Message examples() {
+        return Message.of((embedBuilder("examples", Color.green, EXAMPLES_MESSAGE)));
     }
 }

@@ -5,9 +5,10 @@ import net.dv8tion.jda.api.interactions.commands.Command;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.chart.Candlestick;
-import org.sbot.chart.TimeFrame;
-import org.sbot.commands.reader.CommandContext;
+import org.sbot.entities.Message;
+import org.sbot.entities.chart.Candlestick;
+import org.sbot.entities.chart.TimeFrame;
+import org.sbot.commands.context.CommandContext;
 import org.sbot.exchanges.Exchanges;
 import org.sbot.utils.Dates;
 
@@ -22,7 +23,7 @@ import static java.time.ZoneId.SHORT_IDS;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.chart.Ticker.formatPrice;
+import static org.sbot.entities.chart.Ticker.formatPrice;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
 
@@ -55,13 +56,13 @@ public final class QuoteCommand extends CommandAdapter {
         String pair = requirePairFormat(context.args.getMandatoryString("pair").toUpperCase());
         String timeZone = context.args.getString("timezone").orElse("");
         LOGGER.debug("quote command - exchange : {}, pair : {}, timezone : {}", exchange, pair, timeZone);
-        context.noMoreArgs().reply(responseTtlSeconds, quote(exchange, pair.toUpperCase(), timeZone));
+        context.noMoreArgs().reply(quote(exchange, pair.toUpperCase(), timeZone), responseTtlSeconds);
     }
 
-    private EmbedBuilder quote(@NotNull String exchange, @NotNull String pair, @NotNull String timezone) {
-        return embedBuilder(" ", Color.green, parseCandlestick(pair, timezone, Exchanges.get(exchange)
+    private Message quote(@NotNull String exchange, @NotNull String pair, @NotNull String timezone) {
+        return Message.of(embedBuilder(" ", Color.green, parseCandlestick(pair, timezone, Exchanges.get(exchange)
                 .orElseThrow(() -> new IllegalArgumentException("Unsupported exchange : " + exchange))
-                .getCandlesticks(pair, TimeFrame.ONE_MINUTE, 1)));
+                .getCandlesticks(pair, TimeFrame.ONE_MINUTE, 1))));
     }
 
     @NotNull

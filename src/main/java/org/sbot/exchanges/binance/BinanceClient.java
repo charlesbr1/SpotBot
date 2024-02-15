@@ -6,7 +6,7 @@ import com.binance.api.client.domain.market.Candlestick;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.chart.TimeFrame;
+import org.sbot.entities.chart.TimeFrame;
 import org.sbot.exchanges.Exchange;
 
 import java.util.Comparator;
@@ -40,7 +40,7 @@ public class BinanceClient implements Exchange {
 
     @Override
     @NotNull
-    public List<org.sbot.chart.Candlestick> getCandlesticks(@NotNull String pair, @NotNull TimeFrame timeFrame, long limit) {
+    public List<org.sbot.entities.chart.Candlestick> getCandlesticks(@NotNull String pair, @NotNull TimeFrame timeFrame, long limit) {
         //TODO use limit on api call, check open/close time order of responses
         LOGGER.debug("Requesting binance candlestick for pair {} and time frame {} and limit {}...", pair, timeFrame, limit);
         var candlesticks = binanceApiClient.getCandlestickBars(pair.replace("/", ""), map(timeFrame));

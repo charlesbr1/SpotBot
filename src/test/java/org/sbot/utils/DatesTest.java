@@ -5,11 +5,16 @@ import org.junit.jupiter.api.Test;
 import java.sql.Timestamp;
 import java.time.*;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.utils.Dates.DATE_TIME_FORMATTER;
 
-class DatesTest {
+public class DatesTest {
+
+    public static ZonedDateTime nowUtc() {
+        return Instant.now().atZone(ZoneOffset.UTC);
+    }
 
     @Test
     void DATE_TIME_FORMATTER() {
@@ -64,18 +69,18 @@ class DatesTest {
     void parseUtcDateTimeOrNull() {
         assertNull(Dates.parseUtcDateTimeOrNull(null));
         ZonedDateTime utcDate = LocalDateTime.parse("01/01/2000-00:00", DATE_TIME_FORMATTER).atZone(ZoneOffset.UTC);
-        Timestamp timestamp = new Timestamp(utcDate.toEpochSecond() * 1000L);
+        Timestamp timestamp = new Timestamp(utcDate.toInstant().toEpochMilli());
         assertEquals(utcDate, Dates.parseUtcDateTimeOrNull(timestamp));
 
-        utcDate = Dates.nowUtc().withSecond(0).withNano(0);
-        timestamp = new Timestamp(utcDate.toEpochSecond() * 1000L);
+        utcDate = nowUtc().truncatedTo(ChronoUnit.MILLIS);
+        timestamp = new Timestamp(utcDate.toInstant().toEpochMilli());
         assertEquals(utcDate, Dates.parseUtcDateTimeOrNull(timestamp));
     }
 
     @Test
-    void nowUtc() {
+    void nowUtcTest() {
         ZonedDateTime now = ZonedDateTime.now(ZoneId.of("UTC"));
-        ZonedDateTime nowUtc = Dates.nowUtc();
+        ZonedDateTime nowUtc = Dates.nowUtc(Clock.systemUTC());
         assertTrue(nowUtc.isAfter(now.minusSeconds(1L)));
         now = ZonedDateTime.now(ZoneId.of("UTC"));
         assertTrue(nowUtc.isBefore(now.plusSeconds(1L)));

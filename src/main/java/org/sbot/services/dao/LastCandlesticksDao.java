@@ -1,18 +1,28 @@
 package org.sbot.services.dao;
 
 import org.jetbrains.annotations.NotNull;
-import org.sbot.chart.Candlestick;
+import org.sbot.entities.chart.Candlestick;
+import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 
 import java.time.ZonedDateTime;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Consumer;
 
-public interface LastCandlesticksDao extends TransactionalCtx {
+public interface LastCandlesticksDao {
 
-    Optional<ZonedDateTime> getLastCandlestickCloseTime(@NotNull String pair);
 
-    Optional<Candlestick> getLastCandlestick(@NotNull String pair);
+    @NotNull
+    Map<String, Set<String>> getPairsByExchanges();
 
-    void setLastCandlestick(@NotNull String pair, @NotNull Candlestick candlestick);
+    Optional<ZonedDateTime> getLastCandlestickCloseTime(@NotNull String exchange, @NotNull String pair);
 
-    void updateLastCandlestick(@NotNull String pair, @NotNull Candlestick candlestick);
+    Optional<Candlestick> getLastCandlestick(@NotNull String exchange, @NotNull String pair);
+
+    void setLastCandlestick(@NotNull String exchange, @NotNull String pair, @NotNull Candlestick candlestick);
+
+    void updateLastCandlestick(@NotNull String exchange, @NotNull String pair, @NotNull Candlestick candlestick);
+
+    void lastCandlestickBatchDeletes(@NotNull Consumer<BatchEntry> deleter);
 }

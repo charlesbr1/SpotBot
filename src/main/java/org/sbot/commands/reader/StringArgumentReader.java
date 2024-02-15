@@ -30,7 +30,7 @@ public final class StringArgumentReader implements ArgumentReader {
     @Override
     public Optional<String> getString(@NotNull String unused) {
         List<String> values = !remainingArguments.isBlank() ?
-                // this split arguments into two parts : the first word without spaces, then the rest of the string
+                // this split arguments into two parts : the first word without spaces, and the rest of the string
                 Arrays.asList(SPLIT_WORD.split(remainingArguments, 2))
                 : Collections.emptyList();
         remainingArguments = values.size() > 1 ? values.get(1) : "";

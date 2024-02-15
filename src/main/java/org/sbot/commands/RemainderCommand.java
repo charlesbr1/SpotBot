@@ -1,18 +1,19 @@
 package org.sbot.commands;
 
-import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.alerts.RemainderAlert;
-import org.sbot.commands.reader.CommandContext;
+import org.sbot.commands.context.CommandContext;
+import org.sbot.entities.Message;
+import org.sbot.entities.alerts.RemainderAlert;
+import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
 import java.time.ZonedDateTime;
 
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.alerts.Alert.NULL_ALERT_ID;
+import static org.sbot.entities.alerts.Alert.NEW_ALERT_ID;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.formatUTC;
 
@@ -37,24 +38,27 @@ public final class RemainderCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         String pair = requirePairFormat(context.args.getMandatoryString("pair").toUpperCase());
-        ZonedDateTime date = requireInFuture(context.args.getMandatoryDateTime("date"));
+        ZonedDateTime now = Dates.nowUtc(context.clock());
+        ZonedDateTime date = requireInFuture(now, context.args.getMandatoryDateTime("date"));
         String message = requireAlertMessageMaxLength(context.args.getLastArgs("message")
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
 
         LOGGER.debug("remainder command - pair : {}, date : {}, remainder {}", pair, date, message);
-        context.alertsDao.transactional(() -> context.reply(responseTtlSeconds, remainder(context, pair, date, message)));
+        context.transaction(txCtx -> context.reply(remainder(context, now, txCtx.alertsDao(), pair, date, message), responseTtlSeconds));
     }
 
-    private EmbedBuilder remainder(@NotNull CommandContext context, @NotNull String pair, @NotNull ZonedDateTime fromDate, @NotNull String message) {
-        RemainderAlert remainderAlert = new RemainderAlert(NULL_ALERT_ID, context.user.getIdLong(),
-                context.serverId(), pair, message, fromDate);
+    private Message remainder(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull AlertsDao alertsDao, @NotNull String pair, @NotNull ZonedDateTime fromDate, @NotNull String message) {
+        RemainderAlert remainderAlert = new RemainderAlert(NEW_ALERT_ID, context.user.getIdLong(),
+                context.serverId(), context.locale, now, // creation date
+                fromDate, // listening date
+                pair, message, fromDate);
 
-        long alertId = context.alertsDao.addAlert(remainderAlert);
+        long alertId = alertsDao.addAlert(remainderAlert);
         String answer = context.user.getAsMention() + " New remainder added with id " + alertId +
                 "\n\n* pair : " + remainderAlert.pair +
                 "\n* date : " + formatUTC(fromDate) +
                 "\n* message : " + message;
 
-        return embedBuilder(NAME, Color.green, answer);
+        return Message.of(embedBuilder(NAME, Color.green, answer));
     }
 }

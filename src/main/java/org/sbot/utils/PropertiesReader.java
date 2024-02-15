@@ -17,13 +17,9 @@ public interface PropertiesReader {
 
     String get(@NotNull String name);
 
-    default int getInt(@NotNull String name) {
-        return Integer.parseInt(get(name));
-    }
-
     default int getIntOr(@NotNull String name, int defaultValue) {
         try {
-            return getInt(name);
+            return Integer.parseInt(get(name));
         } catch (RuntimeException e) {
             return defaultValue;
         }

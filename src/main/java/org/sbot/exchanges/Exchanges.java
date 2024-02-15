@@ -3,9 +3,9 @@ package org.sbot.exchanges;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.alerts.RemainderAlert;
-import org.sbot.chart.Candlestick;
-import org.sbot.chart.TimeFrame;
+import org.sbot.entities.alerts.RemainderAlert;
+import org.sbot.entities.chart.Candlestick;
+import org.sbot.entities.chart.TimeFrame;
 import org.sbot.exchanges.binance.BinanceClient;
 import org.sbot.utils.PropertiesReader;
 

@@ -1,14 +1,14 @@
 package org.sbot.commands;
 
-import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.Command.Choice;
-import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.sbot.alerts.RangeAlert;
-import org.sbot.commands.reader.CommandContext;
-import org.sbot.utils.ArgumentValidator;
+import org.sbot.commands.context.CommandContext;
+import org.sbot.entities.Message;
+import org.sbot.entities.alerts.RangeAlert;
+import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
@@ -18,7 +18,7 @@ import java.time.ZonedDateTime;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.alerts.Alert.*;
+import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.formatUTC;
@@ -55,18 +55,19 @@ public final class RangeCommand extends CommandAdapter {
         BigDecimal fromPrice = requirePositive(context.args.getMandatoryNumber("low"));
         BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("high"));
         ZonedDateTime fromDate = context.args.getDateTime("from_date").orElse(null);
-        ZonedDateTime toDate = null != fromDate ? context.args.getDateTime("to_date").map(ArgumentValidator::requireInFuture).orElse(null) : null;
+        ZonedDateTime now = Dates.nowUtc(context.clock());
+        ZonedDateTime toDate = null != fromDate ? context.args.getDateTime("to_date").map(date -> requireInFuture(now, date)).orElse(null) : null;
         String message = requireAlertMessageMaxLength(context.args.getLastArgs("message").orElse(""));
 
         LOGGER.debug("range command - exchange : {}, pair : {}, low : {}, high : {}, from_date : {}, to_date : {}, message : {}",
                 exchange, pair, fromPrice, toPrice, fromDate, toDate, message);
-        context.alertsDao.transactional(() -> context.reply(responseTtlSeconds, range(context, exchange, pair, message, fromPrice, toPrice, fromDate, toDate)));
+        context.transaction(txCtx -> context.reply(range(context, now, txCtx.alertsDao(), exchange, pair, message, fromPrice, toPrice, fromDate, toDate), responseTtlSeconds));
     }
 
-    private EmbedBuilder range(@NotNull CommandContext context, @NotNull String exchange,
-                               @NotNull String pair, @NotNull String message,
-                               @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
-                               @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate) {
+    private Message range(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull AlertsDao alertsDao,
+                          @NotNull String exchange, @NotNull String pair, @NotNull String message,
+                          @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
+                          @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate) {
 
         if(fromPrice.compareTo(toPrice) > 0) { // ensure correct order of prices
             BigDecimal swap = fromPrice;
@@ -78,12 +79,13 @@ public final class RangeCommand extends CommandAdapter {
             fromDate = toDate;
             toDate = swap;
         }
-        RangeAlert rangeAlert = new RangeAlert(NULL_ALERT_ID, context.user.getIdLong(),
-                context.serverId(),
+        RangeAlert rangeAlert = new RangeAlert(NEW_ALERT_ID, context.user.getIdLong(),
+                context.serverId(), context.locale, now, // creation date
+                null != fromDate ? fromDate : now, // listening date
                 exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
 
-        long alertId = context.alertsDao.addAlert(rangeAlert);
+        long alertId = alertsDao.addAlert(rangeAlert);
 
         String answer = context.user.getAsMention() + " New range alert added with id " + alertId +
                 "\n\n* pair : " + rangeAlert.pair + "\n* exchange : " + exchange +
@@ -93,6 +95,6 @@ public final class RangeCommand extends CommandAdapter {
                 "\n* message : " + message +
                 alertMessageTips(message, alertId);
 
-        return embedBuilder(NAME, Color.green, answer);
+        return Message.of(embedBuilder(NAME, Color.green, answer));
     }
 }

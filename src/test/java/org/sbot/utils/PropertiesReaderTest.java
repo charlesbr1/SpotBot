@@ -13,8 +13,6 @@ class PropertiesReaderTest {
         assertNotNull(propertiesReader = PropertiesReader.loadProperties("src/test/resources/test.properties"));
         assertThrows(IllegalArgumentException.class, () -> propertiesReader.get("badValue"));
         assertEquals("abc", propertiesReader.get("string.property"));
-        assertEquals(3, propertiesReader.getInt("int.property"));
-        assertThrows(IllegalArgumentException.class, () -> propertiesReader.getInt("badValue"));
         assertEquals(3, propertiesReader.getIntOr("int.property", 3));
         assertEquals(7, propertiesReader.getIntOr("badValue", 7));
     }

@@ -4,24 +4,30 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.sbot.alerts.Alert;
+import org.sbot.entities.alerts.Alert;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
+import static java.util.Collections.emptyMap;
+import static java.util.Comparator.comparing;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
-import static org.sbot.SpotBot.ALERTS_CHECK_PERIOD_MIN;
-import static org.sbot.alerts.Alert.*;
-import static org.sbot.alerts.Alert.Type.range;
-import static org.sbot.alerts.Alert.Type.remainder;
-import static org.sbot.utils.Dates.nowUtc;
+import static org.sbot.entities.alerts.Alert.*;
+import static org.sbot.entities.alerts.Alert.Type.range;
+import static org.sbot.entities.alerts.Alert.Type.remainder;
+import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class AlertsMemory implements AlertsDao {
 
@@ -31,7 +37,8 @@ public final class AlertsMemory implements AlertsDao {
 
     private final AtomicLong idGenerator = new AtomicLong(1L);
 
-    {
+
+    public AlertsMemory() {
         LOGGER.debug("Loading memory storage for alerts");
     }
 
@@ -57,26 +64,37 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public long fetchAlertsWithoutMessageByExchangeAndPairHavingRepeatAndDelayOverWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
-        LOGGER.debug("fetchAlertsWithoutMessageByExchangeAndPairHavingRepeats {} {}", exchange, pair);
+    public long fetchAlertsWithoutMessageByExchangeAndPairHavingPastListeningDateWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull ZonedDateTime now, int checkPeriodMin, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchAlertsWithoutMessageByExchangeAndPairHavingPastListeningDateWithActiveRange {} {} {} {}", exchange, pair, now, checkPeriodMin);
+        requireNonNull(exchange); requireNonNull(pair);
         long[] read = new long[] {0L};
-        alertsConsumer.accept(havingRepeatAndDelayOverWithActiveRange(
-                alerts.values().stream()
-                .filter(alert -> alert.exchange.equals(exchange))
-                .filter(alert -> alert.pair.equals(pair)))
-                .map(alert -> alert.withMessage("")) // erase the message to simulate the SQL layer
-                .filter(alert -> ++read[0] != 0));
+        alertsConsumer.accept(havingPastListeningDateWithActiveRange(now, checkPeriodMin, alerts.values().stream()
+                    .filter(alert -> alert.exchange.equals(exchange) && alert.pair.equals(pair)))
+                .map(alert -> {
+                    read[0] += 1;
+                    return alert.withMessage(""); // simulate sql layer
+                }));
         return read[0];
     }
 
+    @NotNull
+    private Stream<Alert> havingPastListeningDateWithActiveRange(@NotNull ZonedDateTime now, int checkPeriodMin, @NotNull Stream<Alert> alerts) {
+        ZonedDateTime nowPlusOneSecond = now.plusSeconds(1L);
+        ZonedDateTime nowPlusDelta = now.plusMinutes(Math.ceilDiv(requirePositive(checkPeriodMin), 2));
+        return alerts.filter(alert ->
+                (null != alert.listeningDate && alert.listeningDate.compareTo(nowPlusOneSecond) <= 0) &&
+                (alert.type != remainder || alert.fromDate.isBefore(nowPlusDelta)) &&
+                (alert.type != range || (null == alert.toDate || alert.toDate.compareTo(now) > 0)));
+    }
+
     @Override
-    public long fetchAlertsHavingRepeatZeroAndLastTriggerBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
-        LOGGER.debug("fetchAlertsHavingRepeatZeroAndLastTriggerBefore {}", expirationDate);
+    public long fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore {}", expirationDate);
         long[] read = new long[] {0L};
         alertsConsumer.accept(alerts.values().stream()
-                .filter(alert -> alert.repeat <= 0)
-                .filter(alert -> null != alert.lastTrigger && alert.lastTrigger.isBefore(expirationDate))
-                .filter(alert -> ++read[0] != 0));
+                .filter(alert -> alert.repeat <= 0 &&
+                                ((null == alert.lastTrigger && alert.creationDate.isBefore(expirationDate)) || (null != alert.lastTrigger && alert.lastTrigger.isBefore(expirationDate))) &&
+                                ++read[0] != 0));
         return read[0];
     }
 
@@ -85,160 +103,146 @@ public final class AlertsMemory implements AlertsDao {
         LOGGER.debug("fetchAlertsByTypeHavingToDateBefore {} {}", type, expirationDate);
         long[] read = new long[] {0L};
         alertsConsumer.accept(alerts.values().stream()
-                .filter(alert -> alert.type == type)
-                .filter(alert -> null != alert.toDate && alert.toDate.isBefore(expirationDate))
-                .filter(alert -> ++read[0] != 0));
+                .filter(alert -> alert.type == type &&
+                        (null != alert.toDate && alert.toDate.isBefore(expirationDate)) &&
+                        ++read[0] != 0));
         return read[0];
     }
 
-    @NotNull
-    private static Stream<Alert> havingRepeatAndDelayOverWithActiveRange(@NotNull Stream<Alert> alerts) {
-        ZonedDateTime now = nowUtc();
-        ZonedDateTime nowPlusOneSecond = now.plusSeconds(1L);
-        ZonedDateTime nowPlusDelta = now.plusMinutes((ALERTS_CHECK_PERIOD_MIN / 2) + 1L);
-        long nowPlusDeltaSeconds = nowPlusDelta.toEpochSecond();
-        return alerts.filter(alert -> hasRepeat(alert.repeat))
-                .filter(alert -> alert.isSnoozeOver(nowPlusDeltaSeconds))
-                .filter(alert -> alert.type != remainder || alert.fromDate.isBefore(nowPlusDelta))
-                .filter(alert -> alert.type != range ||
-                        ((null == alert.fromDate || alert.fromDate.compareTo(nowPlusOneSecond) <= 0) &&
-                                (null == alert.toDate || alert.toDate.compareTo(now) > 0)));
-    }
-
     @Override
     @NotNull
-    public Map<Long, String> getAlertMessages(@NotNull long[] alertIds) {
+    public Map<Long, String> getAlertMessages(@NotNull LongStream alertIds) {
         LOGGER.debug("getAlertMessages {}", alertIds);
-        var alertIdSet = Arrays.stream(alertIds).boxed().collect(toSet());
-        return alerts.values().stream().filter(alert -> alertIdSet.contains(alert.id))
-                .collect(toMap(Alert::getId, Alert::getMessage));
+        var alertIdSet = alertIds.boxed().collect(toSet());
+        return alertIdSet.isEmpty() ? emptyMap() :
+                alerts.values().stream().filter(alert -> alertIdSet.contains(alert.id))
+                        .collect(toMap(Alert::getId, Alert::getMessage));
     }
 
     @Override
     @NotNull
-    public Map<String, Set<String>> getPairsByExchangesHavingRepeatAndDelayOverWithActiveRange() {
-        LOGGER.debug("getPairsByExchanges");
-        return havingRepeatAndDelayOverWithActiveRange(alerts.values().stream())
+    public Map<String, Set<String>> getPairsByExchangesHavingPastListeningDateWithActiveRange(@NotNull ZonedDateTime now, int checkPeriodMin) {
+        LOGGER.debug("getPairsByExchangesHavingPastListeningDateWithActiveRange {} {}", now, checkPeriodMin);
+        return havingPastListeningDateWithActiveRange(now, checkPeriodMin, alerts.values().stream())
                 .collect(groupingBy(Alert::getExchange, mapping(Alert::getPair, toSet())));
     }
 
     @Override
     public long countAlertsOfUser(long userId) {
         LOGGER.debug("countAlertsOfUser {}", userId);
-        return getAlertsOfUserStream(userId, 0, Long.MAX_VALUE).count();
+        return getAlertsOfUserStream(userId).count();
     }
 
     @Override
     public long countAlertsOfUserAndTickers(long userId, @NotNull String tickerOrPair) {
         LOGGER.debug("countAlertsOfUserAndTickers {} {}", userId, tickerOrPair);
-        return getAlertsOfUserAndTickersStream(userId, 0, Long.MAX_VALUE, tickerOrPair).count();
+        return getAlertsOfUserAndTickersStream(userId, tickerOrPair).count();
     }
 
     @Override
     public long countAlertsOfServer(long serverId) {
         LOGGER.debug("countAlertsOfServer {}", serverId);
-        return getAlertsOfServerStream(serverId, 0, Long.MAX_VALUE).count();
+        return getAlertsOfServerStream(serverId).count();
     }
 
     @Override
     public long countAlertsOfServerAndUser(long serverId, long userId) {
         LOGGER.debug("countAlertsOfServerAndUser {} {}", serverId, userId);
-        return getAlertsOfServerAndUserStream(serverId, userId, 0, Long.MAX_VALUE).count();
+        return getAlertsOfServerAndUserStream(serverId, userId).count();
     }
 
     @Override
     public long countAlertsOfServerAndTickers(long serverId, @NotNull String tickerOrPair) {
         LOGGER.debug("countAlertsOfServerAndTickers {} {}", serverId, tickerOrPair);
-        return getAlertsOfServerAndTickersStream(serverId, 0, Long.MAX_VALUE, tickerOrPair).count();
+        return getAlertsOfServerAndTickersStream(serverId, tickerOrPair).count();
     }
 
     @Override
     public long countAlertsOfServerAndUserAndTickers(long serverId, long userId, @NotNull String tickerOrPair) {
         LOGGER.debug("countAlertsOfServerAndUserAndTickers {} {} {}", serverId, userId, tickerOrPair);
-        return getAlertsOfServerAndUserAndTickersStream(serverId, userId, 0, Long.MAX_VALUE, tickerOrPair).count();
+        return getAlertsOfServerAndUserAndTickersStream(serverId, userId, tickerOrPair).count();
     }
 
     @Override
     @NotNull
-    public List<Alert> getAlertsOfUser(long userId, long offset, long limit) {
-        LOGGER.debug("getAlertsOfUser {} {} {}", userId, offset, limit);
-        return getAlertsOfUserStream(userId, offset, limit).toList();
+    public List<Alert> getAlertsOfUserOrderByPairId(long userId, long offset, long limit) {
+        LOGGER.debug("getAlertsOfUserOrderByPairId {} {} {}", userId, offset, limit);
+        return getAlertsOfUserStream(userId).sorted(comparing(Alert::getPair).thenComparing(Alert::getId))
+                .skip(offset).limit(limit).toList();
     }
 
-    private Stream<Alert> getAlertsOfUserStream(long userId, long offset, long limit) {
-        return alerts.values().stream()
-                .filter(alert -> alert.userId == userId)
-                .skip(offset).limit(limit);
-    }
-
-    @Override
-    @NotNull
-    public List<Alert> getAlertsOfUserAndTickers(long userId, long offset, long limit, @NotNull String tickerOrPair) {
-        LOGGER.debug("getAlertsOfUserAndTickers {} {} {} {}", userId, offset, limit, tickerOrPair);
-        return getAlertsOfUserAndTickersStream(userId, offset, limit, tickerOrPair).toList();
-    }
-
-    private Stream<Alert> getAlertsOfUserAndTickersStream(long userId, long offset, long limit, @NotNull String tickerOrPair) {
-        return alerts.values().stream()
-                .filter(alert -> alert.userId == userId)
-                .filter(alert -> alert.pair.contains(tickerOrPair))
-                .skip(offset).limit(limit);
+    private Stream<Alert> getAlertsOfUserStream(long userId) {
+        return alerts.values().stream().filter(alert -> alert.userId == userId);
     }
 
     @Override
     @NotNull
-    public List<Alert> getAlertsOfServer(long serverId, long offset, long limit) {
-        LOGGER.debug("getAlertsOfServer {} {} {}", serverId, offset, limit);
-        return getAlertsOfServerStream(serverId, offset, limit).toList();
+    public List<Alert> getAlertsOfUserAndTickersOrderById(long userId, long offset, long limit, @NotNull String tickerOrPair) {
+        LOGGER.debug("getAlertsOfUserAndTickersOrderById {} {} {} {}", userId, offset, limit, tickerOrPair);
+        return getAlertsOfUserAndTickersStream(userId, tickerOrPair).sorted(comparing(Alert::getId))
+                .skip(offset).limit(limit).toList();
     }
 
-    private Stream<Alert> getAlertsOfServerStream(long serverId, long offset, long limit) {
+    private Stream<Alert> getAlertsOfUserAndTickersStream(long userId, @NotNull String tickerOrPair) {
         return alerts.values().stream()
-                .filter(alert -> alert.serverId == serverId)
-                .skip(offset).limit(limit);
+                .filter(alert -> alert.userId == userId &&
+                        alert.pair.contains(tickerOrPair));
     }
 
     @Override
     @NotNull
-    public List<Alert> getAlertsOfServerAndUser(long serverId, long userId, long offset, long limit) {
-        LOGGER.debug("getAlertsOfServerAndUser {} {} {} {}", serverId, userId, offset, limit);
-        return getAlertsOfServerAndUserStream(serverId, userId, offset, limit).toList();
+    public List<Alert> getAlertsOfServerOrderByPairUserIdId(long serverId, long offset, long limit) {
+        LOGGER.debug("getAlertsOfServerOrderByPairUserIdId {} {} {}", serverId, offset, limit);
+        return getAlertsOfServerStream(serverId).sorted(comparing(Alert::getPair).thenComparing(Alert::getUserId).thenComparing(Alert::getId))
+                .skip(offset).limit(limit).toList();
     }
 
-    private Stream<Alert> getAlertsOfServerAndUserStream(long serverId, long userId, long offset, long limit) {
+    private Stream<Alert> getAlertsOfServerStream(long serverId) {
         return alerts.values().stream()
-                .filter(alert -> alert.serverId == serverId)
-                .filter(alert -> alert.userId == userId)
-                .skip(offset).limit(limit);
+                .filter(alert -> alert.serverId == serverId);
     }
 
     @Override
     @NotNull
-    public List<Alert> getAlertsOfServerAndTickers(long serverId, long offset, long limit, @NotNull String tickerOrPair) {
-        LOGGER.debug("getAlertsOfServerAndTickers {} {} {} {}", serverId, offset, limit, tickerOrPair);
-        return getAlertsOfServerAndTickersStream(serverId, offset, limit, tickerOrPair).toList();
+    public List<Alert> getAlertsOfServerAndUserOrderByPairId(long serverId, long userId, long offset, long limit) {
+        LOGGER.debug("getAlertsOfServerAndUserOrderByPairId {} {} {} {}", serverId, userId, offset, limit);
+        return getAlertsOfServerAndUserStream(serverId, userId).sorted(comparing(Alert::getPair).thenComparing(Alert::getId))
+                .skip(offset).limit(limit).toList();
     }
 
-    private Stream<Alert> getAlertsOfServerAndTickersStream(long serverId, long offset, long limit, @NotNull String tickerOrPair) {
+    private Stream<Alert> getAlertsOfServerAndUserStream(long serverId, long userId) {
         return alerts.values().stream()
-                .filter(alert -> alert.serverId == serverId)
-                .filter(alert -> alert.pair.contains(tickerOrPair))
-                .skip(offset).limit(limit);
+                .filter(alert -> alert.serverId == serverId &&
+                        alert.userId == userId);
     }
 
     @Override
     @NotNull
-    public List<Alert> getAlertsOfServerAndUserAndTickers(long serverId, long userId, long offset, long limit, @NotNull String tickerOrPair) {
-        LOGGER.debug("getAlertsOfServerAndUserAndTickers {} {} {} {} {}", serverId, userId, offset, limit, tickerOrPair);
-        return getAlertsOfServerAndUserAndTickersStream(serverId, userId, offset, limit, tickerOrPair).toList();
+    public List<Alert> getAlertsOfServerAndTickersOrderByUserIdId(long serverId, long offset, long limit, @NotNull String tickerOrPair) {
+        LOGGER.debug("getAlertsOfServerAndTickersOrderByUserIdId {} {} {} {}", serverId, offset, limit, tickerOrPair);
+        return getAlertsOfServerAndTickersStream(serverId, tickerOrPair).sorted(comparing(Alert::getUserId).thenComparing(Alert::getId))
+                .skip(offset).limit(limit).toList();
     }
 
-    private Stream<Alert> getAlertsOfServerAndUserAndTickersStream(long serverId, long userId, long offset, long limit, @NotNull String tickerOrPair) {
+    private Stream<Alert> getAlertsOfServerAndTickersStream(long serverId, @NotNull String tickerOrPair) {
         return alerts.values().stream()
-                .filter(alert -> alert.serverId == serverId)
-                .filter(alert -> alert.userId == userId)
-                .filter(alert -> alert.pair.contains(tickerOrPair))
-                .skip(offset).limit(limit);
+                .filter(alert -> alert.serverId == serverId &&
+                        alert.pair.contains(tickerOrPair));
+    }
+
+    @Override
+    @NotNull
+    public List<Alert> getAlertsOfServerAndUserAndTickersOrderById(long serverId, long userId, long offset, long limit, @NotNull String tickerOrPair) {
+        LOGGER.debug("getAlertsOfServerAndUserAndTickersOrderById {} {} {} {} {}", serverId, userId, offset, limit, tickerOrPair);
+        return getAlertsOfServerAndUserAndTickersStream(serverId, userId, tickerOrPair).sorted(comparing(Alert::getId))
+                .skip(offset).limit(limit).toList();
+    }
+
+    private Stream<Alert> getAlertsOfServerAndUserAndTickersStream(long serverId, long userId, @NotNull String tickerOrPair) {
+        return alerts.values().stream()
+                .filter(alert -> alert.serverId == serverId &&
+                        alert.userId == userId &&
+                        alert.pair.contains(tickerOrPair));
     }
 
     @Override
@@ -325,17 +329,15 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public void updateRepeatAndLastTrigger(long alertId, short repeat, @Nullable ZonedDateTime lastTrigger) {
-        LOGGER.debug("updateRepeatAndLastTrigger {} {} {}", alertId, repeat, lastTrigger);
-        alerts.computeIfPresent(alertId, (id, alert) -> alert.withLastTriggerRepeatSnooze(lastTrigger, repeat, alert.snooze));
-
+    public void updateListeningDateRepeat(long alertId, @Nullable ZonedDateTime listeningDate, short repeat) {
+        LOGGER.debug("updateListeningDateRepeat {} {} {}", alertId, listeningDate, repeat);
+        alerts.computeIfPresent(alertId, (id, alert) -> alert.withListeningDateRepeat(listeningDate, repeat));
     }
 
     @Override
-    public void updateSnoozeAndLastTrigger(long alertId, short snooze, @Nullable ZonedDateTime lastTrigger) {
-        LOGGER.debug("updateSnoozeAndLastTrigger {} {} {}", alertId, snooze, lastTrigger);
-        alerts.computeIfPresent(alertId, (id, alert) -> alert.withLastTriggerRepeatSnooze(lastTrigger, alert.repeat, snooze));
-
+    public void updateListeningDateSnooze(long alertId, @Nullable ZonedDateTime listeningDate, short snooze) {
+        LOGGER.debug("updateListeningDateSnooze {} {} {}", alertId, listeningDate, snooze);
+        alerts.computeIfPresent(alertId, (id, alert) -> alert.withListeningDateSnooze(listeningDate, snooze));
     }
 
     @Override
@@ -368,22 +370,25 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public void matchedAlertBatchUpdates(@NotNull Consumer<BatchEntry> updater) {
+    public void matchedAlertBatchUpdates(@NotNull ZonedDateTime now, @NotNull Consumer<BatchEntry> updater) {
         LOGGER.debug("matchedAlertBatchUpdates");
-        updater.accept(alertId -> alerts.computeIfPresent(alertId,
-                (id, alert) -> alert.withLastTriggerMarginRepeat(nowUtc(), MARGIN_DISABLED, ((short) Math.max(0, alert.repeat - 1)))));
+        updater.accept(ids -> alerts.computeIfPresent((Long) ids.get("id"),
+                (id, alert) -> alert.withListeningDateLastTriggerMarginRepeat(
+                        hasRepeat(alert.repeat - 1) ? now.plusHours(alert.snooze) : null, // listening date
+                        now, // last trigger
+                        MARGIN_DISABLED, (short) (hasRepeat(alert.repeat) ? alert.repeat - 1 : 0))));
     }
 
     @Override
-    public void marginAlertBatchUpdates(@NotNull Consumer<BatchEntry> updater) {
+    public void marginAlertBatchUpdates(@NotNull ZonedDateTime now, @NotNull Consumer<BatchEntry> updater) {
         LOGGER.debug("marginAlertBatchUpdates");
-        updater.accept(alertId -> alerts.computeIfPresent(alertId,
-                (id, alert) -> alert.withMargin(MARGIN_DISABLED)));
+        updater.accept(ids -> alerts.computeIfPresent((Long) ids.get("id"),
+                (id, alert) -> alert.withLastTriggerMargin(now, MARGIN_DISABLED)));
     }
 
     @Override
     public void alertBatchDeletes(@NotNull Consumer<BatchEntry> deleter) {
-        LOGGER.debug("matchedRemainderAlertBatchDeletes");
-        deleter.accept(alerts::remove);
+        LOGGER.debug("alertBatchDeletes");
+        deleter.accept(ids -> alerts.remove((Long) ids.get("id")));
     }
 }

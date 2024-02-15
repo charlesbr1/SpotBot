@@ -3,97 +3,117 @@ package org.sbot.services.dao.sql.jdbi;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.HandleCallback;
 import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.argument.AbstractArgumentFactory;
+import org.jdbi.v3.core.argument.Argument;
+import org.jdbi.v3.core.config.ConfigRegistry;
+import org.jdbi.v3.core.generic.GenericType;
 import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.result.RowView;
 import org.jdbi.v3.core.statement.PreparedBatch;
+import org.jdbi.v3.core.statement.Query;
 import org.jdbi.v3.core.statement.Update;
-import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.services.dao.TransactionalCtx;
 
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
+import java.util.stream.Collector;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
-public final class JDBIRepository implements TransactionalCtx {
+public final class JDBIRepository {
 
     private static final Logger LOGGER = LogManager.getLogger(JDBIRepository.class);
 
-    @FunctionalInterface
-    public interface BatchEntry {
-        void batchId(long id);
+    private static final class LocaleArgumentFactory extends AbstractArgumentFactory<Locale> {
+        private LocaleArgumentFactory() {
+            super(Types.VARCHAR);
+        }
+        @Override
+        protected Argument build(Locale value, ConfigRegistry config) {
+            return (position, statement, ctx) -> statement.setString(position, value.toLanguageTag());
+        }
     }
 
-    // avoiding use of ThreadLocal for virtual threads
-    private static final Map<Long, Handle> transactionalContexts = new ConcurrentHashMap<>();
+    @FunctionalInterface
+    public interface BatchEntry {
 
-    private final Jdbi jdbi;
+        default void batchId(long id) {
+            batch(Map.of("id", id));
+        }
+
+        void batch(Map<String, Object> ids);
+    }
+
+    final Jdbi jdbi;
 
     public JDBIRepository(@NotNull String url) {
         LOGGER.info("Loading database {}", url);
         jdbi = Jdbi.create(url);
+        // register type java.util.Locale
+        jdbi.registerArgument(new LocaleArgumentFactory());
+        jdbi.registerColumnMapper(Locale.class, (rs, col, ctx) -> Locale.forLanguageTag(rs.getString(col)));
     }
 
     public void registerRowMapper(@NotNull RowMapper<?> rowMapper) {
-        jdbi.registerRowMapper(rowMapper);
+        jdbi.registerRowMapper(requireNonNull(rowMapper));
     }
 
-    public Handle getHandle() {
-        return Optional.ofNullable(transactionalContexts.get(Thread.currentThread().threadId()))
-                .orElseThrow(() -> new IllegalCallerException("Internal error : Missing transactional context. Use transactional(Runnable callback) and run your code inside the callback"));
+    <T> T inTransaction(@NotNull HandleCallback<T, RuntimeException> handleConsumer) {
+        return jdbi.inTransaction(handleConsumer);
     }
 
-    @Override
-    public <T> T transactional(@NotNull Supplier<T> callback, @NotNull TransactionIsolationLevel isolationLevel) {
-        requireNonNull(callback);
-        var threadId = Thread.currentThread().threadId();
-        LOGGER.debug("New transactional context, thread id {}, isolation level {}", threadId, isolationLevel);
-        if(transactionalContexts.containsKey(threadId)) {
-            return callback.get(); // this thread is already into a transactional context
-        } else {
-            try {
-                return jdbi.inTransaction(isolationLevel, handle -> {
-                    transactionalContexts.put(threadId, handle);
-                    return callback.get();
-                });
-            } finally {
-                transactionalContexts.remove(threadId);
-            }
-        }
+    int update(@NotNull Handle handle, @NotNull String sql, @NotNull Map<String, ?> parameters) {
+        return update(handle, sql, query -> query.bindMap(parameters));
     }
 
-
-    public int update(@NotNull String sql, @NotNull Map<String, ?> parameters) {
-        try (var query = getHandle().createUpdate(sql)) {
-            return query.bindMap(parameters).execute();
-        }
-    }
-
-    public int update(@NotNull String sql, @NotNull Consumer<Update> mapper) {
-        try (var query = getHandle().createUpdate(sql)) {
+    int update(@NotNull Handle handle, @NotNull String sql, @NotNull Consumer<Update> mapper) {
+        try (var query = handle.createUpdate(sql)) {
             mapper.accept(query);
             return query.execute();
         }
     }
 
     @NotNull
-    public <T> List<T> query(@NotNull String sql, @NotNull Class<T> type, @NotNull Map<String, ?> parameters) {
-        try (var query = getHandle().createQuery(sql)) {
+    <T> List<T> query(@NotNull Handle handle, @NotNull String sql, @NotNull Class<T> type, @NotNull Map<String, ?> parameters) {
+        try (var query = handle.createQuery(sql)) {
             return query.bindMap(parameters).mapTo(type).list();
         }
     }
 
-    public <T> long fetch(@NotNull String sql, @NotNull Class<T> type, @NotNull Map<String, ?> parameters, @NotNull Consumer<Stream<T>> streamConsumer) {
-        try (var query = getHandle().createQuery(sql)) {
+    <T> T queryOne(@NotNull Handle handle, @NotNull String sql, @NotNull Class<T> type, @NotNull Map<String, ?> parameters) {
+        try (var query = handle.createQuery(sql)) {
+            return query.bindMap(parameters).mapTo(type).one();
+        }
+    }
+
+    long queryOneLong(@NotNull Handle handle, @NotNull String sql, @NotNull Map<String, ?> parameters) {
+        return queryOne(handle, sql, Long.class, parameters);
+    }
+
+    @NotNull
+    <K, V> Map<K, V> queryMap(@NotNull Handle handle, @NotNull String sql, @NotNull GenericType<Map<K, V>> type, @NotNull Consumer<Query> mapper, @NotNull String key, @NotNull String value) {
+        try (var query = handle.createQuery(sql)) {
+            mapper.accept(query);
+            return query.setMapKeyColumn(key).setMapValueColumn(value).collectInto(type);
+        }
+    }
+
+    @NotNull
+    <A, R> R queryCollect(@NotNull Handle handle, @NotNull String sql, @NotNull Map<String, ?> parameters, @NotNull Collector<RowView, A, R> collector) {
+        try (var query = handle.createQuery(sql)) {
+            return query.bindMap(parameters).collectRows(collector);
+        }
+    }
+
+    <T> long fetch(@NotNull Handle handle, @NotNull String sql, @NotNull Class<T> type, @NotNull Map<String, ?> parameters, @NotNull Consumer<Stream<T>> streamConsumer) {
+        try (var query = handle.createQuery(sql)) {
             long[] read = new long[] {0L};
             streamConsumer.accept(query.bindMap(parameters).mapTo(type)
                     .stream().filter(v -> ++read[0] != 0));
@@ -102,37 +122,31 @@ public final class JDBIRepository implements TransactionalCtx {
     }
 
     @NotNull
-    public <T> Optional<T> findOne(@NotNull String sql, @NotNull Class<T> type, @NotNull Map<String, ?> parameters) {
-        try (var query = getHandle().createQuery(sql)) {
+    <T> Optional<T> findOne(@NotNull Handle handle, @NotNull String sql, @NotNull Class<T> type, @NotNull Map<String, ?> parameters) {
+        try (var query = handle.createQuery(sql)) {
             return query.bindMap(parameters).mapTo(type).findOne();
         }
     }
 
-    public long queryOneLong(@NotNull String sql, @NotNull Map<String, ?> parameters) {
-        try (var query = getHandle().createQuery(sql)) {
-            return query.bindMap(parameters).mapTo(Long.class).one();
-        }
+    Optional<Long> findOneLong(@NotNull Handle handle, @NotNull String sql, @NotNull Map<String, ?> parameters) {
+        return findOne(handle, sql, Long.class, parameters);
     }
 
-    public Optional<Long> findOneLong(@NotNull String sql, @NotNull Map<String, ?> parameters) {
-        try (var query = getHandle().createQuery(sql)) {
-            return query.bindMap(parameters).mapTo(Long.class).findOne();
-        }
+    Optional<ZonedDateTime> findOneDateTime(@NotNull Handle handle, @NotNull String sql, @NotNull Map<String, ?> parameters) {
+        return findOne(handle, sql, Timestamp.class, parameters)
+                .map(timestamp -> timestamp.toInstant().atZone(ZoneOffset.UTC));
     }
 
-    public Optional<ZonedDateTime> findOneDateTime(@NotNull String sql, @NotNull Map<String, ?> parameters) {
-        try (var query = getHandle().createQuery(sql)) {
-            return query.bindMap(parameters).mapTo(Timestamp.class).findOne()
-                    .map(timestamp -> timestamp.toInstant().atZone(ZoneOffset.UTC));
-        }
-    }
-
-    public void batchUpdates(@NotNull Consumer<BatchEntry> updater, @NotNull String sql) {
+    void batchUpdates(@NotNull Handle handle, @NotNull Consumer<BatchEntry> updater, @NotNull String sql, @NotNull Map<String, Object> parameters) {
         PreparedBatch[] batch = new PreparedBatch[1];
         try {
-            updater.accept(id -> (null != batch[0] ? batch[0] :
-                    (batch[0] = getHandle().prepareBatch(sql)))
-                    .bind("id", id).add());
+            updater.accept(ids -> {
+                var params = new HashMap<>(parameters);
+                params.putAll(ids);
+                (null != batch[0] ? batch[0] :
+                        (batch[0] = handle.prepareBatch(sql)))
+                        .bindMap(params).add();
+            });
             Optional.ofNullable(batch[0]).ifPresent(PreparedBatch::execute);
         } finally {
             Optional.ofNullable(batch[0]).ifPresent(PreparedBatch::close);

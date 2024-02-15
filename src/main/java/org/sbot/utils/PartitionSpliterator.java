@@ -80,15 +80,11 @@ public final class PartitionSpliterator<T> implements Spliterator<List<T>> {
 
     @Override
     public long estimateSize() {
-        return ceilDiv(source.estimateSize(), splitSize);
+        return Math.ceilDiv(source.estimateSize(), splitSize);
     }
 
     @Override
     public int characteristics() {
         return source.characteristics() & ~Spliterator.SORTED;
-    }
-
-    private static long ceilDiv(long dividend, long divisor) {
-        return -Math.floorDiv(-dividend, divisor);
     }
 }
