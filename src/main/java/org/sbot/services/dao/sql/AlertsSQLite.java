@@ -84,7 +84,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
                 "SELECT id,type,user_id,server_id,locale,creation_date,listening_date,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts " +
                 "WHERE exchange=:exchange AND pair=:pair AND " + PAST_LISTENING_DATE_WITH_ACTIVE_RANGE;
 
-        String SELECT_HAVING_REPEAT_ZERO_AND_LAST_TRIGGER_NULL_AND_CREATION_BEFORE_OR_NOT_NULL_AND_BEFORE = "SELECT * FROM alerts WHERE repeat<=0 AND ((last_trigger IS NULL AND creation_date<:expirationDate) OR (last_trigger IS NOT NULL AND last_trigger<:expirationDate))";
+        String SELECT_HAVING_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE_OR_NULL_AND_CREATION_BEFORE = "SELECT * FROM alerts WHERE repeat<=0 AND ((last_trigger IS NOT NULL AND last_trigger<:expirationDate) OR (last_trigger IS NULL AND creation_date<:expirationDate))";
         String SELECT_BY_TYPE_HAVING_TO_DATE_BEFORE = "SELECT * FROM alerts WHERE type LIKE :type AND to_date IS NOT NULL AND to_date<:expirationDate";
         String SELECT_ID_MESSAGE_HAVING_ID_IN = "SELECT id,message FROM alerts WHERE id IN (<ids>)";
         String SELECT_PAIRS_EXCHANGES_HAVING_PAST_LISTENING_DATE_WITH_ACTIVE_RANGE =
@@ -158,7 +158,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
 
     // from Alert to jdbi SQL
     private static void bindAlertFields(@NotNull Alert alert, @NotNull SqlStatement<?> query) {
-        query.bindFields(alert); // this bind common public fields from class Alert
+        query.bindFields(requireNonNull(alert)); // this bind common public fields from class Alert
     }
 
     private final AtomicLong idGenerator;
@@ -218,13 +218,13 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         LOGGER.debug("fetchAlertsWithoutMessageByExchangeAndPairHavingPastListeningDateWithActiveRange {} {} {} {}", exchange, pair, now, checkPeriodMin);
         Long nowMs = now.toInstant().toEpochMilli();
         return fetch(SQL.SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_PAST_LISTENING_DATE_WITH_ACTIVE_RANGE,
-                Alert.class, Map.of("exchange", requireNonNull(exchange), "pair", requireNonNull(pair), "nowMs", nowMs, "periodMs", 60_000L * Math.ceilDiv(requirePositive(checkPeriodMin), 2)), requireNonNull(alertsConsumer));
+                Alert.class, Map.of("exchange", exchange, "pair", pair, "nowMs", nowMs, "periodMs", 60_000L * Math.ceilDiv(requirePositive(checkPeriodMin), 2)), alertsConsumer);
     }
 
     @Override
-    public long fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
-        LOGGER.debug("fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore {}", expirationDate);
-        return fetch(SQL.SELECT_HAVING_REPEAT_ZERO_AND_LAST_TRIGGER_NULL_AND_CREATION_BEFORE_OR_NOT_NULL_AND_BEFORE, Alert.class,
+    public long fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore {}", expirationDate);
+        return fetch(SQL.SELECT_HAVING_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE_OR_NULL_AND_CREATION_BEFORE, Alert.class,
                 Map.of("expirationDate", expirationDate.toInstant().toEpochMilli()), alertsConsumer);
     }
 

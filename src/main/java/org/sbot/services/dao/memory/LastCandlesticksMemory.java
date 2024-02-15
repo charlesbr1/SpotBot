@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
 import static org.sbot.services.dao.memory.LastCandlesticksMemory.LastCandlestickId.id;
 import static org.sbot.utils.ArgumentValidator.requirePairFormat;
@@ -44,25 +45,26 @@ public final class LastCandlesticksMemory implements LastCandlesticksDao {
 
     @Override
     public Optional<ZonedDateTime> getLastCandlestickCloseTime(@NotNull String exchange, @NotNull String pair) {
-        LOGGER.debug("getLastCandlestickCloseTime {}", pair);
+        LOGGER.debug("getLastCandlestickCloseTime {}, {}", exchange, pair);
         return Optional.ofNullable(lastCandlesticks.get(id(exchange, pair))).map(Candlestick::closeTime);
     }
 
     @Override
     public Optional<Candlestick> getLastCandlestick(@NotNull String exchange, @NotNull String pair) {
-        LOGGER.debug("getLastCandlestick {}", pair);
+        LOGGER.debug("getLastCandlestick {}, {}", exchange, pair);
         return Optional.ofNullable(lastCandlesticks.get(id(exchange, pair)));
     }
 
     @Override
     public void setLastCandlestick(@NotNull String exchange, @NotNull String pair, @NotNull Candlestick candlestick) {
-        LOGGER.debug("setLastCandlestick {} {}", pair, candlestick);
+        LOGGER.debug("setLastCandlestick {}, {} {}", exchange, pair, candlestick);
         lastCandlesticks.put(id(exchange, pair), candlestick);
     }
 
     @Override
     public void updateLastCandlestick(@NotNull String exchange, @NotNull String pair, @NotNull Candlestick candlestick) {
-        LOGGER.debug("updateLastCandlestick {} {}", pair, candlestick);
+        LOGGER.debug("updateLastCandlestick {}, {} {}", exchange, pair, candlestick);
+        requireNonNull(candlestick);
         lastCandlesticks.computeIfPresent(id(exchange, pair), (id, c) -> candlestick);
     }
 

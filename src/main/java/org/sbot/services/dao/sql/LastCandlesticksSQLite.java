@@ -111,25 +111,27 @@ public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCa
 
     @Override
     public Optional<ZonedDateTime> getLastCandlestickCloseTime(@NotNull String exchange, @NotNull String pair) {
-        LOGGER.debug("getLastCandlestickCloseTime {}", pair);
+        LOGGER.debug("getLastCandlestickCloseTime {}, {}", exchange, pair);
         return findOneDateTime(SQL.SELECT_CLOSE_TIME_BY_PAIR, Map.of("exchange", requireSupportedExchange(exchange), "pair", requirePairFormat(pair)));
     }
 
     @Override
     public Optional<Candlestick> getLastCandlestick(@NotNull String exchange, @NotNull String pair) {
-        LOGGER.debug("getLastCandlestick {}", pair);
+        LOGGER.debug("getLastCandlestick {}, {}", exchange, pair);
         return findOne(SQL.SELECT_BY_PAIR, Candlestick.class, Map.of("exchange", requireSupportedExchange(exchange), "pair", requirePairFormat(pair)));
     }
 
     @Override
     public void setLastCandlestick(@NotNull String exchange, @NotNull String pair, @NotNull Candlestick candlestick) {
-        LOGGER.debug("setLastCandlestick {} {}", pair, candlestick);
+        LOGGER.debug("setLastCandlestick {}, {} {}", exchange, pair, candlestick);
+        requireNonNull(exchange); requireNonNull(pair); requireNonNull(candlestick);
         update(SQL.INSERT_LAST_CANDLESTICK, query -> bindCandlestickFields(exchange, pair, candlestick, query));
     }
 
     @Override
     public void updateLastCandlestick(@NotNull String exchange, @NotNull String pair, @NotNull Candlestick candlestick) {
-        LOGGER.debug("updateLastCandlestick {} {}", pair, candlestick);
+        LOGGER.debug("updateLastCandlestick {}, {} {}", exchange, pair, candlestick);
+        requireNonNull(exchange); requireNonNull(pair); requireNonNull(candlestick);
         update(SQL.UPDATE_LAST_CANDLESTICK, query -> bindCandlestickFields(exchange, pair, candlestick, query));
     }
 

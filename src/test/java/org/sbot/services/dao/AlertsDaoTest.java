@@ -61,6 +61,8 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void getAlert(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.addAlert(null));
+
         Alert alert = createTestAlert();
         assertEquals(0, alert.id);
         long alertId = alerts.addAlert(alert);
@@ -357,48 +359,71 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore(AlertsDao alerts) {
-        ZonedDateTime date = DatesTest.nowUtc().truncatedTo(MILLIS); // clear the nanoseconds as sqlite save milliseconds
-        Alert alert1 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, date.minusMinutes(40L), MARGIN_DISABLED, (short) 0);
+    void fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(null, mock()));
+        assertThrows(NullPointerException.class, () -> alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(DatesTest.nowUtc(), null));
+
+        ZonedDateTime creationDate = TEST_FROM_DATE.minusMinutes(1L);
+        ZonedDateTime lastTrigger = creationDate.plusDays(1L);
+        Alert alert1 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.minusMinutes(40L), MARGIN_DISABLED, (short) 0);
         long alertId1 = alerts.addAlert(alert1);
-        Alert alert2 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, date.minusHours(3L), MARGIN_DISABLED, (short) 0);
+        Alert alert2 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.minusHours(3L), MARGIN_DISABLED, (short) 0);
         long alertId2 = alerts.addAlert(alert2);
-        Alert alert3 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, date.minusHours(10L), MARGIN_DISABLED, (short) 20);
-        alerts.addAlert(alert3);
-        Alert alert4 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, date.minusDays(1L).minusMinutes(34L), MARGIN_DISABLED, (short) 0);
+        Alert alert3 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger, MARGIN_DISABLED, (short) 0);
+        long alertId3 = alerts.addAlert(alert3);
+        Alert alert4 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.plusSeconds(1L), MARGIN_DISABLED, (short) 0);
         long alertId4 = alerts.addAlert(alert4);
-        Alert alert5 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, null, MARGIN_DISABLED, (short) 7);
+        Alert alert5 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.plusMinutes(31L), MARGIN_DISABLED, (short) 0);
         long alertId5 = alerts.addAlert(alert5);
+
+        alerts.addAlert(createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.minusMinutes(40L), MARGIN_DISABLED, (short) 1));
+        alerts.addAlert(createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.minusHours(3L), MARGIN_DISABLED, (short) 2));
+        alerts.addAlert(createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger, MARGIN_DISABLED, (short) 3));
+        alerts.addAlert(createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.plusSeconds(1L), MARGIN_DISABLED, (short) 2));
+        alerts.addAlert(createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.plusMinutes(31L), MARGIN_DISABLED, (short) 1));
+
         Alert alert6 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, null, MARGIN_DISABLED, (short) 0);
         long alertId6 = alerts.addAlert(alert6);
+        alerts.addAlert(createTestAlert().withListeningDateLastTriggerMarginRepeat(null, null, MARGIN_DISABLED, (short) 2));
+        Alert alert7 = createTestAlertWithCreationDate(lastTrigger.plusDays(1L)).withListeningDateLastTriggerMarginRepeat(null, null, MARGIN_DISABLED, (short) 0);
+        long alertId7 = alerts.addAlert(alert7);
+        alerts.addAlert(createTestAlertWithCreationDate(lastTrigger.plusDays(1L)).withListeningDateLastTriggerMarginRepeat(null, null, MARGIN_DISABLED, (short) 1));
 
-        assertEquals(6, alerts.countAlertsOfUser(TEST_USER_ID));
-        assertEquals(2, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore(date.minusDays(2L),
-                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId5, alertId6).contains(a.id)))));
-        assertEquals(2, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore(date.minusDays(1L).minusMinutes(34L),
-                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId5, alertId6).contains(a.id)))));
-        assertEquals(3, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore(date.minusDays(1L).minusMinutes(33L),
-                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId4, alertId5, alertId6).contains(a.id)))));
+        assertEquals(14, alerts.countAlertsOfUser(TEST_USER_ID));
+        assertEquals(0, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusDays(2L),
+                stream -> assertEquals(0, stream.count())));
+        assertEquals(0, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusDays(1L),
+                stream -> assertEquals(0, stream.count())));
+        assertEquals(1, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusDays(1L).plusSeconds(1L),
+                stream -> assertTrue(stream.allMatch(a -> alertId6 == a.id))));
+        assertEquals(1, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusDays(1L).plusMinutes(1L),
+                stream -> assertTrue(stream.allMatch(a -> alertId6 == a.id))));
+        assertEquals(1, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusDays(1L).plusHours(3L),
+                stream -> assertTrue(stream.allMatch(a -> alertId6 == a.id))));
 
-        assertEquals(3, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore(date.minusHours(3L),
-                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId4, alertId5, alertId6).contains(a.id)))));
-        assertEquals(4, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore(date.minusHours(3L).plusMinutes(1L),
-                stream -> assertEquals(1, stream.filter(a -> a.id == alertId2).count())));
-        assertEquals(4, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore(date.minusHours(3L).plusMinutes(1L),
-                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId2, alertId4, alertId5, alertId6).contains(a.id)))));
-        assertEquals(4, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore(date.minusMinutes(40L),
-                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId2, alertId4, alertId5, alertId6).contains(a.id)))));
-        assertEquals(5, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore(date.minusMinutes(39L),
-                stream -> assertEquals(1, stream.filter(a -> a.id == alertId1).count())));
-        assertEquals(5, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore(date.minusMinutes(39L),
-                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId4, alertId5, alertId6).contains(a.id)))));
-        assertEquals(5, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore(date,
-                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId4, alertId5, alertId6).contains(a.id)))));
+        assertEquals(3, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusSeconds(1L),
+                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId6).contains(a.id)))));
+        assertEquals(3, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger,
+                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId6).contains(a.id)))));
+        assertEquals(4, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.plusSeconds(1L),
+                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId3, alertId6).contains(a.id)))));
+        assertEquals(5, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.plusSeconds(2L),
+                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId3, alertId4, alertId6).contains(a.id)))));
+        assertEquals(6, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.plusMinutes(32L),
+                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId3, alertId4, alertId5, alertId6).contains(a.id)))));
+        assertEquals(6, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.plusDays(1L),
+                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId3, alertId4, alertId5, alertId6).contains(a.id)))));
+        assertEquals(7, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.plusDays(1L).plusMinutes(1L),
+                stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId3, alertId4, alertId5, alertId6, alertId7).contains(a.id)))));
     }
 
     @ParameterizedTest
     @MethodSource("provideDao")
     void fetchAlertsByTypeHavingToDateBefore(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.fetchAlertsByTypeHavingToDateBefore(null, DatesTest.nowUtc(), mock()));
+        assertThrows(NullPointerException.class, () -> alerts.fetchAlertsByTypeHavingToDateBefore(range, null, mock()));
+        assertThrows(NullPointerException.class, () -> alerts.fetchAlertsByTypeHavingToDateBefore(range, DatesTest.nowUtc(), null));
+
         ZonedDateTime date = DatesTest.nowUtc().truncatedTo(MILLIS); // clear the nanoseconds as sqlite save milliseconds
         Alert alert1 = createTestAlertWithType(range).withToDate(date.plusMinutes(40L));
         long alertId1 = alerts.addAlert(alert1);
@@ -460,6 +485,8 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void getAlertMessages(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.getAlertMessages(null));
+
         Alert alert1 = createTestAlert().withMessage("AAAA");
         alert1 = setId(alert1, alerts.addAlert(alert1));
         Alert alert2 = createTestAlert().withMessage("BBBB");
@@ -749,6 +776,8 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void countAlertsOfUserAndTickers(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.countAlertsOfUserAndTickers(1L, null));
+
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
@@ -826,6 +855,7 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void countAlertsOfServerAndTickers(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.countAlertsOfServerAndTickers(1L, null));
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
@@ -859,6 +889,7 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void countAlertsOfServerAndUserAndTickers(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.countAlertsOfServerAndUserAndTickers(1L, 1L, null));
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
@@ -964,6 +995,8 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void getAlertsOfUserAndTickersOrderById(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.getAlertsOfUserAndTickersOrderById(1L, 1L, 1L, null));
+
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
@@ -1122,6 +1155,8 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void getAlertsOfServerAndTickersOrderByUserIdId(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.getAlertsOfServerAndTickersOrderByUserIdId(1L, 1L, 1L, null));
+
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
@@ -1217,6 +1252,8 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void getAlertsOfServerAndUserAndTickersOrderById(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.getAlertsOfServerAndUserAndTickersOrderById(1L, 1L, 1L, 1L, null));
+
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
@@ -1425,6 +1462,8 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void addAlert(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.addAlert(null));
+
         Alert alert = createTestAlert();
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());
@@ -1506,6 +1545,8 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void updateServerIdOfUserAndServerIdAndTickers(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.getAlertsOfServerAndUserAndTickersOrderById(1L, 1L, 1L, 1L, null));
+
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
@@ -1564,6 +1605,7 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void updateFromPrice(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.updateFromPrice(1L, null));
         Alert alert = createTestAlert().withFromPrice(ONE);
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());
@@ -1575,6 +1617,7 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void updateToPrice(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.updateToPrice(1L, null));
         Alert alert = createTestAlert().withToPrice(BigDecimal.valueOf(100L));
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());
@@ -1610,6 +1653,7 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void updateMessage(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.updateMessage(1L, null));
         Alert alert = createTestAlert().withMessage("message");
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());
@@ -1621,6 +1665,7 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void updateMargin(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.updateMargin(1L, null));
         Alert alert = createTestAlert().withMargin(ONE);
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());
@@ -1706,6 +1751,8 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void deleteAlertsOfUserAndServerIdAndTickers(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.deleteAlerts(1L, 1L, null));
+
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
@@ -1757,6 +1804,9 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void matchedAlertBatchUpdates(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.matchedAlertBatchUpdates(DatesTest.nowUtc(), null));
+        assertThrows(NullPointerException.class, () -> alerts.matchedAlertBatchUpdates(null, mock()));
+
         ZonedDateTime now = DatesTest.nowUtc().minusMinutes(7L).truncatedTo(MILLIS); // clear the nanoseconds as sqlite save milliseconds
         ZonedDateTime lastTrigger = now.minusDays(3L);
         assertNotEquals(now, lastTrigger);
@@ -1846,6 +1896,9 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void marginAlertBatchUpdates(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.marginAlertBatchUpdates(DatesTest.nowUtc(), null));
+        assertThrows(NullPointerException.class, () -> alerts.marginAlertBatchUpdates(null, mock()));
+
         Alert alert1 = createTestAlert().withLastTriggerMargin(null, ONE);
         alert1 = setId(alert1, alerts.addAlert(alert1));
         Alert alert2 = createTestAlert().withLastTriggerMargin(null, TWO);
@@ -1894,6 +1947,8 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void alertBatchDeletes(AlertsDao alerts) {
+        assertThrows(NullPointerException.class, () -> alerts.alertBatchDeletes(null));
+
         long alertId1 = alerts.addAlert(createTestAlert());
         long alertId2 = alerts.addAlert(createTestAlert());
         long alertId3 = alerts.addAlert(createTestAlert());

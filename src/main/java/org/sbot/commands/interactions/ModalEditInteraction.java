@@ -144,7 +144,7 @@ public final class ModalEditInteraction implements InteractionListener {
         newEmbedBuilder.setTitle(originalEmbed.getTitle());
         if(asOriginal) { // restore message, prepend error message if any
             asOriginal(originalEmbed, newEmbedBuilder);
-        } else if(null != newMessage) { // update in the title
+        } else if(null != newMessage) { // update message in the title
             int index = requirePositive(requireNonNull(originalEmbed.getTitle()).indexOf(ALERT_TITLE_PAIR_FOOTER));
             newEmbedBuilder.setTitle(originalEmbed.getTitle().substring(0, index + ALERT_TITLE_PAIR_FOOTER.length()) + newMessage);
         }

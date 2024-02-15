@@ -99,20 +99,17 @@ public class SelectEditInteraction implements InteractionListener {
             case CHOICE_EDIT:  // send a response that restore previous alert message, if needed
                 context.reply(replyOriginal(null), 0);
                 break;
-            case CHOICE_ENABLE:
-            case CHOICE_DISABLE: // directly performs the update
+            case CHOICE_ENABLE, CHOICE_DISABLE: // directly performs the update
                 new ModalEditInteraction().onInteraction(context.withArgumentsAndReplyMapper(alertId + " " + CHOICE_ENABLE + " " + (CHOICE_ENABLE.equals(field) ? "true" : "false"), Function.identity()));
                 break;
             case CHOICE_MESSAGE:
                 maxLength = ALERT_MESSAGE_ARG_MAX_LENGTH;
-            case CHOICE_FROM_DATE:
-            case CHOICE_TO_DATE:
+            case CHOICE_FROM_DATE, CHOICE_TO_DATE:
                 if(maxLength == 0) {
                     minLength = 3; // 'now'
                     maxLength = DATE_TIME_FORMAT.length();
                 }
-            case CHOICE_FROM_PRICE:
-            case CHOICE_TO_PRICE:
+            case CHOICE_FROM_PRICE, CHOICE_TO_PRICE:
             case CHOICE_MARGIN:
                 if(maxLength == 0) {
                     maxLength = 20;

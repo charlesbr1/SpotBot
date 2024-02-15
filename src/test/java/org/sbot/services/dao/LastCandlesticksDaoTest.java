@@ -13,6 +13,7 @@ import java.util.Set;
 import static java.math.BigDecimal.*;
 import static java.time.ZonedDateTime.now;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 import static org.sbot.utils.DatesTest.nowUtc;
 
 public abstract class LastCandlesticksDaoTest {
@@ -41,6 +42,9 @@ public abstract class LastCandlesticksDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void getLastCandlestickCloseTime(LastCandlesticksDao lastCandlesticks) {
+        assertThrows(NullPointerException.class, () -> lastCandlesticks.getLastCandlestickCloseTime(null, "ETH/BTC"));
+        assertThrows(NullPointerException.class, () -> lastCandlesticks.getLastCandlestickCloseTime(BinanceClient.NAME, null));
+
         assertTrue(lastCandlesticks.getLastCandlestickCloseTime(BinanceClient.NAME, "ETH/BTC").isEmpty());
         assertThrows(IllegalArgumentException.class, () -> lastCandlesticks.getLastCandlestickCloseTime("bad exchange", "ETH/BTC"));
         ZonedDateTime closeTime = nowUtc().withNano(0) // clear the seconds as sqlite save milliseconds and not nanos
@@ -55,6 +59,8 @@ public abstract class LastCandlesticksDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void getLastCandlestick(LastCandlesticksDao lastCandlesticks) {
+        assertThrows(NullPointerException.class, () -> lastCandlesticks.getLastCandlestick(null, "ETH/BTC"));
+        assertThrows(NullPointerException.class, () -> lastCandlesticks.getLastCandlestick(BinanceClient.NAME, null));
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         Candlestick candlestick = new Candlestick(now, now, ONE, ONE, ONE, ONE);
         assertTrue(lastCandlesticks.getLastCandlestick(BinanceClient.NAME, "ETH/BTC").isEmpty());
@@ -68,6 +74,10 @@ public abstract class LastCandlesticksDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void setLastCandlestick(LastCandlesticksDao lastCandlesticks) {
+        assertThrows(NullPointerException.class, () -> lastCandlesticks.setLastCandlestick(BinanceClient.NAME, "ETH/BTC", null));
+        assertThrows(NullPointerException.class, () -> lastCandlesticks.setLastCandlestick(BinanceClient.NAME, null, mock()));
+        assertThrows(NullPointerException.class, () -> lastCandlesticks.setLastCandlestick(null, "ETH/BTC", mock()));
+
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         Candlestick candlestick = new Candlestick(now, now, ONE, ONE, ONE, ONE);
         assertTrue(lastCandlesticks.getLastCandlestick(BinanceClient.NAME, "ETH/BTC").isEmpty());
@@ -80,6 +90,10 @@ public abstract class LastCandlesticksDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void updateLastCandlestick(LastCandlesticksDao lastCandlesticks) {
+        assertThrows(NullPointerException.class, () -> lastCandlesticks.updateLastCandlestick(BinanceClient.NAME, "ETH/BTC", null));
+        assertThrows(NullPointerException.class, () -> lastCandlesticks.updateLastCandlestick(BinanceClient.NAME, null, mock()));
+        assertThrows(NullPointerException.class, () -> lastCandlesticks.updateLastCandlestick(null, "ETH/BTC", mock()));
+
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         Candlestick candlestick = new Candlestick(now, now, ONE, ONE, ONE, ONE);
         lastCandlesticks.setLastCandlestick(BinanceClient.NAME, "ETH/BTC", candlestick);
@@ -101,6 +115,8 @@ public abstract class LastCandlesticksDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void lastCandlestickBatchDeletes(LastCandlesticksDao lastCandlesticks) {
+        assertThrows(NullPointerException.class, () -> lastCandlesticks.lastCandlestickBatchDeletes(null));
+
         ZonedDateTime now = nowUtc();
         Candlestick candlestick = new Candlestick(now, now, ONE, ONE, ONE, ONE);
         assertTrue(lastCandlesticks.getPairsByExchanges().isEmpty());

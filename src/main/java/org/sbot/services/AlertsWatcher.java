@@ -101,7 +101,7 @@ public final class AlertsWatcher {
                         .forEach(matchingAlert -> deleter.batchId(matchingAlert.alert().id)));
 
         ZonedDateTime expirationDate = now.minusMonths(1L);
-        long deleted = alertsDao.fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore(expirationDate, alertsDeleter);
+        long deleted = alertsDao.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(expirationDate, alertsDeleter);
         LOGGER.debug("Deleted {} alerts with repeat = 0 and lastTrigger or creation date < {}", deleted, expirationDate);
         deleted = alertsDao.fetchAlertsByTypeHavingToDateBefore(trend, expirationDate, alertsDeleter);
         LOGGER.debug("Deleted {} trend alerts with toDate < {}", deleted, expirationDate);

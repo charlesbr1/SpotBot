@@ -88,12 +88,14 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public long fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
-        LOGGER.debug("fetchAlertsHavingRepeatZeroAndLastTriggerNullAndCreationBeforeOrNotNullAndBefore {}", expirationDate);
+    public long fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore {}", expirationDate);
+        requireNonNull(expirationDate);
         long[] read = new long[] {0L};
         alertsConsumer.accept(alerts.values().stream()
                 .filter(alert -> alert.repeat <= 0 &&
-                                ((null == alert.lastTrigger && alert.creationDate.isBefore(expirationDate)) || (null != alert.lastTrigger && alert.lastTrigger.isBefore(expirationDate))) &&
+                                ((null != alert.lastTrigger && alert.lastTrigger.isBefore(expirationDate)) ||
+                                 (null == alert.lastTrigger && alert.creationDate.isBefore(expirationDate))) &&
                                 ++read[0] != 0));
         return read[0];
     }
@@ -101,6 +103,7 @@ public final class AlertsMemory implements AlertsDao {
     @Override
     public long fetchAlertsByTypeHavingToDateBefore(@NotNull Type type, @NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
         LOGGER.debug("fetchAlertsByTypeHavingToDateBefore {} {}", type, expirationDate);
+        requireNonNull(type); requireNonNull(expirationDate);
         long[] read = new long[] {0L};
         alertsConsumer.accept(alerts.values().stream()
                 .filter(alert -> alert.type == type &&
@@ -184,6 +187,7 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     private Stream<Alert> getAlertsOfUserAndTickersStream(long userId, @NotNull String tickerOrPair) {
+        requireNonNull(tickerOrPair);
         return alerts.values().stream()
                 .filter(alert -> alert.userId == userId &&
                         alert.pair.contains(tickerOrPair));
@@ -225,6 +229,7 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     private Stream<Alert> getAlertsOfServerAndTickersStream(long serverId, @NotNull String tickerOrPair) {
+        requireNonNull(tickerOrPair);
         return alerts.values().stream()
                 .filter(alert -> alert.serverId == serverId &&
                         alert.pair.contains(tickerOrPair));
@@ -239,6 +244,7 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     private Stream<Alert> getAlertsOfServerAndUserAndTickersStream(long serverId, long userId, @NotNull String tickerOrPair) {
+        requireNonNull(tickerOrPair);
         return alerts.values().stream()
                 .filter(alert -> alert.serverId == serverId &&
                         alert.userId == userId &&
@@ -283,6 +289,7 @@ public final class AlertsMemory implements AlertsDao {
     @Override
     public long updateServerIdOfUserAndServerIdAndTickers(long userId, long serverId, @NotNull String tickerOrPair, long newServerId) {
         LOGGER.debug("updateServerIdOfUserAndServerIdAndTickers {} {} {} {}", userId, serverId, tickerOrPair, newServerId);
+        requireNonNull(tickerOrPair);
         long[] updatedAlerts = new long[] {0L};
         alerts.replaceAll((alertId, alert) ->
                 alert.userId == userId &&
@@ -295,12 +302,14 @@ public final class AlertsMemory implements AlertsDao {
     @Override
     public void updateFromPrice(long alertId, @NotNull BigDecimal fromPrice) {
         LOGGER.debug("updateFromPrice {} {}", alertId, fromPrice);
+        requireNonNull(fromPrice);
         alerts.computeIfPresent(alertId, (id, alert) -> alert.withFromPrice(fromPrice));
     }
 
     @Override
     public void updateToPrice(long alertId, @NotNull BigDecimal toPrice) {
         LOGGER.debug("updateToPrice {} {}", alertId, toPrice);
+        requireNonNull(toPrice);
         alerts.computeIfPresent(alertId, (id, alert) -> alert.withToPrice(toPrice));
     }
 
@@ -319,12 +328,14 @@ public final class AlertsMemory implements AlertsDao {
     @Override
     public void updateMessage(long alertId, @NotNull String message) {
         LOGGER.debug("updateMessage {} {}", alertId, message);
+        requireNonNull(message);
         alerts.computeIfPresent(alertId, (id, alert) -> alert.withMessage(message));
     }
 
     @Override
     public void updateMargin(long alertId, @NotNull BigDecimal margin) {
         LOGGER.debug("updateMargin {} {}", alertId, margin);
+        requireNonNull(margin);
         alerts.computeIfPresent(alertId, (id, alert) -> alert.withMargin(margin));
     }
 
@@ -360,6 +371,7 @@ public final class AlertsMemory implements AlertsDao {
     @Override
     public long deleteAlerts(long serverId, long userId, @NotNull String tickerOrPair) {
         LOGGER.debug("deleteAlerts {} {} {}", serverId, userId, tickerOrPair);
+        requireNonNull(tickerOrPair);
         long[] removedAlerts = new long[] {0L};
         alerts.entrySet().removeIf(entry ->
                 entry.getValue().userId == userId &&
@@ -372,6 +384,7 @@ public final class AlertsMemory implements AlertsDao {
     @Override
     public void matchedAlertBatchUpdates(@NotNull ZonedDateTime now, @NotNull Consumer<BatchEntry> updater) {
         LOGGER.debug("matchedAlertBatchUpdates");
+        requireNonNull(now);
         updater.accept(ids -> alerts.computeIfPresent((Long) ids.get("id"),
                 (id, alert) -> alert.withListeningDateLastTriggerMarginRepeat(
                         hasRepeat(alert.repeat - 1) ? now.plusHours(alert.snooze) : null, // listening date
@@ -382,6 +395,7 @@ public final class AlertsMemory implements AlertsDao {
     @Override
     public void marginAlertBatchUpdates(@NotNull ZonedDateTime now, @NotNull Consumer<BatchEntry> updater) {
         LOGGER.debug("marginAlertBatchUpdates");
+        requireNonNull(now);
         updater.accept(ids -> alerts.computeIfPresent((Long) ids.get("id"),
                 (id, alert) -> alert.withLastTriggerMargin(now, MARGIN_DISABLED)));
     }
