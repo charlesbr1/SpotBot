@@ -10,6 +10,25 @@ import static org.junit.jupiter.api.Assertions.*;
 class StringArgumentReaderTest {
 
     @Test
+    void reversed() {
+        StringArgumentReader reader = new StringArgumentReader("test").reversed();
+        assertEquals("test", reader.getString("").get());
+        assertTrue(reader.getString("").isEmpty());
+
+        reader = new StringArgumentReader("").reversed();
+        assertTrue(reader.getString("").isEmpty());
+
+        reader = new StringArgumentReader(" a fzfze fze ").reversed();
+        assertEquals("fze", reader.getString("").get());
+        assertEquals("a fzfze", reader.getLastArgs("").get());
+        assertEquals("fzfze", reader.getString("").get());
+        assertEquals("a", reader.getLastArgs("").get());
+        assertEquals("a", reader.getString("").get());
+        assertTrue(reader.getString("").isEmpty());
+        assertTrue(reader.getLastArgs("").isEmpty());
+    }
+
+    @Test
     void getString() {
         assertThrows(NullPointerException.class, () -> new StringArgumentReader(null));
         StringArgumentReader reader = new StringArgumentReader("test");
@@ -19,8 +38,11 @@ class StringArgumentReaderTest {
         reader = new StringArgumentReader("");
         assertTrue(reader.getString("").isEmpty());
 
-        reader = new StringArgumentReader(" fzfze fze ");
+        reader = new StringArgumentReader(" a fzfze fze ");
+        assertEquals("a", reader.getString("").get());
+        assertEquals("fzfze fze", reader.getLastArgs("").get());
         assertEquals("fzfze", reader.getString("").get());
+        assertEquals("fze", reader.getLastArgs("").get());
         assertEquals("fze", reader.getString("").get());
         assertTrue(reader.getString("").isEmpty());
         assertTrue(reader.getLastArgs("").isEmpty());

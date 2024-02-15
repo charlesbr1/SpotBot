@@ -24,7 +24,7 @@ import static org.sbot.utils.Dates.formatUTC;
 
 public final class TrendCommand extends CommandAdapter {
 
-    private static final String NAME = "trend";
+    static final String NAME = "trend";
     static final String DESCRIPTION = "create a new trend alert on a pair, a trend is defined by two prices and two dates";
     private static final int RESPONSE_TTL_SECONDS = 60;
 

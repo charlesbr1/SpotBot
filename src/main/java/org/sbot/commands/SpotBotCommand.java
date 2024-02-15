@@ -190,7 +190,7 @@ public final class SpotBotCommand extends CommandAdapter {
     private static String commandDescription(SlashCommandData commandData) {
         if(!commandData.getSubcommands().isEmpty()) {
             return commandData.getSubcommands().stream()
-                    .map(command -> "\n\n*" + command.getDescription() + " :*\n\n" + optionsDescription(command.getOptions(), false))
+                    .map(command -> "\n\n**" + command.getName() + "** : *" + command.getDescription() + "*\n\n" + optionsDescription(command.getOptions(), false))
                     .collect(joining("\n"));
         } else if(!commandData.getOptions().isEmpty()) {
             return optionsDescription(commandData.getOptions(), true);
@@ -212,7 +212,7 @@ public final class SpotBotCommand extends CommandAdapter {
                 .map(command -> new Command(command.name(), command.description() ,command.options()));
 
         // split the list because it exceeds max discord message length
-        return split(9, commands)
+        return split(6, commands)
                 .map(cmdList -> Message.of(embedBuilder(null, Color.green, cmdList.stream()
                         .map(cmd -> "** " + cmd.name + "**\n\n" + SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + cmd.description + commandDescription(cmd.options))
                         .collect(joining("\n\n\n"))))).toList();

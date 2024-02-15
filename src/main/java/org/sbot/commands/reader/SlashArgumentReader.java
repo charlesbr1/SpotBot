@@ -25,6 +25,11 @@ public final class SlashArgumentReader implements ArgumentReader {
         this.event = requireNonNull(event, "missing SlashCommandInteractionEvent event");
     }
 
+    @NotNull
+    public String getSubcommandName() {
+        return requireNonNull(event.getSubcommandName());
+    }
+
     @Override
     public Optional<String> getString(@NotNull String fieldName) {
         return getValue(fieldName, OptionMapping::getAsString, identity());

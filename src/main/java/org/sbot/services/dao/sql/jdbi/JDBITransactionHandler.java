@@ -68,10 +68,6 @@ public class JDBITransactionHandler {
                 try (tx) { // this finally  call handle close()
                     tx.commit();
                     LOGGER.debug("tx successfully committed");
-                } catch (Throwable e) {
-                    LOGGER.debug("failed to commit tx, rollback", e);
-                    tx.rollback();
-                    throw e;
                 }
             });
         }

@@ -19,20 +19,35 @@ import static java.util.function.Predicate.not;
 public final class StringArgumentReader implements ArgumentReader {
 
     private static final Pattern SPLIT_WORD = Pattern.compile("\\s+");
+    private static final Pattern REVERSE_SPLIT_WORD = Pattern.compile("\\s+(?=\\S+$)");
 
     @NotNull
     private String remainingArguments;
 
+    private final boolean reverse;
+
     public StringArgumentReader(@NotNull String arguments) {
+        this(arguments, false);
+    }
+
+    private StringArgumentReader(@NotNull String arguments, boolean reverse) {
         this.remainingArguments = arguments.strip();
+        this.reverse = reverse;
+    }
+
+    @Override
+    @NotNull
+    public StringArgumentReader reversed() {
+        return new StringArgumentReader(remainingArguments, true);
     }
 
     @Override
     public Optional<String> getString(@NotNull String unused) {
         List<String> values = !remainingArguments.isBlank() ?
                 // this split arguments into two parts : the first word without spaces, and the rest of the string
-                Arrays.asList(SPLIT_WORD.split(remainingArguments, 2))
+                Arrays.asList((reverse ? REVERSE_SPLIT_WORD : SPLIT_WORD).split(remainingArguments, 2))
                 : Collections.emptyList();
+        values = reverse ? values.reversed() : values;
         remainingArguments = values.size() > 1 ? values.get(1) : "";
         return values.stream().findFirst();
     }

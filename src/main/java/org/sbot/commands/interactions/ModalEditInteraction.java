@@ -159,6 +159,7 @@ public final class ModalEditInteraction implements InteractionListener {
                 .ifPresent(newEmbedBuilder.getDescriptionBuilder()::append);
     }
 
+    // remove messages append or prepended by update command to the original list description
     private static String originalDescription(@NotNull String originalDescription) {
         for(String header : List.of(UPDATE_FAILED_FOOTER, UPDATE_SUCCESS_FOOTER, UPDATE_ENABLED_HEADER, UPDATE_DISABLED_HEADER)) {
             int index = originalDescription.indexOf(header); // prepended at the start

@@ -33,6 +33,11 @@ public interface ArgumentReader {
         return getUserId(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing user mention for argument '" + fieldName + '\''));
     }
 
+    @NotNull
+    default ArgumentReader reversed() {
+        return this;
+    }
+
 
     Optional<String> getString(@NotNull String fieldName);
 

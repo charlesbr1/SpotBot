@@ -185,21 +185,19 @@ public class JDBITransactionHandlerTest {
         verify(handle, times(2)).close();
 
         assertEquals(handle, transactionHandler.sync(jdbi, Objects::requireNonNull));
-        when(handle.commit()).thenThrow(IllegalStateException.class);
+        when(handle.commit()).thenThrow(IllegalStateException.class).thenReturn(handle);
         assertThrows(IllegalStateException.class, transactionHandler::commit);
         verify(lock, times(6)).lock();
         verify(lock, times(6)).unlock();
         verify(handle, times(3)).commit();
-        verify(handle).rollback();
         verify(handle, times(3)).close();
 
         assertEquals(handle, transactionHandler.sync(jdbi, Objects::requireNonNull));
-        when(handle.rollback()).thenThrow(IllegalArgumentException.class);
-        assertThrows(IllegalArgumentException.class, transactionHandler::commit);
+        assertNotNull(getHandle(transactionHandler));
+        transactionHandler.commit();
         verify(lock, times(8)).lock();
         verify(lock, times(8)).unlock();
         verify(handle, times(4)).commit();
-        verify(handle, times(2)).rollback();
         verify(handle, times(4)).close();
     }
 

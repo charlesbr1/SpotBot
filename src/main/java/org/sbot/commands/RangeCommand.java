@@ -6,6 +6,7 @@ import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
+import org.sbot.commands.reader.StringArgumentReader;
 import org.sbot.entities.Message;
 import org.sbot.entities.alerts.RangeAlert;
 import org.sbot.services.dao.AlertsDao;
@@ -25,7 +26,7 @@ import static org.sbot.utils.Dates.formatUTC;
 
 public final class RangeCommand extends CommandAdapter {
 
-    private static final String NAME = "range";
+    static final String NAME = "range";
     static final String DESCRIPTION = "create a new range alert on a pair, defined by two prices and two optional dates";
     private static final int RESPONSE_TTL_SECONDS = 60;
 
@@ -37,12 +38,12 @@ public final class RangeCommand extends CommandAdapter {
                             .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
                     option(NUMBER, "low", "the low range price", true)
                             .setMinValue(0d),
-                    option(NUMBER, "high", "the high range price", false) //TODO range with 1 price
+                    option(NUMBER, "high", "the high range price", true) //TODO range with 1 price
                             .setMinValue(0d),
+                    option(STRING, "message", "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
+                            .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH),
                     option(STRING, "from_date", "a date to start the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false),
-                    option(STRING, "to_date", "a future date to end the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false),
-                    option(STRING, "message", "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", false)
-                            .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
+                    option(STRING, "to_date", "a future date to end the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false));
 
     public RangeCommand() {
         super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
@@ -54,14 +55,24 @@ public final class RangeCommand extends CommandAdapter {
         String pair = requirePairFormat(context.args.getMandatoryString("pair").toUpperCase());
         BigDecimal fromPrice = requirePositive(context.args.getMandatoryNumber("low"));
         BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber("high"));
-        ZonedDateTime fromDate = context.args.getDateTime("from_date").orElse(null);
+        var reversed = context.args.reversed();
+        ZonedDateTime toDate = reversed.getDateTime("to_date").orElse(null);
+        ZonedDateTime fromDate = null != toDate ? reversed.getDateTime("from_date").orElse(null) : null;
+        if (context.args instanceof StringArgumentReader && null != toDate && null == fromDate) {
+            fromDate = toDate;
+            toDate = null;
+        }
         ZonedDateTime now = Dates.nowUtc(context.clock());
-        ZonedDateTime toDate = null != fromDate ? context.args.getDateTime("to_date").map(date -> requireInFuture(now, date)).orElse(null) : null;
-        String message = requireAlertMessageMaxLength(context.args.getLastArgs("message").orElse(""));
+        if(null != toDate) {
+            requireInFuture(now, toDate);
+        }
+        String message = requireAlertMessageMaxLength(reversed.getLastArgs("message").orElse(""));
 
         LOGGER.debug("range command - exchange : {}, pair : {}, low : {}, high : {}, from_date : {}, to_date : {}, message : {}",
                 exchange, pair, fromPrice, toPrice, fromDate, toDate, message);
-        context.transaction(txCtx -> context.reply(range(context, now, txCtx.alertsDao(), exchange, pair, message, fromPrice, toPrice, fromDate, toDate), responseTtlSeconds));
+        var finalFromDate = fromDate;
+        var finalToDate = toDate;
+        context.transaction(txCtx -> context.reply(range(context, now, txCtx.alertsDao(), exchange, pair, message, fromPrice, toPrice, finalFromDate, finalToDate), responseTtlSeconds));
     }
 
     private Message range(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull AlertsDao alertsDao,
