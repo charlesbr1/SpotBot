@@ -50,7 +50,7 @@ public final class UpdateCommand extends CommandAdapter {
     public static final String CHOICE_SNOOZE = "snooze";
     public static final String CHOICE_ENABLE = "enable";
 
-    static final SlashCommandData options =
+    private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(
                     option(STRING, "field", CHOICE_MESSAGE + ", " + DISPLAY_FROM_PRICE_OR_LOW +
                             ", " + DISPLAY_TO_PRICE_OR_HIGH + ", " + DISPLAY_FROM_DATE + ", " + DISPLAY_TO_DATE +

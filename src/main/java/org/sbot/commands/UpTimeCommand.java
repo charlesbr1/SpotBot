@@ -18,7 +18,7 @@ public final class UpTimeCommand extends CommandAdapter {
     static final String DESCRIPTION = "returns the time since this bot is up (no slash command for this one)";
     private static final int RESPONSE_TTL_SECONDS = 10;
 
-    static final SlashCommandData options = Commands.slash(NAME, DESCRIPTION);
+    private static final SlashCommandData options = Commands.slash(NAME, DESCRIPTION);
     private static final Instant start = Instant.now();
 
     public UpTimeCommand() {

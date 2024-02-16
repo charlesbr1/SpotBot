@@ -35,7 +35,7 @@ public final class MigrateCommand extends CommandAdapter {
 
     private static final OptionData SERVER_ID_OPTION = option(NUMBER, "guild_id", PRIVATE_ALERT + " for private channel or id of a guild server whose alert' owner is a member and this bot too", true);
 
-    static final SlashCommandData options =
+    private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addSubcommands(
                     new SubcommandData("id", "migrate an alert by id").addOptions(
                             option(INTEGER, "alert_id", "id of one alert to migrate", true)

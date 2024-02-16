@@ -29,7 +29,7 @@ public final class UtcCommand extends CommandAdapter {
     private static final String CHOICE_NOW = "now";
     private static final String CHOICE_LIST = "list";
 
-    static final SlashCommandData options =
+    private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(
                     option(STRING, "zone", "'now' to get the current utc time, 'list' to get available time zones, or the time zone of your date", true)
                             .setMaxLength(4),

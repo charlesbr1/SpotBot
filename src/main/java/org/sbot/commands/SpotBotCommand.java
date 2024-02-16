@@ -43,7 +43,7 @@ public final class SpotBotCommand extends CommandAdapter {
     private static final String CHOICE_COMMANDS = "commands";
     private static final String CHOICE_EXAMPLES = "examples";
 
-    static final SlashCommandData options =
+    private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(
                     option(STRING, "choice", "one of 'doc' or 'commands' or 'examples', default to doc if omitted", false)
                             .addChoices(List.of(new Choice(CHOICE_DOC, CHOICE_DOC),

@@ -28,7 +28,7 @@ public final class DeleteCommand extends CommandAdapter {
 
     private static final String DELETE_ALL = "all";
 
-    static final SlashCommandData options =
+    private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addSubcommands(
                     new SubcommandData("id", "delete an alert by id").addOptions(
                             option(INTEGER, "alert_id", "id of one alert to delete", true)

@@ -1,14 +1,13 @@
 package org.sbot.commands;
 
-import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.Command;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.jetbrains.annotations.NotNull;
+import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
 import org.sbot.entities.chart.Candlestick;
 import org.sbot.entities.chart.TimeFrame;
-import org.sbot.commands.context.CommandContext;
 import org.sbot.exchanges.Exchanges;
 import org.sbot.utils.Dates;
 
@@ -35,7 +34,7 @@ public final class QuoteCommand extends CommandAdapter {
 
     private static final int TIME_ZONE_LENGTH = 3;
 
-    static final SlashCommandData options =
+    private static final SlashCommandData options =
         Commands.slash(NAME, DESCRIPTION).addOptions(
                 option(STRING, "exchange", "the exchange, like binance", true)
                         .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Command.Choice(e, e)).collect(toList())),

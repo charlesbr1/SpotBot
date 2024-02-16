@@ -40,7 +40,7 @@ public final class ListCommand extends CommandAdapter {
     private static final String LIST_EXCHANGES = "exchanges";
     private static final String LIST_ALL = "all";
 
-    static final SlashCommandData options =
+    private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(
                     option(STRING, "selection", "an alert id, or 'exchanges', or 'all' alerts, or an user or a ticker or a pair, 'all' if omitted", false)
                             .setMinLength(1),
