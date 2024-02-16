@@ -34,8 +34,8 @@ import java.util.function.Function;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
+import static org.sbot.commands.CommandAdapter.isPrivateChannel;
 import static org.sbot.entities.alerts.Alert.PRIVATE_ALERT;
-import static org.sbot.entities.alerts.Alert.isPrivate;
 import static org.sbot.utils.ArgumentValidator.requireNotBlank;
 
 public abstract class CommandContext implements Context {
@@ -126,7 +126,7 @@ public abstract class CommandContext implements Context {
     public static CommandContext of(@NotNull Context context, @NotNull MessageReceivedEvent event, @NotNull String command) {
         requireNonNull(event.getMessage());
         return new CommandContext(context, event, command) {
-            boolean firstReply = !isPrivate(serverId());
+            boolean firstReply = !isPrivateChannel(this); // this set a "reply to" once on the first message
             @Override
             public void reply(@NotNull List<Message> messages, int ttlSeconds) {
                 reply(messages, modal -> { throw new UnsupportedOperationException("No modal on string command reply"); },

@@ -9,7 +9,6 @@ import org.sbot.commands.context.CommandContext;
 import org.sbot.commands.reader.StringArgumentReader;
 import org.sbot.entities.Message;
 import org.sbot.entities.alerts.RangeAlert;
-import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
@@ -22,6 +21,7 @@ import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
+import static org.sbot.utils.Dates.DATE_TIME_FORMAT;
 import static org.sbot.utils.Dates.formatUTC;
 
 public final class RangeCommand extends CommandAdapter {
@@ -42,8 +42,10 @@ public final class RangeCommand extends CommandAdapter {
                             .setMinValue(0d),
                     option(STRING, "message", "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
                             .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH),
-                    option(STRING, "from_date", "a date to start the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false),
-                    option(STRING, "to_date", "a future date to end the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false));
+                    option(STRING, "from_date", "a date to start the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false)
+                            .setMinLength(DATE_TIME_FORMAT.length()).setMaxLength(DATE_TIME_FORMAT.length()),
+                    option(STRING, "to_date", "a future date to end the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false)
+                            .setMinLength(DATE_TIME_FORMAT.length()).setMaxLength(DATE_TIME_FORMAT.length()));
 
     public RangeCommand() {
         super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
@@ -70,12 +72,10 @@ public final class RangeCommand extends CommandAdapter {
 
         LOGGER.debug("range command - exchange : {}, pair : {}, low : {}, high : {}, from_date : {}, to_date : {}, message : {}",
                 exchange, pair, fromPrice, toPrice, fromDate, toDate, message);
-        var finalFromDate = fromDate;
-        var finalToDate = toDate;
-        context.transaction(txCtx -> context.reply(range(context, now, txCtx.alertsDao(), exchange, pair, message, fromPrice, toPrice, finalFromDate, finalToDate), responseTtlSeconds));
+        context.reply(range(context, now, exchange, pair, message, fromPrice, toPrice, fromDate, toDate), responseTtlSeconds);
     }
 
-    private Message range(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull AlertsDao alertsDao,
+    private Message range(@NotNull CommandContext context, @NotNull ZonedDateTime now,
                           @NotNull String exchange, @NotNull String pair, @NotNull String message,
                           @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
                           @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate) {
@@ -96,7 +96,7 @@ public final class RangeCommand extends CommandAdapter {
                 exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
 
-        long alertId = alertsDao.addAlert(rangeAlert);
+        long alertId = context.transactional(txCtx -> txCtx.alertsDao().addAlert(rangeAlert));
 
         String answer = context.user.getAsMention() + " New range alert added with id " + alertId +
                 "\n\n* pair : " + rangeAlert.pair + "\n* exchange : " + exchange +

@@ -24,7 +24,7 @@ public final class StringArgumentReader implements ArgumentReader {
     @NotNull
     private String remainingArguments;
 
-    private final boolean reverse;
+    private final boolean reverse; // reversed reader reads the arguments from the end
 
     public StringArgumentReader(@NotNull String arguments) {
         this(arguments, false);

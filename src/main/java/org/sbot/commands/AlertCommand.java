@@ -16,6 +16,7 @@ import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
+import static org.sbot.utils.Dates.DATE_TIME_FORMAT;
 
 public class AlertCommand extends CommandAdapter {
 
@@ -36,25 +37,30 @@ public class AlertCommand extends CommandAdapter {
                                     .setMinValue(0d),
                             option(STRING, "message", "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
                                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH),
-                            option(STRING, "from_date", "a date to start the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false),
-                            option(STRING, "to_date", "a future date to end the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false)),
-                    new SubcommandData(TrendCommand.NAME, TrendCommand.DESCRIPTION).addOptions(
+                            option(STRING, "from_date", "a date to start the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false)
+                                    .setMinLength(DATE_TIME_FORMAT.length()).setMaxLength(DATE_TIME_FORMAT.length()),
+                            option(STRING, "to_date", "a future date to end the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false)
+                                    .setMinLength(DATE_TIME_FORMAT.length()).setMaxLength(DATE_TIME_FORMAT.length())),
+                            new SubcommandData(TrendCommand.NAME, TrendCommand.DESCRIPTION).addOptions(
                             option(STRING, "exchange", "the exchange, like binance", true)
                                     .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Command.Choice(e, e)).collect(toList())),
                             option(STRING, "pair", "the pair, like EUR/USDT", true)
                                     .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
                             option(NUMBER, "from_price", "the first price", true)
                                     .setMinValue(0d),
-                            option(STRING, "from_date", "the date of first price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true),
+                            option(STRING, "from_date", "the date of first price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
+                                    .setMinLength(DATE_TIME_FORMAT.length()).setMaxLength(DATE_TIME_FORMAT.length()),
                             option(NUMBER, "to_price", "the second price", true)
                                     .setMinValue(0d),
-                            option(STRING, "to_date", "the date of second price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true),
+                            option(STRING, "to_date", "the date of second price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
+                                    .setMinLength(DATE_TIME_FORMAT.length()).setMaxLength(DATE_TIME_FORMAT.length()),
                             option(STRING, "message", "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
                                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH)),
                     new SubcommandData(RemainderCommand.NAME, RemainderCommand.DESCRIPTION).addOptions(
                             option(STRING, "pair", "the pair, like EUR/USDT", true)
                                     .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
-                            option(STRING, "date", "a future date when to trigger the remainder, UTC expected format : " + Dates.DATE_TIME_FORMAT, true),
+                            option(STRING, "date", "a future date when to trigger the remainder, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
+                                    .setMinLength(DATE_TIME_FORMAT.length()).setMaxLength(DATE_TIME_FORMAT.length()),
                             option(STRING, "message", "a message for this remainder (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
                                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH)));
 

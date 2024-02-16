@@ -6,7 +6,6 @@ import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
 import org.sbot.entities.alerts.RemainderAlert;
-import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
@@ -15,6 +14,7 @@ import java.time.ZonedDateTime;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.entities.alerts.Alert.NEW_ALERT_ID;
 import static org.sbot.utils.ArgumentValidator.*;
+import static org.sbot.utils.Dates.DATE_TIME_FORMAT;
 import static org.sbot.utils.Dates.formatUTC;
 
 public final class RemainderCommand extends CommandAdapter {
@@ -27,7 +27,8 @@ public final class RemainderCommand extends CommandAdapter {
             Commands.slash(NAME, DESCRIPTION).addOptions(
                     option(STRING, "pair", "the pair, like EUR/USDT", true)
                             .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
-                    option(STRING, "date", "a future date when to trigger the remainder, UTC expected format : " + Dates.DATE_TIME_FORMAT, true),
+                    option(STRING, "date", "a future date when to trigger the remainder, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
+                            .setMinLength(DATE_TIME_FORMAT.length()).setMaxLength(DATE_TIME_FORMAT.length()),
                     option(STRING, "message", "a message for this remainder (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
                             .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH));
 
@@ -44,16 +45,16 @@ public final class RemainderCommand extends CommandAdapter {
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
 
         LOGGER.debug("remainder command - pair : {}, date : {}, remainder {}", pair, date, message);
-        context.transaction(txCtx -> context.reply(remainder(context, now, txCtx.alertsDao(), pair, date, message), responseTtlSeconds));
+        context.reply(remainder(context, now, pair, date, message), responseTtlSeconds);
     }
 
-    private Message remainder(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull AlertsDao alertsDao, @NotNull String pair, @NotNull ZonedDateTime fromDate, @NotNull String message) {
+    private Message remainder(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull String pair, @NotNull ZonedDateTime fromDate, @NotNull String message) {
         RemainderAlert remainderAlert = new RemainderAlert(NEW_ALERT_ID, context.user.getIdLong(),
                 context.serverId(), context.locale, now, // creation date
                 fromDate, // listening date
                 pair, message, fromDate);
 
-        long alertId = alertsDao.addAlert(remainderAlert);
+        long alertId = context.transactional(txCtx -> txCtx.alertsDao().addAlert(remainderAlert));
         String answer = context.user.getAsMention() + " New remainder added with id " + alertId +
                 "\n\n* pair : " + remainderAlert.pair +
                 "\n* date : " + formatUTC(fromDate) +

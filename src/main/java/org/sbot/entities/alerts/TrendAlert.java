@@ -75,7 +75,7 @@ public final class TrendAlert extends Alert {
     }
 
     @NotNull
-    static BigDecimal currentTrendPrice(@NotNull ZonedDateTime actualTime, @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice, @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate) {
+    public static BigDecimal currentTrendPrice(@NotNull ZonedDateTime actualTime, @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice, @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate) {
         return fromPrice.add(priceDelta(actualTime, fromPrice, toPrice, fromDate, toDate)).max(BigDecimal.ZERO);
     }
 

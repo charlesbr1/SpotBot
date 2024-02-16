@@ -8,8 +8,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
-import org.sbot.services.context.TransactionalContext;
-import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.ArgumentValidator;
 
 import java.awt.*;
@@ -54,10 +52,7 @@ public final class DeleteCommand extends CommandAdapter {
                 context.args.getMandatoryUserId("owner") : null;
 
         LOGGER.debug("delete command - alert_id : {}, owner : {}, ticker_pair : {}", alertId, ownerId, tickerOrPair);
-        Runnable[] notificationCallBack = new Runnable[1];
-        context.noMoreArgs().transaction(txCtx -> context.reply(delete(context, txCtx, alertId, ownerId, null != tickerOrPair ? tickerOrPair : DELETE_ALL, notificationCallBack), responseTtlSeconds));
-        // perform user notification of its alerts being deleted, if needed, once transaction is done.
-        Optional.ofNullable(notificationCallBack[0]).ifPresent(Runnable::run);
+        context.noMoreArgs().reply(delete(context, alertId, ownerId, null != tickerOrPair ? tickerOrPair : DELETE_ALL), responseTtlSeconds);
     }
 
     static void validateExclusiveArguments(@Nullable Long alertId, @Nullable String tickerOrPair) {
@@ -69,35 +64,37 @@ public final class DeleteCommand extends CommandAdapter {
         }
     }
 
-    private Message delete(@NotNull CommandContext context, @NotNull TransactionalContext txCtx, @Nullable Long alertId, @Nullable Long ownerId, @NotNull String tickerOrPair, @NotNull Runnable[] outNotificationCallBack) {
+    private Message delete(@NotNull CommandContext context, @Nullable Long alertId, @Nullable Long ownerId, @NotNull String tickerOrPair) {
         if (null != alertId) { // single id delete
-            return deleteById(context, alertId, outNotificationCallBack);
+            return deleteById(context, alertId);
         } else if (null == ownerId || // if ownerId is null -> delete all alerts of current user, or filtered by ticker or pair
                 hasRightOnUser(context, ownerId)) { // ownerId != null -> only an admin can delete alerts of other users on his server
-            return deleteByOwnerOrTickerPair(context, txCtx.alertsDao(), ownerId, tickerOrPair, outNotificationCallBack);
+            return deleteByOwnerOrTickerPair(context, ownerId, tickerOrPair);
         } else {
             return Message.of(embedBuilder(":clown:" + ' ' + context.user.getEffectiveName(), Color.black, "You are not allowed to delete your mates' alerts" +
                     (isPrivateChannel(context) ? ", you are on a private channel." : "")));
         }
     }
 
-    private Message deleteById(@NotNull CommandContext context, long alertId, @NotNull Runnable[] outNotificationCallBack) {
-        var answer = securedAlertAccess(alertId, context, (alert, alertsDao) -> {
+    private Message deleteById(@NotNull CommandContext context, long alertId) {
+        Runnable[] outNotificationCallBack = new Runnable[1];
+        var answer = context.transactional(txCtx -> securedAlertAccess(alertId, context, (alert, alertsDao) -> {
             alertsDao.deleteAlert(alertId);
             if(context.user.getIdLong() != alert.userId) {
                 outNotificationCallBack[0] = () -> sendUpdateNotification(context, alert.userId, ownerDeleteNotification(alertId, requireNonNull(context.member)));
             }
             return embedBuilder("Alert " + alertId + " deleted");
-        });
+        }));
+        Optional.ofNullable(outNotificationCallBack[0]).ifPresent(Runnable::run);
         return Message.of(answer);
     }
 
-    private Message deleteByOwnerOrTickerPair(@NotNull CommandContext context, @NotNull AlertsDao alertsDao, @Nullable Long ownerId, @NotNull String tickerOrPair, @NotNull Runnable[] outNotificationCallBack) {
-        long deleted = DELETE_ALL.equalsIgnoreCase(tickerOrPair) ?
-                alertsDao.deleteAlerts(context.serverId(), null != ownerId ? ownerId : context.user.getIdLong()) :
-                alertsDao.deleteAlerts(context.serverId(), null != ownerId ? ownerId : context.user.getIdLong(), tickerOrPair.toUpperCase());
+    private Message deleteByOwnerOrTickerPair(@NotNull CommandContext context, @Nullable Long ownerId, @NotNull String tickerOrPair) {
+        long deleted = context.transactional(txCtx -> DELETE_ALL.equalsIgnoreCase(tickerOrPair) ?
+                txCtx.alertsDao().deleteAlerts(context.serverId(), null != ownerId ? ownerId : context.user.getIdLong()) :
+                txCtx.alertsDao().deleteAlerts(context.serverId(), null != ownerId ? ownerId : context.user.getIdLong(), tickerOrPair.toUpperCase()));
         if(deleted > 0 && null != ownerId && context.user.getIdLong() != ownerId) {
-            outNotificationCallBack[0] = () -> sendUpdateNotification(context, ownerId, ownerDeleteNotification(tickerOrPair, requireNonNull(context.member), deleted));
+            sendUpdateNotification(context, ownerId, ownerDeleteNotification(tickerOrPair, requireNonNull(context.member), deleted));
         }
         return Message.of(embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), Color.green, deleted + " " + (deleted > 1 ? " alerts" : " alert") + " deleted"));
     }
