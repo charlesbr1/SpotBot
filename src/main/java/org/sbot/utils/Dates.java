@@ -49,6 +49,9 @@ public interface Dates {
         try {
             zone = null == zoneId || zoneId.isEmpty() ? UTC : ZoneId.of(zoneId, ZoneId.SHORT_IDS);
         } catch (DateTimeException e) {
+            if(!zoneId.startsWith("-")) {
+                throw e;
+            }
             zone = ZoneId.of(zoneId.replaceFirst("-", ""), ZoneId.SHORT_IDS);
         }
         return Instant.now().atZone(zone);

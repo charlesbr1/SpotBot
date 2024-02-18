@@ -43,6 +43,9 @@ public class DatesTest {
     @Test
     void parse() {
         assertThrows(NullPointerException.class, () -> Dates.parse(null));
+        assertThrows(DateTimeException.class, () -> Dates.parse("now-"));
+        assertThrows(DateTimeException.class, () -> Dates.parse("now--"));
+        assertThrows(DateTimeException.class, () -> Dates.parse("nowUTC-"));
 
         ZonedDateTime date = Instant.now().atZone(UTC);
         ZonedDateTime dateBefore = date.minusMinutes(1L).minusSeconds(1L);
@@ -68,11 +71,13 @@ public class DatesTest {
         date = Instant.now().atZone(ZoneId.of("+12:33"));
         dateBefore = date.minusMinutes(1L).minusSeconds(1L);
         dateAfter = date.plusMinutes(1L).plusSeconds(1L);
+        assertTrue(Dates.parse("now-+12:33").isBefore(dateAfter));
         assertTrue(Dates.parse("now+12:33").isBefore(dateAfter));
         assertTrue(Dates.parse("now+12:33").isAfter(dateBefore));
         date = Instant.now().atZone(ZoneId.of("-08:01"));
         dateBefore = date.minusMinutes(1L).minusSeconds(1L);
         dateAfter = date.plusMinutes(1L).plusSeconds(1L);
+        assertTrue(Dates.parse("now--08:01").isBefore(dateAfter));
         assertTrue(Dates.parse("now-08:01").isBefore(dateAfter));
         assertTrue(Dates.parse("now-08:01").isAfter(dateBefore));
 

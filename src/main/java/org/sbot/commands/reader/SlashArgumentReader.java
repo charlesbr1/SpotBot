@@ -59,7 +59,7 @@ public final class SlashArgumentReader implements ArgumentReader {
     @Override
     public Optional<Long> getUserId(@NotNull String fieldName) {
         return getValue(fieldName, OptionMapping::getAsUser, User::getIdLong)
-                .or(() -> getValue(fieldName, OptionMapping::getAsString, ArgumentValidator::requireUser)); // needed if the field is declared as STRING
+                .or(() -> getValue(fieldName, OptionMapping::getAsString, ArgumentValidator::requireUser)); // needed if the field is declared as STRING (list command)
     }
 
     private <T, U> Optional<T> getValue(@NotNull String fieldName, @NotNull Function<? super OptionMapping, ? extends U> optionMapping, @NotNull Function<U, T> mapper) {

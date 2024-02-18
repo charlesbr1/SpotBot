@@ -13,9 +13,10 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.function.Function;
 
 import static java.time.ZoneId.SHORT_IDS;
-import static java.util.stream.Collectors.joining;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.utils.Dates.DATE_TIME_FORMAT;
 import static org.sbot.utils.Dates.NOW_ARGUMENT;
@@ -24,7 +25,7 @@ public final class UtcCommand extends CommandAdapter {
 
     private static final String NAME = "utc";
     static final String DESCRIPTION = "convert a date time into the utc time zone, helping with commands that expect a date in UTC";
-    private static final int RESPONSE_TTL_SECONDS = 30;
+    private static final int RESPONSE_TTL_SECONDS = 180;
 
 
     private static final String CHOICE_NOW = NOW_ARGUMENT;
@@ -33,7 +34,7 @@ public final class UtcCommand extends CommandAdapter {
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(
                     option(STRING, "zone", "'now' to get the current utc time, 'list' to get available time zones, or the time zone of your date", true)
-                            .setMaxLength(4),
+                            .setMinLength(1),
                     option(STRING, "date", "a date to convert in UTC, expected format : " + DATE_TIME_FORMAT, false)
                             .setMinLength(DATE_TIME_FORMAT.length()));
 
@@ -49,11 +50,11 @@ public final class UtcCommand extends CommandAdapter {
         context.noMoreArgs().reply(utc(context, choice, date), responseTtlSeconds);
     }
 
-    private Message utc(@NotNull CommandContext context, @NotNull String choice, @Nullable LocalDateTime date) {
+    private List<Message> utc(@NotNull CommandContext context, @NotNull String choice, @Nullable LocalDateTime date) {
         return switch (choice) {
-            case CHOICE_NOW -> now(context.clock());
+            case CHOICE_NOW -> List.of(now(context.clock()));
             case CHOICE_LIST -> list();
-            default -> toUTC(choice.toUpperCase(), date);
+            default -> List.of(toUTC(choice, date));
         };
     }
 
@@ -61,20 +62,24 @@ public final class UtcCommand extends CommandAdapter {
         return Message.of(embedBuilder(" ", Color.green, "Current UTC date time :\n\n> " + Dates.format(Dates.nowUtc(clock))));
     }
 
-    private Message list() {
-        return Message.of(embedBuilder(" ", Color.green, "Available time zones :\n\n>>> " + SHORT_IDS.entrySet().stream()
-                .map(entry -> entry.getKey() + " : " + entry.getValue())
-                .collect(joining("\n"))));
+    private List<Message> list() {
+        var zoneIds = ZoneId.getAvailableZoneIds();
+        zoneIds.addAll(SHORT_IDS.keySet());
+        var zones = zoneIds.stream().sorted().toList();
+        Function<List<String>, String> toString = list -> String.join(", ", list);
+        int splitIndex = zones.size() / 3;
+
+        return List.of(Message.of(embedBuilder(" ", Color.green, "Available time zones :\n\n>>> " +
+                "+HH:mm, -HH:mm,\n" + toString.apply(zones.subList(0, splitIndex)))),
+                Message.of(embedBuilder(" ", Color.green, ">>> " + toString.apply(zones.subList(splitIndex, 2 * splitIndex)))),
+                Message.of(embedBuilder(" ", Color.green, ">>> " + toString.apply(zones.subList(2 * splitIndex, zones.size())))));
     }
 
     private Message toUTC(@NotNull String timeZone, @Nullable LocalDateTime date) {
-        if(!SHORT_IDS.containsKey(timeZone)) {
-            throw new IllegalArgumentException("Invalid time zone : " + timeZone + "\nuse *utc list* to see the available ones");
-        }
         if(null == date) {
             throw new IllegalArgumentException("Missing date time field");
         }
-        ZonedDateTime zonedDateTime = date.atZone(ZoneId.of(SHORT_IDS.get(timeZone)));
+        ZonedDateTime zonedDateTime = date.atZone(ZoneId.of(timeZone, SHORT_IDS));
         return Message.of(embedBuilder(" ", Color.green, Dates.formatUTC(zonedDateTime)));
     }
 }
