@@ -48,12 +48,12 @@ public final class SlashArgumentReader implements ArgumentReader {
 
     @Override
     public Optional<ZonedDateTime> getDateTime(@NotNull String fieldName) {
-        return getValue(fieldName, OptionMapping::getAsString, Dates::parseUTC);
+        return getValue(fieldName, OptionMapping::getAsString, Dates::parse);
     }
 
     @Override
     public Optional<LocalDateTime> getLocalDateTime(@NotNull String fieldName) {
-        return getValue(fieldName, OptionMapping::getAsString, Dates::parse);
+        return getValue(fieldName, OptionMapping::getAsString, Dates::parseLocal);
     }
 
     @Override

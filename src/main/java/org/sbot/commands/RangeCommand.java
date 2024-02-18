@@ -25,8 +25,7 @@ import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
-import static org.sbot.utils.Dates.DATE_TIME_FORMAT;
-import static org.sbot.utils.Dates.formatUTC;
+import static org.sbot.utils.Dates.*;
 
 public final class RangeCommand extends CommandAdapter {
 
@@ -46,9 +45,9 @@ public final class RangeCommand extends CommandAdapter {
             option(NUMBER, "high", "the high range price", false)
                     .setMinValue(0d),
             option(STRING, "from_date", "a date to start the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false)
-                    .setMinLength(DATE_TIME_FORMAT.length()).setMaxLength(DATE_TIME_FORMAT.length()),
+                    .setMinLength(NOW_ARGUMENT.length()),
             option(STRING, "to_date", "a future date to end the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false)
-                    .setMinLength(DATE_TIME_FORMAT.length()).setMaxLength(DATE_TIME_FORMAT.length()));
+                    .setMinLength(DATE_TIME_FORMAT.length()));
 
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(optionList);

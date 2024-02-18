@@ -64,12 +64,12 @@ public final class StringArgumentReader implements ArgumentReader {
 
     @Override
     public Optional<ZonedDateTime> getDateTime(@NotNull String unused) {
-        return getNext(Dates::parseUTC);
+        return getNext(Dates::parse);
     }
 
     @Override
     public Optional<LocalDateTime> getLocalDateTime(@NotNull String unused) {
-        return getNext(Dates::parse);
+        return getNext(Dates::parseLocal);
     }
 
     @Override

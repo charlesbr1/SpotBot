@@ -18,6 +18,7 @@ import static java.time.ZoneId.SHORT_IDS;
 import static java.util.stream.Collectors.joining;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.utils.Dates.DATE_TIME_FORMAT;
+import static org.sbot.utils.Dates.NOW_ARGUMENT;
 
 public final class UtcCommand extends CommandAdapter {
 
@@ -26,7 +27,7 @@ public final class UtcCommand extends CommandAdapter {
     private static final int RESPONSE_TTL_SECONDS = 30;
 
 
-    private static final String CHOICE_NOW = "now";
+    private static final String CHOICE_NOW = NOW_ARGUMENT;
     private static final String CHOICE_LIST = "list";
 
     private static final SlashCommandData options =
@@ -34,7 +35,7 @@ public final class UtcCommand extends CommandAdapter {
                     option(STRING, "zone", "'now' to get the current utc time, 'list' to get available time zones, or the time zone of your date", true)
                             .setMaxLength(4),
                     option(STRING, "date", "a date to convert in UTC, expected format : " + DATE_TIME_FORMAT, false)
-                            .setMinLength(DATE_TIME_FORMAT.length()).setMaxLength(DATE_TIME_FORMAT.length()));
+                            .setMinLength(DATE_TIME_FORMAT.length()));
 
     public UtcCommand() {
         super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);

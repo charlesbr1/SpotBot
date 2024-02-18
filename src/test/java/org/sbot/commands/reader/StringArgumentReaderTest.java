@@ -103,11 +103,11 @@ class StringArgumentReaderTest {
         assertEquals("test", reader.getLastArgs("").get());
 
         reader = new StringArgumentReader(" 12/12/2000-20:00");
-        assertEquals(Dates.parse("12/12/2000-20:00"), reader.getLocalDateTime("").get());
+        assertEquals(Dates.parseLocal("12/12/2000-20:00"), reader.getLocalDateTime("").get());
 
         reader = new StringArgumentReader(" 12/12/2000-20:00 02/11/2200-00:00 ");
-        assertEquals(Dates.parse("12/12/2000-20:00"), reader.getLocalDateTime("").get());
-        assertEquals(Dates.parse("02/11/2200-00:00"), reader.getLocalDateTime("").get());
+        assertEquals(Dates.parseLocal("12/12/2000-20:00"), reader.getLocalDateTime("").get());
+        assertEquals(Dates.parseLocal("02/11/2200-00:00"), reader.getLocalDateTime("").get());
         assertTrue(reader.getLocalDateTime("").isEmpty());
         assertTrue(reader.getLastArgs("").isEmpty());
     }

@@ -15,10 +15,10 @@ import org.jdbi.v3.core.statement.PreparedBatch;
 import org.jdbi.v3.core.statement.Query;
 import org.jdbi.v3.core.statement.Update;
 import org.jetbrains.annotations.NotNull;
+import org.sbot.utils.Dates;
 
 import java.sql.Timestamp;
 import java.sql.Types;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.function.Consumer;
@@ -134,7 +134,7 @@ public final class JDBIRepository {
 
     Optional<ZonedDateTime> findOneDateTime(@NotNull Handle handle, @NotNull String sql, @NotNull Map<String, ?> parameters) {
         return findOne(handle, sql, Timestamp.class, parameters)
-                .map(timestamp -> timestamp.toInstant().atZone(ZoneOffset.UTC));
+                .map(timestamp -> timestamp.toInstant().atZone(Dates.UTC));
     }
 
     void batchUpdates(@NotNull Handle handle, @NotNull Consumer<BatchEntry> updater, @NotNull String sql, @NotNull Map<String, Object> parameters) {

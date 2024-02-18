@@ -14,11 +14,11 @@ import org.sbot.services.context.Context;
 import org.sbot.services.context.TransactionalContext;
 import org.sbot.services.dao.sql.jdbi.AbstractJDBITest.RowMapperTest;
 import org.sbot.services.dao.sql.jdbi.AbstractJDBITest.TestAbstractJDBI;
+import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -81,7 +81,7 @@ public class JDBIRepositoryTest {
     public static final Locale TEST_LOCALE = Locale.CANADA_FRENCH;
     public static final Locale TEST_LOCALE2 = Locale.TAIWAN;
     public static final ZonedDateTime TEST_DATE = ZonedDateTime.now().truncatedTo(ChronoUnit.MILLIS);
-    public static final ZonedDateTime TEST_DATE_UTC = TEST_DATE.withZoneSameInstant(ZoneOffset.UTC);
+    public static final ZonedDateTime TEST_DATE_UTC = TEST_DATE.withZoneSameInstant(Dates.UTC);
 
     private JDBIRepository repository;
 

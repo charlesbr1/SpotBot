@@ -26,8 +26,7 @@ import static org.sbot.entities.chart.Ticker.formatPrice;
 import static org.sbot.entities.chart.Ticker.getSymbol;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
-import static org.sbot.utils.Dates.DATE_TIME_FORMAT;
-import static org.sbot.utils.Dates.formatUTC;
+import static org.sbot.utils.Dates.*;
 
 public final class TrendCommand extends CommandAdapter {
 
@@ -45,11 +44,11 @@ public final class TrendCommand extends CommandAdapter {
             option(NUMBER, "from_price", "the first price", true)
                     .setMinValue(0d),
             option(STRING, "from_date", "the date of first price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
-                    .setMinLength(DATE_TIME_FORMAT.length()).setMaxLength(DATE_TIME_FORMAT.length()),
+                    .setMinLength(NOW_ARGUMENT.length()),
             option(NUMBER, "to_price", "the second price", true)
                     .setMinValue(0d),
             option(STRING, "to_date", "the date of second price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
-                    .setMinLength(DATE_TIME_FORMAT.length()).setMaxLength(DATE_TIME_FORMAT.length()));
+                    .setMinLength(NOW_ARGUMENT.length()));
 
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addSubcommands(
