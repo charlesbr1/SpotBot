@@ -2,7 +2,6 @@ package org.sbot.utils;
 
 import org.junit.jupiter.api.Test;
 
-import java.time.Clock;
 import java.time.ZonedDateTime;
 
 import static java.math.BigDecimal.*;
@@ -164,18 +163,6 @@ class ArgumentValidatorTest {
         assertEquals("message", ArgumentValidator.requireAlertMessageMaxLength("message"));
         assertEquals("1".repeat(ALERT_MESSAGE_ARG_MAX_LENGTH), ArgumentValidator.requireAlertMessageMaxLength("1".repeat(ALERT_MESSAGE_ARG_MAX_LENGTH)));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireAlertMessageMaxLength("1".repeat(1 + ALERT_MESSAGE_ARG_MAX_LENGTH)));
-    }
-
-    @Test
-    void requireInPast() {
-        ZonedDateTime now = nowUtc();
-        assertEquals(now, ArgumentValidator.requireInPast(Clock.systemUTC(), now));
-        assertEquals(now.minusSeconds(1L), ArgumentValidator.requireInPast(Clock.systemUTC(), now.minusSeconds(1L)));
-        assertEquals(now.minusMinutes(1L), ArgumentValidator.requireInPast(Clock.systemUTC(), now.minusMinutes(1L)));
-        assertEquals(now.minusDays(3L), ArgumentValidator.requireInPast(Clock.systemUTC(), now.minusDays(3L)));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInPast(Clock.systemUTC(), now.plusSeconds(1L)));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInPast(Clock.systemUTC(), now.plusMinutes(1L)));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInPast(Clock.systemUTC(), now.plusDays(3L)));
     }
 
     @Test

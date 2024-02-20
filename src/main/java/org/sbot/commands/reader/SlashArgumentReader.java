@@ -8,8 +8,10 @@ import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -47,13 +49,13 @@ public final class SlashArgumentReader implements ArgumentReader {
     }
 
     @Override
-    public Optional<ZonedDateTime> getDateTime(@NotNull String fieldName) {
-        return getValue(fieldName, OptionMapping::getAsString, Dates::parse);
+    public Optional<ZonedDateTime> getDateTime(@NotNull Locale locale, @NotNull Clock clock, @NotNull String fieldName) {
+        return getValue(fieldName, OptionMapping::getAsString, date -> Dates.parse(locale, clock, date));
     }
 
     @Override
-    public Optional<LocalDateTime> getLocalDateTime(@NotNull String fieldName) {
-        return getValue(fieldName, OptionMapping::getAsString, Dates::parseLocal);
+    public Optional<LocalDateTime> getLocalDateTime(@NotNull Locale locale, @NotNull String fieldName) {
+        return getValue(fieldName, OptionMapping::getAsString, date -> Dates.parseLocalDateTime(locale, date));
     }
 
     @Override

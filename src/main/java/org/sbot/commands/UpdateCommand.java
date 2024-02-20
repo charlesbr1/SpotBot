@@ -22,9 +22,10 @@ import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.*;
+import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
 import static org.sbot.services.discord.Discord.guildName;
 import static org.sbot.utils.ArgumentValidator.*;
-import static org.sbot.utils.Dates.formatUTC;
+import static org.sbot.utils.Dates.formatDiscord;
 
 public final class UpdateCommand extends CommandAdapter {
 
@@ -129,14 +130,14 @@ public final class UpdateCommand extends CommandAdapter {
     }
 
     private BiFunction<Alert, AlertsDao, EmbedBuilder> fromDate(@NotNull CommandContext context, @NotNull ZonedDateTime now, long alertId, @NotNull Runnable[] outNotificationCallBack) {
-        ZonedDateTime fromDate = context.args.getDateTime("value").orElse(null);
+        ZonedDateTime fromDate = context.args.getDateTime(context.locale, context.clock(), "value").orElse(null);
         return (alert, alertsDao) -> {
             if(null == fromDate && (context.args.getString("") .isPresent() || (alert.type == trend || alert.type == remainder))) {
                 throw new IllegalArgumentException("Missing from_date value, expected format : " + Dates.DATE_TIME_FORMAT + " UTC");
             } else if(alert.type == remainder) {
                 requireInFuture(now, fromDate);
             }
-            String date = null != fromDate ? formatUTC(fromDate) : "null";
+            String date = null != fromDate ? formatDiscord(fromDate) : "null";
             if((null != fromDate && null == alert.fromDate) ||
                     (null != fromDate && fromDate.compareTo(alert.fromDate) != 0) ||
                     (null == fromDate && null != alert.fromDate)) {
@@ -149,14 +150,14 @@ public final class UpdateCommand extends CommandAdapter {
     }
 
     private BiFunction<Alert, AlertsDao, EmbedBuilder> toDate(@NotNull CommandContext context, @NotNull ZonedDateTime now, long alertId, @NotNull Runnable[] outNotificationCallBack) {
-        ZonedDateTime toDate = context.args.getDateTime("value").orElse(null);
+        ZonedDateTime toDate = context.args.getDateTime(context.locale, context.clock(), "value").orElse(null);
         return (alert, alertsDao) -> {
             if(null == toDate  && (context.args.getString("") .isPresent() || alert.type == trend)) {
                 throw new IllegalArgumentException("Missing to_date value, expected format : " + Dates.DATE_TIME_FORMAT + " UTC");
             } else if(null != toDate) {
                 requireInFuture(now, toDate);
             }
-            String date = null != toDate ? formatUTC(toDate) : "null";
+            String date = null != toDate ? formatDiscord(toDate) : "null";
             if((null != toDate && null == alert.toDate) ||
                     (null != toDate && toDate.compareTo(alert.toDate) != 0) ||
                     (null == toDate && null != alert.toDate)) {
@@ -215,7 +216,8 @@ public final class UpdateCommand extends CommandAdapter {
         boolean enable = Boolean.parseBoolean(context.args.getMandatoryString("value"));
         return (alert, alertsDao) -> {
             if(enable != alert.isEnabled()) {
-                alert = alert.withListeningDateRepeat(enable ? now : null, enable && alert.repeat <= 0 ? DEFAULT_REPEAT : (enable ? alert.repeat : 0));
+                short repeat = enable && alert.repeat <= 0 ? (remainder == alert.type ? REMAINDER_DEFAULT_REPEAT : DEFAULT_REPEAT) : (enable ? alert.repeat : 0);
+                alert = alert.withListeningDateRepeat(enable ? now : null, repeat);
                 alertsDao.updateListeningDateRepeat(alertId, alert.listeningDate, alert.repeat);
                 return updateNotifyMessage(context, now, alert, enable ? UPDATE_ENABLED_HEADER : UPDATE_DISABLED_HEADER, Boolean.toString(enable), CHOICE_ENABLE, outNotificationCallBack);
             }

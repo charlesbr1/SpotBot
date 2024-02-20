@@ -68,7 +68,7 @@ public final class TrendCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         var alertId = context.args.getLong("alert_id").map(ArgumentValidator::requirePositive);
         if(alertId.isPresent()) {
-            var date = context.args.getMandatoryDateTime("date");
+            var date = context.args.getMandatoryDateTime(context.locale, context.clock(), "date");
             LOGGER.debug("trend command - alert_id : {}, date : {}", alertId, date);
             context.noMoreArgs().reply(trendPrice(context, date, alertId.get()), responseTtlSeconds);
             return;
@@ -76,9 +76,9 @@ public final class TrendCommand extends CommandAdapter {
         String exchange = requireSupportedExchange(context.args.getMandatoryString("exchange"));
         String pair = requirePairFormat(context.args.getMandatoryString("pair").toUpperCase());
         var reversed = context.args.reversed();
-        ZonedDateTime toDate = reversed.getMandatoryDateTime("to_date");
+        ZonedDateTime toDate = reversed.getMandatoryDateTime(context.locale, context.clock(), "to_date");
         BigDecimal toPrice = requirePositive(reversed.getMandatoryNumber("to_price"));
-        ZonedDateTime fromDate = reversed.getMandatoryDateTime("from_date");
+        ZonedDateTime fromDate = reversed.getMandatoryDateTime(context.locale, context.clock(), "from_date");
         BigDecimal fromPrice = requirePositive(reversed.getMandatoryNumber("from_price"));
         String message = requireAlertMessageMaxLength(reversed.getLastArgs("message")
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
@@ -112,8 +112,8 @@ public final class TrendCommand extends CommandAdapter {
 
         String answer = context.user.getAsMention() + " New trend alert added with id " + alertId +
                 "\n\n* pair : " + trendAlert.pair + "\n* exchange : " + exchange +
-                "\n* from price " + fromPrice + "\n* from date " + formatUTC(fromDate) +
-                "\n* to price " + toPrice + "\n* to date " + formatUTC(toDate) +
+                "\n* from price " + fromPrice + "\n* from date " + formatDiscord(fromDate) +
+                "\n* to price " + toPrice + "\n* to date " + formatDiscord(toDate) +
                 "\n* message : " + message +
                 alertMessageTips(message, alertId);
 
@@ -123,13 +123,13 @@ public final class TrendCommand extends CommandAdapter {
     private Message trendPrice(@NotNull CommandContext context, @NotNull ZonedDateTime date, long alertId) {
         var answer = context.transactional(txCtx -> securedAlertAccess(alertId, context, (alert, alertsDao) -> {
             if(trend == alert.type) {
-                return embedBuilder("[" + alert.pair + "] at " + Dates.formatUTC(date) + " : **" +
+                return embedBuilder("[" + alert.pair + "] at " + Dates.formatDiscord(date) + " : **" +
                         formatPrice(currentTrendPrice(date, alert.fromPrice, alert.toPrice, alert.fromDate, alert.toDate), alert.getTicker2()) + "**")
                         .addField("from price", alert.fromPrice.toPlainString() + ' ' + getSymbol(alert.getTicker2()), true)
-                        .addField("from date", formatUTC(alert.fromDate), true)
+                        .addField("from date", formatDiscord(alert.fromDate), true)
                         .addBlankField(true)
                         .addField("to price", alert.toPrice.toPlainString() + ' ' + getSymbol(alert.getTicker2()), true)
-                        .addField("to date", formatUTC(alert.toDate), true)
+                        .addField("to date", formatDiscord(alert.toDate), true)
                         .addBlankField(true)
                         .addField("current trend price", formatPrice(currentTrendPrice(Dates.nowUtc(context.clock()), alert.fromPrice, alert.toPrice, alert.fromDate, alert.toDate), alert.getTicker2()), true);
             }

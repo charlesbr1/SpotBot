@@ -61,16 +61,17 @@ public final class RangeCommand extends CommandAdapter {
         String exchange = requireSupportedExchange(context.args.getMandatoryString("exchange"));
         String pair = requirePairFormat(context.args.getMandatoryString("pair").toUpperCase());
         var reversed = context.args.reversed();
-        ZonedDateTime toDate = reversed.getDateTime("to_date").orElse(null);
-        ZonedDateTime fromDate = null != toDate ? reversed.getDateTime("from_date").orElse(null) : null;
+        boolean stringReader = context.args instanceof StringArgumentReader;
+        ZonedDateTime toDate = reversed.getDateTime(context.locale, context.clock(), "to_date").orElse(null);
+        ZonedDateTime fromDate = !stringReader || null != toDate ? reversed.getDateTime(context.locale, context.clock(), "from_date").orElse(null) : null;
         BigDecimal toPrice = reversed.getNumber("high").map(ArgumentValidator::requirePositive).orElse(null);
         BigDecimal fromPrice = reversed.getNumber("low").map(ArgumentValidator::requirePositive).orElse(null);
-        if (context.args instanceof StringArgumentReader) {
-            if(null != toDate && null == fromDate) {
+        if (stringReader) { // optional arguments are rode backward, this need to ensure correct arguments mapping
+            if(null != toDate && null == fromDate) { // both dates are optional, but fromDate is first
                 fromDate = toDate;
                 toDate = null;
             }
-           if(null == fromPrice) {
+           if(null == fromPrice) { // toPrice mandatory, fromPrice optional
                 fromPrice = toPrice;
             }
         } else if(null == toPrice) {
@@ -108,7 +109,7 @@ public final class RangeCommand extends CommandAdapter {
         }
         RangeAlert rangeAlert = new RangeAlert(NEW_ALERT_ID, context.user.getIdLong(),
                 context.serverId(), context.locale, now, // creation date
-                null != fromDate ? fromDate : now, // listening date
+                null != fromDate && fromDate.isAfter(now) ? fromDate : now, // listening date
                 exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
 
@@ -117,8 +118,8 @@ public final class RangeCommand extends CommandAdapter {
         String answer = context.user.getAsMention() + " New range alert added with id " + alertId +
                 "\n\n* pair : " + rangeAlert.pair + "\n* exchange : " + exchange +
                 "\n* low " + fromPrice + "\n* high " + toPrice +
-                (null != fromDate ? "\n* from date " + formatUTC(fromDate) : "") +
-                (null != toDate ? "\n* to date " + formatUTC(toDate) : "") +
+                (null != fromDate ? "\n* from date " + formatDiscord(fromDate) : "") +
+                (null != toDate ? "\n* to date " + formatDiscord(toDate) : "") +
                 "\n* message : " + message +
                 alertMessageTips(message, alertId);
 

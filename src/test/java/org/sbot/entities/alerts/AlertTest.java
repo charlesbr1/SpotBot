@@ -17,6 +17,7 @@ import java.util.stream.Stream;
 
 import static java.math.BigDecimal.ONE;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.*;
@@ -33,7 +34,7 @@ public class AlertTest {
     public static final String TEST_MESSAGE = "test message";
     public static final BigDecimal TEST_FROM_PRICE = BigDecimal.valueOf(10L);
     public static final BigDecimal TEST_TO_PRICE = BigDecimal.valueOf(20L);
-    public static final ZonedDateTime TEST_FROM_DATE = Dates.parseUTC("01/01/2000-20:00");
+    public static final ZonedDateTime TEST_FROM_DATE = Dates.parse(Locale.US, mock(), "01/01/2000-20:00");
     public static final ZonedDateTime TEST_TO_DATE = TEST_FROM_DATE.plusDays(1L);
     public static final ZonedDateTime TEST_LAST_TRIGGER = TEST_FROM_DATE.plusHours(1L);
     public static final BigDecimal TEST_MARGIN = BigDecimal.TEN;
@@ -81,8 +82,8 @@ public class AlertTest {
     }
 
     public static Alert createTestAlertWithCreationDate(ZonedDateTime creationDate) {
-        return new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, creationDate, TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
-                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
+        return new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, creationDate, creationDate, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, creationDate,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
     }
 
@@ -180,9 +181,13 @@ public class AlertTest {
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, nowUtc().plusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
-        // last trigger not in the future
+        // listening date before creationDate
+        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE, TEST_FROM_DATE.minusSeconds(1L), TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
+                TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // last trigger before creationDate
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
-                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, nowUtc().plusMinutes(1L),
+                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_FROM_DATE.minusMinutes(1L).minusSeconds(1L),
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // margin positive
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
@@ -371,7 +376,7 @@ public class AlertTest {
         assertThrows(IllegalArgumentException.class, () -> alert.withLastTriggerMargin(now, BigDecimal.valueOf(-1L)));
         assertDoesNotThrow(() -> alert.withLastTriggerMargin(now, ONE));
         assertDoesNotThrow(() -> alert.withLastTriggerMargin(now.minusMinutes(1L), ONE));
-        assertThrows(IllegalArgumentException.class, () -> alert.withLastTriggerMargin(now.plusSeconds(1L), ONE));
+        assertThrows(IllegalArgumentException.class, () -> alert.withLastTriggerMargin(alert.creationDate.minusSeconds(1L), ONE));
     }
 
     @Test
@@ -416,7 +421,7 @@ public class AlertTest {
         assertEquals(lastTrigger, alert.withListeningDateLastTriggerMarginRepeat(now, lastTrigger, margin, repeat).lastTrigger);
         assertEquals(margin, alert.withListeningDateLastTriggerMarginRepeat(now, lastTrigger, margin, repeat).margin);
         assertEquals(repeat, alert.withListeningDateLastTriggerMarginRepeat(now, lastTrigger, margin, repeat).repeat);
-        assertThrows(IllegalArgumentException.class, () -> alert.withListeningDateLastTriggerMarginRepeat(now, nowUtc().plusMinutes(1), margin, repeat));
+        assertThrows(IllegalArgumentException.class, () -> alert.withListeningDateLastTriggerMarginRepeat(now, alert.creationDate.minusSeconds(1L), margin, repeat));
         assertThrows(IllegalArgumentException.class, () -> alert.withListeningDateLastTriggerMarginRepeat(now, lastTrigger, BigDecimal.valueOf(-1L), repeat));
         assertThrows(IllegalArgumentException.class, () -> alert.withListeningDateLastTriggerMarginRepeat(now, lastTrigger, margin, (short) -1));
     }

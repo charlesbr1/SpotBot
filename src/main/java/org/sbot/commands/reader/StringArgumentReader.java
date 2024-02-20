@@ -5,12 +5,10 @@ import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
@@ -63,13 +61,13 @@ public final class StringArgumentReader implements ArgumentReader {
     }
 
     @Override
-    public Optional<ZonedDateTime> getDateTime(@NotNull String unused) {
-        return getNext(Dates::parse);
+    public Optional<ZonedDateTime> getDateTime(@NotNull Locale locale, @NotNull Clock clock, @NotNull String unused) {
+        return getNext(date -> Dates.parse(locale, clock, date));
     }
 
     @Override
-    public Optional<LocalDateTime> getLocalDateTime(@NotNull String unused) {
-        return getNext(Dates::parseLocal);
+    public Optional<LocalDateTime> getLocalDateTime(@NotNull Locale locale, @NotNull String unused) {
+        return getNext(date -> Dates.parseLocalDateTime(locale, date));
     }
 
     @Override
@@ -82,7 +80,7 @@ public final class StringArgumentReader implements ArgumentReader {
         try {
             return getString("").map(mapper);
         } catch (RuntimeException e) {
-            this.remainingArguments = arguments; // restore previous state TODO doc
+            this.remainingArguments = arguments; // restore previous state
             return Optional.empty();
         }
     }

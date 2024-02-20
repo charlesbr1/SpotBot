@@ -175,7 +175,7 @@ public abstract class CommandContext implements Context {
     }
 
     @NotNull
-    private Locale findLocale(@NotNull User user) { // TODO check need some cache settings enabled
+    private Locale findLocale(@NotNull User user) { // TODO check if it needs some cache settings enabled
         return user.getMutualGuilds().stream().findFirst().map(Guild::getLocale).map(DiscordLocale::toLocale).orElse(Locale.ENGLISH);
     }
 

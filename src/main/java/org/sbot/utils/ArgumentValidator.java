@@ -3,15 +3,13 @@ package org.sbot.utils;
 import org.jetbrains.annotations.NotNull;
 
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
-import static org.sbot.utils.Dates.formatUTC;
-import static org.sbot.utils.Dates.nowUtc;
+import static org.sbot.utils.Dates.*;
 
 public interface ArgumentValidator {
 
@@ -94,19 +92,10 @@ public interface ArgumentValidator {
         return message;
     }
 
-    static ZonedDateTime requireInPast(@NotNull Clock clock, @NotNull ZonedDateTime zonedDateTime) {
-        ZonedDateTime now = nowUtc(clock);
-        if (zonedDateTime.isAfter(now)) {
-            throw new IllegalArgumentException("Provided date should be before actual UTC time : " + formatUTC(zonedDateTime) +
-                    " (actual UTC time : " + formatUTC(now) + ')');
-        }
-        return zonedDateTime;
-    }
-
     static ZonedDateTime requireInFuture(@NotNull ZonedDateTime now, @NotNull ZonedDateTime zonedDateTime) {
         if (zonedDateTime.isBefore(now)) {
-            throw new IllegalArgumentException("Provided date should be after actual UTC time : " + formatUTC(zonedDateTime) +
-                    " (actual UTC time : " + formatUTC(now) + ')');
+            throw new IllegalArgumentException("Provided date : " + formatDiscord(zonedDateTime) +
+                    ", should be after actual : " + formatDiscord(now));
         }
         return zonedDateTime;
     }

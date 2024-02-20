@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.ZonedDateTime;
+import java.util.Locale;
 
 import static java.util.Objects.requireNonNull;
 import static org.sbot.utils.Dates.formatUTC;
@@ -40,8 +41,8 @@ public record Candlestick(@NotNull ZonedDateTime openTime, @NotNull ZonedDateTim
     @NotNull
     public static CandlestickPeriod periodSince(@NotNull ZonedDateTime lastTime, @NotNull ZonedDateTime now) {
         if(now.isBefore(lastTime)) {
-            throw new IllegalArgumentException("Provided date should be after now time : " + formatUTC(lastTime) +
-            " (now UTC time : " + formatUTC(now) + ')');
+            throw new IllegalArgumentException("Provided date : " + formatUTC(Locale.getDefault(), lastTime) +
+                    ", should be after actual : " + formatUTC(Locale.getDefault(), now));
         }
         Duration duration = Duration.between(lastTime, now);
         int days = (int) duration.toDaysPart();

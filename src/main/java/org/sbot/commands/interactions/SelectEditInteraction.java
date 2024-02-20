@@ -107,7 +107,7 @@ public class SelectEditInteraction implements InteractionListener {
             case CHOICE_FROM_DATE, CHOICE_TO_DATE:
                 if(maxLength == 0) {
                     minLength = 3; // 'now'
-                    maxLength = DATE_TIME_FORMAT.length();
+                    maxLength = DATE_TIME_FORMAT.length() + 32; //TODO
                 }
             case CHOICE_FROM_PRICE, CHOICE_TO_PRICE:
             case CHOICE_MARGIN:

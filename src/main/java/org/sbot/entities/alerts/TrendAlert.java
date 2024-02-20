@@ -18,7 +18,8 @@ import static org.sbot.entities.chart.Ticker.formatPrice;
 import static org.sbot.entities.chart.Ticker.getSymbol;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.*;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
-import static org.sbot.utils.Dates.formatUTC;
+import static org.sbot.utils.Dates.formatDiscord;
+import static org.sbot.utils.Dates.formatDiscordRelative;
 
 public final class TrendAlert extends Alert {
 
@@ -98,12 +99,12 @@ public final class TrendAlert extends Alert {
                 "\n\n* id :\t" + id +
                 footer(matchingStatus);
         var embed = new EmbedBuilder().setDescription(description);
-        embed.addField("created", formatUTC(creationDate), true);
         embed.addField("from price", fromPrice.toPlainString() + ' ' + getSymbol(getTicker2()), true);
-        embed.addField("from date", formatUTC(fromDate), true);
-        embed.addField("current trend price", formatPrice(currentTrendPrice(now, fromPrice, toPrice, fromDate, toDate), getTicker2()), true);
+        embed.addField("from date", formatDiscord(fromDate) + '\n' + formatDiscordRelative(fromDate), true);
+        embed.addField("created", formatDiscordRelative(creationDate), true);
         embed.addField("to price", toPrice.toPlainString() + ' ' + getSymbol(getTicker2()), true);
-        embed.addField("to date", formatUTC(toDate), true);
+        embed.addField("to date", formatDiscord(toDate) + '\n' + formatDiscordRelative(toDate), true);
+        embed.addField("current trend price", formatPrice(currentTrendPrice(now, fromPrice, toPrice, fromDate, toDate), getTicker2()), true);
         return embed;
     }
 }

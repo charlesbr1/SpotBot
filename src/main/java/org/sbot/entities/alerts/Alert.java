@@ -13,7 +13,6 @@ import org.sbot.utils.Dates;
 
 import java.awt.*;
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.Locale;
@@ -28,7 +27,7 @@ import static org.sbot.entities.chart.Ticker.getSymbol;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.NOT_MATCHING;
 import static org.sbot.services.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
 import static org.sbot.utils.ArgumentValidator.*;
-import static org.sbot.utils.Dates.formatUTC;
+import static org.sbot.utils.Dates.formatDiscordRelative;
 
 public abstract class Alert {
 
@@ -94,8 +93,15 @@ public abstract class Alert {
         this.userId = userId;
         this.serverId = serverId;
         this.locale = requireNonNull(locale);
-        this.creationDate = requireInPast(Clock.systemUTC(), creationDate);
+        this.creationDate = requireNonNull(creationDate);
+        if(null != listeningDate && listeningDate.isBefore(creationDate)) {
+            throw new IllegalArgumentException("listeningDate before creationDate");
+        }
+        if(null != lastTrigger && lastTrigger.isBefore(creationDate)) {
+            throw new IllegalArgumentException("lastTrigger before creationDate");
+        }
         this.listeningDate = listeningDate;
+        this.lastTrigger = lastTrigger;
         this.exchange = requireSupportedExchange(exchange.toLowerCase()).intern();
         this.pair = requirePairFormat(pair.toUpperCase()).intern();
         this.message = requireAlertMessageMaxLength(message);
@@ -103,7 +109,6 @@ public abstract class Alert {
         this.toPrice = toPrice;
         this.fromDate = fromDate;
         this.toDate = toDate;
-        this.lastTrigger = null != lastTrigger ? requireInPast(Clock.systemUTC(), lastTrigger) : null;
         this.margin = requirePositive(margin);
         this.repeat = requirePositiveShort(repeat);
         this.snooze = requirePositiveShort(snooze);
@@ -270,12 +275,12 @@ public abstract class Alert {
                         " was **tested !**") +  "\n\n:rocket: Check out the price !!") +
                 (matchingStatus.notMatching() && isQuietOrDisabled(now) ? "\n\n** " + withQuietTime(now) + "**" : "") +
                 (matchingStatus.notMatching() ? Optional.ofNullable(lastTrigger)
-                        .map(Dates::formatUTC)
-                        .map("\n\nLast time raised : "::concat)
+                        .map(Dates::formatDiscordRelative)
+                        .map("\n\nRaised "::concat)
                         .orElse("") :
                         Optional.ofNullable(previousCandlestick).map(Candlestick::close)
                                 .map(price -> Ticker.formatPrice(price, getTicker2()))
-                                .map(price -> "\n\nLast close : " + price + " at " + formatUTC(previousCandlestick.closeTime()))
+                                .map(price -> "\n\nLast close : " + price + " at " + formatDiscordRelative(previousCandlestick.closeTime()))
                                 .orElse(""));    }
 
     @NotNull
@@ -293,13 +298,8 @@ public abstract class Alert {
         if(!isEnabled()) {
             return DISABLED;
         }
-        Duration duration = Duration.between(now, listeningDate);
-        long hours = duration.toHours();
-        long minutes = duration.toMinutesPart();
         return !isQuietOrDisabled(now) ? "" :
-                "QUIET for " + (hours > 0 ? (hours + (hours > 1 ? " hours " : " hour ")) : "") +
-                (duration.toMinutesPart() > 0 ? duration.toMinutesPart() + " min)" : "") +
-                (hours + minutes <= 0 ? duration.toSecondsPart() + ( duration.toSecondsPart() > 1 ? " seconds" : " second") : "");
+                "QUIET for " + Dates.formatDiscordRelative(listeningDate);
     }
 
     //TODO test

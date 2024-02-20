@@ -16,7 +16,8 @@ import java.util.Optional;
 import static org.sbot.entities.chart.Ticker.getSymbol;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.*;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
-import static org.sbot.utils.Dates.formatUTC;
+import static org.sbot.utils.Dates.formatDiscord;
+import static org.sbot.utils.Dates.formatDiscordRelative;
 
 public final class RangeAlert extends Alert {
 
@@ -92,15 +93,15 @@ public final class RangeAlert extends Alert {
                 "\n\n* id :\t" + id +
                 footer(matchingStatus);
         var embed = new EmbedBuilder().setDescription(description);
-        embed.addField("created", formatUTC(creationDate), true);
         embed.addField("low", fromPrice.toPlainString() + ' ' + getSymbol(getTicker2()), true);
         embed.addField("high", toPrice.toPlainString() + ' ' + getSymbol(getTicker2()), true);
+        embed.addField("created", formatDiscordRelative(creationDate), true);
         if(null != fromDate || null != toDate) {
+            Optional.ofNullable(fromDate).ifPresentOrElse(date -> embed.addField("from date", formatDiscord(date) + '\n' + formatDiscordRelative(date), true),
+                    () -> embed.addBlankField(true));
+            Optional.ofNullable(toDate).ifPresentOrElse(date -> embed.addField("to date", formatDiscord(date) + '\n' + formatDiscordRelative(date), true),
+                    () -> embed.addBlankField(true));
             embed.addBlankField(true);
-            Optional.ofNullable(fromDate).ifPresentOrElse(date -> embed.addField("from date", formatUTC(date), true),
-                    () -> embed.addBlankField(true));
-            Optional.ofNullable(toDate).ifPresentOrElse(date -> embed.addField("to date", formatUTC(date), true),
-                    () -> embed.addBlankField(true));
         }
         return embed;
     }

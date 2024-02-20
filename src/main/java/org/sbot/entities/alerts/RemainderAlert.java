@@ -15,12 +15,13 @@ import static java.util.Objects.requireNonNull;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.MATCHED;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.NOT_MATCHING;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
-import static org.sbot.utils.Dates.formatUTC;
+import static org.sbot.utils.Dates.formatDiscord;
+import static org.sbot.utils.Dates.formatDiscordRelative;
 
 public final class RemainderAlert extends Alert {
 
     public static final String REMAINDER_VIRTUAL_EXCHANGE = "@r";
-    static final short REMAINDER_DEFAULT_REPEAT = 1;
+    public static final short REMAINDER_DEFAULT_REPEAT = 1;
 
     public RemainderAlert(long id, long userId, long serverId, @NotNull Locale locale,
                           @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
@@ -40,7 +41,7 @@ public final class RemainderAlert extends Alert {
                                 @NotNull ZonedDateTime fromDate, @Nullable ZonedDateTime toDate,
                                 @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short snooze) {
         if(!REMAINDER_VIRTUAL_EXCHANGE.equals(exchange) || MARGIN_DISABLED.compareTo(margin) != 0 ||
-                null != toDate|| null != fromPrice|| null != toPrice || null != lastTrigger || REMAINDER_DEFAULT_REPEAT != repeat || DEFAULT_SNOOZE_HOURS != snooze) {
+                null != toDate|| null != fromPrice|| null != toPrice || null != lastTrigger || REMAINDER_DEFAULT_REPEAT < repeat || DEFAULT_SNOOZE_HOURS != snooze) {
             throw new IllegalArgumentException("Can't update such value in a Remainder Alert");
         }
         return new RemainderAlert(id, userId, serverId, locale, creationDate, listeningDate, pair, message, fromDate);
@@ -58,9 +59,9 @@ public final class RemainderAlert extends Alert {
     protected EmbedBuilder asMessage(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick, @NotNull ZonedDateTime now) {
         String description = (matchingStatus.notMatching() ? type.titleName + " set by <@" + userId + "> on " + pair :
                 "<@" + userId + ">\n\n**" + message + "**") +
-                "\n\n* created :\t" + formatUTC(creationDate) +
-                "\n* id :\t" + id +
-                "\n* date :\t" + formatUTC(fromDate) +
+                "\n\n* id :\t" + id +
+                "\n* date :\t" + formatDiscord(fromDate) + '(' + formatDiscordRelative(fromDate) + ')' +
+                "\n* created :\t" + formatDiscordRelative(creationDate) +
                 (matchingStatus.notMatching() ? "\n* message :\t" + message : "");
         return new EmbedBuilder().setDescription(description);
     }

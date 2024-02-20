@@ -81,7 +81,11 @@ class RemainderAlertTest {
         assertThrows(IllegalArgumentException.class, () -> alert.build(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, null, TEST_FROM_DATE, null, nowUtc(),
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
-        // no repeat
+        // repeat 0 -> ok
+        assertDoesNotThrow(() -> alert.build(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+                null, null, TEST_FROM_DATE, null, null,
+                MARGIN_DISABLED, (short) 0, DEFAULT_SNOOZE_HOURS));
+        // bad repeat
         assertThrows(IllegalArgumentException.class, () -> alert.build(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, null, TEST_FROM_DATE, null, null,
                 MARGIN_DISABLED, (short) (1 + REMAINDER_DEFAULT_REPEAT), DEFAULT_SNOOZE_HOURS));
@@ -140,8 +144,10 @@ class RemainderAlertTest {
         assertNotNull(message);
         assertTrue(message.startsWith("<@" + alert.userId + ">"));
         assertTrue(message.contains(String.valueOf(alert.id)));
-        assertTrue(message.contains(Dates.formatUTC(alert.fromDate)));
+        assertTrue(message.contains(Dates.formatDiscord(alert.fromDate)));
+        assertTrue(message.contains(Dates.formatDiscordRelative(alert.fromDate)));
         assertTrue(message.contains("created"));
+        assertTrue(message.contains(Dates.formatDiscordRelative(alert.creationDate)));
         assertTrue(message.contains(alert.message));
         // no candlestick
         assertEquals(message, alert.asMessage(MatchingService.MatchingAlert.MatchingStatus.MATCHED, candlestick, null).getDescriptionBuilder().toString());
@@ -153,7 +159,10 @@ class RemainderAlertTest {
         assertFalse(message.startsWith("<@" + alert.userId + ">"));
         assertTrue(message.contains("<@" + alert.userId + ">"));
         assertTrue(message.contains(String.valueOf(alert.id)));
-        assertTrue(message.contains(Dates.formatUTC(alert.fromDate)));
+        assertTrue(message.contains(Dates.formatDiscord(alert.fromDate)));
+        assertTrue(message.contains(Dates.formatDiscordRelative(alert.fromDate)));
+        assertTrue(message.contains(Dates.formatDiscordRelative(alert.creationDate)));
+        assertTrue(message.contains("created"));
         assertTrue(message.contains(alert.message));
         assertEquals(message, alert.asMessage(MatchingService.MatchingAlert.MatchingStatus.NOT_MATCHING, candlestick, null).getDescriptionBuilder().toString());
     }

@@ -149,7 +149,7 @@ public class SpotBot {
     @NotNull
     static String schedulingPlan(@NotNull ZonedDateTime now, int checkPeriodMin, int hourlySyncDeltaMin) {
         long nbChecksFirstHour = Math.ceilDiv(ChronoUnit.MINUTES.between(now, now.truncatedTo(HOURS).plusHours(1L).plusMinutes(1L)), checkPeriodMin);
-        long nbChecksByHour = 1 + Math.ceilDiv(60 - hourlySyncDeltaMin, checkPeriodMin);
+        long nbChecksByHour = 1L + Math.ceilDiv(60 - hourlySyncDeltaMin, checkPeriodMin);
         ZonedDateTime[] future = {now};
         return "First hour : now" + (nbChecksFirstHour > 1 ? ", " : "") +
                 LongStream.of(nbChecksFirstHour - 1, nbChecksByHour).mapToObj(nbChecks ->
@@ -166,7 +166,7 @@ public class SpotBot {
         }
         ZonedDateTime startOfNextHour = now.truncatedTo(HOURS)
                 .plusHours(1L)
-                .plusMinutes(1 + requirePositive(hourlySyncDeltaMin));
+                .plusMinutes(1L + requirePositive(hourlySyncDeltaMin));
         return Math.min(ChronoUnit.MINUTES.between(now, startOfNextHour),
                         ChronoUnit.MINUTES.between(now, now.plusMinutes(checkPeriodMin)));
     }

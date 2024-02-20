@@ -12,13 +12,8 @@ import org.sbot.exchanges.Exchanges;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Optional;
-import java.util.function.Function;
 
-import static java.time.ZoneId.SHORT_IDS;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
@@ -37,12 +32,9 @@ public final class QuoteCommand extends CommandAdapter {
     private static final SlashCommandData options =
         Commands.slash(NAME, DESCRIPTION).addOptions(
                 option(STRING, "exchange", "the exchange, like binance", true)
-                        .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Command.Choice(e, e)).collect(toList())),
+                        .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Command.Choice(e, e)).toList()),
                 option(STRING, "pair", "the pair, like EUR/USDT", true)
-                        .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
-                option(STRING, "timezone", "your current timezone, use utc list to see the available ones", false)
-                        .setMinLength(TIME_ZONE_LENGTH).setMaxLength(TIME_ZONE_LENGTH));
-
+                        .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH));
 
 
     public QuoteCommand() {
@@ -53,36 +45,24 @@ public final class QuoteCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         String exchange = requireSupportedExchange(context.args.getMandatoryString("exchange"));
         String pair = requirePairFormat(context.args.getMandatoryString("pair").toUpperCase());
-        String timeZone = context.args.getString("timezone").orElse("");
-        LOGGER.debug("quote command - exchange : {}, pair : {}, timezone : {}", exchange, pair, timeZone);
-        context.noMoreArgs().reply(quote(exchange, pair.toUpperCase(), timeZone), responseTtlSeconds);
+        LOGGER.debug("quote command - exchange : {}, pair : {}", exchange, pair);
+        context.noMoreArgs().reply(quote(exchange, pair.toUpperCase()), responseTtlSeconds);
     }
 
-    private Message quote(@NotNull String exchange, @NotNull String pair, @NotNull String timezone) {
-        return Message.of(embedBuilder(" ", Color.green, parseCandlestick(pair, timezone, Exchanges.get(exchange)
+    private Message quote(@NotNull String exchange, @NotNull String pair) {
+        return Message.of(embedBuilder(" ", Color.green, parseCandlestick(pair, Exchanges.get(exchange)
                 .orElseThrow(() -> new IllegalArgumentException("Unsupported exchange : " + exchange))
                 .getCandlesticks(pair, TimeFrame.ONE_MINUTE, 1))));
     }
 
     @NotNull
-    private static String parseCandlestick(@NotNull String pair, @NotNull String timeZone, @NotNull List<Candlestick> candlestick) {
-        String zoneId = getZoneId(timeZone);
+    private static String parseCandlestick(@NotNull String pair, @NotNull List<Candlestick> candlestick) {
         String ticker2 = pair.substring(pair.indexOf('/') + 1);
-        Function<ZonedDateTime, String> dateFormatter = null == zoneId ? Dates::formatUTC :
-                d -> Dates.format(d.withZoneSameInstant(ZoneId.of(zoneId)));
         return candlestick.stream()
                 .sorted(comparing(Candlestick::closeTime).reversed())
                 .map(c ->
                 "**[" + pair + "]**\n\n> " + formatPrice(c.close(), ticker2) +
-                "\n\n" + dateFormatter.apply(c.closeTime()) + (null != zoneId ? " (" + zoneId + ')' : " (UTC)"))
+                "\n\n" + Dates.formatDiscordRelative(c.closeTime()))
                 .findFirst().orElse("No market data found for pair " + pair);
-    }
-
-    private static String getZoneId(@NotNull String timeZone) {
-        if(!timeZone.isBlank()) {
-             return Optional.ofNullable(SHORT_IDS.get(timeZone.toUpperCase()))
-                    .orElseThrow(() -> new IllegalArgumentException("Invalid time zone : " + timeZone + "\nuse *utc list* to see the available ones"));
-        }
-        return null;
     }
 }
