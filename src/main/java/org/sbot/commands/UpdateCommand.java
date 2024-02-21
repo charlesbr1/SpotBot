@@ -41,8 +41,10 @@ public final class UpdateCommand extends CommandAdapter {
     public static final String DISPLAY_TO_PRICE = "to price";
     public static final String CHOICE_TO_PRICE = "to_price";
     public static final String CHOICE_HIGH = "high";
+    public static final String DISPLAY_FROM_DATE_OR_DATE = "from date (or date)";
     public static final String DISPLAY_FROM_DATE = "from date";
     public static final String CHOICE_FROM_DATE = "from_date";
+    public static final String CHOICE_DATE = "date";
     public static final String DISPLAY_TO_DATE = "to date";
     public static final String CHOICE_TO_DATE = "to_date";
     public static final String CHOICE_MESSAGE = "message";
@@ -50,16 +52,15 @@ public final class UpdateCommand extends CommandAdapter {
     public static final String CHOICE_REPEAT = "repeat";
     public static final String CHOICE_SNOOZE = "snooze";
     public static final String CHOICE_ENABLE = "enable";
-
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(
-                    option(STRING, "field", CHOICE_MESSAGE + ", " + DISPLAY_FROM_PRICE_OR_LOW +
-                            ", " + DISPLAY_TO_PRICE_OR_HIGH + ", " + DISPLAY_FROM_DATE + ", " + DISPLAY_TO_DATE +
-                            ", " + CHOICE_MARGIN + ", " + CHOICE_REPEAT + ", or " + CHOICE_SNOOZE, true)
+                    option(STRING, "field", CHOICE_MESSAGE + ", " + CHOICE_FROM_PRICE + ", " + CHOICE_LOW +
+                            ", " + CHOICE_TO_PRICE + ", " + CHOICE_HIGH + ", " + CHOICE_FROM_DATE + ", " + CHOICE_DATE +
+                            ", " + DISPLAY_TO_DATE + ", " + CHOICE_MARGIN + ", " + CHOICE_REPEAT + ", " + CHOICE_SNOOZE, true)
                             .addChoice(CHOICE_MESSAGE, CHOICE_MESSAGE)
                             .addChoice(DISPLAY_FROM_PRICE_OR_LOW, CHOICE_FROM_PRICE)
                             .addChoice(DISPLAY_TO_PRICE_OR_HIGH, CHOICE_TO_PRICE)
-                            .addChoice(DISPLAY_FROM_DATE, CHOICE_FROM_DATE)
+                            .addChoice(DISPLAY_FROM_DATE_OR_DATE, CHOICE_FROM_DATE)
                             .addChoice(DISPLAY_TO_DATE, CHOICE_TO_DATE)
                             .addChoice(CHOICE_MARGIN, CHOICE_MARGIN)
                             .addChoice(CHOICE_REPEAT, CHOICE_REPEAT)
@@ -88,7 +89,7 @@ public final class UpdateCommand extends CommandAdapter {
             case CHOICE_MESSAGE -> message(context, now, alertId, notificationCallBack);
             case CHOICE_FROM_PRICE, CHOICE_LOW -> fromPrice(context, now, alertId, notificationCallBack);
             case CHOICE_TO_PRICE, CHOICE_HIGH -> toPrice(context, now, alertId, notificationCallBack);
-            case CHOICE_FROM_DATE -> fromDate(context, now, alertId, notificationCallBack);
+            case CHOICE_FROM_DATE, CHOICE_DATE -> fromDate(context, now, alertId, notificationCallBack);
             case CHOICE_TO_DATE -> toDate(context, now, alertId, notificationCallBack);
             case CHOICE_MARGIN -> margin(context, now, alertId, notificationCallBack);
             case CHOICE_REPEAT -> repeat(context, now, alertId, notificationCallBack);
@@ -151,7 +152,8 @@ public final class UpdateCommand extends CommandAdapter {
                     alert = alert.withFromDate(fromDate);
                     alertsDao.updateFromDate(alertId, fromDate);
                 }
-                return updateNotifyMessage(context, now, alert, DISPLAY_FROM_DATE, date, outNotificationCallBack);
+                String fieldName = remainder == alert.type ? CHOICE_DATE : DISPLAY_FROM_DATE;
+                return updateNotifyMessage(context, now, alert, fieldName, date, outNotificationCallBack);
             }
             return ListCommand.listAlert(context, now, alert);
         };

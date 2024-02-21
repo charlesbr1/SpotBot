@@ -15,12 +15,14 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.sbot.commands.DeleteCommand;
 import org.sbot.commands.UpdateCommand;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
 import org.sbot.services.discord.InteractionListener;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -43,13 +45,20 @@ public final class ModalEditInteraction implements InteractionListener {
     private static final String NAME = "edit-field";
     private static final String UPDATE_FAILED_FOOTER = "```\n";
 
+    public static Modal deleteModalOf(long alertId) {
+        TextInput input = TextInput.create(CHOICE_DELETE, "alert will be be deleted", TextInputStyle.SHORT)
+                .setPlaceholder("type 'ok' to delete").setRequiredRange(0, 2).build();
+        return Modal.create(NAME + "#" + alertId, "Delete Alert #" + alertId)
+                .addComponents(ActionRow.of(input)).build();
+    }
+
     public static Modal updateModalOf(long alertId, @NotNull String field, int minLength, int maxLength) {
-        TextInput inputValue = TextInput.create(field, field, TextInputStyle.SHORT)
+        TextInput input = TextInput.create(field, field, TextInputStyle.SHORT)
                 .setPlaceholder("edit " + field)
                 .setRequiredRange(minLength, maxLength)
                 .build();
         return Modal.create(NAME + "#" + alertId, "Edit Alert #" + alertId)
-                .addComponents(ActionRow.of(inputValue)).build();
+                .addComponents(ActionRow.of(input)).build();
     }
 
     @NotNull
@@ -62,6 +71,14 @@ public final class ModalEditInteraction implements InteractionListener {
     public void onInteraction(@NotNull CommandContext context) {
         long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         String field = context.args.getMandatoryString("field");
+        if(CHOICE_DELETE.equals(field)) {
+            if("ok".equalsIgnoreCase(context.args.getMandatoryString("value"))) {
+                new DeleteCommand().onCommand(context.noMoreArgs().withArgumentsAndReplyMapper(String.valueOf(alertId), fromDeleteMapper()));
+            } else {
+                context.noMoreArgs().reply(replyOriginal(null), 0);
+            }
+            return;
+        }
         String value, newMessage = null;
         if(CHOICE_MESSAGE.equals(field)) {
             value = newMessage = context.args.getLastArgs("value")
@@ -72,7 +89,7 @@ public final class ModalEditInteraction implements InteractionListener {
         }
         try {
             new UpdateCommand().onCommand(context.withArgumentsAndReplyMapper(field + " " + alertId + " " + value,
-                    replyMapper(newMessage, alertId)));
+                    fromUpdateMapper(newMessage, alertId)));
         } catch (RuntimeException e) {
             LOGGER.debug("Error while updating alert", e);
             String failed = "```diff\n- failed to update " + field + " with value : " + value + "\n" + e.getMessage() + UPDATE_FAILED_FOOTER;
@@ -81,7 +98,22 @@ public final class ModalEditInteraction implements InteractionListener {
     }
 
     @NotNull
-    private static Function<List<Message>, List<Message>> replyMapper(@Nullable String newMessage, long alertId) {
+    private static Function<List<Message>, List<Message>> fromDeleteMapper() {
+        // replace listed alert with result of delete alert command, this remove the menu interaction
+        BiFunction<Message, MessageEditBuilder, MessageEditData> editMapper = (message, editBuilder) -> {
+            var originalEmbed = requireOneItem(editBuilder.getEmbeds());
+            var newEmbedBuilder = requireOneItem(message.embeds());
+            newEmbedBuilder.setTitle(null);
+            newEmbedBuilder.setColor(originalEmbed.getColor());
+            editBuilder.setEmbeds(newEmbedBuilder.build());
+            editBuilder.setComponents(Collections.emptyList());
+            return editBuilder.build();
+        };
+        return messages -> messages.stream().map(message -> Message.of(editBuilder -> editMapper.apply(message, editBuilder))).toList();
+    }
+
+    @NotNull
+    private static Function<List<Message>, List<Message>> fromUpdateMapper(@Nullable String newMessage, long alertId) {
         BiFunction<Message, MessageEditBuilder, MessageEditData> editMapper = (message, editBuilder) -> {
             var originalEmbed = requireOneItem(editBuilder.getEmbeds());
             var newEmbedBuilder = requireOneItem(message.embeds());
@@ -108,7 +140,7 @@ public final class ModalEditInteraction implements InteractionListener {
             var option = selectOptions.get(i);
             if(!isDisabled && CHOICE_ENABLE.equals(option.getLabel())) {
                 var options = new ArrayList<>(selectOptions);
-                options.set(i, disableOption()); // i should be = 1
+                options.set(i, disableOption()); // i should be 1 (remainder) or 3 (range / trend)
                 return options;
             } else if (isDisabled && CHOICE_DISABLE.equals(option.getLabel())) {
                 var options = new ArrayList<>(selectOptions);

@@ -111,13 +111,15 @@ public abstract class CommandContext implements Context {
             throw new IllegalArgumentException("Empty message reply");
         }
         var modal = getModal(messages);
-        var editMapper = getEditMapper(messages);
         if (modal.isPresent()) {
             modalReply.accept(modal.get());
-        } else if(editMapper.isPresent()) {
-            editReply.accept(editMapper.get());
         } else {
-            messagesReply.accept(messages);
+            var editMapper = getEditMapper(messages);
+            if(editMapper.isPresent()) {
+                editReply.accept(editMapper.get());
+            } else {
+                messagesReply.accept(messages);
+            }
         }
     }
 
