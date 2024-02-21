@@ -19,6 +19,7 @@ import org.sbot.utils.Dates;
 
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.function.Consumer;
@@ -41,6 +42,16 @@ public final class JDBIRepository {
         }
     }
 
+    private static final class ZoneIdArgumentFactory extends AbstractArgumentFactory<ZoneId> {
+        private ZoneIdArgumentFactory() {
+            super(Types.VARCHAR);
+        }
+        @Override
+        protected Argument build(ZoneId value, ConfigRegistry config) {
+            return (position, statement, ctx) -> statement.setString(position, value.getId());
+        }
+    }
+
     @FunctionalInterface
     public interface BatchEntry {
 
@@ -57,8 +68,10 @@ public final class JDBIRepository {
         LOGGER.info("Loading database {}", url);
         jdbi = Jdbi.create(url);
         // register type java.util.Locale
-        jdbi.registerArgument(new LocaleArgumentFactory());
-        jdbi.registerColumnMapper(Locale.class, (rs, col, ctx) -> Locale.forLanguageTag(rs.getString(col)));
+        jdbi.registerArgument(new LocaleArgumentFactory())
+                .registerArgument(new ZoneIdArgumentFactory());
+        jdbi.registerColumnMapper(Locale.class, (rs, col, ctx) -> Locale.forLanguageTag(rs.getString(col)))
+                .registerColumnMapper(ZoneId.class, (rs, col, ctx) -> ZoneId.of(rs.getString(col)));
     }
 
     public void registerRowMapper(@NotNull RowMapper<?> rowMapper) {

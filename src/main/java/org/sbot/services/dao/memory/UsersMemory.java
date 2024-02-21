@@ -7,6 +7,7 @@ import org.sbot.entities.User;
 import org.sbot.services.dao.UsersDao;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Locale;
 import java.util.Map;
@@ -53,6 +54,13 @@ public class UsersMemory implements UsersDao {
         LOGGER.debug("updateLocale {} {}", userId, locale);
         requireNonNull(locale);
         users.computeIfPresent(userId, (id, u) -> u.withLocale(locale));
+    }
+
+    @Override
+    public void updateTimezone(long userId, @NotNull ZoneId timezone) {
+        LOGGER.debug("updateTimezone {} {}", userId, timezone);
+        requireNonNull(timezone);
+        users.computeIfPresent(userId, (id, u) -> u.withTimezone(timezone));
     }
 
     @Override

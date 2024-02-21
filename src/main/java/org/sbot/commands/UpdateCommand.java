@@ -131,7 +131,7 @@ public final class UpdateCommand extends CommandAdapter {
     }
 
     private BiFunction<Alert, AlertsDao, EmbedBuilder> fromDate(@NotNull CommandContext context, @NotNull ZonedDateTime now, long alertId, @NotNull Runnable[] outNotificationCallBack) {
-        ZonedDateTime fromDate = context.args.getDateTime(context.locale, context.clock(), "value").orElse(null);
+        ZonedDateTime fromDate = context.args.getDateTime(context.locale, context.timezone, context.clock(), "value").orElse(null);
         return (alert, alertsDao) -> {
             if(null == fromDate && (context.args.getString("") .isPresent() || (alert.type == trend || alert.type == remainder))) {
                 throw new IllegalArgumentException("Missing from_date value, expected format : " + Dates.DATE_TIME_FORMAT + " UTC");
@@ -160,7 +160,7 @@ public final class UpdateCommand extends CommandAdapter {
     }
 
     private BiFunction<Alert, AlertsDao, EmbedBuilder> toDate(@NotNull CommandContext context, @NotNull ZonedDateTime now, long alertId, @NotNull Runnable[] outNotificationCallBack) {
-        ZonedDateTime toDate = context.args.getDateTime(context.locale, context.clock(), "value").orElse(null);
+        ZonedDateTime toDate = context.args.getDateTime(context.locale, context.timezone, context.clock(), "value").orElse(null);
         return (alert, alertsDao) -> {
             if(null == toDate  && (context.args.getString("") .isPresent() || alert.type == trend)) {
                 throw new IllegalArgumentException("Missing to_date value, expected format : " + Dates.DATE_TIME_FORMAT + " UTC");

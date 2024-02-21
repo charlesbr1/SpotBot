@@ -17,6 +17,7 @@ import org.sbot.services.dao.sql.jdbi.JDBITransactionHandler;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Locale;
 import java.util.Map;
@@ -37,13 +38,15 @@ public class UsersSQLite extends AbstractJDBI implements UsersDao {
                 CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY,
                 locale TEXT NOT NULL,
+                timezone TEXT,
                 last_access INTEGER NOT NULL) STRICT
                 """;
 
-        String SELECT_BY_ID = "SELECT id,locale,last_access FROM users WHERE id=:userId";
+        String SELECT_BY_ID = "SELECT id,locale,timezone,last_access FROM users WHERE id=:userId";
         String SELECT_ID_LOCALE_HAVING_ID_IN = "SELECT id,locale FROM users WHERE id IN (<ids>)";
-        String INSERT_USER = "INSERT INTO users (id,locale,last_access) VALUES (:id,:locale,:lastAccess)";
+        String INSERT_USER = "INSERT INTO users (id,locale,timezone,last_access) VALUES (:id,:locale,:timezone,:lastAccess)";
         String UPDATE_LOCALE = "UPDATE users SET locale=:locale WHERE id=:userId";
+        String UPDATE_TIMEZONE = "UPDATE users SET timezone=:timezone WHERE id=:userId";
         String UPDATE_LAST_ACCESS = "UPDATE users SET last_access=:lastAccess WHERE id=:userId";
         String DELETE_BY_ID = "DELETE FROM users WHERE id=:id";
     }
@@ -54,15 +57,17 @@ public class UsersSQLite extends AbstractJDBI implements UsersDao {
             long userId = rs.getLong("id");
             Locale locale = Optional.ofNullable(rs.getString("locale")).map(Locale::forLanguageTag)
                     .orElseThrow(() -> new IllegalArgumentException("Missing field user locale"));
+            ZoneId timezone = Optional.ofNullable(rs.getString("timezone")).map(ZoneId::of).orElse(null);
             ZonedDateTime lastAccess = parseUtcDateTime(rs.getTimestamp("last_access"))
                     .orElseThrow(() -> new IllegalArgumentException("Missing field user last_access"));
-            return new User(userId, locale, lastAccess);
+            return new User(userId, locale, timezone, lastAccess);
         }
     }
 
     private static void bindUserFields(@NotNull User user, @NotNull SqlStatement<?> query) {
         query.bind("id", user.id());
         query.bind("locale", user.locale());
+        query.bind("timezone", user.timeZone());
         query.bind("lastAccess", user.lastAccess());
     }
 
@@ -113,6 +118,12 @@ public class UsersSQLite extends AbstractJDBI implements UsersDao {
     public void updateLocale(long userId, @NotNull Locale locale) {
         LOGGER.debug("updateLocale {} {}", userId, locale);
         update(SQL.UPDATE_LOCALE, Map.of("userId", userId, "locale", locale));
+    }
+
+    @Override
+    public void updateTimezone(long userId, @NotNull ZoneId timezone) {
+        LOGGER.debug("updateTimezone {} {}", userId, timezone);
+        update(SQL.UPDATE_TIMEZONE, Map.of("userId", userId, "timezone", timezone));
     }
 
     @Override

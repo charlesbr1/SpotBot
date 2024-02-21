@@ -1,12 +1,14 @@
 package org.sbot.commands.reader;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.function.Function;
@@ -61,8 +63,8 @@ public final class StringArgumentReader implements ArgumentReader {
     }
 
     @Override
-    public Optional<ZonedDateTime> getDateTime(@NotNull Locale locale, @NotNull Clock clock, @NotNull String unused) {
-        return getNext(date -> Dates.parse(locale, clock, date));
+    public Optional<ZonedDateTime> getDateTime(@NotNull Locale locale, @Nullable ZoneId timezone, @NotNull Clock clock, @NotNull String unused) {
+        return getNext(date -> Dates.parse(locale, timezone, clock, date));
     }
 
     @Override

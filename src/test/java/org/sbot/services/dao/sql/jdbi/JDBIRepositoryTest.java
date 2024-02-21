@@ -19,6 +19,7 @@ import org.sbot.utils.Dates;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -50,11 +51,12 @@ public class JDBIRepositoryTest {
                 text TEXT NOT NULL,
                 decimal TEXT NOT NULL,
                 locale TEXT NOT NULL,
+                timezone TEXT NOT NULL,
                 date INTEGER NOT NULL) STRICT
                 """;
 
     public static final String DROP_TEST_TABLE = "DROP TABLE test";
-    public static final String INSERT_TEST = "INSERT INTO test (id,text,decimal,locale,date) VALUES (:id,:text,:decimal,:locale,:date)";
+    public static final String INSERT_TEST = "INSERT INTO test (id,text,decimal,locale,timezone,date) VALUES (:id,:text,:decimal,:locale,:timezone,:date)";
     public static final String UPDATE_TEXT_BY_ID = "UPDATE test SET text=:text WHERE id=:id";
     public static final String SELECT_ID_TEXT_BY_ID = "SELECT id,text FROM test WHERE id=:id";
     public static final String SELECT_ID_TEXT_BY_TEXT = "SELECT id,text FROM test WHERE text LIKE :text";
@@ -62,11 +64,13 @@ public class JDBIRepositoryTest {
     public static final String SELECT_ID_BY_TEXT = "SELECT id FROM test WHERE text LIKE :text";
     public static final String SELECT_TEXT_BY_ID = "SELECT text FROM test WHERE id=:id";
     public static final String SELECT_LOCALE_BY_ID = "SELECT locale FROM test WHERE id=:id";
+    public static final String SELECT_TIMEZONE_BY_ID = "SELECT timezone FROM test WHERE id=:id";
     public static final String SELECT_TEXT_BY_TEXT = "SELECT text FROM test WHERE text LIKE :text";
     public static final String SELECT_TEXT_BY_DATE = "SELECT text FROM test WHERE date=:date";
     public static final String SELECT_DECIMAL_BY_ID = "SELECT decimal FROM test WHERE id=:id";
     public static final String SELECT_DECIMAL_BY_TEXT = "SELECT decimal FROM test WHERE text LIKE :text";
     public static final String SELECT_LOCALE_BY_TEXT = "SELECT locale FROM test WHERE text LIKE :text";
+    public static final String SELECT_TIMEZONE_BY_TEXT = "SELECT timezone FROM test WHERE text LIKE :text";
     public static final String SELECT_DATE_BY_ID = "SELECT date FROM test WHERE id=:id";
     public static final String SELECT_DATE_BY_TEXT = "SELECT date FROM test WHERE text LIKE :text";
     public static final String DELETE_BY_ID = "DELETE FROM test WHERE id=:id";
@@ -80,6 +84,8 @@ public class JDBIRepositoryTest {
     public static final BigDecimal TEST_DECIMAL2 = new BigDecimal("0.0000000000000000002");
     public static final Locale TEST_LOCALE = Locale.CANADA_FRENCH;
     public static final Locale TEST_LOCALE2 = Locale.TAIWAN;
+    public static final ZoneId TEST_TIMEZONE = Dates.UTC;
+    public static final ZoneId TEST_TIMEZONE2 = ZoneId.of("Europe/Paris");
     public static final ZonedDateTime TEST_DATE = ZonedDateTime.now().truncatedTo(ChronoUnit.MILLIS);
     public static final ZonedDateTime TEST_DATE_UTC = TEST_DATE.withZoneSameInstant(Dates.UTC);
 
@@ -124,11 +130,11 @@ public class JDBIRepositoryTest {
         repository.inTransaction(handle -> {
             handle.execute(CREATE_TEST_TABLE);
             repository.update(handle, INSERT_TEST,
-                    Map.of("id", TEST_ID, "text", TEST_TEXT, "decimal", TEST_DECIMAL1, "locale", TEST_LOCALE, "date", TEST_DATE_UTC));
+                    Map.of("id", TEST_ID, "text", TEST_TEXT, "decimal", TEST_DECIMAL1, "locale", TEST_LOCALE, "timezone", TEST_TIMEZONE, "date", TEST_DATE_UTC));
             repository.update(handle, INSERT_TEST,
-                    Map.of("id", TEST_ID2, "text", TEST_TEXT, "decimal", TEST_DECIMAL2, "locale", TEST_LOCALE2, "date", TEST_DATE_UTC));
+                    Map.of("id", TEST_ID2, "text", TEST_TEXT, "decimal", TEST_DECIMAL2, "locale", TEST_LOCALE2, "timezone", TEST_TIMEZONE2, "date", TEST_DATE_UTC));
             repository.update(handle, INSERT_TEST,
-                    Map.of("id", TEST_ID3, "text", "text3", "decimal", BigDecimal.ZERO, "locale", TEST_LOCALE2, "date", TEST_DATE_UTC));
+                    Map.of("id", TEST_ID3, "text", "text3", "decimal", BigDecimal.ZERO, "locale", TEST_LOCALE2, "timezone", TEST_TIMEZONE2, "date", TEST_DATE_UTC));
             return null;
         });
     }
@@ -180,6 +186,7 @@ public class JDBIRepositoryTest {
             assertEquals(Optional.of(TEST_TEXT), repository.findOne(handle, SELECT_TEXT_BY_ID, String.class, Map.of("id", TEST_ID)));
             assertEquals(Optional.of(TEST_DECIMAL1), repository.findOne(handle, SELECT_DECIMAL_BY_ID, BigDecimal.class, Map.of("id", TEST_ID)));
             assertEquals(Optional.of(TEST_LOCALE), repository.findOne(handle, SELECT_LOCALE_BY_ID, Locale.class, Map.of("id", TEST_ID)));
+            assertEquals(Optional.of(TEST_TIMEZONE), repository.findOne(handle, SELECT_TIMEZONE_BY_ID, ZoneId.class, Map.of("id", TEST_ID)));
             assertEquals(Optional.of(TEST_DATE_UTC), repository.findOneDateTime(handle, SELECT_DATE_BY_ID, Map.of("id", TEST_ID)));
 
             repository.update(handle, INSERT_TEST, query -> query
@@ -187,6 +194,7 @@ public class JDBIRepositoryTest {
                     .bind("text", "text2")
                     .bind("decimal", TEST_DECIMAL1.multiply(new BigDecimal("0.00000123456")))
                     .bind("locale", Locale.US)
+                    .bind("timezone", Dates.UTC)
                     .bind("date", TEST_DATE.plusMinutes(33L)));
 
             assertEquals(Optional.of(321L), repository.findOne(handle, SELECT_ID_BY_ID, Long.class, Map.of("id", 321L)));
@@ -214,6 +222,9 @@ public class JDBIRepositoryTest {
 
             assertEquals(List.of(TEST_LOCALE), repository.query(handle, SELECT_LOCALE_BY_ID, Locale.class, Map.of("id", TEST_ID)));
             assertEquals(List.of(TEST_LOCALE, TEST_LOCALE2), repository.query(handle, SELECT_LOCALE_BY_TEXT, Locale.class, Map.of("text", TEST_TEXT)));
+
+            assertEquals(List.of(TEST_TIMEZONE), repository.query(handle, SELECT_TIMEZONE_BY_ID, ZoneId.class, Map.of("id", TEST_ID)));
+            assertEquals(List.of(TEST_TIMEZONE, TEST_TIMEZONE2), repository.query(handle, SELECT_TIMEZONE_BY_TEXT, ZoneId.class, Map.of("text", TEST_TEXT)));
 
             assertEquals(List.of(TEST_DATE), repository.query(handle, SELECT_DATE_BY_ID, ZonedDateTime.class, Map.of("id", TEST_ID)));
             assertEquals(List.of(TEST_DATE, TEST_DATE), repository.query(handle, SELECT_DATE_BY_TEXT, ZonedDateTime.class, Map.of("text", TEST_TEXT)));
@@ -320,6 +331,9 @@ public class JDBIRepositoryTest {
 
             assertEquals(Optional.of(TEST_LOCALE), repository.findOne(handle, SELECT_LOCALE_BY_ID, Locale.class, Map.of("id", TEST_ID)));
             assertThrows(IllegalStateException.class, () -> repository.findOne(handle, SELECT_LOCALE_BY_TEXT, Locale.class, Map.of("text", TEST_TEXT)));
+
+            assertEquals(Optional.of(TEST_TIMEZONE), repository.findOne(handle, SELECT_TIMEZONE_BY_ID, ZoneId.class, Map.of("id", TEST_ID)));
+            assertThrows(IllegalStateException.class, () -> repository.findOne(handle, SELECT_TIMEZONE_BY_TEXT, ZoneId.class, Map.of("text", TEST_TEXT)));
 
             assertEquals(Optional.of(TEST_DATE), repository.findOne(handle, SELECT_DATE_BY_ID, ZonedDateTime.class, Map.of("id", TEST_ID)));
             assertThrows(IllegalStateException.class, () -> repository.findOne(handle, SELECT_DATE_BY_TEXT, BigDecimal.class, Map.of("text", TEST_TEXT)));
@@ -444,7 +458,7 @@ public class JDBIRepositoryTest {
 
             // test insert is commit
             context.transaction(txCtx -> loadDao(baseDao, txCtx).update(INSERT_TEST,
-                    Map.of("id", TEST_ID, "text", TEST_TEXT, "decimal", TEST_DECIMAL1, "locale", TEST_LOCALE, "date", TEST_DATE_UTC)));
+                    Map.of("id", TEST_ID, "text", TEST_TEXT, "decimal", TEST_DECIMAL1, "locale", TEST_LOCALE, "timezone", TEST_TIMEZONE, "date", TEST_DATE_UTC)));
             context.transaction(txCtx -> {
                 var dao = loadDao(baseDao, txCtx);
                 assertEquals(Optional.of(TEST_ID), dao.findOne(SELECT_ID_BY_ID, Long.class, Map.of("id", TEST_ID)));
@@ -465,7 +479,7 @@ public class JDBIRepositoryTest {
                 assertEquals(txCtx, sameTxCtx);
                 var dao = loadDao(baseDao, sameTxCtx);
                 dao.update(INSERT_TEST,
-                        Map.of("id", TEST_ID, "text", TEST_TEXT, "decimal", TEST_DECIMAL1, "locale", TEST_LOCALE2, "date", TEST_DATE_UTC));
+                        Map.of("id", TEST_ID, "text", TEST_TEXT, "decimal", TEST_DECIMAL1, "locale", TEST_LOCALE2, "timezone", TEST_TIMEZONE2, "date", TEST_DATE_UTC));
             }));
             context.transaction(txCtx -> txCtx.transaction(sameTxCtx -> {
                 assertEquals(txCtx, sameTxCtx);
@@ -507,7 +521,7 @@ public class JDBIRepositoryTest {
             // test insert is rollback
             context.transaction(txCtx -> {
                 loadDao(baseDao, txCtx).update(INSERT_TEST,
-                        Map.of("id", TEST_ID, "text", TEST_TEXT, "decimal", TEST_DECIMAL1, "locale", TEST_LOCALE2, "date", TEST_DATE_UTC));
+                        Map.of("id", TEST_ID, "text", TEST_TEXT, "decimal", TEST_DECIMAL1, "locale", TEST_LOCALE2, "timezone", TEST_TIMEZONE2, "date", TEST_DATE_UTC));
                 txCtx.rollback();
             });
             context.transaction(txCtx -> {
@@ -519,7 +533,7 @@ public class JDBIRepositoryTest {
             try {
                 context.transaction(txCtx -> {
                     loadDao(baseDao, txCtx).update(INSERT_TEST,
-                            Map.of("id", TEST_ID, "text", TEST_TEXT, "decimal", TEST_DECIMAL1, "locale", TEST_LOCALE, "date", TEST_DATE_UTC));
+                            Map.of("id", TEST_ID, "text", TEST_TEXT, "decimal", TEST_DECIMAL1, "locale", TEST_LOCALE, "timezone", TEST_TIMEZONE, "date", TEST_DATE_UTC));
                     throw new RuntimeException();
                 });
             } catch (RuntimeException e) {
@@ -531,7 +545,7 @@ public class JDBIRepositoryTest {
                 assertEquals(Optional.empty(), dao.findOne(SELECT_ID_BY_ID, Long.class, Map.of("id", TEST_ID)));
             });
             context.transaction(txCtx -> loadDao(baseDao, txCtx).update(INSERT_TEST,
-                    Map.of("id", TEST_ID, "text", TEST_TEXT, "decimal", TEST_DECIMAL1, "locale", TEST_LOCALE, "date", TEST_DATE_UTC)));
+                    Map.of("id", TEST_ID, "text", TEST_TEXT, "decimal", TEST_DECIMAL1, "locale", TEST_LOCALE, "timezone", TEST_TIMEZONE, "date", TEST_DATE_UTC)));
             context.transaction(txCtx -> {
                 var dao = loadDao(baseDao, txCtx);
                 assertEquals(Optional.of(TEST_ID), dao.findOne(SELECT_ID_BY_ID, Long.class, Map.of("id", TEST_ID)));
@@ -566,7 +580,7 @@ public class JDBIRepositoryTest {
 
                 AtomicLong counter = new AtomicLong(1000000L);
                 Callable<Object> insertTask = () -> dao.update(INSERT_TEST,
-                        Map.of("id", counter.incrementAndGet(), "text", TEST_TEXT, "decimal", TEST_DECIMAL1, "locale", TEST_LOCALE, "date", TEST_DATE_UTC));
+                        Map.of("id", counter.incrementAndGet(), "text", TEST_TEXT, "decimal", TEST_DECIMAL1, "locale", TEST_LOCALE, "timezone", TEST_TIMEZONE, "date", TEST_DATE_UTC));
                 Callable<Object> findTask = () -> dao.findOne(SELECT_ID_BY_ID, Long.class, Map.of("id", counter.get() - 103));
                 Callable<Object> updateTask = () -> dao.update(UPDATE_TEXT_BY_ID,
                         Map.of("id", counter.get() - 100, "text", TEST_TEXT + counter.get()));

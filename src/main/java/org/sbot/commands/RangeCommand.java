@@ -18,7 +18,6 @@ import java.time.ZonedDateTime;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.entities.alerts.Alert.*;
@@ -35,7 +34,7 @@ public final class RangeCommand extends CommandAdapter {
 
     static final List<OptionData> optionList = List.of(
             option(STRING, "exchange", "the exchange, like binance", true)
-                    .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).collect(toList())),
+                    .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).toList()),
             option(STRING, "pair", "the pair, like EUR/USDT", true)
                     .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
             option(STRING, "message", "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
@@ -62,8 +61,8 @@ public final class RangeCommand extends CommandAdapter {
         String pair = requirePairFormat(context.args.getMandatoryString("pair").toUpperCase());
         var reversed = context.args.reversed();
         boolean stringReader = context.args instanceof StringArgumentReader;
-        ZonedDateTime toDate = reversed.getDateTime(context.locale, context.clock(), "to_date").orElse(null);
-        ZonedDateTime fromDate = !stringReader || null != toDate ? reversed.getDateTime(context.locale, context.clock(), "from_date").orElse(null) : null;
+        ZonedDateTime toDate = reversed.getDateTime(context.locale, context.timezone, context.clock(), "to_date").orElse(null);
+        ZonedDateTime fromDate = !stringReader || null != toDate ? reversed.getDateTime(context.locale, context.timezone, context.clock(), "from_date").orElse(null) : null;
         BigDecimal toPrice = reversed.getNumber("high").map(ArgumentValidator::requirePositive).orElse(null);
         BigDecimal fromPrice = reversed.getNumber("low").map(ArgumentValidator::requirePositive).orElse(null);
         if (stringReader) { // optional arguments are rode backward, this need to ensure correct arguments mapping

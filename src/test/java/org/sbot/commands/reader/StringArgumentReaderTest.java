@@ -90,40 +90,40 @@ class StringArgumentReaderTest {
     @Test
     void getDateTime() {
         StringArgumentReader reader = new StringArgumentReader("test");
-        assertTrue(reader.getDateTime(Locale.US, mock(), "").isEmpty());
+        assertTrue(reader.getDateTime(Locale.US, null, mock(), "").isEmpty());
         assertEquals("test", reader.getLastArgs("").get());
 
         reader = new StringArgumentReader(" 12/12/2000-20:00");
-        assertEquals(Dates.parse(Locale.US, mock(), "12/12/2000-20:00"), reader.getDateTime(Locale.US, mock(), "").get());
+        assertEquals(Dates.parse(Locale.US, null, mock(), "12/12/2000-20:00"), reader.getDateTime(Locale.US, null, mock(), "").get());
         reader = new StringArgumentReader(" 12/12/2000-20:00");
-        assertEquals(Dates.parse(Locale.FRENCH, mock(), "12/12/2000-20:00"), reader.getDateTime(Locale.US, mock(), "").get());
+        assertEquals(Dates.parse(Locale.FRENCH, UTC, mock(), "12/12/2000-20:00"), reader.getDateTime(Locale.US, UTC, mock(), "").get());
 
         reader = new StringArgumentReader(" 12/12/2000-20:00 02/11/2200-00:00 ");
-        assertEquals(Dates.parse(Locale.US, mock(), "12/12/2000-20:00"), reader.getDateTime(Locale.US, mock(), "").get());
-        assertEquals(Dates.parse(Locale.US, mock(), "02/11/2200-00:00"), reader.getDateTime(Locale.US, mock(), "").get());
-        assertTrue(reader.getDateTime(Locale.US, mock(), "").isEmpty());
+        assertEquals(Dates.parse(Locale.US, null, mock(), "12/12/2000-20:00"), reader.getDateTime(Locale.US, null, mock(), "").get());
+        assertEquals(Dates.parse(Locale.US, ZoneId.of("Europe/Paris"), mock(), "02/11/2200-00:00"), reader.getDateTime(Locale.US, ZoneId.of("Europe/Paris"), mock(), "").get());
+        assertTrue(reader.getDateTime(Locale.US, null, mock(), "").isEmpty());
         assertTrue(reader.getLastArgs("").isEmpty());
 
         reader = new StringArgumentReader(" 12/12/2000-20:00 02/11/2200-00:00 ");
-        assertEquals(Dates.parse(Locale.FRENCH, mock(), "12/12/2000-20:00"), reader.getDateTime(Locale.US, mock(), "").get());
-        assertEquals(Dates.parse(Locale.FRENCH, mock(), "11/02/2200-00:00"), reader.getDateTime(Locale.US, mock(), "").get());
-        assertTrue(reader.getDateTime(Locale.US, mock(), "").isEmpty());
+        assertEquals(Dates.parse(Locale.FRENCH, null, mock(), "12/12/2000-20:00"), reader.getDateTime(Locale.US, null, mock(), "").get());
+        assertEquals(Dates.parse(Locale.FRENCH, UTC, mock(), "11/02/2200-00:00"), reader.getDateTime(Locale.US, UTC, mock(), "").get());
+        assertTrue(reader.getDateTime(Locale.US, null, mock(), "").isEmpty());
         assertTrue(reader.getLastArgs("").isEmpty());
 
         reader = new StringArgumentReader("now");
         ZonedDateTime now = LocalDateTime.now().atZone(UTC);
-        assertEquals(now, reader.getDateTime(Locale.US, Clock.fixed(now.toInstant(), now.getZone()), "").get());
-        assertTrue(reader.getDateTime(Locale.US, mock(), "").isEmpty());
+        assertEquals(now, reader.getDateTime(Locale.US, null, Clock.fixed(now.toInstant(), now.getZone()), "").get());
+        assertTrue(reader.getDateTime(Locale.US, null, mock(), "").isEmpty());
         assertTrue(reader.getLastArgs("").isEmpty());
 
         reader = new StringArgumentReader("now-Z");
-        assertEquals(now.withZoneSameInstant(ZoneId.of("Z")), reader.getDateTime(Locale.US, Clock.fixed(now.toInstant(), ZoneId.of("Z")), "").get());
-        assertTrue(reader.getDateTime(Locale.US, mock(), "").isEmpty());
+        assertEquals(now.withZoneSameInstant(ZoneId.of("Z")), reader.getDateTime(Locale.US, null, Clock.fixed(now.toInstant(), ZoneId.of("Z")), "").get());
+        assertTrue(reader.getDateTime(Locale.US, null, mock(), "").isEmpty());
         assertTrue(reader.getLastArgs("").isEmpty());
 
         reader = new StringArgumentReader("now-Europe/Paris");
-        assertEquals(now.withZoneSameInstant(ZoneId.of("Europe/Paris")), reader.getDateTime(Locale.US, Clock.fixed(now.toInstant(), ZoneId.of("Europe/Paris")), "").get());
-        assertTrue(reader.getDateTime(Locale.US, mock(), "").isEmpty());
+        assertEquals(now.withZoneSameInstant(ZoneId.of("Europe/Paris")), reader.getDateTime(Locale.US, null, Clock.fixed(now.toInstant(), ZoneId.of("Europe/Paris")), "").get());
+        assertTrue(reader.getDateTime(Locale.US, null, mock(), "").isEmpty());
         assertTrue(reader.getLastArgs("").isEmpty());
     }
 
@@ -185,7 +185,7 @@ class StringArgumentReaderTest {
         assertEquals("<@33>  12/11/2200-00:00 and the last  args", reader.getLastArgs("").get());
         assertEquals(33L, reader.getUserId("").get());
         assertEquals("12/11/2200-00:00 and the last  args", reader.getLastArgs("").get());
-        assertEquals(Dates.parse(Locale.US, mock(), "12/11/2200-00:00"), reader.getDateTime(Locale.US, mock(), "").get());
+        assertEquals(Dates.parse(Locale.US, null, mock(), "12/11/2200-00:00"), reader.getDateTime(Locale.US, null, mock(), "").get());
         assertEquals("and the last  args", reader.getLastArgs("").get());
         reader.getString("");
         reader.getString("");
@@ -201,8 +201,8 @@ class StringArgumentReaderTest {
         var reader = new StringArgumentReader("abc");
         assertEquals("abc", reader.getMandatoryString(""));
 
-        var freader = new StringArgumentReader("");
-        assertThrows(IllegalArgumentException.class, () -> freader.getMandatoryString(""));
+        var finalReader = new StringArgumentReader("");
+        assertThrows(IllegalArgumentException.class, () -> finalReader.getMandatoryString(""));
     }
 
     @Test
@@ -212,8 +212,8 @@ class StringArgumentReaderTest {
         reader = new StringArgumentReader("1,234");
         assertEquals(new BigDecimal("1.234"), reader.getMandatoryNumber(""));
 
-        var freader = new StringArgumentReader("abc");
-        assertThrows(IllegalArgumentException.class, () -> freader.getMandatoryNumber(""));
+        var finalReader = new StringArgumentReader("abc");
+        assertThrows(IllegalArgumentException.class, () -> finalReader.getMandatoryNumber(""));
     }
 
     @Test
@@ -221,17 +221,19 @@ class StringArgumentReaderTest {
         var reader = new StringArgumentReader("123");
         assertEquals(123, reader.getMandatoryLong(""));
 
-        var freader = new StringArgumentReader("abc");
-        assertThrows(IllegalArgumentException.class, () -> freader.getMandatoryLong(""));
+        var finalReader = new StringArgumentReader("abc");
+        assertThrows(IllegalArgumentException.class, () -> finalReader.getMandatoryLong(""));
     }
 
     @Test
     void getMandatoryDateTime() {
         var reader = new StringArgumentReader("12/11/2200-00:00");
-        assertEquals(Dates.parse(Locale.US, mock(), "12/11/2200-00:00"), reader.getMandatoryDateTime(Locale.US, mock(), ""));
+        assertEquals(Dates.parse(Locale.US, Dates.UTC, mock(), "12/11/2200-00:00"), reader.getMandatoryDateTime(Locale.US, Dates.UTC, mock(), ""));
+        reader = new StringArgumentReader("12/11/2200-00:00");
+        assertNotEquals(Dates.parse(Locale.US, Dates.UTC, mock(), "12/11/2200-00:00"), reader.getMandatoryDateTime(Locale.US, ZoneId.of("GMT"), mock(), ""));
 
-        var freader = new StringArgumentReader("abc");
-        assertThrows(IllegalArgumentException.class, () -> freader.getMandatoryDateTime(Locale.US, mock(), ""));
+        var finalReader = new StringArgumentReader("abc");
+        assertThrows(IllegalArgumentException.class, () -> finalReader.getMandatoryDateTime(Locale.US, UTC, mock(), ""));
     }
 
     @Test
@@ -239,7 +241,7 @@ class StringArgumentReaderTest {
         var reader = new StringArgumentReader("<@33>");
         assertEquals(33L, reader.getMandatoryUserId(""));
 
-        var freader = new StringArgumentReader("abc");
-        assertThrows(IllegalArgumentException.class, () -> freader.getMandatoryUserId(""));
+        var finalReader = new StringArgumentReader("abc");
+        assertThrows(IllegalArgumentException.class, () -> finalReader.getMandatoryUserId(""));
     }
 }

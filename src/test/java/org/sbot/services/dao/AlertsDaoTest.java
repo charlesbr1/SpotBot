@@ -58,7 +58,7 @@ public abstract class AlertsDaoTest {
     }
 
     private static void setUser(@NotNull UsersDao users, long userId) {
-        users.setUser(new User(userId, Locale.UK, ZonedDateTime.now()));
+        users.setUser(new User(userId, Locale.UK, null, ZonedDateTime.now()));
     }
 
     @ParameterizedTest

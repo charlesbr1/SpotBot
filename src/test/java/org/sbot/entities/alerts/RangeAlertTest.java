@@ -491,7 +491,7 @@ class RangeAlertTest {
     void asMessage() {
         var now = nowUtc();
         Alert alert = createTestRangeAlert().withId(() -> 456L);
-        ZonedDateTime closeTime = Dates.parse(Locale.US, mock(), "01/01/2000-00:03");
+        ZonedDateTime closeTime = Dates.parse(Locale.US, null, mock(), "01/01/2000-00:03");
         Candlestick candlestick = new Candlestick(closeTime.minusHours(1L), closeTime, TWO, ONE, TEN, ONE);
         assertThrows(NullPointerException.class, () -> alert.asMessage(null, null, now));
 

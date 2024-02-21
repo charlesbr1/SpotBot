@@ -7,6 +7,8 @@ import org.mockito.ArgumentCaptor;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
 import org.sbot.services.context.Context;
+import org.sbot.utils.Dates;
+import org.sbot.utils.DatesTest;
 
 import java.time.Clock;
 import java.util.List;
@@ -14,6 +16,7 @@ import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.sbot.entities.alerts.AlertTest.TEST_USER_ID;
 
 class UpTimeCommandTest {
 
@@ -31,12 +34,13 @@ class UpTimeCommandTest {
         when(event.getAuthor()).thenReturn(mock(User.class));
         Context context = mock(Context.class);
         when(context.clock()).thenReturn(Clock.systemUTC());
+        org.sbot.entities.User user = new org.sbot.entities.User(TEST_USER_ID, Locale.UK, Dates.UTC, DatesTest.nowUtc());
 
         assertThrows(IllegalArgumentException.class,
-                () -> upTimeCommand.onCommand(CommandContext.of(context, Locale.US, event, "uptime a")));
+                () -> upTimeCommand.onCommand(CommandContext.of(context, user, event, "uptime a")));
         verify(context, never()).clock();
 
-        CommandContext commandContext = spy(CommandContext.of(context, Locale.US, event, "uptime"));
+        CommandContext commandContext = spy(CommandContext.of(context, user, event, "uptime"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         ArgumentCaptor<List<Message>> argumentCaptor = ArgumentCaptor.forClass(List.class);
 

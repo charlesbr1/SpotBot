@@ -21,6 +21,7 @@ import static org.sbot.entities.alerts.AlertTest.*;
 import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
 import static org.sbot.entities.alerts.TrendAlert.ONE_HOUR_SECONDS;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.*;
+import static org.sbot.utils.Dates.UTC;
 import static org.sbot.utils.DatesTest.nowUtc;
 
 class TrendAlertTest {
@@ -330,7 +331,7 @@ class TrendAlertTest {
 
     @Test
     void secondsBetween() {
-        ZonedDateTime fromDate = Dates.parse(Locale.US, mock(), "01/01/2000-00:03");
+        ZonedDateTime fromDate = Dates.parse(Locale.US, null, mock(), "01/01/2000-00:03");
         assertThrows(NullPointerException.class, () -> TrendAlert.secondsBetween(null, null));
         assertThrows(NullPointerException.class, () -> TrendAlert.secondsBetween(fromDate, null));
         assertThrows(NullPointerException.class, () -> TrendAlert.secondsBetween(null, fromDate));
@@ -357,7 +358,7 @@ class TrendAlertTest {
 
     @Test
     void priceDelta() {
-        ZonedDateTime fromDate = Dates.parse(Locale.US, mock(), "01/01/2000-00:03");
+        ZonedDateTime fromDate = Dates.parse(Locale.US, UTC, mock(), "01/01/2000-00:03");
         ZonedDateTime inOneHour = fromDate.plusHours(1L);
 
         assertEquals(ONE_HOUR_SECONDS.stripTrailingZeros(), TrendAlert.secondsBetween(fromDate, inOneHour).stripTrailingZeros());
@@ -445,7 +446,7 @@ class TrendAlertTest {
     void asMessage() {
         var now = nowUtc();
         Alert alert = createTestTrendAlert().withId(() -> 456L);
-        ZonedDateTime closeTime = Dates.parse(Locale.US, mock(), "01/01/2000-00:03");
+        ZonedDateTime closeTime = Dates.parse(Locale.US, UTC, mock(), "01/01/2000-00:03");
         Candlestick candlestick = new Candlestick(closeTime.minusHours(1L), closeTime, TWO, ONE, TEN, ONE);
         assertThrows(NullPointerException.class, () -> alert.asMessage(null, null, now));
 

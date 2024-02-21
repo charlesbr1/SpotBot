@@ -22,6 +22,7 @@ import org.sbot.services.context.Context;
 import org.sbot.services.discord.Discord;
 
 import java.time.Clock;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -33,6 +34,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static org.sbot.commands.CommandAdapter.isPrivateChannel;
+import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.utils.ArgumentValidator.requireNotBlank;
 
@@ -44,29 +46,32 @@ public abstract class CommandContext implements Context {
     public final @NotNull String name;
     public final @NotNull User user;
     public final @NotNull Locale locale;
+    public final @Nullable ZoneId timezone;
     public final @NotNull ArgumentReader args;
     public final @Nullable Member member;
 
 
-    private CommandContext(@NotNull Context context, @NotNull Locale locale, @NotNull MessageReceivedEvent event, @NotNull String command) {
+    private CommandContext(@NotNull Context context, @NotNull Locale locale, @Nullable ZoneId timezone, @NotNull MessageReceivedEvent event, @NotNull String command) {
         this.context = requireNonNull(context);
         this.args = new StringArgumentReader(command);
         this.name = requireNotBlank(args.getString("").orElseThrow(() -> new IllegalArgumentException("Missing command")), "name");
         this.user = requireNonNull(event.getAuthor());
         this.locale = requireNonNull(locale);
+        this.timezone = timezone;
         this.member = event.getMember();
     }
 
-    private CommandContext(@NotNull Context context, @NotNull Locale locale, @NotNull SlashCommandInteractionEvent event) {
+    private CommandContext(@NotNull Context context, @NotNull Locale locale, @Nullable ZoneId timezone, @NotNull SlashCommandInteractionEvent event) {
         this.context = requireNonNull(context);
         this.name = requireNotBlank(event.getName(), "name");
         this.user = requireNonNull(event.getUser());
         this.locale = requireNonNull(locale);
+        this.timezone = timezone;
         this.args = new SlashArgumentReader(event);
         this.member = event.getMember();
     }
 
-    private CommandContext(@NotNull Context context, @NotNull GenericInteractionCreateEvent event, @NotNull String componentId, @NotNull String args) {
+    private CommandContext(@NotNull Context context, @NotNull Locale locale, @Nullable ZoneId timezone, @NotNull GenericInteractionCreateEvent event, @NotNull String componentId, @NotNull String args) {
         this.context = requireNonNull(context);
         String[] nameId = componentId.split("#");
         if(nameId.length != 2) {
@@ -74,7 +79,8 @@ public abstract class CommandContext implements Context {
         }
         this.name = requireNotBlank(nameId[0], "name");
         this.user = requireNonNull(event.getUser());
-        this.locale = requireNonNull(event.getUserLocale().toLocale());
+        this.locale = requireNonNull(locale);
+        this.timezone = timezone;
         String alertId = requireNotBlank(nameId[1], "alertId");
         this.args = new StringArgumentReader(alertId + ' ' + requireNonNull(args));
         this.member = event.getMember();
@@ -86,6 +92,7 @@ public abstract class CommandContext implements Context {
         this.name = commandContext.name;
         this.user = commandContext.user;
         this.locale = commandContext.locale;
+        this.timezone = commandContext.timezone;
         this.member = commandContext.member;
     }
 
@@ -123,9 +130,9 @@ public abstract class CommandContext implements Context {
         }
     }
 
-    public static CommandContext of(@NotNull Context context, @NotNull Locale locale, @NotNull MessageReceivedEvent event, @NotNull String command) {
+    public static CommandContext of(@NotNull Context context, @Nullable org.sbot.entities.User user, @NotNull MessageReceivedEvent event, @NotNull String command) {
         requireNonNull(event.getMessage());
-        return new CommandContext(context, locale, event, command) {
+        return new CommandContext(context, null != user ? user.locale() : DEFAULT_LOCALE, null != user ? user.timeZone() : null, event, command) {
             boolean firstReply = !isPrivateChannel(this); // this set a "reply to" once on the first message
             @Override
             public void reply(@NotNull List<Message> messages, int ttlSeconds) {
@@ -137,8 +144,8 @@ public abstract class CommandContext implements Context {
         };
     }
 
-    public static CommandContext of(@NotNull Context context, @NotNull Locale locale, @NotNull SlashCommandInteractionEvent event) {
-        return new CommandContext(context, locale, event) {
+    public static CommandContext of(@NotNull Context context, @NotNull org.sbot.entities.User user, @NotNull SlashCommandInteractionEvent event) {
+        return new CommandContext(context, user.locale(), user.timeZone(), event) {
             @Override
             public void reply(@NotNull List<Message> messages, int ttlSeconds) {
                 reply(messages, modal -> event.replyModal(modal).queue(),
@@ -150,8 +157,8 @@ public abstract class CommandContext implements Context {
         };
     }
 
-    public static CommandContext of(@NotNull Context context, @NotNull StringSelectInteractionEvent event) {
-        return new CommandContext(context, event, event.getComponentId(), String.join(" ", event.getValues())) {
+    public static CommandContext of(@NotNull Context context, @NotNull org.sbot.entities.User user, @NotNull StringSelectInteractionEvent event) {
+        return new CommandContext(context, user.locale(), user.timeZone(), event, event.getComponentId(), String.join(" ", event.getValues())) {
             @Override
             public void reply(@NotNull List<Message> messages, int ttlSeconds) {
                 reply(messages, modal -> event.replyModal(modal).queue(),
@@ -161,8 +168,8 @@ public abstract class CommandContext implements Context {
         };
     }
 
-    public static CommandContext of(@NotNull Context context, @NotNull ModalInteractionEvent event) {
-        return new CommandContext(context, event, event.getModalId(), event.getValues().stream()
+    public static CommandContext of(@NotNull Context context, @NotNull org.sbot.entities.User user, @NotNull ModalInteractionEvent event) {
+        return new CommandContext(context, user.locale(), user.timeZone(), event, event.getModalId(), event.getValues().stream()
                 .map(m -> m.getId() + " " + m.getAsString()).collect(joining(" "))) {
             @Override
             public void reply(@NotNull List<Message> messages, int ttlSeconds) {

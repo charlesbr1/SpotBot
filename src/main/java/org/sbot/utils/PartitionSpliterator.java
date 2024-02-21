@@ -28,7 +28,7 @@ public final class PartitionSpliterator<T> implements Spliterator<List<T>> {
     }
 
     public static <T> PartitionSpliterator<T> over(int splitSize, boolean recycleSubList, Spliterator<T> source) {
-        return new PartitionSpliterator<T>(source, splitSize, recycleSubList);
+        return new PartitionSpliterator<>(source, splitSize, recycleSubList);
     }
 
     @FunctionalInterface

@@ -6,6 +6,7 @@ import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 import org.sbot.utils.Dates;
 
 import java.time.Clock;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Locale;
 import java.util.Map;
@@ -18,12 +19,12 @@ import static java.util.Objects.requireNonNull;
 public interface UsersDao {
 
     @NotNull
-    default Locale setupUser(long userId, @NotNull Locale locale, @NotNull Clock clock) {
+    default User setupUser(long userId, @NotNull Locale locale, @NotNull Clock clock) {
         requireNonNull(locale);
-        return accessUser(userId, clock).map(User::locale).orElseGet(() -> {
-            var user = new User(userId, locale, Dates.nowUtc(clock));
+        return accessUser(userId, clock).orElseGet(() -> {
+            var user = new User(userId, locale, null, Dates.nowUtc(clock));
             setUser(user);
-            return locale;
+            return user;
         });
     }
 
@@ -43,6 +44,8 @@ public interface UsersDao {
     void setUser(@NotNull User user);
 
     void updateLocale(long userId, @NotNull Locale locale);
+
+    void updateTimezone(long userId, @NotNull ZoneId timezone);
 
     void updateLastAccess(long userId, @NotNull ZonedDateTime lastAccess);
 

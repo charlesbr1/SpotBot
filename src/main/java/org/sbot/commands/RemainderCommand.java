@@ -42,7 +42,7 @@ public final class RemainderCommand extends CommandAdapter {
         String pair = requirePairFormat(context.args.getMandatoryString("pair").toUpperCase());
         var reversed = context.args.reversed();
         ZonedDateTime now = Dates.nowUtc(context.clock());
-        ZonedDateTime date = requireInFuture(now, reversed.getMandatoryDateTime(context.locale, context.clock(), "date"));
+        ZonedDateTime date = requireInFuture(now, reversed.getMandatoryDateTime(context.locale, context.timezone, context.clock(), "date"));
         String message = requireAlertMessageMaxLength(reversed.getLastArgs("message")
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
 

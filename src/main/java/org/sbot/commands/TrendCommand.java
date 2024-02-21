@@ -16,7 +16,6 @@ import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
 
-import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.trend;
@@ -35,7 +34,7 @@ public final class TrendCommand extends CommandAdapter {
 
     static final List<OptionData> optionList = List.of(
             option(STRING, "exchange", "the exchange, like binance", true)
-                    .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).collect(toList())),
+                    .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).toList()),
             option(STRING, "pair", "the pair, like EUR/USDT", true)
                     .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
             option(STRING, "message", "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
@@ -67,7 +66,7 @@ public final class TrendCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         var alertId = context.args.getLong("alert_id").map(ArgumentValidator::requirePositive);
         if(alertId.isPresent()) {
-            var date = context.args.getMandatoryDateTime(context.locale, context.clock(), "date");
+            var date = context.args.getMandatoryDateTime(context.locale, context.timezone, context.clock(), "date");
             LOGGER.debug("trend command - alert_id : {}, date : {}", alertId, date);
             context.noMoreArgs().reply(trendPrice(context, date, alertId.get()), responseTtlSeconds);
             return;
@@ -75,9 +74,9 @@ public final class TrendCommand extends CommandAdapter {
         String exchange = requireSupportedExchange(context.args.getMandatoryString("exchange"));
         String pair = requirePairFormat(context.args.getMandatoryString("pair").toUpperCase());
         var reversed = context.args.reversed();
-        ZonedDateTime toDate = reversed.getMandatoryDateTime(context.locale, context.clock(), "to_date");
+        ZonedDateTime toDate = reversed.getMandatoryDateTime(context.locale, context.timezone, context.clock(), "to_date");
         BigDecimal toPrice = requirePositive(reversed.getMandatoryNumber("to_price"));
-        ZonedDateTime fromDate = reversed.getMandatoryDateTime(context.locale, context.clock(), "from_date");
+        ZonedDateTime fromDate = reversed.getMandatoryDateTime(context.locale, context.timezone, context.clock(), "from_date");
         BigDecimal fromPrice = requirePositive(reversed.getMandatoryNumber("from_price"));
         String message = requireAlertMessageMaxLength(reversed.getLastArgs("message")
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));

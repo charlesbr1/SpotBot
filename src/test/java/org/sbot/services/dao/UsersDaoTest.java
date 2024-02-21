@@ -3,14 +3,15 @@ package org.sbot.services.dao;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.sbot.entities.User;
-import org.sbot.utils.Dates;
 
 import java.time.Clock;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Locale;
 import java.util.stream.LongStream;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.sbot.utils.Dates.UTC;
 import static org.sbot.utils.DatesTest.nowUtc;
 
 public abstract class UsersDaoTest {
@@ -23,18 +24,21 @@ public abstract class UsersDaoTest {
 
         long userId = 321L;
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
-        assertEquals(Locale.FRANCE, users.setupUser(userId, Locale.FRANCE, Clock.fixed(now.toInstant(), Dates.UTC)));
-        assertEquals(Locale.FRANCE, users.setupUser(userId, Locale.JAPANESE, Clock.fixed(now.toInstant(), Dates.UTC)));
+        User user = new User(userId, Locale.FRANCE, null, now);
+        assertEquals(user, users.setupUser(userId, Locale.FRANCE, Clock.fixed(now.toInstant(), UTC)));
+        assertEquals(user, users.setupUser(userId, Locale.JAPANESE, Clock.fixed(now.toInstant(), UTC)));
 
         users.userBatchDeletes(b -> b.batchId(userId));
         assertTrue(users.getUser(userId).isEmpty());
 
-        assertEquals(Locale.JAPANESE, users.setupUser(userId, Locale.JAPANESE, Clock.fixed(now.toInstant(), Dates.UTC)));
-        assertEquals(Locale.JAPANESE, users.setupUser(userId, Locale.UK, Clock.fixed(now.toInstant(), Dates.UTC)));
+        user = new User(userId, Locale.JAPANESE, null, now);
+        assertEquals(user, users.setupUser(userId, Locale.JAPANESE, Clock.fixed(now.toInstant(), UTC)));
+        assertEquals(user, users.setupUser(userId, Locale.JAPANESE, Clock.fixed(now.toInstant(), ZoneId.of("Europe/Paris"))));
         assertEquals(now, users.getUser(userId).get().lastAccess());
 
-        assertEquals(Locale.JAPANESE, users.setupUser(userId, Locale.CANADA, Clock.fixed(now.plusHours(33L).toInstant(), Dates.UTC)));
-        assertEquals(now.plusHours(33L), users.getUser(userId).get().lastAccess());
+        // last access update visible on next call
+        assertNotEquals(now.plusHours(33L), users.setupUser(userId, Locale.CANADA, Clock.fixed(now.plusHours(33L).toInstant(), UTC)).lastAccess());
+        assertEquals(now.plusHours(33L), users.setupUser(userId, Locale.CANADA, Clock.fixed(now.plusHours(33L).toInstant(), UTC)).lastAccess());
     }
 
     @ParameterizedTest
@@ -45,14 +49,14 @@ public abstract class UsersDaoTest {
         assertTrue(users.accessUser(1L, Clock.systemUTC()).isEmpty());
 
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
-        User user = new User(1L, Locale.JAPAN, now);
+        User user = new User(1L, Locale.JAPAN, null, now);
         users.setUser(user);
         assertTrue(users.getUser(user.id()).isPresent());
         assertEquals(now, users.getUser(user.id()).get().lastAccess());
 
-        assertTrue(users.accessUser(1L, Clock.fixed(now.plusMinutes(33L).toInstant(), Dates.UTC)).isPresent());
+        assertTrue(users.accessUser(1L, Clock.fixed(now.plusMinutes(33L).toInstant(), UTC)).isPresent());
         assertEquals(now.plusMinutes(33L), users.getUser(user.id()).get().lastAccess());
-        assertTrue(users.accessUser(user.id(), Clock.fixed(now.plusHours(3L).toInstant(), Dates.UTC)).isPresent());
+        assertTrue(users.accessUser(user.id(), Clock.fixed(now.plusHours(3L).toInstant(), UTC)).isPresent());
         assertEquals(now.plusHours(3L), users.getUser(user.id()).get().lastAccess());
     }
 
@@ -62,7 +66,7 @@ public abstract class UsersDaoTest {
         long userId = 123L;
         assertTrue(users.getUser(userId).isEmpty());
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
-        User user = new User(userId, Locale.JAPAN, now);
+        User user = new User(userId, Locale.JAPAN, null, now);
         users.setUser(user);
         assertTrue(users.getUser(user.id()).isPresent());
         assertEquals(user, users.getUser(userId).get());
@@ -74,10 +78,10 @@ public abstract class UsersDaoTest {
         assertThrows(NullPointerException.class, () -> users.getLocales(null));
 
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
-        var user1 = new User(1L, Locale.US, now);
-        var user2 = new User(2L, Locale.JAPAN, now);
-        var user3 = new User(3L, Locale.FRENCH, now);
-        var user4 = new User(4L, Locale.CANADA, now);
+        var user1 = new User(1L, Locale.US, null, now);
+        var user2 = new User(2L, Locale.JAPAN, null, now);
+        var user3 = new User(3L, Locale.FRENCH, null, now);
+        var user4 = new User(4L, Locale.CANADA, null, now);
         users.setUser(user1);
         users.setUser(user2);
         users.setUser(user3);
@@ -116,7 +120,7 @@ public abstract class UsersDaoTest {
         assertThrows(NullPointerException.class, () -> users.setUser(null));
 
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
-        User user = new User(1L, Locale.JAPAN, now);
+        User user = new User(1L, Locale.JAPAN, UTC, now);
         assertTrue(users.getUser(user.id()).isEmpty());
         users.setUser(user);
         assertTrue(users.getUser(user.id()).isPresent());
@@ -129,7 +133,7 @@ public abstract class UsersDaoTest {
         assertThrows(NullPointerException.class, () -> users.updateLocale(1L, null));
 
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
-        User user = new User(1L, Locale.JAPAN, now);
+        User user = new User(1L, Locale.JAPAN, null, now);
         users.setUser(user);
         assertTrue(users.getUser(user.id()).isPresent());
         assertEquals(Locale.JAPAN, users.getUser(user.id()).get().locale());
@@ -139,11 +143,24 @@ public abstract class UsersDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
+    void updateTimezone(UsersDao users) {
+        User user = new User(1L, Locale.JAPAN, null, nowUtc());
+        users.setUser(user);
+        assertTrue(users.getUser(user.id()).isPresent());
+        assertNull(users.getUser(user.id()).get().timeZone());
+        users.updateTimezone(user.id(), UTC);
+        assertEquals(UTC, users.getUser(user.id()).get().timeZone());
+        users.updateTimezone(user.id(), ZoneId.of("Europe/Paris"));
+        assertEquals(ZoneId.of("Europe/Paris"), users.getUser(user.id()).get().timeZone());
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideDao")
     void updateLastAccess(UsersDao users) {
         assertThrows(NullPointerException.class, () -> users.updateLastAccess(1L, null));
 
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
-        User user = new User(1L, Locale.JAPAN, now);
+        User user = new User(1L, Locale.JAPAN, null, now);
         users.setUser(user);
         assertTrue(users.getUser(user.id()).isPresent());
         assertEquals(now, users.getUser(user.id()).get().lastAccess());
@@ -157,10 +174,10 @@ public abstract class UsersDaoTest {
         assertThrows(NullPointerException.class, () -> users.userBatchDeletes(null));
 
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
-        var user1 = new User(1L, Locale.US, now);
-        var user2 = new User(2L, Locale.JAPAN, now);
-        var user3 = new User(3L, Locale.FRENCH, now);
-        var user4 = new User(4L, Locale.CANADA, now);
+        var user1 = new User(1L, Locale.US, null, now);
+        var user2 = new User(2L, Locale.JAPAN, null, now);
+        var user3 = new User(3L, Locale.FRENCH, null, now);
+        var user4 = new User(4L, Locale.CANADA, UTC, now);
         users.setUser(user1);
         users.setUser(user2);
         users.setUser(user3);

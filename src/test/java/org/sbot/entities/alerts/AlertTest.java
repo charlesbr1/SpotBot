@@ -33,7 +33,7 @@ public class AlertTest {
     public static final String TEST_MESSAGE = "test message";
     public static final BigDecimal TEST_FROM_PRICE = BigDecimal.valueOf(10L);
     public static final BigDecimal TEST_TO_PRICE = BigDecimal.valueOf(20L);
-    public static final ZonedDateTime TEST_FROM_DATE = Dates.parse(Locale.US, mock(), "01/01/2000-20:00");
+    public static final ZonedDateTime TEST_FROM_DATE = Dates.parse(Locale.US, null, mock(), "01/01/2000-20:00");
     public static final ZonedDateTime TEST_TO_DATE = TEST_FROM_DATE.plusDays(1L);
     public static final ZonedDateTime TEST_LAST_TRIGGER = TEST_FROM_DATE.plusHours(1L);
     public static final BigDecimal TEST_MARGIN = BigDecimal.TEN;

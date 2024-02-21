@@ -15,7 +15,7 @@ import static org.sbot.utils.DatesTest.nowUtc;
 
 class CandlestickTest {
 
-    static final ZonedDateTime TEST_OPEN_TIME = Dates.parse(Locale.US, mock(), "01/01/2000-20:00");
+    static final ZonedDateTime TEST_OPEN_TIME = Dates.parse(Locale.US, null, mock(), "01/01/2000-20:00");
     static final ZonedDateTime TEST_CLOSE_TIME = TEST_OPEN_TIME.plusHours(1L);
     static final BigDecimal TEST_OPEN = ONE;
     static final BigDecimal TEST_CLOSE = BigDecimal.TWO;

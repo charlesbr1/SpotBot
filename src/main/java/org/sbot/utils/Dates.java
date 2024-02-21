@@ -38,11 +38,11 @@ public interface Dates {
         return LocalDateTime.parse(asDateTimeFormat(locale, dateTime), DATE_TIME_FORMATTER);
     }
 
-    static ZonedDateTime parse(@NotNull Locale locale, @NotNull Clock clock, @NotNull String dateTime) {
+    static ZonedDateTime parse(@NotNull Locale locale, @Nullable ZoneId timezone, @NotNull Clock clock, @NotNull String dateTime) {
         requireNonNull(locale);
         requireNonNull(clock);
         if(dateTime.startsWith(NOW_ARGUMENT)) {
-            return parseNow(clock, dateTime.replaceFirst(NOW_ARGUMENT, ""));
+            return parseNow(timezone, clock, dateTime.replaceFirst(NOW_ARGUMENT, ""));
         }
         dateTime = asDateTimeFormat(locale, dateTime);
         try {
@@ -51,15 +51,15 @@ public interface Dates {
             try {
                 return ZonedDateTime.parse(dateTime, ZONED_DATE_TIME_FORMATTER);
             } catch (DateTimeException e2) { // parse as UTC
-                return LocalDateTime.parse(dateTime, DATE_TIME_FORMATTER).atZone(UTC);
+                return LocalDateTime.parse(dateTime, DATE_TIME_FORMATTER).atZone(null != timezone ? timezone : UTC);
             }
         }
     }
 
-    private static ZonedDateTime parseNow(@NotNull Clock clock, @Nullable String zoneId) {
+    private static ZonedDateTime parseNow(@Nullable ZoneId timezone, @NotNull Clock clock, @Nullable String zoneId) {
         ZoneId zone;
         try {
-            zone = null == zoneId || zoneId.isEmpty() ? UTC : ZoneId.of(zoneId, ZoneId.SHORT_IDS);
+            zone = null == zoneId || zoneId.isEmpty() ? null != timezone ? timezone : UTC : ZoneId.of(zoneId, ZoneId.SHORT_IDS);
         } catch (DateTimeException e) {
             if(!zoneId.startsWith("-")) {
                 throw e;

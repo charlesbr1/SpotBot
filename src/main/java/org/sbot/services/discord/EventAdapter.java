@@ -28,7 +28,6 @@ import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
-import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.utils.ArgumentValidator.START_WITH_DISCORD_USER_ID_PATTERN;
 
@@ -95,8 +94,8 @@ final class EventAdapter extends ListenerAdapter {
         if (acceptCommand(event.getUser(), event.getChannel())) {
             LOGGER.info("Discord slash command received from user {} : {}, with options {}", event.getUser().getEffectiveName(), event.getName(), event.getOptions());
             event.deferReply(true).queue();
-            var locale = context.transactional(txCtx -> txCtx.usersDao().setupUser(event.getUser().getIdLong(), event.getUserLocale().toLocale(), context.clock()));
-            onCommand(CommandContext.of(context, locale, event));
+            var user = context.transactional(txCtx -> txCtx.usersDao().setupUser(event.getUser().getIdLong(), event.getUserLocale().toLocale(), context.clock()));
+            onCommand(CommandContext.of(context, user, event));
         } else {
             event.replyEmbeds(embedBuilder("Sorry !", Color.black,
                             "SpotBot disabled on this channel. Use it in private or on channel " +
@@ -113,10 +112,9 @@ final class EventAdapter extends ListenerAdapter {
             var command = event.getMessage().getContentRaw().strip();
             if (isPrivateMessage(event.getChannel().getType()) || command.startsWith(context.discord().spotBotUserMention())) {
                 LOGGER.info("Discord message received from user {} : {}", event.getAuthor().getEffectiveName(), event.getMessage().getContentRaw());
-                var locale = context.transactional(txCtx -> txCtx.usersDao()
-                        .accessUser(event.getAuthor().getIdLong(), context.clock())
-                        .map(org.sbot.entities.User::locale).orElse(DEFAULT_LOCALE));
-                onCommand(CommandContext.of(context, locale, event, removeStartingMentions(command)));
+                var user = context.transactional(txCtx -> txCtx.usersDao()
+                        .accessUser(event.getAuthor().getIdLong(), context.clock())).orElse(null);
+                onCommand(CommandContext.of(context, user, event, removeStartingMentions(command)));
             }
         }
     }
@@ -168,7 +166,8 @@ final class EventAdapter extends ListenerAdapter {
     @Override
     public void onStringSelectInteraction(@NotNull StringSelectInteractionEvent event) {
         try {
-            var command = CommandContext.of(context, event);
+            var user = context.transactional(txCtx -> txCtx.usersDao().setupUser(event.getUser().getIdLong(), event.getUserLocale().toLocale(), context.clock()));
+            var command = CommandContext.of(context, user, event);
             context.discord().getGetInteractionListener(command.name).onInteraction(command);
         } catch (RuntimeException e) {
             LOGGER.warn("Internal error while processing discord select interaction : " + event, e);
@@ -179,7 +178,8 @@ final class EventAdapter extends ListenerAdapter {
     }
     public void onModalInteraction(@NotNull ModalInteractionEvent event) {
         try {
-            var command = CommandContext.of(context, event);
+            var user = context.transactional(txCtx -> txCtx.usersDao().setupUser(event.getUser().getIdLong(), event.getUserLocale().toLocale(), context.clock()));
+            var command = CommandContext.of(context, user, event);
             context.discord().getGetInteractionListener(command.name).onInteraction(command);
         } catch (RuntimeException e) {
             LOGGER.warn("Internal error while processing discord modal interaction : " + event, e);

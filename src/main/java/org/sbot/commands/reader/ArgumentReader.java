@@ -1,11 +1,13 @@
 package org.sbot.commands.reader;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Locale;
 import java.util.Optional;
@@ -27,8 +29,8 @@ public interface ArgumentReader {
     }
 
     @NotNull
-    default ZonedDateTime getMandatoryDateTime(@NotNull Locale locale, @NotNull Clock clock, @NotNull String fieldName) {
-        return getDateTime(locale, clock, fieldName).orElseThrow(() -> new IllegalArgumentException("Missing date time for argument '" + fieldName + "'\nexpected format : " + Dates.DATE_TIME_FORMAT + " UTC"));
+    default ZonedDateTime getMandatoryDateTime(@NotNull Locale locale, @Nullable ZoneId timezone, @NotNull Clock clock, @NotNull String fieldName) {
+        return getDateTime(locale, timezone, clock, fieldName).orElseThrow(() -> new IllegalArgumentException("Missing date time for argument '" + fieldName + "'\nexpected format : " + Dates.DATE_TIME_FORMAT + " UTC"));
     }
 
     default long getMandatoryUserId(@NotNull String fieldName) {
@@ -47,7 +49,7 @@ public interface ArgumentReader {
 
     Optional<Long> getLong(@NotNull String fieldName);
 
-    Optional<ZonedDateTime> getDateTime(@NotNull Locale locale, @NotNull Clock clock, @NotNull String fieldName);
+    Optional<ZonedDateTime> getDateTime(@NotNull Locale locale, @Nullable ZoneId timezone, @NotNull Clock clock, @NotNull String fieldName);
 
     Optional<LocalDateTime> getLocalDateTime(@NotNull Locale locale, @NotNull String fieldName);
 
