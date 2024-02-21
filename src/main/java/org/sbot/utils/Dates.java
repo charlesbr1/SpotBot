@@ -74,9 +74,16 @@ public interface Dates {
         return dateTime.format(LOCALIZED_DATE_FORMATTER.withLocale(locale)) + '-' + dateTime.format(TIME_FORMATTER);
     }
 
+    // this extract the day month year part of a date time and rebuild it ordered as DATE_FORMAT
     private static String asDateTimeFormat(@NotNull Locale locale, @NotNull String dateTime) {
-        int separator = dateTime.indexOf('-');
-        if(separator <= 0 || separator >= dateTime.length() - TIME_FORMAT.length()) {
+        int separator = 0;
+        int maxIndex = dateTime.length() - TIME_FORMAT.length();
+        for(int i = 3; i > 0 && separator <= maxIndex; separator++) {
+            if(!Character.isDigit(dateTime.charAt(separator))) {
+                i--; // this skip 3 first groups of digits
+            }
+        }
+        if(--separator <= 0 || separator == maxIndex || '-' != dateTime.charAt(separator)) {
             throw new DateTimeParseException("Malformed date-time", dateTime, separator);
         }
         String date = dateTime.substring(0, separator);
@@ -84,12 +91,10 @@ public interface Dates {
                 dateTime.substring(separator);
     }
 
-    //TODO test
     static String formatDiscord(@NotNull ZonedDateTime dateTime) {
         return TimeFormat.DATE_SHORT.format(dateTime) + '-' + TimeFormat.TIME_SHORT.format(dateTime);
     }
 
-    //TODO test
     static String formatDiscordRelative(@NotNull ZonedDateTime dateTime) {
         return TimeFormat.RELATIVE.format(dateTime);
     }

@@ -169,6 +169,16 @@ public class DatesTest {
         assertEquals(date, Dates.parse(Locale.US, clock, "1/17/2000-00:00-02:10"));
         assertEquals(date, Dates.parse(Locale.FRENCH, clock, "17/01/2000-00:00-02:10"));
         assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, finalClock[0], "17/1/2000-00:00-02:10"));
+
+        // test other locales formatting
+        date = LocalDateTime.parse("17/01/2011-00:00", DATE_TIME_FORMATTER).atZone(UTC);
+        finalClock[0] = clock = Clock.fixed(date.toInstant(), UTC);
+        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, finalClock[0], "2011-01-17-00:00"));
+        assertEquals(date, Dates.parse(Locale.forLanguageTag("Finnish"), clock, "2011-01-17-00:00"));
+        assertEquals(date, Dates.parse(Locale.forLanguageTag("Finnish"), clock, "2011-01-17-00:00-UTC"));
+        assertEquals(date, Dates.parse(Locale.CANADA, clock, "2011-01-17-00:00"));
+        assertEquals(date, Dates.parse(Locale.forLanguageTag("Danish"), clock, "2011-01-17-00:00"));
+        assertEquals(date, Dates.parse(Locale.forLanguageTag("Spanish"), clock, "2011-01-17-00:00"));
     }
 
     @Test

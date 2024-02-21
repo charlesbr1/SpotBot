@@ -1,8 +1,11 @@
 package org.sbot.utils;
 
+import net.dv8tion.jda.api.interactions.DiscordLocale;
 import org.junit.jupiter.api.Test;
 
 import java.time.ZonedDateTime;
+import java.util.Collections;
+import java.util.List;
 
 import static java.math.BigDecimal.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -121,6 +124,25 @@ class ArgumentValidatorTest {
     }
 
     @Test
+    void requireNotBlank() {
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireNotBlank(null, "field"));
+        assertEquals("a", ArgumentValidator.requireNotBlank("a", "field"));
+        assertEquals(" a  ", ArgumentValidator.requireNotBlank(" a  ", "field"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireNotBlank("", "field"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireNotBlank(" \t", "field"));
+    }
+
+    @Test
+    void requireSupportedLocale() {
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireSupportedLocale(null));
+        for(var locale : DiscordLocale.values()) {
+            assertEquals(locale.getLocale(), ArgumentValidator.requireSupportedLocale(locale.getLocale()));
+        }
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireSupportedLocale("fddada"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireSupportedLocale("mars language"));
+    }
+
+    @Test
     void requireSupportedExchange() {
         SUPPORTED_EXCHANGES.forEach(exchange -> assertEquals(exchange, ArgumentValidator.requireSupportedExchange(exchange)));
         VIRTUAL_EXCHANGES.forEach(exchange -> assertEquals(exchange, ArgumentValidator.requireSupportedExchange(exchange)));
@@ -202,5 +224,15 @@ class ArgumentValidatorTest {
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<@>"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<>"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(""));
+    }
+
+    @Test
+    void requireOneItem() {
+        assertEquals("1", ArgumentValidator.requireOneItem(List.of("1")));
+        assertEquals("test", ArgumentValidator.requireOneItem(List.of("test")));
+        assertEquals(ONE, ArgumentValidator.requireOneItem(List.of(ONE)));
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireOneItem(null));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireOneItem(Collections.emptyList()));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireOneItem(List.of("1", "2")));
     }
 }

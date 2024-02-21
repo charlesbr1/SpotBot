@@ -15,6 +15,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import static org.jdbi.v3.core.transaction.TransactionIsolationLevel.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.sbot.services.dao.sql.jdbi.JDBITransactionHandler.ENABLE_FOREIGN_KEY_CONSTRAINT;
 
 public class JDBITransactionHandlerTest {
 
@@ -62,12 +63,14 @@ public class JDBITransactionHandlerTest {
         verify(jdbi).open();
         verify(handle).begin();
         verify(handle).setTransactionIsolationLevel(eq(SERIALIZABLE));
+        verify(handle).execute(eq(ENABLE_FOREIGN_KEY_CONSTRAINT));
         // test Handle getHandle(@NotNull Jdbi jdbi)
         assertEquals(handle, transactionHandler.sync(jdbi, Objects::requireNonNull));
         assertEquals("test", transactionHandler.sync(jdbi, h -> "test"));
         verify(jdbi).open();
         verify(handle).begin();
         verify(handle).setTransactionIsolationLevel(eq(SERIALIZABLE));
+        verify(handle).execute(eq(ENABLE_FOREIGN_KEY_CONSTRAINT));
 
         // test sub call to sync(@NotNull Supplier<T> synchronizedAccess)
         transactionHandler = new JDBITransactionHandler(REPEATABLE_READ);
@@ -81,6 +84,7 @@ public class JDBITransactionHandlerTest {
         verify(jdbi).open();
         verify(handle).begin();
         verify(handle).setTransactionIsolationLevel(eq(REPEATABLE_READ));
+        verify(handle).execute(eq(ENABLE_FOREIGN_KEY_CONSTRAINT));
         verify(lock).lock();
         verify(lock).unlock();
 
@@ -88,6 +92,7 @@ public class JDBITransactionHandlerTest {
         verify(jdbi).open();
         verify(handle).begin();
         verify(handle).setTransactionIsolationLevel(eq(REPEATABLE_READ));
+        verify(handle).execute(eq(ENABLE_FOREIGN_KEY_CONSTRAINT));
         verify(lock, times(2)).lock();
         verify(lock, times(2)).unlock();
 
@@ -98,6 +103,7 @@ public class JDBITransactionHandlerTest {
         verify(finalJdbi).open();
         verify(handle).begin();
         verify(handle).setTransactionIsolationLevel(eq(REPEATABLE_READ));
+        verify(handle).execute(eq(ENABLE_FOREIGN_KEY_CONSTRAINT));
         verify(lock, times(3)).lock();
         verify(lock, times(3)).unlock();
 

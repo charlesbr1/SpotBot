@@ -141,8 +141,16 @@ public final class UpdateCommand extends CommandAdapter {
             if((null != fromDate && null == alert.fromDate) ||
                     (null != fromDate && fromDate.compareTo(alert.fromDate) != 0) ||
                     (null == fromDate && null != alert.fromDate)) {
-                //TODO update listening date accordingly
-                alertsDao.updateFromDate(alertId, (alert = alert.withFromDate(fromDate)).fromDate);
+                if(alert.type == remainder || (alert.type == range && null != fromDate && fromDate.isAfter(alert.listeningDate))) {
+                    alert = alert.withListeningDateFromDate(fromDate, fromDate);
+                    alertsDao.updateListeningDateFromDate(alertId, fromDate, fromDate);
+                } else if(alert.type == range && null != fromDate) {
+                    alert = alert.withListeningDateFromDate(now, fromDate);
+                    alertsDao.updateListeningDateFromDate(alertId, now, fromDate);
+                } else {
+                    alert = alert.withFromDate(fromDate);
+                    alertsDao.updateFromDate(alertId, fromDate);
+                }
                 return updateNotifyMessage(context, now, alert, DISPLAY_FROM_DATE, date, outNotificationCallBack);
             }
             return ListCommand.listAlert(context, now, alert);

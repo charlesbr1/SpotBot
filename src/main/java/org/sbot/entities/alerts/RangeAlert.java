@@ -10,7 +10,6 @@ import org.sbot.services.MatchingService.MatchingAlert.MatchingStatus;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 import static org.sbot.entities.chart.Ticker.getSymbol;
@@ -21,13 +20,13 @@ import static org.sbot.utils.Dates.formatDiscordRelative;
 
 public final class RangeAlert extends Alert {
 
-    public RangeAlert(long id, long userId, long serverId, @NotNull Locale locale,
+    public RangeAlert(long id, long userId, long serverId,
                       @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
                       @NotNull String exchange, @NotNull String pair, @NotNull String message,
                       @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
                       @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate,
                       @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short snooze) {
-        super(id, Type.range, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, requirePositive(fromPrice), requirePositive(toPrice),
+        super(id, Type.range, userId, serverId, creationDate, listeningDate, exchange, pair, message, requirePositive(fromPrice), requirePositive(toPrice),
                 fromDate, toDate, lastTrigger, margin, repeat, snooze);
         if(fromPrice.compareTo(toPrice) > 0) {
             throw new IllegalArgumentException("from_price is higher than to_price");
@@ -43,13 +42,13 @@ public final class RangeAlert extends Alert {
 
     @Override
     @NotNull
-    public RangeAlert build(long id, long userId, long serverId, @NotNull Locale locale,
+    public RangeAlert build(long id, long userId, long serverId,
                             @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
                             @NotNull String exchange, @NotNull String pair, @NotNull String message,
                             @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
                             @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate,
                             @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short snooze) {
-        return new RangeAlert(id, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        return new RangeAlert(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull

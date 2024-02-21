@@ -2,6 +2,8 @@ package org.sbot.services.context;
 
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
+import org.sbot.services.dao.memory.UsersMemory;
+import org.sbot.services.dao.sql.UsersSQLite;
 import org.sbot.services.discord.Discord;
 import org.sbot.services.context.Context.Parameters;
 import org.sbot.services.dao.memory.AlertsMemory;
@@ -36,6 +38,8 @@ class ContextTest {
         Parameters parameters = Parameters.of(null, "discordTokenFile", 1, 1);
         var context = Context.of(Clock.systemUTC(), parameters, null, ctx -> mock(Discord.class));
         assertNotNull(context.dataServices());
+        assertNotNull(context.dataServices().usersDao());
+        assertInstanceOf(UsersMemory.class, context.dataServices().usersDao().apply(null));
         assertNotNull(context.dataServices().alertsDao());
         assertInstanceOf(AlertsMemory.class, context.dataServices().alertsDao().apply(null));
         assertNotNull(context.dataServices().lastCandlesticksDao());
@@ -47,6 +51,9 @@ class ContextTest {
             sqlContext = Context.of(Clock.systemUTC(), parameters, new JDBIRepository(SQLITE_MEMORY_PERSISTENT), ctx -> mock(Discord.class));
         }
         assertNotNull(sqlContext.dataServices());
+        assertNotNull(sqlContext.dataServices().usersDao());
+        assertThrows(NullPointerException.class, () -> sqlContext.dataServices().usersDao().apply(null));
+        assertInstanceOf(UsersSQLite.class, sqlContext.dataServices().usersDao().apply(mock(JDBITransactionHandler.class)));
         assertNotNull(sqlContext.dataServices().alertsDao());
         assertThrows(NullPointerException.class, () -> sqlContext.dataServices().alertsDao().apply(null));
         assertInstanceOf(AlertsSQLite.class, sqlContext.dataServices().alertsDao().apply(mock(JDBITransactionHandler.class)));

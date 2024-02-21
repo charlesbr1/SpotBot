@@ -9,7 +9,6 @@ import org.sbot.entities.Message;
 import org.sbot.entities.alerts.RemainderAlert;
 import org.sbot.utils.Dates;
 
-import java.awt.*;
 import java.time.ZonedDateTime;
 import java.util.List;
 
@@ -17,13 +16,12 @@ import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.entities.alerts.Alert.NEW_ALERT_ID;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.DATE_TIME_FORMAT;
-import static org.sbot.utils.Dates.formatDiscord;
 
 public final class RemainderCommand extends CommandAdapter {
 
     static final String NAME = "remainder";
     static final String DESCRIPTION = "set a remainder related to a pair, to be raised in the future, like for an airdrop event";
-    private static final int RESPONSE_TTL_SECONDS = 60;
+    private static final int RESPONSE_TTL_SECONDS = 180;
 
     static final List<OptionData> optionList = List.of(
             option(STRING, "pair", "the pair, like EUR/USDT", true)
@@ -54,16 +52,9 @@ public final class RemainderCommand extends CommandAdapter {
 
     private Message remainder(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull String pair, @NotNull ZonedDateTime fromDate, @NotNull String message) {
         RemainderAlert remainderAlert = new RemainderAlert(NEW_ALERT_ID, context.user.getIdLong(),
-                context.serverId(), context.locale, now, // creation date
+                context.serverId(), now, // creation date
                 fromDate, // listening date
                 pair, message, fromDate);
-
-        long alertId = context.transactional(txCtx -> txCtx.alertsDao().addAlert(remainderAlert));
-        String answer = context.user.getAsMention() + " New remainder added with id " + alertId +
-                "\n\n* pair : " + remainderAlert.pair +
-                "\n* date : " + formatDiscord(fromDate) +
-                "\n* message : " + message;
-
-        return Message.of(embedBuilder(NAME, Color.green, answer));
+        return saveAlert(context, now, remainderAlert);
     }
 }

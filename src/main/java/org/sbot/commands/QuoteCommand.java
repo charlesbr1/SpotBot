@@ -15,7 +15,6 @@ import java.awt.*;
 import java.util.List;
 
 import static java.util.Comparator.comparing;
-import static java.util.stream.Collectors.toList;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.entities.chart.Ticker.formatPrice;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
@@ -26,8 +25,6 @@ public final class QuoteCommand extends CommandAdapter {
     private static final String NAME = "quote";
     static final String DESCRIPTION = "get the last quotation of a pair on the given exchange (1 minute time frame)";
     private static final int RESPONSE_TTL_SECONDS = 300;
-
-    private static final int TIME_ZONE_LENGTH = 3;
 
     private static final SlashCommandData options =
         Commands.slash(NAME, DESCRIPTION).addOptions(

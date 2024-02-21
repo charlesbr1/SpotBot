@@ -16,9 +16,9 @@ class CommandContextTest {
     void constructor() {
         MessageReceivedEvent event = mock(MessageReceivedEvent.class);
         Context context = mock(Context.class);
-        assertThrows(NullPointerException.class, () -> CommandContext.of(context, event, ""));
+        assertThrows(NullPointerException.class, () -> CommandContext.of(context, mock(), event, ""));
         when(event.getMessage()).thenReturn(mock(Message.class));
-        assertThrows(IllegalArgumentException.class, () -> CommandContext.of(context, event, ""));
+        assertThrows(IllegalArgumentException.class, () -> CommandContext.of(context, mock(), event, ""));
     }
 
     @Test

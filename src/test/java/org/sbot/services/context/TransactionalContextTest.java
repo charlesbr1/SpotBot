@@ -59,6 +59,20 @@ class TransactionalContextTest {
     }
 
     @Test
+    void usersDao() {
+        var context = mock(Context.class);
+        var dataServices = mock(DataServices.class);
+        when(context.dataServices()).thenReturn(dataServices);
+        var usersDaoBuilder = mock(Function.class);
+        when(dataServices.usersDao()).thenReturn(usersDaoBuilder);
+        TransactionalContext txContext = new TransactionalContext(context, READ_COMMITTED);
+        txContext.usersDao();
+        verify(context).dataServices();
+        verify(dataServices).usersDao();
+        verify(usersDaoBuilder).apply(any());
+    }
+
+    @Test
     void alertsDao() {
         var context = mock(Context.class);
         var dataServices = mock(DataServices.class);

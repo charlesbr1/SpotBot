@@ -28,7 +28,7 @@ import static org.sbot.utils.DatesTest.nowUtc;
 class RangeAlertTest {
 
     static RangeAlert createTestRangeAlert() {
-        return new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        return new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
     }
@@ -41,47 +41,47 @@ class RangeAlertTest {
 
     @Test
     void constructorCheck() {
-        assertDoesNotThrow(() -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertDoesNotThrow(() -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
-        assertDoesNotThrow(() -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), null, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertDoesNotThrow(() -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), null, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // prices not null
-        assertThrows(NullPointerException.class, () -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, null, TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(NullPointerException.class, () -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, null, TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
-        assertThrows(NullPointerException.class, () -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(NullPointerException.class, () -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
-        assertThrows(NullPointerException.class, () -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(NullPointerException.class, () -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, null, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // null dates ok
-        assertDoesNotThrow(() -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertDoesNotThrow(() -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, null, null, null,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // from date after to date
-        assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_TO_DATE, TEST_FROM_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // same dates
-        assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_FROM_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // same from and to price
-        assertDoesNotThrow(() -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertDoesNotThrow(() -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_FROM_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // from price above to price
-        assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE.add(ONE), TEST_FROM_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // positive prices
-        assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE.negate(), TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
-        assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE.negate(), TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
     }
@@ -90,11 +90,11 @@ class RangeAlertTest {
     void build() {
         RangeAlert alert = createTestRangeAlert();
 
-        assertNotNull(alert.build(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertNotNull(alert.build(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, null,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
 
-        assertThrows(NullPointerException.class, () -> alert.build(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(NullPointerException.class, () -> alert.build(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, null, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
     }

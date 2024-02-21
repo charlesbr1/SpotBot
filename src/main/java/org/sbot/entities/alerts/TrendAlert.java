@@ -11,7 +11,6 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Locale;
 
 import static java.math.RoundingMode.HALF_UP;
 import static org.sbot.entities.chart.Ticker.formatPrice;
@@ -23,14 +22,14 @@ import static org.sbot.utils.Dates.formatDiscordRelative;
 
 public final class TrendAlert extends Alert {
 
-    public TrendAlert(long id, long userId, long serverId, @NotNull Locale locale,
+    public TrendAlert(long id, long userId, long serverId,
                       @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
                       @NotNull String exchange, @NotNull String pair, @NotNull String message,
                       @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
                       @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate,
                       @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin,
                       short repeat, short snooze) {
-        super(id, Type.trend, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, requirePositive(fromPrice), requirePositive(toPrice),
+        super(id, Type.trend, userId, serverId, creationDate, listeningDate, exchange, pair, message, requirePositive(fromPrice), requirePositive(toPrice),
                 fromDate, toDate, lastTrigger, margin, repeat, snooze);
         if(fromDate.isAfter(toDate)) {
             throw new IllegalArgumentException("from_date is after to_date");
@@ -41,13 +40,13 @@ public final class TrendAlert extends Alert {
 
     @Override
     @NotNull
-    public TrendAlert build(long id, long userId, long serverId, @NotNull Locale locale,
+    public TrendAlert build(long id, long userId, long serverId,
                             @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
                             @NotNull String exchange, @NotNull String pair, @NotNull String message,
                             @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
                             @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate,
                             @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short snooze) {
-        return new TrendAlert(id, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        return new TrendAlert(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull

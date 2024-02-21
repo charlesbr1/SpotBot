@@ -243,10 +243,12 @@ public final class AlertsWatcher {
 
     private void sendAlerts(@NotNull ZonedDateTime now, @NotNull Long serverId, @NotNull List<MatchingAlert> matchingAlerts) {
         try {
+            var userIds = matchingAlerts.stream().map(MatchingAlert::alert).mapToLong(Alert::getUserId);
+            var userLocales = context.transactional(txCtx -> txCtx.usersDao().getLocales(userIds));
             if(isPrivate(serverId)) {
-                sendPrivateAlerts(now, matchingAlerts);
+                sendPrivateAlerts(now, matchingAlerts, userLocales);
             } else {
-                sendServerAlerts(matchingAlerts, context.discord().getGuildServer(serverId)
+                sendServerAlerts(matchingAlerts, userLocales, context.discord().getGuildServer(serverId)
                         .orElseThrow(() -> new IllegalStateException("Failed to get guild server " + serverId +
                                 " : should not be connected to this bot")), now);
             }
@@ -257,21 +259,21 @@ public final class AlertsWatcher {
         }
     }
 
-    private void sendServerAlerts(@NotNull List<MatchingAlert> matchingAlerts, @NotNull Guild guild, @NotNull ZonedDateTime now) {
+    private void sendServerAlerts(@NotNull List<MatchingAlert> matchingAlerts, @NotNull Map<Long, Locale> userLocales, @NotNull Guild guild, @NotNull ZonedDateTime now) {
         List<String> roles = matchingAlerts.stream().map(MatchingAlert::status).anyMatch(MatchingStatus::notMatching) ? emptyList() : // no @SpotBot mention for a delete notification
                 spotBotRole(guild).map(Role::getId).stream().toList();
         var users = matchingAlerts.stream().map(MatchingAlert::alert).map(Alert::getUserId).distinct().map(String::valueOf).toList();
         //TODO user must still be on server check, or else <@123> appears in discord
         // query each user on server ?
-        Discord.spotBotChannel(guild).ifPresent(channel ->
+        Discord.spotBotChannel(guild).ifPresent(channel -> // TODO use userLocales
                 channel.sendMessages(List.of(toMessage(now, matchingAlerts, roles, users))));
     }
 
-    private void sendPrivateAlerts(@NotNull ZonedDateTime now, @NotNull List<MatchingAlert> matchingAlerts) {
+    private void sendPrivateAlerts(@NotNull ZonedDateTime now, @NotNull List<MatchingAlert> matchingAlerts, @NotNull Map<Long, Locale> userLocales) {
         matchingAlerts.stream().collect(groupingBy(matchingAlert -> matchingAlert.alert().userId))
                 .forEach((userId, userAlerts) -> // retrieving user channel is a blocking task (there is a cache though)
                         Thread.ofVirtual().name("SpotBot private channel " + userId)
-                                .start(() -> context.discord().userChannel(userId)
+                                .start(() -> context.discord().userChannel(userId) //TODO pass userLocales
                                         .ifPresent(channel -> channel.sendMessages(List.of(toMessage(now, userAlerts))))));
     }
 

@@ -6,24 +6,31 @@ import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jdbi.v3.core.statement.StatementException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.SpotBot;
+import org.sbot.commands.reader.StringArgumentReader;
 import org.sbot.entities.Message;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.discord.CommandListener;
+import org.sqlite.SQLiteException;
 
 import java.awt.*;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static java.util.Objects.requireNonNull;
+import static org.sbot.entities.alerts.Alert.Type.remainder;
 import static org.sbot.entities.alerts.Alert.isPrivate;
 import static org.sbot.services.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
+import static org.sbot.utils.ArgumentValidator.requireOneItem;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
+import static org.sqlite.SQLiteErrorCode.SQLITE_CONSTRAINT_FOREIGNKEY;
 
 public abstract class CommandAdapter implements CommandListener {
 
@@ -92,6 +99,31 @@ public abstract class CommandAdapter implements CommandListener {
                 .setTitle(title)
                 .setColor(color)
                 .setDescription(text);
+    }
+
+    protected static Message saveAlert(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert) {
+        try {
+            var newAlert = alert.withId(() -> context.transactional(txCtx -> txCtx.alertsDao().addAlert(alert)));
+            var message = ListCommand.toMessageWithEdit(context, now, newAlert, 0, 0);
+            if(remainder != alert.type) {
+                requireOneItem(message.embeds()).appendDescription(alertMessageTips(newAlert.message, newAlert.id));
+            }
+            return message;
+        } catch (StatementException e) {
+            if(context.args instanceof StringArgumentReader &&
+                    e.getCause() instanceof SQLiteException ex &&
+                    SQLITE_CONSTRAINT_FOREIGNKEY.equals(ex.getResultCode())) {
+                return userSetupNeeded(context.name);
+            }
+            throw e;
+        }
+    }
+
+    private static Message userSetupNeeded(@NotNull String title) {
+        return Message.of(embedBuilder(requireNonNull(title), Color.red,
+                "Unable to create a new alert using text command :" +
+                        "\n\n> Missing user account setup !" +
+                        "\n\nPlease use any slash command to setup your account once, like /spotbot, then try again."));
     }
 
     public static final String ALERT_TIPS = "Your message will be shown in the title of your alert notification.";

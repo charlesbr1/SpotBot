@@ -13,7 +13,6 @@ import org.sbot.entities.alerts.RangeAlert;
 import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
 
-import java.awt.*;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -25,13 +24,14 @@ import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
-import static org.sbot.utils.Dates.*;
+import static org.sbot.utils.Dates.DATE_TIME_FORMAT;
+import static org.sbot.utils.Dates.NOW_ARGUMENT;
 
 public final class RangeCommand extends CommandAdapter {
 
     static final String NAME = "range";
     static final String DESCRIPTION = "create a new range alert on a pair, defined by two prices and two optional dates";
-    private static final int RESPONSE_TTL_SECONDS = 60;
+    private static final int RESPONSE_TTL_SECONDS = 180;
 
     static final List<OptionData> optionList = List.of(
             option(STRING, "exchange", "the exchange, like binance", true)
@@ -108,21 +108,10 @@ public final class RangeCommand extends CommandAdapter {
             toDate = swap;
         }
         RangeAlert rangeAlert = new RangeAlert(NEW_ALERT_ID, context.user.getIdLong(),
-                context.serverId(), context.locale, now, // creation date
+                context.serverId(), now, // creation date
                 null != fromDate && fromDate.isAfter(now) ? fromDate : now, // listening date
                 exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
-
-        long alertId = context.transactional(txCtx -> txCtx.alertsDao().addAlert(rangeAlert));
-
-        String answer = context.user.getAsMention() + " New range alert added with id " + alertId +
-                "\n\n* pair : " + rangeAlert.pair + "\n* exchange : " + exchange +
-                "\n* low " + fromPrice + "\n* high " + toPrice +
-                (null != fromDate ? "\n* from date " + formatDiscord(fromDate) : "") +
-                (null != toDate ? "\n* to date " + formatDiscord(toDate) : "") +
-                "\n* message : " + message +
-                alertMessageTips(message, alertId);
-
-        return Message.of(embedBuilder(NAME, Color.green, answer));
+        return saveAlert(context, now, rangeAlert);
     }
 }

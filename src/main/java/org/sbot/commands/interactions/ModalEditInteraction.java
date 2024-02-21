@@ -33,6 +33,7 @@ import static org.sbot.commands.ListCommand.ALERT_TITLE_PAIR_FOOTER;
 import static org.sbot.commands.UpdateCommand.*;
 import static org.sbot.commands.interactions.SelectEditInteraction.*;
 import static org.sbot.entities.alerts.Alert.DISABLED;
+import static org.sbot.utils.ArgumentValidator.requireOneItem;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class ModalEditInteraction implements InteractionListener {
@@ -47,7 +48,7 @@ public final class ModalEditInteraction implements InteractionListener {
                 .setPlaceholder("edit " + field)
                 .setRequiredRange(minLength, maxLength)
                 .build();
-        return Modal.create(NAME + "#" + alertId, "Edit Alert " + alertId)
+        return Modal.create(NAME + "#" + alertId, "Edit Alert #" + alertId)
                 .addComponents(ActionRow.of(inputValue)).build();
     }
 
@@ -82,8 +83,8 @@ public final class ModalEditInteraction implements InteractionListener {
     @NotNull
     private static Function<List<Message>, List<Message>> replyMapper(@Nullable String newMessage, long alertId) {
         BiFunction<Message, MessageEditBuilder, MessageEditData> editMapper = (message, editBuilder) -> {
-            var originalEmbed = getOneItem(editBuilder.getEmbeds());
-            var newEmbedBuilder = getOneItem(message.embeds());
+            var originalEmbed = requireOneItem(editBuilder.getEmbeds());
+            var newEmbedBuilder = requireOneItem(message.embeds());
             // switch the enable / disable item in menu if enabled state changed
             switchEnableItem(editBuilder, alertId, newEmbedBuilder.getDescriptionBuilder().indexOf(DISABLED) >= 0);
             // update message reply with update command reply updated to be in same format as ones produced by list command
@@ -93,11 +94,9 @@ public final class ModalEditInteraction implements InteractionListener {
     }
 
     private static void switchEnableItem(@NotNull MessageEditBuilder editBuilder, long alertId, boolean isDisabled) {
-        StringSelectMenu select = (StringSelectMenu) getOneItem(getOneItem(editBuilder.getComponents()).getActionComponents());
+        StringSelectMenu select = (StringSelectMenu) requireOneItem(requireOneItem(editBuilder.getComponents()).getActionComponents());
         Optional.ofNullable(switchEnableItem(select.getOptions(), isDisabled)).ifPresent(options -> {
-            options.remove(0); // first item ("edit" default entry) must be removed, it still appears though, don't know why...
-            var selectComponent = SelectEditInteraction
-                    .selectMenu(SelectEditInteraction.NAME + "#" + alertId)
+            var selectComponent = StringSelectMenu.create(SelectEditInteraction.NAME + "#" + alertId)
                     .addOptions(options);
             editBuilder.setComponents(List.of(ActionRow.of(selectComponent.build())));
         });
@@ -123,19 +122,12 @@ public final class ModalEditInteraction implements InteractionListener {
     @NotNull
     static List<Message> replyOriginal(@Nullable String errorMessage) {
         Function<MessageEditBuilder, MessageEditData> editMapper = editBuilder -> {
-            var originalEmbed = getOneItem(editBuilder.getEmbeds());
+            var originalEmbed = requireOneItem(editBuilder.getEmbeds());
             var embedBuilder = null != errorMessage ? embedBuilder(errorMessage) : // this will prepend the provided errorMessage
                     new EmbedBuilder(); // this will just restore the original description, removing errors or update adds
             return editBuilder.setEmbeds(updatedMessageEmbeds(originalEmbed, embedBuilder, null, true)).build();
         };
         return List.of(Message.of(editMapper));
-    }
-
-    private static <T> T getOneItem(@NotNull List<T> list) {
-        if(list.size() != 1) {
-            throw new IllegalArgumentException("Unexpected list size (wanted 1) : " + list.size() + ", content : " + list);
-        }
-        return list.get(0);
     }
 
     @NotNull

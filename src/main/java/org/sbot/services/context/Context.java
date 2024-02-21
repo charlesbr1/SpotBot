@@ -4,6 +4,9 @@ import org.apache.logging.log4j.LogManager;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.sbot.services.dao.UsersDao;
+import org.sbot.services.dao.memory.UsersMemory;
+import org.sbot.services.dao.sql.UsersSQLite;
 import org.sbot.services.discord.Discord;
 import org.sbot.services.AlertsWatcher;
 import org.sbot.services.LastCandlesticksService;
@@ -27,18 +30,20 @@ import static org.sbot.services.context.TransactionalContext.DEFAULT_ISOLATION_L
 public interface Context {
 
     // register new data service here
-    record DataServices(@NotNull Function<JDBITransactionHandler, AlertsDao> alertsDao,
+    record DataServices(@NotNull Function<JDBITransactionHandler, UsersDao> usersDao,
+                        @NotNull Function<JDBITransactionHandler, AlertsDao> alertsDao,
                         @NotNull Function<JDBITransactionHandler, LastCandlesticksDao> lastCandlesticksDao) {
         @NotNull
         static DataServices load(@Nullable JDBIRepository repository) {
             if(null == repository) {
                 LogManager.getLogger(DataServices.class).info("Loading data services in memory");
+                var usersDao = new UsersMemory();
                 var alertsDao = new AlertsMemory();
                 var lastCandlesticksDao = new LastCandlesticksMemory();
-                return new DataServices(v -> alertsDao, v -> lastCandlesticksDao);
+                return new DataServices(v -> usersDao, v -> alertsDao, v -> lastCandlesticksDao);
             }
             LogManager.getLogger(DataServices.class).info("Loading data services SQLite");
-            return new DataServices(new AlertsSQLite(repository)::withHandler,
+            return new DataServices(new UsersSQLite(repository)::withHandler, new AlertsSQLite(repository)::withHandler,
                     new LastCandlesticksSQLite(repository)::withHandler);
         }
     }

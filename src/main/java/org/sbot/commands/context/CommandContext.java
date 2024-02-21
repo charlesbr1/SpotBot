@@ -1,6 +1,5 @@
 package org.sbot.commands.context;
 
-import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
@@ -8,7 +7,6 @@ import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.modals.Modal;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
@@ -50,20 +48,20 @@ public abstract class CommandContext implements Context {
     public final @Nullable Member member;
 
 
-    private CommandContext(@NotNull Context context, @NotNull MessageReceivedEvent event, @NotNull String command) {
+    private CommandContext(@NotNull Context context, @NotNull Locale locale, @NotNull MessageReceivedEvent event, @NotNull String command) {
         this.context = requireNonNull(context);
         this.args = new StringArgumentReader(command);
         this.name = requireNotBlank(args.getString("").orElseThrow(() -> new IllegalArgumentException("Missing command")), "name");
         this.user = requireNonNull(event.getAuthor());
-        this.locale = null != event.getMember() ? event.getMember().getGuild().getLocale().toLocale() : findLocale(user);
+        this.locale = requireNonNull(locale);
         this.member = event.getMember();
     }
 
-    private CommandContext(@NotNull Context context, @NotNull SlashCommandInteractionEvent event) {
+    private CommandContext(@NotNull Context context, @NotNull Locale locale, @NotNull SlashCommandInteractionEvent event) {
         this.context = requireNonNull(context);
         this.name = requireNotBlank(event.getName(), "name");
         this.user = requireNonNull(event.getUser());
-        this.locale = requireNonNull(event.getUserLocale().toLocale());
+        this.locale = requireNonNull(locale);
         this.args = new SlashArgumentReader(event);
         this.member = event.getMember();
     }
@@ -123,9 +121,9 @@ public abstract class CommandContext implements Context {
         }
     }
 
-    public static CommandContext of(@NotNull Context context, @NotNull MessageReceivedEvent event, @NotNull String command) {
+    public static CommandContext of(@NotNull Context context, @NotNull Locale locale, @NotNull MessageReceivedEvent event, @NotNull String command) {
         requireNonNull(event.getMessage());
-        return new CommandContext(context, event, command) {
+        return new CommandContext(context, locale, event, command) {
             boolean firstReply = !isPrivateChannel(this); // this set a "reply to" once on the first message
             @Override
             public void reply(@NotNull List<Message> messages, int ttlSeconds) {
@@ -137,8 +135,8 @@ public abstract class CommandContext implements Context {
         };
     }
 
-    public static CommandContext of(@NotNull Context context, @NotNull SlashCommandInteractionEvent event) {
-        return new CommandContext(context, event) {
+    public static CommandContext of(@NotNull Context context, @NotNull Locale locale, @NotNull SlashCommandInteractionEvent event) {
+        return new CommandContext(context, locale, event) {
             @Override
             public void reply(@NotNull List<Message> messages, int ttlSeconds) {
                 reply(messages, modal -> event.replyModal(modal).queue(),
@@ -172,11 +170,6 @@ public abstract class CommandContext implements Context {
                         editMapper -> event.editMessage(editMapper.apply(MessageEditBuilder.fromMessage(event.getMessage()))).queue());
             }
         };
-    }
-
-    @NotNull
-    private Locale findLocale(@NotNull User user) { // TODO check if it needs some cache settings enabled
-        return user.getMutualGuilds().stream().findFirst().map(Guild::getLocale).map(DiscordLocale::toLocale).orElse(Locale.ENGLISH);
     }
 
     public final CommandContext withArgumentsAndReplyMapper(@NotNull String arguments, @NotNull Function<List<Message>, List<Message>> replyMapper) {

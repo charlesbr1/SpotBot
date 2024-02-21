@@ -1,22 +1,22 @@
 package org.sbot.services.dao;
 
+import org.jdbi.v3.core.statement.StatementException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.sbot.entities.User;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.entities.alerts.RangeAlert;
 import org.sbot.entities.alerts.RemainderAlert;
 import org.sbot.entities.alerts.TrendAlert;
+import org.sbot.services.dao.memory.AlertsMemory;
 import org.sbot.services.dao.sql.AlertsSQLite;
 import org.sbot.utils.DatesTest;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.BiPredicate;
 import java.util.stream.LongStream;
 
@@ -41,7 +41,6 @@ public abstract class AlertsDaoTest {
                 alert.repeat == other.repeat &&
                 alert.snooze == other.snooze &&
                 alert.type == other.type &&
-                Objects.equals(alert.locale, other.locale) &&
                 Objects.equals(alert.exchange, other.exchange) &&
                 Objects.equals(alert.pair, other.pair) &&
                 Objects.equals(alert.message, other.message) &&
@@ -58,9 +57,26 @@ public abstract class AlertsDaoTest {
         return alert.withId(() -> id);
     }
 
+    private static void setUser(@NotNull UsersDao users, long userId) {
+        users.setUser(new User(userId, Locale.UK, ZonedDateTime.now()));
+    }
+
     @ParameterizedTest
     @MethodSource("provideDao")
-    void getAlert(AlertsDao alerts) {
+    void userFKConstraint(AlertsDao alerts, UsersDao users) {
+        if(alerts instanceof AlertsMemory) {
+            assertDoesNotThrow(() -> alerts.addAlert(createTestAlert()));
+        } else if(alerts instanceof AlertsSQLite) {
+            assertThrows(StatementException.class, () -> alerts.addAlert(createTestAlert()));
+            setUser(users, TEST_USER_ID);
+            assertDoesNotThrow(() -> alerts.addAlert(createTestAlert()));
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideDao")
+    void getAlert(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         assertThrows(NullPointerException.class, () -> alerts.addAlert(null));
 
         Alert alert = createTestAlert();
@@ -93,7 +109,8 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void getAlertWithoutMessage(AlertsDao alerts) {
+    void getAlertWithoutMessage(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert().withMessage("message...");
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());
@@ -106,10 +123,13 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void getUserIdsByServerId(AlertsDao alerts) {
+    void getUserIdsByServerId(AlertsDao alerts, UsersDao users) {
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
         long server1 = 789L;
         long server2 = 987L;
         alerts.addAlert(createTestAlertWithUserId(user1).withServerId(server1));
@@ -128,7 +148,8 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void fetchAlertsWithoutMessageByExchangeAndPairHavingPastListeningDateWithActiveRange(AlertsDao alerts) {
+    void fetchAlertsWithoutMessageByExchangeAndPairHavingPastListeningDateWithActiveRange(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(MILLIS); // clear the nanoseconds as sqlite save milliseconds
         int checkPeriodMin = 15;
         assertDoesNotThrow(() -> alerts.fetchAlertsWithoutMessageByExchangeAndPairHavingPastListeningDateWithActiveRange(SUPPORTED_EXCHANGES.get(0), "ALL/ERT1", now, checkPeriodMin, mock()));
@@ -359,7 +380,8 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(AlertsDao alerts) {
+    void fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         assertThrows(NullPointerException.class, () -> alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(null, mock()));
         assertThrows(NullPointerException.class, () -> alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(DatesTest.nowUtc(), null));
 
@@ -419,7 +441,8 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void fetchAlertsByTypeHavingToDateBefore(AlertsDao alerts) {
+    void fetchAlertsByTypeHavingToDateBefore(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         assertThrows(NullPointerException.class, () -> alerts.fetchAlertsByTypeHavingToDateBefore(null, DatesTest.nowUtc(), mock()));
         assertThrows(NullPointerException.class, () -> alerts.fetchAlertsByTypeHavingToDateBefore(range, null, mock()));
         assertThrows(NullPointerException.class, () -> alerts.fetchAlertsByTypeHavingToDateBefore(range, DatesTest.nowUtc(), null));
@@ -484,7 +507,8 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void getAlertMessages(AlertsDao alerts) {
+    void getAlertMessages(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         assertThrows(NullPointerException.class, () -> alerts.getAlertMessages(null));
 
         Alert alert1 = createTestAlert().withMessage("AAAA");
@@ -537,7 +561,8 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void getPairsByExchangesHavingPastListeningDateWithActiveRange(AlertsDao alerts) {
+    void getPairsByExchangesHavingPastListeningDateWithActiveRange(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(MILLIS); // clear the nanoseconds as sqlite save milliseconds
         int checkPeriodMin = 15;
         assertDoesNotThrow(() -> alerts.getPairsByExchangesHavingPastListeningDateWithActiveRange(now, checkPeriodMin));
@@ -756,10 +781,13 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void countAlertsOfUser(AlertsDao alerts) {
+    void countAlertsOfUser(AlertsDao alerts, UsersDao users) {
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
         long server1 = 789L;
         long server2 = 987L;
         alerts.addAlert(createTestAlertWithUserIdAndPair(user1, "ETH/BTC").withServerId(server1));
@@ -775,12 +803,15 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void countAlertsOfUserAndTickers(AlertsDao alerts) {
+    void countAlertsOfUserAndTickers(AlertsDao alerts, UsersDao users) {
         assertThrows(NullPointerException.class, () -> alerts.countAlertsOfUserAndTickers(1L, null));
 
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
         long server1 = 789L;
         long server2 = 987L;
         alerts.addAlert(createTestAlertWithUserIdAndPair(user1, "ETH/BTC").withServerId(server1));
@@ -804,10 +835,13 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void countAlertsOfServer(AlertsDao alerts) {
+    void countAlertsOfServer(AlertsDao alerts, UsersDao users) {
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
         long server1 = 789L;
         long server2 = 987L;
         alerts.addAlert(createTestAlertWithUserIdAndPair(user1, "ETH/BTC").withServerId(server1));
@@ -830,10 +864,13 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void countAlertsOfServerAndUser(AlertsDao alerts) {
+    void countAlertsOfServerAndUser(AlertsDao alerts, UsersDao users) {
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
         long server1 = 789L;
         long server2 = 987L;
         alerts.addAlert(createTestAlertWithUserIdAndPair(user1, "ADA/BTC").withServerId(server1));
@@ -854,11 +891,14 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void countAlertsOfServerAndTickers(AlertsDao alerts) {
+    void countAlertsOfServerAndTickers(AlertsDao alerts, UsersDao users) {
         assertThrows(NullPointerException.class, () -> alerts.countAlertsOfServerAndTickers(1L, null));
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
         long server1 = 789L;
         long server2 = 987L;
         alerts.addAlert(createTestAlertWithUserIdAndPair(user1, "ETH/BTC").withServerId(server1));
@@ -888,11 +928,14 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void countAlertsOfServerAndUserAndTickers(AlertsDao alerts) {
+    void countAlertsOfServerAndUserAndTickers(AlertsDao alerts, UsersDao users) {
         assertThrows(NullPointerException.class, () -> alerts.countAlertsOfServerAndUserAndTickers(1L, 1L, null));
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
         long server1 = 789L;
         long server2 = 987L;
         alerts.addAlert(createTestAlertWithUserIdAndPair(user1, "ETH/BTC").withServerId(server1));
@@ -962,10 +1005,13 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void getAlertsOfUserOrderByPairId(AlertsDao alerts) {
+    void getAlertsOfUserOrderByPairId(AlertsDao alerts, UsersDao users) {
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
         long server1 = 789L;
         long server2 = 987L;
         alerts.addAlert(createTestAlertWithUserIdAndPair(user1, "ETH/BTC").withServerId(server1));
@@ -994,12 +1040,15 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void getAlertsOfUserAndTickersOrderById(AlertsDao alerts) {
+    void getAlertsOfUserAndTickersOrderById(AlertsDao alerts, UsersDao users) {
         assertThrows(NullPointerException.class, () -> alerts.getAlertsOfUserAndTickersOrderById(1L, 1L, 1L, null));
 
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
         long server1 = 789L;
         long server2 = 987L;
         alerts.addAlert(createTestAlertWithUserIdAndPair(user1, "ETH/BTC").withServerId(server1));
@@ -1059,10 +1108,13 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void getAlertsOfServerOrderByPairUserIdId(AlertsDao alerts) {
+    void getAlertsOfServerOrderByPairUserIdId(AlertsDao alerts, UsersDao users) {
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
         long server1 = 789L;
         long server2 = 987L;
         alerts.addAlert(createTestAlertWithUserIdAndPair(user1, "ETH/BTC").withServerId(server1));
@@ -1102,10 +1154,13 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void getAlertsOfServerAndUserOrderByPairId(AlertsDao alerts) {
+    void getAlertsOfServerAndUserOrderByPairId(AlertsDao alerts, UsersDao users) {
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
         long server1 = 789L;
         long server2 = 987L;
         alerts.addAlert(createTestAlertWithUserIdAndPair(user1, "ADA/BTC").withServerId(server1));
@@ -1154,12 +1209,15 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void getAlertsOfServerAndTickersOrderByUserIdId(AlertsDao alerts) {
+    void getAlertsOfServerAndTickersOrderByUserIdId(AlertsDao alerts, UsersDao users) {
         assertThrows(NullPointerException.class, () -> alerts.getAlertsOfServerAndTickersOrderByUserIdId(1L, 1L, 1L, null));
 
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
         long server1 = 789L;
         long server2 = 987L;
         alerts.addAlert(createTestAlertWithUserIdAndPair(user1, "ETH/BTC").withServerId(server1));
@@ -1251,12 +1309,15 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void getAlertsOfServerAndUserAndTickersOrderById(AlertsDao alerts) {
+    void getAlertsOfServerAndUserAndTickersOrderById(AlertsDao alerts, UsersDao users) {
         assertThrows(NullPointerException.class, () -> alerts.getAlertsOfServerAndUserAndTickersOrderById(1L, 1L, 1L, 1L, null));
 
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
         long server1 = 789L;
         long server2 = 987L;
         alerts.addAlert(createTestAlertWithUserIdAndPair(user1, "ETH/BTC").withServerId(server1));
@@ -1461,7 +1522,8 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void addAlert(AlertsDao alerts) {
+    void addAlert(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         assertThrows(NullPointerException.class, () -> alerts.addAlert(null));
 
         Alert alert = createTestAlert();
@@ -1478,7 +1540,8 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void updateServerId(AlertsDao alerts) {
+    void updateServerId(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert().withServerId(123L);
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());
@@ -1489,7 +1552,8 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void updateServerIdPrivate(AlertsDao alerts) {
+    void updateServerIdPrivate(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert().withServerId(123L);
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());
@@ -1500,10 +1564,13 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void updateServerIdOfUserAndServerId(AlertsDao alerts) {
+    void updateServerIdOfUserAndServerId(AlertsDao alerts, UsersDao users) {
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
         long server1 = 789L;
         long server2 = 987L;
         Alert alertU1S1 = createTestAlertWithUserId(user1).withServerId(server1);
@@ -1544,12 +1611,15 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void updateServerIdOfUserAndServerIdAndTickers(AlertsDao alerts) {
+    void updateServerIdOfUserAndServerIdAndTickers(AlertsDao alerts, UsersDao users) {
         assertThrows(NullPointerException.class, () -> alerts.getAlertsOfServerAndUserAndTickersOrderById(1L, 1L, 1L, 1L, null));
 
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
         long server1 = 789L;
         long server2 = 987L;
         Alert alertU1S1 = createTestAlertWithUserIdAndPair(user1, "ETH/BTC").withServerId(server1);
@@ -1604,7 +1674,8 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void updateFromPrice(AlertsDao alerts) {
+    void updateFromPrice(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         assertThrows(NullPointerException.class, () -> alerts.updateFromPrice(1L, null));
         Alert alert = createTestAlert().withFromPrice(ONE);
         long alertId = alerts.addAlert(alert);
@@ -1616,7 +1687,8 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void updateToPrice(AlertsDao alerts) {
+    void updateToPrice(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         assertThrows(NullPointerException.class, () -> alerts.updateToPrice(1L, null));
         Alert alert = createTestAlert().withToPrice(BigDecimal.valueOf(100L));
         long alertId = alerts.addAlert(alert);
@@ -1628,7 +1700,8 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void updateFromDate(AlertsDao alerts) {
+    void updateFromDate(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         ZonedDateTime date = TEST_FROM_DATE.minusWeeks(2L).truncatedTo(MILLIS); // clear the nanoseconds as sqlite save milliseconds
         Alert alert = createTestAlert().withFromDate(date);
         long alertId = alerts.addAlert(alert);
@@ -1640,7 +1713,8 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void updateToDate(AlertsDao alerts) {
+    void updateToDate(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         ZonedDateTime date = DatesTest.nowUtc().truncatedTo(MILLIS); // clear the nanoseconds as sqlite save milliseconds
         Alert alert = createTestAlert().withToDate(date);
         long alertId = alerts.addAlert(alert);
@@ -1652,7 +1726,8 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void updateMessage(AlertsDao alerts) {
+    void updateMessage(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         assertThrows(NullPointerException.class, () -> alerts.updateMessage(1L, null));
         Alert alert = createTestAlert().withMessage("message");
         long alertId = alerts.addAlert(alert);
@@ -1664,7 +1739,8 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void updateMargin(AlertsDao alerts) {
+    void updateMargin(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         assertThrows(NullPointerException.class, () -> alerts.updateMargin(1L, null));
         Alert alert = createTestAlert().withMargin(ONE);
         long alertId = alerts.addAlert(alert);
@@ -1676,7 +1752,24 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void updateListeningDateRepeat(AlertsDao alerts) {
+    void updateListeningDateFromDate(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
+        ZonedDateTime date = DatesTest.nowUtc().truncatedTo(MILLIS) // clear the nanoseconds as sqlite save milliseconds
+                .minusMonths(1L);
+        Alert alert = createTestAlert().withToDate(date.plusYears(33L)).withListeningDateFromDate(date, date.plusMinutes(37L));
+        long alertId = alerts.addAlert(alert);
+        assertTrue(alerts.getAlert(alertId).isPresent());
+        assertEquals(date, alerts.getAlert(alertId).get().listeningDate);
+        assertEquals(date.plusMinutes(37L), alerts.getAlert(alertId).get().fromDate);
+        alerts.updateListeningDateFromDate(alertId, date.plusDays(3L), date.plusHours(7L));
+        assertEquals(date.plusDays(3L), alerts.getAlert(alertId).get().listeningDate);
+        assertEquals(date.plusHours(7L), alerts.getAlert(alertId).get().fromDate);
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideDao")
+    void updateListeningDateRepeat(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         ZonedDateTime date = DatesTest.nowUtc().truncatedTo(MILLIS) // clear the nanoseconds as sqlite save milliseconds
                 .minusMonths(1L);
         Alert alert = createTestAlert().withListeningDateRepeat(date, (short) 13);
@@ -1691,7 +1784,8 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void updateListeningDateSnooze(AlertsDao alerts) {
+    void updateListeningDateSnooze(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         ZonedDateTime date = DatesTest.nowUtc().truncatedTo(MILLIS) // clear the nanoseconds as sqlite save milliseconds
                 .minusMonths(1L);
         Alert alert = createTestAlert().withListeningDateSnooze(date, (short) 51);
@@ -1706,7 +1800,8 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void deleteAlert(AlertsDao alerts) {
+    void deleteAlert(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert();
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());
@@ -1716,10 +1811,13 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void deleteAlertsOfUserAndServerId(AlertsDao alerts) {
+    void deleteAlertsOfUserAndServerId(AlertsDao alerts, UsersDao users) {
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
         long server1 = 789L;
         long server2 = 987L;
 
@@ -1750,12 +1848,15 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void deleteAlertsOfUserAndServerIdAndTickers(AlertsDao alerts) {
+    void deleteAlertsOfUserAndServerIdAndTickers(AlertsDao alerts, UsersDao users) {
         assertThrows(NullPointerException.class, () -> alerts.deleteAlerts(1L, 1L, null));
 
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
         long server1 = 789L;
         long server2 = 987L;
 
@@ -1803,7 +1904,9 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void matchedAlertBatchUpdates(AlertsDao alerts) {
+    void matchedAlertBatchUpdates(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
+
         assertThrows(NullPointerException.class, () -> alerts.matchedAlertBatchUpdates(DatesTest.nowUtc(), null));
         assertThrows(NullPointerException.class, () -> alerts.matchedAlertBatchUpdates(null, mock()));
 
@@ -1895,7 +1998,9 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void marginAlertBatchUpdates(AlertsDao alerts) {
+    void marginAlertBatchUpdates(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
+
         assertThrows(NullPointerException.class, () -> alerts.marginAlertBatchUpdates(DatesTest.nowUtc(), null));
         assertThrows(NullPointerException.class, () -> alerts.marginAlertBatchUpdates(null, mock()));
 
@@ -1946,7 +2051,9 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void alertBatchDeletes(AlertsDao alerts) {
+    void alertBatchDeletes(AlertsDao alerts, UsersDao users) {
+        setUser(users, TEST_USER_ID);
+
         assertThrows(NullPointerException.class, () -> alerts.alertBatchDeletes(null));
 
         long alertId1 = alerts.addAlert(createTestAlert());

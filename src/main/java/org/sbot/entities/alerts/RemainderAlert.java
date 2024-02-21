@@ -9,7 +9,6 @@ import org.sbot.services.MatchingService.MatchingAlert.MatchingStatus;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
-import java.util.Locale;
 
 import static java.util.Objects.requireNonNull;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.MATCHED;
@@ -23,18 +22,18 @@ public final class RemainderAlert extends Alert {
     public static final String REMAINDER_VIRTUAL_EXCHANGE = "@r";
     public static final short REMAINDER_DEFAULT_REPEAT = 1;
 
-    public RemainderAlert(long id, long userId, long serverId, @NotNull Locale locale,
+    public RemainderAlert(long id, long userId, long serverId,
                           @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
                           @NotNull String pair, @NotNull String message,
                           @NotNull ZonedDateTime fromDate) {
-        super(id, Type.remainder, userId, serverId, locale, creationDate, listeningDate, REMAINDER_VIRTUAL_EXCHANGE, pair, message, null, null,
+        super(id, Type.remainder, userId, serverId, creationDate, listeningDate, REMAINDER_VIRTUAL_EXCHANGE, pair, message, null, null,
                 requireNonNull(fromDate, "missing RemainderAlert fromDate"),
                 null, null, MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
     }
 
     @Override
     @NotNull
-    public RemainderAlert build(long id, long userId, long serverId, @NotNull Locale locale,
+    public RemainderAlert build(long id, long userId, long serverId,
                                 @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
                                 @NotNull String exchange, @NotNull String pair, @NotNull String message,
                                 @Nullable BigDecimal fromPrice, @Nullable BigDecimal toPrice,
@@ -44,7 +43,7 @@ public final class RemainderAlert extends Alert {
                 null != toDate|| null != fromPrice|| null != toPrice || null != lastTrigger || REMAINDER_DEFAULT_REPEAT < repeat || DEFAULT_SNOOZE_HOURS != snooze) {
             throw new IllegalArgumentException("Can't update such value in a Remainder Alert");
         }
-        return new RemainderAlert(id, userId, serverId, locale, creationDate, listeningDate, pair, message, fromDate);
+        return new RemainderAlert(id, userId, serverId, creationDate, listeningDate, pair, message, fromDate);
     }
 
     public MatchingAlert match(@NotNull ZonedDateTime now, int checkPeriodMin) {

@@ -28,7 +28,6 @@ public class AlertTest {
     public static final Type TEST_TYPE = Type.range;
     public static final long TEST_USER_ID = 1234L;
     public static final long TEST_SERVER_ID = 4321L;
-    public static final Locale TEST_LOCALE = Locale.JAPAN;
     public static final String TEST_EXCHANGE = SUPPORTED_EXCHANGES.get(0);
     public static final String TEST_PAIR = "btc/usd";
     public static final String TEST_MESSAGE = "test message";
@@ -42,13 +41,13 @@ public class AlertTest {
 
     private static final class TestAlert extends Alert {
 
-        TestAlert(long id, @NotNull Type type, long userId, long serverId, @NotNull Locale locale, @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate, @NotNull String exchange, @NotNull String pair, @NotNull String message, @Nullable BigDecimal fromPrice, @Nullable BigDecimal toPrice, @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate, @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short snooze) {
-            super(id, type, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        TestAlert(long id, @NotNull Type type, long userId, long serverId, @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate, @NotNull String exchange, @NotNull String pair, @NotNull String message, @Nullable BigDecimal fromPrice, @Nullable BigDecimal toPrice, @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate, @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short snooze) {
+            super(id, type, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
         }
         @NotNull
         @Override
-        protected TestAlert build(long id, long userId, long serverId, @NotNull Locale locale, @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate, @NotNull String exchange, @NotNull String pair, @NotNull String message, BigDecimal fromPrice, BigDecimal toPrice, ZonedDateTime fromDate, ZonedDateTime toDate, ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short snooze) {
-            return new TestAlert(id, type, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        protected TestAlert build(long id, long userId, long serverId, @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate, @NotNull String exchange, @NotNull String pair, @NotNull String message, BigDecimal fromPrice, BigDecimal toPrice, ZonedDateTime fromDate, ZonedDateTime toDate, ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short snooze) {
+            return new TestAlert(id, type, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
         }
 
         @NotNull
@@ -76,37 +75,37 @@ public class AlertTest {
     }
 
     public static Alert createTestAlert() {
-        return new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        return new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
     }
 
     public static Alert createTestAlertWithCreationDate(ZonedDateTime creationDate) {
-        return new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, creationDate, creationDate, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        return new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, creationDate, creationDate, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, creationDate,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
     }
 
     public static Alert createTestAlertWithType(Type type) {
-        return new TestAlert(NEW_ALERT_ID, type, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        return new TestAlert(NEW_ALERT_ID, type, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
     }
 
     public static Alert createTestAlertWithUserId(long userId) {
-        return new TestAlert(NEW_ALERT_ID, TEST_TYPE, userId, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        return new TestAlert(NEW_ALERT_ID, TEST_TYPE, userId, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
     }
 
     public static Alert createTestAlertWithUserIdAndPair(long userId, String pair) {
-        return new TestAlert(NEW_ALERT_ID, TEST_TYPE, userId, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, pair, TEST_MESSAGE,
+        return new TestAlert(NEW_ALERT_ID, TEST_TYPE, userId, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, pair, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
     }
 
     public static Alert createTestAlertWithExchangeAndPairAndType(String exchange, String pair, Type type) {
-        return new TestAlert(NEW_ALERT_ID, type, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, exchange, pair, TEST_MESSAGE,
+        return new TestAlert(NEW_ALERT_ID, type, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, exchange, pair, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
     }
@@ -121,7 +120,6 @@ public class AlertTest {
         assertEquals(TEST_USER_ID, alert.userId);
         assertEquals(TEST_USER_ID, alert.getUserId());
         assertEquals(TEST_SERVER_ID, alert.serverId);
-        assertEquals(TEST_LOCALE, alert.locale);
         assertEquals(TEST_FROM_DATE.minusMinutes(1L), alert.creationDate);
         assertEquals(TEST_FROM_DATE, alert.listeningDate);
         assertEquals(TEST_EXCHANGE, alert.exchange);
@@ -143,62 +141,58 @@ public class AlertTest {
 
     @Test
     void constructorCheck() {
-        assertDoesNotThrow(() -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertDoesNotThrow(() -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
-        assertDoesNotThrow(() -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), null, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
-                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
-                TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
-        // creation locale not null
-        assertThrows(NullPointerException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, null, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertDoesNotThrow(() -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), null, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // creation date not null
-        assertThrows(NullPointerException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, null, TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(NullPointerException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, null, TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // type not null
-        assertThrows(NullPointerException.class, () -> new TestAlert(NEW_ALERT_ID, null, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(NullPointerException.class, () -> new TestAlert(NEW_ALERT_ID, null, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // known exchange
-        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, "bad exchange", TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, "bad exchange", TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // well formatted pair
-        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, "bad pair", TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, "bad pair", TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // message not null
-        assertThrows(NullPointerException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, null,
+        assertThrows(NullPointerException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, null,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // message not too long
-        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, "null".repeat(10000),
+        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, "null".repeat(10000),
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // creation date not in the future
-        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, nowUtc().plusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, nowUtc().plusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // listening date before creationDate
-        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE, TEST_FROM_DATE.minusSeconds(1L), TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE, TEST_FROM_DATE.minusSeconds(1L), TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // last trigger before creationDate
-        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_FROM_DATE.minusMinutes(1L).minusSeconds(1L),
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // margin positive
-        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 BigDecimal.valueOf(-1L), DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // repeat positive
-        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, (short) -1, DEFAULT_SNOOZE_HOURS));
         // snooze positive
-        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, (short) -1));
     }
@@ -299,7 +293,7 @@ public class AlertTest {
     void getTicker2() {
         Alert alert = createTestAlert();
         assertEquals("USD", alert.getTicker2());
-        assertEquals("TEST", new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_LOCALE, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, "PAIR/TEST", TEST_MESSAGE,
+        assertEquals("TEST", new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, "PAIR/TEST", TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, null,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS).getTicker2());
     }
@@ -377,6 +371,17 @@ public class AlertTest {
         assertDoesNotThrow(() -> alert.withLastTriggerMargin(now, ONE));
         assertDoesNotThrow(() -> alert.withLastTriggerMargin(now.minusMinutes(1L), ONE));
         assertThrows(IllegalArgumentException.class, () -> alert.withLastTriggerMargin(alert.creationDate.minusSeconds(1L), ONE));
+    }
+
+    @Test
+    void withListeningDateFromDate() {
+        Alert alert = createTestAlert();
+        assertNull(alert.withListeningDateFromDate(null, null).listeningDate);
+        assertNull(alert.withListeningDateFromDate(null, null).fromDate);
+
+        ZonedDateTime date = nowUtc();
+        assertEquals(date, alert.withListeningDateFromDate(date, null).listeningDate);
+        assertEquals(date, alert.withListeningDateFromDate(null, date).fromDate);
     }
 
     @Test

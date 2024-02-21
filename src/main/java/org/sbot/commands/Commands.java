@@ -18,6 +18,7 @@ public interface Commands {
             new RemainderCommand(),
             new MigrateCommand(),
             new QuoteCommand(),
+            new LocaleCommand(),
             new UtcCommand(),
             new UpTimeCommand());
 }

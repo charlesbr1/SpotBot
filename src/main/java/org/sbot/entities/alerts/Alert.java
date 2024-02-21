@@ -15,10 +15,9 @@ import java.awt.*;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.ZonedDateTime;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Supplier;
+import java.util.function.LongSupplier;
 
 import static java.util.Objects.requireNonNull;
 import static net.dv8tion.jda.api.entities.MessageEmbed.TITLE_MAX_LENGTH;
@@ -61,7 +60,6 @@ public abstract class Alert {
     public final long userId;
 
     public final long serverId; // = PRIVATE_ALERT for private channel
-    public final Locale locale;
     public final ZonedDateTime creationDate;
     @Nullable // null when disabled
     public final ZonedDateTime listeningDate;
@@ -82,7 +80,7 @@ public abstract class Alert {
     public final short snooze;
 
 
-    protected Alert(long id, @NotNull Type type, long userId, long serverId, @NotNull Locale locale,
+    protected Alert(long id, @NotNull Type type, long userId, long serverId,
                     @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
                     @NotNull String exchange, @NotNull String pair, @NotNull String message,
                     @Nullable BigDecimal fromPrice, @Nullable BigDecimal toPrice,
@@ -92,7 +90,6 @@ public abstract class Alert {
         this.type = requireNonNull(type, "missing Alert type");
         this.userId = userId;
         this.serverId = serverId;
-        this.locale = requireNonNull(locale);
         this.creationDate = requireNonNull(creationDate);
         if(null != listeningDate && listeningDate.isBefore(creationDate)) {
             throw new IllegalArgumentException("listeningDate before creationDate");
@@ -115,7 +112,7 @@ public abstract class Alert {
     }
 
     @NotNull
-    protected abstract Alert build(long id, long userId, long serverId, @NotNull Locale locale,
+    protected abstract Alert build(long id, long userId, long serverId,
                                @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
                                @NotNull String exchange, @NotNull String pair, @NotNull String message,
                                BigDecimal fromPrice, BigDecimal toPrice,
@@ -167,66 +164,70 @@ public abstract class Alert {
     }
 
     @NotNull
-    public final Alert withId(@NotNull Supplier<Long> idGenerator) {
+    public final Alert withId(@NotNull LongSupplier idGenerator) {
         if(NEW_ALERT_ID != this.id) {
             throw new IllegalStateException("Can't update the id of an already stored alert");
         }
-        return build(idGenerator.get(), userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        return build(idGenerator.getAsLong(), userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
     public final Alert withServerId(long serverId) {
-        return build(id, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
     public final Alert withFromPrice(@NotNull BigDecimal fromPrice) {
-        return build(id, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
     public final Alert withToPrice(@NotNull BigDecimal toPrice) {
-        return build(id, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
     public final Alert withFromDate(@Nullable ZonedDateTime fromDate) {
-        return build(id, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
     public final Alert withToDate(@Nullable ZonedDateTime toDate) {
-        return build(id, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
     public final Alert withMessage(@NotNull String message) {
-        return build(id, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
     public final Alert withMargin(@NotNull BigDecimal margin) {
-        return build(id, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
     public final Alert withLastTriggerMargin(@Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin) {
-        return build(id, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
+    public final Alert withListeningDateFromDate(@Nullable ZonedDateTime listeningDate, @Nullable ZonedDateTime fromDate) {
+        return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+    }
+
     public final Alert withListeningDateSnooze(@Nullable ZonedDateTime listeningDate, short snooze) {
-        return build(id, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
     public final Alert withListeningDateRepeat(@Nullable ZonedDateTime listeningDate, short repeat) {
-        return build(id, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
     public final Alert withListeningDateLastTriggerMarginRepeat(@Nullable ZonedDateTime listeningDate, @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat) {
-        return build(id, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     public boolean isEnabled() {
@@ -335,7 +336,6 @@ public abstract class Alert {
                 ", type=" + type +
                 ", userId=" + userId +
                 ", serverId=" + serverId +
-                ", locale=" + locale +
                 ", creationDate=" + creationDate +
                 ", listeningDate=" + listeningDate +
                 ", lastTrigger=" + lastTrigger +

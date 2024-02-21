@@ -23,6 +23,8 @@ public class JDBITransactionHandler {
     private final ReentrantLock lock = new ReentrantLock();
     private volatile Handle handle;
 
+    static final String ENABLE_FOREIGN_KEY_CONSTRAINT = "PRAGMA foreign_keys = ON";
+
     public JDBITransactionHandler(@NotNull TransactionIsolationLevel transactionIsolationLevel) {
         this.transactionIsolationLevel = requireNonNull(transactionIsolationLevel);
     }
@@ -47,8 +49,10 @@ public class JDBITransactionHandler {
         if(null == handle) {
             LOGGER.debug("new tx handler");
             // setup a new tx handler
-            handle = jdbi.open().begin();
-            handle.setTransactionIsolationLevel(transactionIsolationLevel);
+            var newHandle = jdbi.open();
+            newHandle.setTransactionIsolationLevel(transactionIsolationLevel);
+            newHandle.execute(ENABLE_FOREIGN_KEY_CONSTRAINT);
+            handle = newHandle.begin();
         }
         return handle;
     }

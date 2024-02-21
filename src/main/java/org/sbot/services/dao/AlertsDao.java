@@ -67,6 +67,7 @@ public interface AlertsDao {
     void updateToDate(long alertId, @Nullable ZonedDateTime toDate);
     void updateMessage(long alertId, @NotNull String message);
     void updateMargin(long alertId, @NotNull BigDecimal margin);
+    void updateListeningDateFromDate(long alertId, @Nullable ZonedDateTime listeningDate, @Nullable ZonedDateTime fromDate);
     void updateListeningDateRepeat(long alertId, @Nullable ZonedDateTime listeningDate, short repeat);
     void updateListeningDateSnooze(long alertId, @Nullable ZonedDateTime listeningDate, short snooze);
 

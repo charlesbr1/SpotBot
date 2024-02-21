@@ -52,7 +52,6 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
                 type TEXT NOT NULL,
                 user_id INTEGER NOT NULL,
                 server_id INTEGER NOT NULL,
-                locale TEXT NOT NULL,
                 exchange TEXT NOT NULL,
                 pair TEXT NOT NULL,
                 message TEXT NOT NULL,
@@ -63,7 +62,8 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
                 from_price TEXT,
                 to_price TEXT,
                 from_date INTEGER,
-                to_date INTEGER) STRICT
+                to_date INTEGER,
+                FOREIGN KEY(user_id) REFERENCES users(id)) STRICT
                 """;
 
         String CREATE_USER_ID_INDEX = "CREATE INDEX IF NOT EXISTS alerts_user_id_index ON alerts (user_id)";
@@ -73,7 +73,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
 
         String SELECT_MAX_ID = "SELECT MAX(id) FROM alerts";
         String SELECT_BY_ID = "SELECT * FROM alerts WHERE id=:id";
-        String SELECT_WITHOUT_MESSAGE_BY_ID = "SELECT id,type,user_id,server_id,locale,creation_date,listening_date,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts WHERE id=:id";
+        String SELECT_WITHOUT_MESSAGE_BY_ID = "SELECT id,type,user_id,server_id,creation_date,listening_date,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts WHERE id=:id";
         String SELECT_USER_ID_BY_SERVER_ID = "SELECT user_id FROM alerts WHERE server_id=:serverId";
 
         String PAST_LISTENING_DATE_WITH_ACTIVE_RANGE =
@@ -81,7 +81,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
                 "(type NOT LIKE 'remainder' OR (from_date<(:nowMs+:periodMs))) AND " +
                 "(type NOT LIKE 'range' OR (to_date IS NULL OR (to_date>:nowMs)))";
         String SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_PAST_LISTENING_DATE_WITH_ACTIVE_RANGE =
-                "SELECT id,type,user_id,server_id,locale,creation_date,listening_date,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts " +
+                "SELECT id,type,user_id,server_id,creation_date,listening_date,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts " +
                 "WHERE exchange=:exchange AND pair=:pair AND " + PAST_LISTENING_DATE_WITH_ACTIVE_RANGE;
 
         String SELECT_HAVING_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE_OR_NULL_AND_CREATION_BEFORE = "SELECT * FROM alerts WHERE repeat<=0 AND ((last_trigger IS NOT NULL AND last_trigger<:expirationDate) OR (last_trigger IS NULL AND creation_date<:expirationDate))";
@@ -104,7 +104,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String DELETE_BY_ID = "DELETE FROM alerts WHERE id=:id";
         String DELETE_BY_USER_ID_AND_SERVER_ID = "DELETE FROM alerts WHERE user_id=:userId AND server_id=:serverId";
         String DELETE_BY_USER_ID_AND_SERVER_ID_AND_TICKER_OR_PAIR = "DELETE FROM alerts WHERE user_id=:userId AND server_id=:serverId AND pair LIKE '%'||:tickerOrPair||'%'";
-        String INSERT_ALERT = "INSERT INTO alerts (id,type,user_id,server_id,locale,creation_date,listening_date,exchange,pair,message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze) VALUES (:id,:type,:userId,:serverId,:locale,:creationDate,:listeningDate,:exchange,:pair,:message,:fromPrice,:toPrice,:fromDate,:toDate,:lastTrigger,:margin,:repeat,:snooze)";
+        String INSERT_ALERT = "INSERT INTO alerts (id,type,user_id,server_id,creation_date,listening_date,exchange,pair,message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze) VALUES (:id,:type,:userId,:serverId,:creationDate,:listeningDate,:exchange,:pair,:message,:fromPrice,:toPrice,:fromDate,:toDate,:lastTrigger,:margin,:repeat,:snooze)";
         String UPDATE_ALERTS_SERVER_ID_BY_ID = "UPDATE alerts SET server_id=:serverId WHERE id=:id";
         String UPDATE_ALERTS_SERVER_ID_PRIVATE = "UPDATE alerts SET server_id=" + PRIVATE_ALERT + " WHERE server_id=:serverId";
         String UPDATE_ALERTS_SERVER_ID_BY_USER_ID_AND_SERVER_ID = "UPDATE alerts SET server_id=:newServerId WHERE user_id=:userId AND server_id=:serverId";
@@ -117,6 +117,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String UPDATE_ALERTS_MARGIN = "UPDATE alerts SET margin=:margin WHERE id=:id";
         String UPDATE_ALERTS_SET_LAST_TRIGGER_MARGIN_ZERO = "UPDATE alerts SET last_trigger=:lastTrigger,margin=0 WHERE id=:id";
         String UPDATE_ALERTS_SET_MARGIN_ZERO_DECREMENT_REPEAT_LISTENING_DATE_LAST_TRIGGER_NOW = "UPDATE alerts SET margin=0,last_trigger=:nowMs,listening_date=CASE WHEN repeat>1 THEN (1000*3600*snooze)+:nowMs ELSE null END,repeat=MAX(0,repeat-1) WHERE id=:id";
+        String UPDATE_ALERTS_LISTENING_DATE_FROM_DATE = "UPDATE alerts SET listening_date=:listeningDate,from_date=:fromDate WHERE id=:id";
         String UPDATE_ALERTS_REPEAT_LISTENING_DATE = "UPDATE alerts SET repeat=:repeat,listening_date=:listeningDate WHERE id=:id";
         String UPDATE_ALERTS_SNOOZE_LISTENING_DATE = "UPDATE alerts SET snooze=:snooze,listening_date=:listeningDate WHERE id=:id";
     }
@@ -129,8 +130,6 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
             long id = rs.getLong("id");
             long userId = rs.getLong("user_id");
             long serverId = rs.getLong("server_id");
-            Locale locale = Optional.ofNullable(rs.getString("locale")).map(Locale::forLanguageTag)
-                    .orElseThrow(() -> new IllegalArgumentException("Missing field alert locale"));
             ZonedDateTime creationDate = parseUtcDateTime(rs.getTimestamp("creation_date"))
                     .orElseThrow(() -> new IllegalArgumentException("Missing field alert creation_date"));
             ZonedDateTime listeningDate = parseUtcDateTimeOrNull(rs.getTimestamp("listening_date"));
@@ -149,9 +148,9 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
             short snooze = remainder == type ? 0 : rs.getShort("snooze");
 
             return switch (type) {
-                case range -> new RangeAlert(id, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
-                case trend -> new TrendAlert(id, userId, serverId, locale, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, requireNonNull(fromDate, "missing from_date on trend alert " + id), requireNonNull(toDate, "missing to_date on a trend alert " + id), lastTrigger, margin, repeat, snooze);
-                case remainder -> new RemainderAlert(id, userId, serverId, locale, creationDate, listeningDate, pair, message, requireNonNull(fromDate, "missing from_date on a remainder alert " + id));
+                case range -> new RangeAlert(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+                case trend -> new TrendAlert(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, requireNonNull(fromDate, "missing from_date on trend alert " + id), requireNonNull(toDate, "missing to_date on a trend alert " + id), lastTrigger, margin, repeat, snooze);
+                case remainder -> new RemainderAlert(id, userId, serverId, creationDate, listeningDate, pair, message, requireNonNull(fromDate, "missing from_date on a remainder alert " + id));
             };
         }
     }
@@ -238,8 +237,8 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     @Override
     @NotNull
     public Map<Long, String> getAlertMessages(@NotNull LongStream alertIds) {
-        LOGGER.debug("getAlertMessages {}", alertIds);
         var alertIdList = alertIds.boxed().toList();
+        LOGGER.debug("getAlertMessages {}", alertIdList);
         if(alertIdList.isEmpty()) {
             return emptyMap();
         }
@@ -426,6 +425,16 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         LOGGER.debug("updateMargin {} {}", alertId, margin);
         update(SQL.UPDATE_ALERTS_MARGIN,
                 Map.of("id", alertId, "margin", margin));
+    }
+
+    @Override
+    public void updateListeningDateFromDate(long alertId, @Nullable ZonedDateTime listeningDate, @Nullable ZonedDateTime fromDate) {
+        LOGGER.debug("updateListeningDateFromDate {} {} {}", alertId, listeningDate, fromDate);
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("id", alertId);
+        parameters.put("listeningDate", listeningDate);
+        parameters.put("fromDate", fromDate);
+        update(SQL.UPDATE_ALERTS_LISTENING_DATE_FROM_DATE, parameters);
     }
 
     @Override

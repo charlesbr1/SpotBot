@@ -45,25 +45,25 @@ public final class LastCandlesticksMemory implements LastCandlesticksDao {
 
     @Override
     public Optional<ZonedDateTime> getLastCandlestickCloseTime(@NotNull String exchange, @NotNull String pair) {
-        LOGGER.debug("getLastCandlestickCloseTime {}, {}", exchange, pair);
+        LOGGER.debug("getLastCandlestickCloseTime {} {}", exchange, pair);
         return Optional.ofNullable(lastCandlesticks.get(id(exchange, pair))).map(Candlestick::closeTime);
     }
 
     @Override
     public Optional<Candlestick> getLastCandlestick(@NotNull String exchange, @NotNull String pair) {
-        LOGGER.debug("getLastCandlestick {}, {}", exchange, pair);
+        LOGGER.debug("getLastCandlestick {} {}", exchange, pair);
         return Optional.ofNullable(lastCandlesticks.get(id(exchange, pair)));
     }
 
     @Override
     public void setLastCandlestick(@NotNull String exchange, @NotNull String pair, @NotNull Candlestick candlestick) {
-        LOGGER.debug("setLastCandlestick {}, {} {}", exchange, pair, candlestick);
+        LOGGER.debug("setLastCandlestick {} {} {}", exchange, pair, candlestick);
         lastCandlesticks.put(id(exchange, pair), candlestick);
     }
 
     @Override
     public void updateLastCandlestick(@NotNull String exchange, @NotNull String pair, @NotNull Candlestick candlestick) {
-        LOGGER.debug("updateLastCandlestick {}, {} {}", exchange, pair, candlestick);
+        LOGGER.debug("updateLastCandlestick {} {} {}", exchange, pair, candlestick);
         requireNonNull(candlestick);
         lastCandlesticks.computeIfPresent(id(exchange, pair), (id, c) -> candlestick);
     }

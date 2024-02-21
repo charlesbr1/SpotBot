@@ -12,7 +12,6 @@ import org.sbot.entities.alerts.TrendAlert;
 import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
 
-import java.awt.*;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -32,7 +31,7 @@ public final class TrendCommand extends CommandAdapter {
 
     static final String NAME = "trend";
     static final String DESCRIPTION = "create or check a trend alert on a pair, a trend is defined by two prices and two dates";
-    private static final int RESPONSE_TTL_SECONDS = 60;
+    private static final int RESPONSE_TTL_SECONDS = 180;
 
     static final List<OptionData> optionList = List.of(
             option(STRING, "exchange", "the exchange, like binance", true)
@@ -103,21 +102,12 @@ public final class TrendCommand extends CommandAdapter {
         }
         var now = Dates.nowUtc(context.clock());
         TrendAlert trendAlert = new TrendAlert(NEW_ALERT_ID, context.user.getIdLong(),
-                context.serverId(), context.locale, now, // creation date
+                context.serverId(), now, // creation date
                 now, // listening date
                 exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
 
-        long alertId = context.transactional(txCtx -> txCtx.alertsDao().addAlert(trendAlert));
-
-        String answer = context.user.getAsMention() + " New trend alert added with id " + alertId +
-                "\n\n* pair : " + trendAlert.pair + "\n* exchange : " + exchange +
-                "\n* from price " + fromPrice + "\n* from date " + formatDiscord(fromDate) +
-                "\n* to price " + toPrice + "\n* to date " + formatDiscord(toDate) +
-                "\n* message : " + message +
-                alertMessageTips(message, alertId);
-
-        return Message.of(embedBuilder(NAME, Color.green, answer));
+        return saveAlert(context, now, trendAlert);
     }
 
     private Message trendPrice(@NotNull CommandContext context, @NotNull ZonedDateTime date, long alertId) {

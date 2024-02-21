@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import org.sbot.services.LastCandlesticksService;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.LastCandlesticksDao;
+import org.sbot.services.dao.UsersDao;
 import org.sbot.services.dao.sql.jdbi.JDBITransactionHandler;
 
 import java.time.Clock;
@@ -37,6 +38,11 @@ public final class TransactionalContext implements Context {
 
     public void rollback() {
         transactionHandler.rollback();
+    }
+
+    @NotNull
+    public UsersDao usersDao() {
+        return dataServices().usersDao().apply(transactionHandler);
     }
 
     @NotNull

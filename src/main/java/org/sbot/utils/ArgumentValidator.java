@@ -1,15 +1,18 @@
 package org.sbot.utils;
 
+import net.dv8tion.jda.api.interactions.DiscordLocale;
 import org.jetbrains.annotations.NotNull;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
-import static org.sbot.utils.Dates.*;
+import static org.sbot.utils.Dates.formatDiscord;
 
 public interface ArgumentValidator {
 
@@ -53,12 +56,19 @@ public interface ArgumentValidator {
         return (short) value;
     }
 
-    //TODO test
     static String requireNotBlank(@NotNull String value, @NotNull String name) {
         if (value.isBlank()) {
             throw new IllegalArgumentException("Missing value for " + name);
         }
         return value;
+    }
+
+    @NotNull
+    static String requireSupportedLocale(@NotNull String locale) {
+        if(Stream.of(DiscordLocale.values()).noneMatch(l -> locale.equals(l.getLocale()))) {
+            throw new IllegalArgumentException("Provided locale is not supported : " + locale + " (expected one of : " + String.join(", ", Stream.of(DiscordLocale.values()).map(DiscordLocale::getLocale).toList()) + ')');
+        }
+        return locale;
     }
 
     @NotNull
@@ -105,5 +115,12 @@ public interface ArgumentValidator {
         if(!matcher.matches())
             throw new IllegalArgumentException("Provided string is not an user mention : " + userMention);
         return Long.parseLong(matcher.group(1));
+    }
+
+    static <T> T requireOneItem(@NotNull List<T> list) {
+        if(list.size() != 1) {
+            throw new IllegalArgumentException("Unexpected list size (wanted 1) : " + list.size() + ", content : " + list);
+        }
+        return list.get(0);
     }
 }

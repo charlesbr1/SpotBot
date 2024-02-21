@@ -115,8 +115,8 @@ public final class AlertsMemory implements AlertsDao {
     @Override
     @NotNull
     public Map<Long, String> getAlertMessages(@NotNull LongStream alertIds) {
-        LOGGER.debug("getAlertMessages {}", alertIds);
         var alertIdSet = alertIds.boxed().collect(toSet());
+        LOGGER.debug("getAlertMessages {}", alertIdSet);
         return alertIdSet.isEmpty() ? emptyMap() :
                 alerts.values().stream().filter(alert -> alertIdSet.contains(alert.id))
                         .collect(toMap(Alert::getId, Alert::getMessage));
@@ -337,6 +337,12 @@ public final class AlertsMemory implements AlertsDao {
         LOGGER.debug("updateMargin {} {}", alertId, margin);
         requireNonNull(margin);
         alerts.computeIfPresent(alertId, (id, alert) -> alert.withMargin(margin));
+    }
+
+    @Override
+    public void updateListeningDateFromDate(long alertId, @Nullable ZonedDateTime listeningDate, @Nullable ZonedDateTime fromDate) {
+        LOGGER.debug("updateListeningDateFromDate {} {} {}", alertId, listeningDate, fromDate);
+        alerts.computeIfPresent(alertId, (id, alert) -> alert.withListeningDateFromDate(listeningDate, fromDate));
     }
 
     @Override
