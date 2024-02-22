@@ -19,10 +19,10 @@ import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.utils.Dates.DATE_TIME_FORMAT;
 import static org.sbot.utils.Dates.NOW_ARGUMENT;
 
-public final class UtcCommand extends CommandAdapter {
+public final class TimezoneCommand extends CommandAdapter {
 
-    private static final String NAME = "utc";
-    static final String DESCRIPTION = "convert a date time into the utc time zone, helping with commands that expect a date in UTC";
+    private static final String NAME = "timezone";
+    static final String DESCRIPTION = "list available timezones or convert a date time to utc, helping with commands that expect a date";
     private static final int RESPONSE_TTL_SECONDS = 180;
 
 
@@ -36,7 +36,7 @@ public final class UtcCommand extends CommandAdapter {
                     option(STRING, "date", "a date to convert in UTC, expected format : " + DATE_TIME_FORMAT, false)
                             .setMinLength(DATE_TIME_FORMAT.length()));
 
-    public UtcCommand() {
+    public TimezoneCommand() {
         super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
     }
 
@@ -44,11 +44,11 @@ public final class UtcCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         String choice = context.args.getMandatoryString("zone");
         LocalDateTime date = context.args.getLocalDateTime(context.locale, "date").orElse(null);
-        LOGGER.debug("utc command - choice : {}, date : {}", choice, date);
-        context.noMoreArgs().reply(utc(context, choice, date), responseTtlSeconds);
+        LOGGER.debug("timezone command - choice : {}, date : {}", choice, date);
+        context.noMoreArgs().reply(timezone(context, choice, date), responseTtlSeconds);
     }
 
-    private List<Message> utc(@NotNull CommandContext context, @NotNull String choice, @Nullable LocalDateTime date) {
+    private List<Message> timezone(@NotNull CommandContext context, @NotNull String choice, @Nullable LocalDateTime date) {
         return switch (choice) {
             case CHOICE_NOW -> List.of(now(context));
             case CHOICE_LIST -> list();
@@ -67,7 +67,7 @@ public final class UtcCommand extends CommandAdapter {
         int splitIndex = zones.size() / 3;
 
         return List.of(Message.of(embedBuilder(" ", Color.green, "Available time zones :\n\n>>> " +
-                "+HH:mm, -HH:mm,\n" + String.join(", ", zones.subList(0, splitIndex)))),
+                "by offset : +HH:mm, -HH:mm,\n" + String.join(", ", zones.subList(0, splitIndex)))),
                 Message.of(embedBuilder(" ", Color.green, ">>> " + String.join(", ", zones.subList(splitIndex, 2 * splitIndex)))),
                 Message.of(embedBuilder(" ", Color.green, ">>> " + String.join(", ", zones.subList(2 * splitIndex, zones.size())))));
     }

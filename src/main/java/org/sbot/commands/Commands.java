@@ -19,6 +19,6 @@ public interface Commands {
             new MigrateCommand(),
             new QuoteCommand(),
             new LocaleCommand(),
-            new UtcCommand(),
+            new TimezoneCommand(),
             new UpTimeCommand());
 }
