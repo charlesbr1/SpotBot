@@ -89,8 +89,8 @@ public class SelectEditInteraction implements InteractionListener {
     public void onInteraction(@NotNull CommandContext context) {
         // this will open a Modal to get a new value from the user
 
-        long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
-        String field = context.args.getMandatoryString("field");
+        long alertId = requirePositive(context.args.getMandatoryLong(ALERT_ID_ARGUMENT));
+        String field = context.args.getMandatoryString(SELECTION_ARGUMENT);
         context.noMoreArgs();
 
         int minLength = 1;

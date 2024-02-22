@@ -69,10 +69,10 @@ public final class ModalEditInteraction implements InteractionListener {
 
     @Override
     public void onInteraction(@NotNull CommandContext context) {
-        long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
-        String field = context.args.getMandatoryString("field");
+        long alertId = requirePositive(context.args.getMandatoryLong(ALERT_ID_ARGUMENT));
+        String field = context.args.getMandatoryString(SELECTION_ARGUMENT);
         if(CHOICE_DELETE.equals(field)) {
-            if("ok".equalsIgnoreCase(context.args.getMandatoryString("value"))) {
+            if("ok".equalsIgnoreCase(context.args.getMandatoryString(VALUE_ARGUMENT))) {
                 new DeleteCommand().onCommand(context.noMoreArgs().withArgumentsAndReplyMapper(String.valueOf(alertId), fromDeleteMapper()));
             } else {
                 context.noMoreArgs().reply(replyOriginal(null), 0);
@@ -81,10 +81,10 @@ public final class ModalEditInteraction implements InteractionListener {
         }
         String value, newMessage = null;
         if(CHOICE_MESSAGE.equals(field)) {
-            value = newMessage = context.args.getLastArgs("value")
+            value = newMessage = context.args.getLastArgs(MESSAGE_ARGUMENT)
                     .orElseThrow(() -> new IllegalArgumentException("Missing message value"));
         } else {
-            value = context.args.getMandatoryString("value");
+            value = context.args.getMandatoryString(VALUE_ARGUMENT);
             context.noMoreArgs();
         }
         try {

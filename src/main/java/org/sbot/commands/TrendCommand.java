@@ -39,11 +39,11 @@ public final class TrendCommand extends CommandAdapter {
                     .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
             option(STRING, MESSAGE_ARGUMENT, "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH),
-            option(NUMBER, FROM_PRICE, "the first price", true)
+            option(NUMBER, FROM_PRICE_ARGUMENT, "the first price", true)
                     .setMinValue(0d),
             option(STRING, FROM_DATE_ARGUMENT, "the date of first price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
                     .setMinLength(NOW_ARGUMENT.length()),
-            option(NUMBER, TO_PRICE, "the second price", true)
+            option(NUMBER, TO_PRICE_ARGUMENT, "the second price", true)
                     .setMinValue(0d),
             option(STRING, TO_DATE_ARGUMENT, "the date of second price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
                     .setMinLength(NOW_ARGUMENT.length()));
@@ -75,9 +75,9 @@ public final class TrendCommand extends CommandAdapter {
         String pair = requirePairFormat(context.args.getMandatoryString(PAIR_ARGUMENT).toUpperCase());
         var reversed = context.args.reversed();
         ZonedDateTime toDate = reversed.getMandatoryDateTime(context.locale, context.timezone, context.clock(), TO_DATE_ARGUMENT);
-        BigDecimal toPrice = requirePositive(reversed.getMandatoryNumber(TO_PRICE));
+        BigDecimal toPrice = requirePositive(reversed.getMandatoryNumber(TO_PRICE_ARGUMENT));
         ZonedDateTime fromDate = reversed.getMandatoryDateTime(context.locale, context.timezone, context.clock(), FROM_DATE_ARGUMENT);
-        BigDecimal fromPrice = requirePositive(reversed.getMandatoryNumber(FROM_PRICE));
+        BigDecimal fromPrice = requirePositive(reversed.getMandatoryNumber(FROM_PRICE_ARGUMENT));
         String message = requireAlertMessageMaxLength(reversed.getLastArgs(MESSAGE_ARGUMENT)
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
 
