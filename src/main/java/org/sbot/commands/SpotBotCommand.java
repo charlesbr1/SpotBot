@@ -43,7 +43,7 @@ public final class SpotBotCommand extends CommandAdapter {
 
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(
-                    option(STRING, "choice", "one of 'doc' or 'commands' or 'examples', default to doc if omitted", false)
+                    option(STRING, SELECTION_ARGUMENT, "one of 'doc' or 'commands' or 'examples', default to doc if omitted", false)
                             .addChoices(List.of(new Choice(CHOICE_DOC, CHOICE_DOC),
                                     new Choice(CHOICE_COMMANDS, CHOICE_COMMANDS))));
 
@@ -135,16 +135,16 @@ public final class SpotBotCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        String choice = context.args.getString("choice").orElse(CHOICE_DOC);
-        LOGGER.debug("spotBot command - choice : {}", choice);
-        context.noMoreArgs().reply(spotBot(choice, context), responseTtlSeconds);
+        String selection = context.args.getString(SELECTION_ARGUMENT).orElse(CHOICE_DOC);
+        LOGGER.debug("spotBot command - selection : {}", selection);
+        context.noMoreArgs().reply(spotBot(selection, context), responseTtlSeconds);
     }
 
-    private List<Message> spotBot(@NotNull String choice, @NotNull CommandContext context) {
-        return switch (choice) {
+    private List<Message> spotBot(@NotNull String selection, @NotNull CommandContext context) {
+        return switch (selection) {
             case CHOICE_DOC -> List.of(doc(context));
             case CHOICE_COMMANDS -> commands();
-            default -> throw new IllegalArgumentException("Invalid argument : " + choice);
+            default -> throw new IllegalArgumentException("Invalid argument : " + selection);
         };
     }
     private static Message doc(@NotNull CommandContext context) {

@@ -24,11 +24,11 @@ public final class RemainderCommand extends CommandAdapter {
     private static final int RESPONSE_TTL_SECONDS = 180;
 
     static final List<OptionData> optionList = List.of(
-            option(STRING, "pair", "the pair, like EUR/USDT", true)
+            option(STRING, PAIR_ARGUMENT, "the pair, like EUR/USDT", true)
                     .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
-            option(STRING, "message", "a message for this remainder (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
+            option(STRING, MESSAGE_ARGUMENT, "a message for this remainder (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH),
-            option(STRING, "date", "a future date when to trigger the remainder, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
+            option(STRING, DATE_ARGUMENT, "a future date when to trigger the remainder, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
                     .setMinLength(DATE_TIME_FORMAT.length()));
 
     private static final SlashCommandData options = Commands.slash(NAME, DESCRIPTION).addOptions(optionList);
@@ -39,11 +39,11 @@ public final class RemainderCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        String pair = requirePairFormat(context.args.getMandatoryString("pair").toUpperCase());
+        String pair = requirePairFormat(context.args.getMandatoryString(PAIR_ARGUMENT).toUpperCase());
         var reversed = context.args.reversed();
         ZonedDateTime now = Dates.nowUtc(context.clock());
-        ZonedDateTime date = requireInFuture(now, reversed.getMandatoryDateTime(context.locale, context.timezone, context.clock(), "date"));
-        String message = requireAlertMessageMaxLength(reversed.getLastArgs("message")
+        ZonedDateTime date = requireInFuture(now, reversed.getMandatoryDateTime(context.locale, context.timezone, context.clock(), DATE_ARGUMENT));
+        String message = requireAlertMessageMaxLength(reversed.getLastArgs(MESSAGE_ARGUMENT)
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
 
         LOGGER.debug("remainder command - pair : {}, date : {}, remainder {}", pair, date, message);

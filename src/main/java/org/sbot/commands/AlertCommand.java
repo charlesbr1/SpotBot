@@ -16,6 +16,8 @@ public class AlertCommand extends CommandAdapter {
     static final String DESCRIPTION = "create a new alert (range, trend or remainder)";
     private static final int RESPONSE_TTL_SECONDS = 60;
 
+    static final String TYPE_ARGUMENT = "type";
+
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addSubcommands(
                     new SubcommandData(RangeCommand.NAME, RangeCommand.DESCRIPTION).addOptions(RangeCommand.optionList),
@@ -45,6 +47,6 @@ public class AlertCommand extends CommandAdapter {
                 default -> remainder;
             };
         }
-        return Type.valueOf(context.args.getMandatoryString("type"));
+        return Type.valueOf(context.args.getMandatoryString(TYPE_ARGUMENT));
     }
 }

@@ -33,28 +33,28 @@ public final class TrendCommand extends CommandAdapter {
     private static final int RESPONSE_TTL_SECONDS = 180;
 
     static final List<OptionData> optionList = List.of(
-            option(STRING, "exchange", "the exchange, like binance", true)
+            option(STRING, EXCHANGE_ARGUMENT, "the exchange, like binance", true)
                     .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).toList()),
-            option(STRING, "pair", "the pair, like EUR/USDT", true)
+            option(STRING, PAIR_ARGUMENT, "the pair, like EUR/USDT", true)
                     .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
-            option(STRING, "message", "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
+            option(STRING, MESSAGE_ARGUMENT, "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH),
-            option(NUMBER, "from_price", "the first price", true)
+            option(NUMBER, FROM_PRICE, "the first price", true)
                     .setMinValue(0d),
-            option(STRING, "from_date", "the date of first price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
+            option(STRING, FROM_DATE_ARGUMENT, "the date of first price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
                     .setMinLength(NOW_ARGUMENT.length()),
-            option(NUMBER, "to_price", "the second price", true)
+            option(NUMBER, TO_PRICE, "the second price", true)
                     .setMinValue(0d),
-            option(STRING, "to_date", "the date of second price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
+            option(STRING, TO_DATE_ARGUMENT, "the date of second price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
                     .setMinLength(NOW_ARGUMENT.length()));
 
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addSubcommands(
                     new SubcommandData("price", "get the computed trend price at a provided date").addOptions(
-                            option(INTEGER, "alert_id", "id of one trend alert", true)
+                            option(INTEGER, ALERT_ID_ARGUMENT, "id of one trend alert", true)
                                     .setMinValue(0),
-                            option(STRING, "date", "a date from where to compute the trend price", true)
-                                    .setMinLength(DATE_TIME_FORMAT.length()).setMaxLength(DATE_TIME_FORMAT.length())),
+                            option(STRING, DATE_ARGUMENT, "a date from where to compute the trend price", true)
+                                    .setMinLength(NOW_ARGUMENT.length())),
                     new SubcommandData("create", "create a new trend alert").addOptions(optionList));
 
 
@@ -64,21 +64,21 @@ public final class TrendCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        var alertId = context.args.getLong("alert_id").map(ArgumentValidator::requirePositive);
+        var alertId = context.args.getLong(ALERT_ID_ARGUMENT).map(ArgumentValidator::requirePositive);
         if(alertId.isPresent()) {
-            var date = context.args.getMandatoryDateTime(context.locale, context.timezone, context.clock(), "date");
+            var date = context.args.getMandatoryDateTime(context.locale, context.timezone, context.clock(), DATE_ARGUMENT);
             LOGGER.debug("trend command - alert_id : {}, date : {}", alertId, date);
             context.noMoreArgs().reply(trendPrice(context, date, alertId.get()), responseTtlSeconds);
             return;
         }
-        String exchange = requireSupportedExchange(context.args.getMandatoryString("exchange"));
-        String pair = requirePairFormat(context.args.getMandatoryString("pair").toUpperCase());
+        String exchange = requireSupportedExchange(context.args.getMandatoryString(EXCHANGE_ARGUMENT));
+        String pair = requirePairFormat(context.args.getMandatoryString(PAIR_ARGUMENT).toUpperCase());
         var reversed = context.args.reversed();
-        ZonedDateTime toDate = reversed.getMandatoryDateTime(context.locale, context.timezone, context.clock(), "to_date");
-        BigDecimal toPrice = requirePositive(reversed.getMandatoryNumber("to_price"));
-        ZonedDateTime fromDate = reversed.getMandatoryDateTime(context.locale, context.timezone, context.clock(), "from_date");
-        BigDecimal fromPrice = requirePositive(reversed.getMandatoryNumber("from_price"));
-        String message = requireAlertMessageMaxLength(reversed.getLastArgs("message")
+        ZonedDateTime toDate = reversed.getMandatoryDateTime(context.locale, context.timezone, context.clock(), TO_DATE_ARGUMENT);
+        BigDecimal toPrice = requirePositive(reversed.getMandatoryNumber(TO_PRICE));
+        ZonedDateTime fromDate = reversed.getMandatoryDateTime(context.locale, context.timezone, context.clock(), FROM_DATE_ARGUMENT);
+        BigDecimal fromPrice = requirePositive(reversed.getMandatoryNumber(FROM_PRICE));
+        String message = requireAlertMessageMaxLength(reversed.getLastArgs(MESSAGE_ARGUMENT)
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
 
         LOGGER.debug("trend command - exchange : {}, pair : {}, from_price : {}, from_date : {}, to_price : {}, to_date : {}, message : {}",

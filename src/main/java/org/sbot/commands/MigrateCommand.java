@@ -31,21 +31,22 @@ public final class MigrateCommand extends CommandAdapter {
     static final String DESCRIPTION = "migrate an alert to your private channel or on another guild that we have access to";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
+    private static final String GUILD_ARGUMENT = "guild_id";
     private static final String MIGRATE_ALL = "all";
 
-    private static final OptionData SERVER_ID_OPTION = option(NUMBER, "guild_id", PRIVATE_ALERT + " for private channel or id of a guild server whose alert' owner is a member and this bot too", true);
+    private static final OptionData SERVER_ID_OPTION = option(NUMBER, GUILD_ARGUMENT, PRIVATE_ALERT + " for private channel or id of a guild server whose alert' owner is a member and this bot too", true);
 
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addSubcommands(
                     new SubcommandData("id", "migrate an alert by id").addOptions(
-                            option(INTEGER, "alert_id", "id of one alert to migrate", true)
+                            option(INTEGER, ALERT_ID_ARGUMENT, "id of one alert to migrate", true)
                                     .setMinValue(0),
                             SERVER_ID_OPTION),
                     new SubcommandData("filter", "migrate all your alerts or filtered by a ticker or pair").addOptions(
-                            option(STRING, "search_filter", "a filter to select the alerts having a ticker or a pair (can be '" + MIGRATE_ALL + "')", true)
+                            option(STRING, SEARCH_FILTER_ARGUMENT, "a filter to select the alerts having a ticker or a pair (can be '" + MIGRATE_ALL + "')", true)
                                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
                             SERVER_ID_OPTION,
-                            option(USER, "owner", "for admin only, owner of the alerts to migrate", false)));
+                            option(USER, OWNER_ARGUMENT, "for admin only, owner of the alerts to migrate", false)));
 
     public MigrateCommand() {
         super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
@@ -53,9 +54,9 @@ public final class MigrateCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        Long alertId = context.args.getLong("alert_id").map(ArgumentValidator::requirePositive).orElse(null);
-        Long serverId = context.args.getLong("guild_id").orElse(null);
-        String tickerOrPair = context.args.getString("search_filter")
+        Long alertId = context.args.getLong(ALERT_ID_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
+        Long serverId = context.args.getLong(GUILD_ARGUMENT).orElse(null);
+        String tickerOrPair = context.args.getString(SEARCH_FILTER_ARGUMENT)
                 .map(t -> null != alertId ? t : requireTickerPairLength(t)).orElse(null);
         validateExclusiveArguments(alertId, tickerOrPair);
         Long ownerId = null;
@@ -64,10 +65,10 @@ public final class MigrateCommand extends CommandAdapter {
                 throw new IllegalArgumentException("Missing guild id");
             }
         } else { // command filtered
-            serverId = null != serverId ? serverId : context.args.getLong("guild_id").orElse(null);
-            ownerId = context.args.getLastArgs("owner").filter(not(String::isBlank)).isPresent() ?
-                    context.args.getMandatoryUserId("owner") : null;
-            serverId = null != serverId ? serverId : context.args.getMandatoryLong("guild_id");
+            serverId = null != serverId ? serverId : context.args.getLong(GUILD_ARGUMENT).orElse(null);
+            ownerId = context.args.getLastArgs(OWNER_ARGUMENT).filter(not(String::isBlank)).isPresent() ?
+                    context.args.getMandatoryUserId(OWNER_ARGUMENT) : null;
+            serverId = null != serverId ? serverId : context.args.getMandatoryLong(GUILD_ARGUMENT);
         }
 
         LOGGER.debug("migrate command - alert_id : {}, server_id : {}, tickerOrPair : {}, ownerId : {}", alertId, serverId, tickerOrPair, ownerId);
@@ -101,7 +102,7 @@ public final class MigrateCommand extends CommandAdapter {
                 }
                 return embedBuilder("Alert migrated to " + (null == guild ? "user private channel" : "guild " + guildName(guild)));
             }
-            throw new IllegalArgumentException("User <@" + alert.userId + "> is not a member of guild " + guildName(guild));
+            throw notGuildMember(alert.userId, guild);
         }));
         Optional.ofNullable(outNotificationCallBack[0]).ifPresent(Runnable::run);
         return Message.of(answer);
@@ -120,12 +121,12 @@ public final class MigrateCommand extends CommandAdapter {
 
     private Message migrateByOwnerOrTickerPair(@NotNull CommandContext context, @Nullable Guild guild, @Nullable Long ownerId, @NotNull String tickerOrPair) {
         if((isPrivateChannel(context) && null == guild) || (null != guild && guild.getIdLong() == context.serverId())) {
-            throw new IllegalArgumentException("Those alerts are already into " + (null == guild ? "the private channel" : "guild " +guildName(guild)));
+            throw new IllegalArgumentException("Those alerts are already into " + (null == guild ? "the private channel" : "guild " + guildName(guild)));
         }
 
         long userId = null != ownerId ? ownerId : context.user.getIdLong();
         if(null != guild && !isGuildMember(guild, userId)) {
-            throw new IllegalArgumentException("User <@" + userId + "> is not a member of guild " + guildName(guild));
+            throw notGuildMember(userId, guild);
         }
         long migrated = context.transactional(txCtx -> MIGRATE_ALL.equalsIgnoreCase(tickerOrPair) ?
                 txCtx.alertsDao().updateServerIdOfUserAndServerId(userId, context.serverId(), null != guild ? guild.getIdLong() : PRIVATE_ALERT) :
@@ -134,7 +135,11 @@ public final class MigrateCommand extends CommandAdapter {
             sendUpdateNotification(context, ownerId, ownerMigrateNotification(tickerOrPair, requireNonNull(context.member), guild, migrated));
         }
         return Message.of(embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), Color.green, migrated + " " + (migrated > 1 ? " alerts" : " alert") +
-                " migrated to " + (null == guild ? "user private channel" : "guild " +guildName(guild))));
+                " migrated to " + (null == guild ? "user private channel" : "guild " + guildName(guild))));
+    }
+
+    private IllegalArgumentException notGuildMember(long userId, @NotNull Guild guild) {
+        return new IllegalArgumentException("User <@" + userId + "> is not a member of guild " + guildName(guild));
     }
 
     private Message ownerMigrateNotification(long alertId, @NotNull Member member, @Nullable Guild guild) {

@@ -32,6 +32,24 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected static final Logger LOGGER = LogManager.getLogger(CommandAdapter.class);
 
+    protected static final String SELECTION_ARGUMENT = "selection";
+    protected static final String VALUE_ARGUMENT = "value";
+    protected static final String ALERT_ID_ARGUMENT = "alert_id";
+    protected static final String TICKER_PAIR_ARGUMENT = "ticker_pair";
+    protected static final String SEARCH_FILTER_ARGUMENT = "search_filter";
+    protected static final String OFFSET_ARGUMENT = "offset";
+    protected static final String OWNER_ARGUMENT = "owner";
+    protected static final String EXCHANGE_ARGUMENT = "exchange";
+    protected static final String PAIR_ARGUMENT = "pair";
+    protected static final String MESSAGE_ARGUMENT = "message";
+    protected static final String LOW_ARGUMENT = "low";
+    protected static final String HIGH_ARGUMENT = "high";
+    protected static final String FROM_PRICE = "from_price";
+    protected static final String TO_PRICE = "to_price";
+    protected static final String DATE_ARGUMENT = "date";
+    protected static final String FROM_DATE_ARGUMENT = "from_date";
+    protected static final String TO_DATE_ARGUMENT = "to_date";
+
     private final String name;
     private final String description;
     private final SlashCommandData options;

@@ -28,9 +28,9 @@ public final class QuoteCommand extends CommandAdapter {
 
     private static final SlashCommandData options =
         Commands.slash(NAME, DESCRIPTION).addOptions(
-                option(STRING, "exchange", "the exchange, like binance", true)
+                option(STRING, EXCHANGE_ARGUMENT, "the exchange, like binance", true)
                         .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Command.Choice(e, e)).toList()),
-                option(STRING, "pair", "the pair, like EUR/USDT", true)
+                option(STRING, PAIR_ARGUMENT, "the pair, like EUR/USDT", true)
                         .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH));
 
 
@@ -40,8 +40,8 @@ public final class QuoteCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        String exchange = requireSupportedExchange(context.args.getMandatoryString("exchange"));
-        String pair = requirePairFormat(context.args.getMandatoryString("pair").toUpperCase());
+        String exchange = requireSupportedExchange(context.args.getMandatoryString(EXCHANGE_ARGUMENT));
+        String pair = requirePairFormat(context.args.getMandatoryString(PAIR_ARGUMENT).toUpperCase());
         LOGGER.debug("quote command - exchange : {}, pair : {}", exchange, pair);
         context.noMoreArgs().reply(quote(exchange, pair.toUpperCase()), responseTtlSeconds);
     }

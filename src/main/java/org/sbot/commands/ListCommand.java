@@ -52,11 +52,11 @@ public final class ListCommand extends CommandAdapter {
 
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(
-                    option(STRING, "selection", "settings, timezones, alert id, 'all' (alerts), exchanges, user, a ticker, a pair, 'all' if omitted", false)
+                    option(STRING, SELECTION_ARGUMENT, "settings, timezones, alert id, 'all' (alerts), exchanges, user, a ticker, a pair, 'all' if omitted", false)
                             .setMinLength(1),
-                    option(STRING, "ticker_pair", "an optional search filter on a ticker or a pair if 'what' is an user", false)
+                    option(STRING, TICKER_PAIR_ARGUMENT, "an optional search filter on a ticker or a pair if selection is an user", false)
                             .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
-                    option(INTEGER, "offset", "an offset from where to start the search (results are limited to 1000 alerts)", false)
+                    option(INTEGER, OFFSET_ARGUMENT, "an offset from where to start the search (results are limited to " + MESSAGE_LIST_CHUNK + " alerts)", false)
                             .setMinValue(0));
 
     public ListCommand() {
@@ -67,19 +67,19 @@ public final class ListCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         Long owner, offset;
         String selection, tickerOrPair;
-        Long alertId = context.args.getLong("selection").orElse(null);
+        Long alertId = context.args.getLong(SELECTION_ARGUMENT).orElse(null);
         ZonedDateTime now = Dates.nowUtc(context.clock());
 
         if(null != alertId) {
             LOGGER.debug("list command - alertId : {}", alertId);
             context.reply(List.of(listOneAlert(context.noMoreArgs(), now, alertId)), responseTtlSeconds);
         } else {
-            owner = context.args.getUserId("selection").orElse(null);
-            offset = null == owner ? null : context.args.getLong("offset").map(ArgumentValidator::requirePositive).orElse(null);
-            tickerOrPair = null == owner ? null : context.args.getString("ticker_pair").map(String::toUpperCase).orElse(null);
-            offset = null == owner || null != offset ? offset : context.args.getLong("offset").map(ArgumentValidator::requirePositive).orElse(0L);
-            selection = null == owner ? context.args.getString("selection").map(String::toLowerCase).orElse(LIST_ALL) : null;
-            offset = null == owner ? context.args.getLong("offset").map(ArgumentValidator::requirePositive).orElse(0L) : offset;
+            owner = context.args.getUserId(SELECTION_ARGUMENT).orElse(null);
+            offset = null == owner ? null : context.args.getLong(OFFSET_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
+            tickerOrPair = null == owner ? null : context.args.getString(TICKER_PAIR_ARGUMENT).map(String::toUpperCase).orElse(null);
+            offset = null == owner || null != offset ? offset : context.args.getLong(OFFSET_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(0L);
+            selection = null == owner ? context.args.getString(SELECTION_ARGUMENT).map(String::toLowerCase).orElse(LIST_ALL) : null;
+            offset = null == owner ? context.args.getLong(OFFSET_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(0L) : offset;
 
             LOGGER.debug("list command - selection : {}, owner : {}, ticker_pair : {}, offset : {}", selection, owner, tickerOrPair, offset);
             context.noMoreArgs();

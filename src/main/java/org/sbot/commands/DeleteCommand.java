@@ -31,12 +31,12 @@ public final class DeleteCommand extends CommandAdapter {
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addSubcommands(
                     new SubcommandData("id", "delete an alert by id").addOptions(
-                            option(INTEGER, "alert_id", "id of one alert to delete", true)
+                            option(INTEGER, ALERT_ID_ARGUMENT, "id of one alert to delete", true)
                                     .setMinValue(0)),
                     new SubcommandData("filter", "delete all your alerts or filtered by pair or ticker").addOptions(
-                            option(STRING, "search_filter", "a pair or a ticker to filter the alerts to delete (can be '" + DELETE_ALL + "')", true)
+                            option(STRING, SEARCH_FILTER_ARGUMENT, "a pair or a ticker to filter the alerts to delete (can be '" + DELETE_ALL + "')", true)
                                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
-                            option(USER, "owner", "for admin only, a member to drop the alerts on your server", false)));
+                            option(USER, OWNER_ARGUMENT, "for admin only, a member to drop the alerts on your server", false)));
 
     public DeleteCommand() {
         super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
@@ -44,12 +44,12 @@ public final class DeleteCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        Long alertId = context.args.getLong("alert_id").map(ArgumentValidator::requirePositive).orElse(null);
-        String tickerOrPair = context.args.getString("search_filter")
+        Long alertId = context.args.getLong(ALERT_ID_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
+        String tickerOrPair = context.args.getString(SEARCH_FILTER_ARGUMENT)
                 .map(t -> null != alertId ? t : requireTickerPairLength(t)).orElse(null);
         validateExclusiveArguments(alertId, tickerOrPair);
-        Long ownerId = null != tickerOrPair && context.args.getLastArgs("owner").filter(not(String::isBlank)).isPresent() ?
-                context.args.getMandatoryUserId("owner") : null;
+        Long ownerId = null != tickerOrPair && context.args.getLastArgs(OWNER_ARGUMENT).filter(not(String::isBlank)).isPresent() ?
+                context.args.getMandatoryUserId(OWNER_ARGUMENT) : null;
 
         LOGGER.debug("delete command - alert_id : {}, owner : {}, ticker_pair : {}", alertId, ownerId, tickerOrPair);
         context.noMoreArgs().reply(delete(context, alertId, ownerId, null != tickerOrPair ? tickerOrPair : DELETE_ALL), responseTtlSeconds);

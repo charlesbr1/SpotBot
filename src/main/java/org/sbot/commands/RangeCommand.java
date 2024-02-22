@@ -33,19 +33,19 @@ public final class RangeCommand extends CommandAdapter {
     private static final int RESPONSE_TTL_SECONDS = 180;
 
     static final List<OptionData> optionList = List.of(
-            option(STRING, "exchange", "the exchange, like binance", true)
+            option(STRING, EXCHANGE_ARGUMENT, "the exchange, like binance", true)
                     .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).toList()),
-            option(STRING, "pair", "the pair, like EUR/USDT", true)
+            option(STRING, PAIR_ARGUMENT, "the pair, like EUR/USDT", true)
                     .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
-            option(STRING, "message", "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
+            option(STRING, MESSAGE_ARGUMENT, "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH),
-            option(NUMBER, "low", "the low range price", true)
+            option(NUMBER, LOW_ARGUMENT, "the low range price", true)
                     .setMinValue(0d),
-            option(NUMBER, "high", "the high range price", false)
+            option(NUMBER, HIGH_ARGUMENT, "the high range price", false)
                     .setMinValue(0d),
-            option(STRING, "from_date", "a date to start the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false)
+            option(STRING, FROM_DATE_ARGUMENT, "a date to start the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false)
                     .setMinLength(NOW_ARGUMENT.length()),
-            option(STRING, "to_date", "a future date to end the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false)
+            option(STRING, TO_DATE_ARGUMENT, "a future date to end the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false)
                     .setMinLength(DATE_TIME_FORMAT.length()));
 
     private static final SlashCommandData options =
@@ -57,14 +57,14 @@ public final class RangeCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        String exchange = requireSupportedExchange(context.args.getMandatoryString("exchange"));
-        String pair = requirePairFormat(context.args.getMandatoryString("pair").toUpperCase());
+        String exchange = requireSupportedExchange(context.args.getMandatoryString(EXCHANGE_ARGUMENT));
+        String pair = requirePairFormat(context.args.getMandatoryString(PAIR_ARGUMENT).toUpperCase());
         var reversed = context.args.reversed();
         boolean stringReader = context.args instanceof StringArgumentReader;
-        ZonedDateTime toDate = reversed.getDateTime(context.locale, context.timezone, context.clock(), "to_date").orElse(null);
-        ZonedDateTime fromDate = !stringReader || null != toDate ? reversed.getDateTime(context.locale, context.timezone, context.clock(), "from_date").orElse(null) : null;
-        BigDecimal toPrice = reversed.getNumber("high").map(ArgumentValidator::requirePositive).orElse(null);
-        BigDecimal fromPrice = reversed.getNumber("low").map(ArgumentValidator::requirePositive).orElse(null);
+        ZonedDateTime toDate = reversed.getDateTime(context.locale, context.timezone, context.clock(), TO_DATE_ARGUMENT).orElse(null);
+        ZonedDateTime fromDate = !stringReader || null != toDate ? reversed.getDateTime(context.locale, context.timezone, context.clock(), FROM_DATE_ARGUMENT).orElse(null) : null;
+        BigDecimal toPrice = reversed.getNumber(HIGH_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
+        BigDecimal fromPrice = reversed.getNumber(LOW_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
         if (stringReader) { // optional arguments are rode backward, this need to ensure correct arguments mapping
             if(null != toDate && null == fromDate) { // both dates are optional, but fromDate is first
                 fromDate = toDate;
@@ -83,7 +83,7 @@ public final class RangeCommand extends CommandAdapter {
         if(null != toDate) {
             requireInFuture(now, toDate);
         }
-        String message = requireAlertMessageMaxLength(reversed.getLastArgs("message")
+        String message = requireAlertMessageMaxLength(reversed.getLastArgs(MESSAGE_ARGUMENT)
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
 
         LOGGER.debug("range command - exchange : {}, pair : {}, low : {}, high : {}, from_date : {}, to_date : {}, message : {}",
