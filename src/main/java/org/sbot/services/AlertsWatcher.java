@@ -19,6 +19,7 @@ import org.sbot.services.MatchingService.MatchingAlert.MatchingStatus;
 import org.sbot.services.context.Context;
 import org.sbot.services.context.TransactionalContext;
 import org.sbot.services.dao.AlertsDao;
+import org.sbot.services.dao.UsersDao;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 import org.sbot.services.discord.Discord;
 import org.sbot.utils.Dates;
@@ -41,6 +42,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
+import static org.sbot.SpotBot.appProperties;
 import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.entities.alerts.Alert.isPrivate;
 import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_VIRTUAL_EXCHANGE;
@@ -57,6 +59,10 @@ public final class AlertsWatcher {
     private static final int MAX_DBMS_SQL_IN_CLAUSE_VALUES = 1000;
     private static final int STREAM_BUFFER_SIZE = Math.min(MAX_DBMS_SQL_IN_CLAUSE_VALUES, MESSAGE_PAGE_SIZE);
 
+    private static final int DONE_DELAY_WEEKS = Math.max(1, appProperties.getIntOr("alerts.done.drop.delay.weeks", 1));
+    private static final int EXPIRED_DELAY_WEEKS = Math.max(1, appProperties.getIntOr("alerts.expired.drop.delay.weeks", 2));
+    private static final int LAST_ACCESS_DELAY_MONTHS = Math.max(1, appProperties.getIntOr("users.last-access.drop.delay.months", 6));
+
     private final Context context;
 
     public AlertsWatcher(Context context) {
@@ -68,6 +74,7 @@ public final class AlertsWatcher {
         long start = System.currentTimeMillis();
         try {
             ZonedDateTime now = Dates.nowUtc(context.clock());
+            context.transaction(txCtx -> expiredUsersCleanup(txCtx.usersDao(), now));
             context.transaction(txCtx -> expiredAlertsCleanup(txCtx.alertsDao(), now));
 
             //TODO check user not on server anymore
@@ -93,6 +100,12 @@ public final class AlertsWatcher {
         }
     }
 
+    void expiredUsersCleanup(@NotNull UsersDao usersDao, @NotNull ZonedDateTime now) {
+        ZonedDateTime expirationDate = now.minusMonths(LAST_ACCESS_DELAY_MONTHS);
+        long deleted = usersDao.deleteHavingLastAccessBefore(expirationDate);
+        LOGGER.debug("Deleted {} users with last access < {}", deleted, expirationDate);
+    }
+
     void expiredAlertsCleanup(@NotNull AlertsDao alertsDao, @NotNull ZonedDateTime now) {
         Consumer<Stream<Alert>> alertsDeleter = alerts -> alertsDao.alertBatchDeletes(deleter ->
                 split(STREAM_BUFFER_SIZE, true, alerts
@@ -100,12 +113,12 @@ public final class AlertsWatcher {
                         .flatMap(matchingAlerts -> sendDiscordNotifications(now, matchingAlerts))
                         .forEach(matchingAlert -> deleter.batchId(matchingAlert.alert().id)));
 
-        ZonedDateTime expirationDate = now.minusMonths(1L); //TODO from conf
+        ZonedDateTime expirationDate = now.minusWeeks(DONE_DELAY_WEEKS);
         long deleted = alertsDao.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(expirationDate, alertsDeleter);
         LOGGER.debug("Deleted {} alerts with repeat = 0 and lastTrigger or creation date < {}", deleted, expirationDate);
+        expirationDate = now.minusWeeks(EXPIRED_DELAY_WEEKS);
         deleted = alertsDao.fetchAlertsByTypeHavingToDateBefore(trend, expirationDate, alertsDeleter);
         LOGGER.debug("Deleted {} trend alerts with toDate < {}", deleted, expirationDate);
-        expirationDate = now.minusWeeks(1L);
         deleted = alertsDao.fetchAlertsByTypeHavingToDateBefore(range, expirationDate, alertsDeleter);
         LOGGER.debug("Deleted {} range alerts with toDate < {}", deleted, expirationDate);
     }

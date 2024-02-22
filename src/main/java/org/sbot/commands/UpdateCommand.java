@@ -94,7 +94,7 @@ public final class UpdateCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        String field = context.args.getMandatoryString("field");
+        String field = context.args.getMandatoryString("choice");
 
         if(List.of(CHOICE_LOCALE, CHOICE_TIMEZONE).contains(field)) {
             String value = context.args.getMandatoryString("value");

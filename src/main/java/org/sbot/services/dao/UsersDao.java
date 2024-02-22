@@ -2,7 +2,6 @@ package org.sbot.services.dao;
 
 import org.jetbrains.annotations.NotNull;
 import org.sbot.entities.User;
-import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 import org.sbot.utils.Dates;
 
 import java.time.Clock;
@@ -11,7 +10,6 @@ import java.time.ZonedDateTime;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Consumer;
 import java.util.stream.LongStream;
 
 import static java.util.Objects.requireNonNull;
@@ -51,5 +49,5 @@ public interface UsersDao {
 
     void updateLastAccess(long userId, @NotNull ZonedDateTime lastAccess);
 
-    void userBatchDeletes(@NotNull Consumer<BatchEntry> deleter);
+    long deleteHavingLastAccessBefore(@NotNull ZonedDateTime expirationDate);
 }

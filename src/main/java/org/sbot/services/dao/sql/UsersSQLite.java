@@ -12,7 +12,6 @@ import org.sbot.entities.User;
 import org.sbot.services.dao.UsersDao;
 import org.sbot.services.dao.sql.jdbi.AbstractJDBI;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository;
-import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 import org.sbot.services.dao.sql.jdbi.JDBITransactionHandler;
 
 import java.sql.ResultSet;
@@ -22,7 +21,6 @@ import java.time.ZonedDateTime;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Consumer;
 import java.util.stream.LongStream;
 
 import static java.util.Collections.emptyMap;
@@ -49,7 +47,7 @@ public class UsersSQLite extends AbstractJDBI implements UsersDao {
         String UPDATE_LOCALE = "UPDATE users SET locale=:locale WHERE id=:userId";
         String UPDATE_TIMEZONE = "UPDATE users SET timezone=:timezone WHERE id=:userId";
         String UPDATE_LAST_ACCESS = "UPDATE users SET last_access=:lastAccess WHERE id=:userId";
-        String DELETE_BY_ID = "DELETE FROM users WHERE id=:id";
+        String DELETE_HAVING_LAST_ACCESS_BEFORE = "DELETE FROM users WHERE last_access<:expirationDate";
     }
 
     public static final class UserMapper implements RowMapper<User> {
@@ -140,8 +138,9 @@ public class UsersSQLite extends AbstractJDBI implements UsersDao {
     }
 
     @Override
-    public void userBatchDeletes(@NotNull Consumer<BatchEntry> deleter) {
-        LOGGER.debug("userBatchDeletes");
-        batchUpdates(deleter, SQL.DELETE_BY_ID, emptyMap());
+    public long deleteHavingLastAccessBefore(@NotNull ZonedDateTime expirationDate) {
+        LOGGER.debug("deleteHavingLastAccessBefore {}", expirationDate);
+        return update(SQL.DELETE_HAVING_LAST_ACCESS_BEFORE,
+                Map.of("expirationDate", expirationDate.toInstant().toEpochMilli()));
     }
 }

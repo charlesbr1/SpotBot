@@ -28,7 +28,7 @@ public abstract class UsersDaoTest {
         assertEquals(user, users.setupUser(userId, Locale.FRANCE, Clock.fixed(now.toInstant(), UTC)));
         assertEquals(user, users.setupUser(userId, Locale.JAPANESE, Clock.fixed(now.toInstant(), UTC)));
 
-        users.userBatchDeletes(b -> b.batchId(userId));
+        users.deleteHavingLastAccessBefore(now.plusMinutes(1L));
         assertTrue(users.getUser(userId).isEmpty());
 
         user = new User(userId, Locale.JAPANESE, null, now);
@@ -80,7 +80,7 @@ public abstract class UsersDaoTest {
         User user = new User(userId, Locale.JAPAN, null, nowUtc());
         users.setUser(user);
         assertTrue(users.userExists(userId));
-        users.userBatchDeletes(deleter -> deleter.batchId(userId));
+        users.deleteHavingLastAccessBefore(nowUtc().plusMinutes(1L));
         assertFalse(users.userExists(userId));
     }
 
@@ -182,14 +182,14 @@ public abstract class UsersDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void userBatchDeletes(UsersDao users) {
-        assertThrows(NullPointerException.class, () -> users.userBatchDeletes(null));
+    void deleteHavingLastAccessBefore(UsersDao users) {
+        assertThrows(NullPointerException.class, () -> users.deleteHavingLastAccessBefore(null));
 
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         var user1 = new User(1L, Locale.US, null, now);
-        var user2 = new User(2L, Locale.JAPAN, null, now);
-        var user3 = new User(3L, Locale.FRENCH, null, now);
-        var user4 = new User(4L, Locale.CANADA, UTC, now);
+        var user2 = new User(2L, Locale.JAPAN, null, now.minusHours(1L));
+        var user3 = new User(3L, Locale.FRENCH, null, now.minusDays(1L));
+        var user4 = new User(4L, Locale.CANADA, null, now.minusWeeks(1L));
         users.setUser(user1);
         users.setUser(user2);
         users.setUser(user3);
@@ -200,18 +200,32 @@ public abstract class UsersDaoTest {
         assertTrue(users.getUser(user3.id()).isPresent());
         assertTrue(users.getUser(user4.id()).isPresent());
 
-        users.userBatchDeletes(deleter -> deleter.batchId(user2.id()));
-        assertTrue(users.getUser(user2.id()).isEmpty());
+        users.deleteHavingLastAccessBefore(now.minusMonths(1L));
         assertTrue(users.getUser(user1.id()).isPresent());
-        assertFalse(users.getUser(user2.id()).isPresent());
+        assertTrue(users.getUser(user2.id()).isPresent());
         assertTrue(users.getUser(user3.id()).isPresent());
         assertTrue(users.getUser(user4.id()).isPresent());
 
-        users.userBatchDeletes(deleter -> {
-            deleter.batchId(user1.id());
-            deleter.batchId(user3.id());
-            deleter.batchId(user4.id());
-        });
+        now = now.plusMinutes(1L);
+        users.deleteHavingLastAccessBefore(now.minusWeeks(1L));
+        assertTrue(users.getUser(user1.id()).isPresent());
+        assertTrue(users.getUser(user2.id()).isPresent());
+        assertTrue(users.getUser(user3.id()).isPresent());
+        assertTrue(users.getUser(user4.id()).isEmpty());
+
+        users.deleteHavingLastAccessBefore(now.minusDays(1L));
+        assertTrue(users.getUser(user1.id()).isPresent());
+        assertTrue(users.getUser(user2.id()).isPresent());
+        assertTrue(users.getUser(user3.id()).isEmpty());
+        assertTrue(users.getUser(user4.id()).isEmpty());
+
+        users.deleteHavingLastAccessBefore(now.minusHours(1L));
+        assertTrue(users.getUser(user1.id()).isPresent());
+        assertTrue(users.getUser(user2.id()).isEmpty());
+        assertTrue(users.getUser(user3.id()).isEmpty());
+        assertTrue(users.getUser(user4.id()).isEmpty());
+
+        users.deleteHavingLastAccessBefore(now);
         assertTrue(users.getUser(user1.id()).isEmpty());
         assertTrue(users.getUser(user2.id()).isEmpty());
         assertTrue(users.getUser(user3.id()).isEmpty());

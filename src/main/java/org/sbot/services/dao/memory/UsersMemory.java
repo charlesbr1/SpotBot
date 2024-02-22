@@ -5,7 +5,6 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.entities.User;
 import org.sbot.services.dao.UsersDao;
-import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -13,7 +12,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 import java.util.stream.LongStream;
 
 import static java.util.Collections.emptyMap;
@@ -77,8 +75,11 @@ public class UsersMemory implements UsersDao {
     }
 
     @Override
-    public void userBatchDeletes(@NotNull Consumer<BatchEntry> deleter) {
-        LOGGER.debug("userBatchDeletes");
-        deleter.accept(ids -> users.remove((Long) ids.get("id")));
+    public long deleteHavingLastAccessBefore(@NotNull ZonedDateTime expirationDate) {
+        LOGGER.debug("deleteHavingLastAccessBefore {}", expirationDate);
+        requireNonNull(expirationDate);
+        var toDelete = users.values().stream().filter(u -> u.lastAccess().isBefore(expirationDate)).toList();
+        toDelete.forEach(users.values()::remove);
+        return toDelete.size();
     }
 }
