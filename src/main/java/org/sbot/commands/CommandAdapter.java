@@ -36,7 +36,6 @@ public abstract class CommandAdapter implements CommandListener {
     public static final String VALUE_ARGUMENT = "value";
     public static final String ALERT_ID_ARGUMENT = "alert_id";
     protected static final String TICKER_PAIR_ARGUMENT = "ticker_pair";
-    protected static final String SEARCH_FILTER_ARGUMENT = "search_filter";
     protected static final String OFFSET_ARGUMENT = "offset";
     protected static final String OWNER_ARGUMENT = "owner";
     protected static final String EXCHANGE_ARGUMENT = "exchange";

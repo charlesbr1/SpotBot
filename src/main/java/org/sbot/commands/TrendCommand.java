@@ -57,6 +57,8 @@ public final class TrendCommand extends CommandAdapter {
                                     .setMinLength(NOW_ARGUMENT.length())),
                     new SubcommandData("create", "create a new trend alert").addOptions(optionList));
 
+    private record Arguments(Long alertId, String exchange, String pair, String message, BigDecimal fromPrice, BigDecimal toPrice, ZonedDateTime fromDate, ZonedDateTime toDate) {}
+
 
     public TrendCommand() {
         super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
@@ -64,12 +66,21 @@ public final class TrendCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
+        var arguments = arguments(context);
+        LOGGER.debug("trend command - {}", arguments);
+        if(null != arguments.alertId) {
+            context.noMoreArgs().reply(trendPrice(context, arguments.fromDate, arguments.alertId), responseTtlSeconds);
+            return;
+        }
+        context.reply(trend(context, arguments), responseTtlSeconds);
+    }
+
+    static Arguments arguments(@NotNull CommandContext context) {
         var alertId = context.args.getLong(ALERT_ID_ARGUMENT).map(ArgumentValidator::requirePositive);
         if(alertId.isPresent()) {
             var date = context.args.getMandatoryDateTime(context.locale, context.timezone, context.clock(), DATE_ARGUMENT);
-            LOGGER.debug("trend command - alert_id : {}, date : {}", alertId, date);
-            context.noMoreArgs().reply(trendPrice(context, date, alertId.get()), responseTtlSeconds);
-            return;
+            context.noMoreArgs();
+            return new Arguments(alertId.get(), null, null, null, null, null, date, null);
         }
         String exchange = requireSupportedExchange(context.args.getMandatoryString(EXCHANGE_ARGUMENT));
         String pair = requirePairFormat(context.args.getMandatoryString(PAIR_ARGUMENT).toUpperCase());
@@ -80,30 +91,25 @@ public final class TrendCommand extends CommandAdapter {
         BigDecimal fromPrice = requirePositive(reversed.getMandatoryNumber(FROM_PRICE_ARGUMENT));
         String message = requireAlertMessageMaxLength(reversed.getLastArgs(MESSAGE_ARGUMENT)
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
-
-        LOGGER.debug("trend command - exchange : {}, pair : {}, from_price : {}, from_date : {}, to_price : {}, to_date : {}, message : {}",
-                exchange, pair, fromPrice, fromDate, toPrice, toDate, message);
-        context.reply(trend(context, exchange, pair, message, fromPrice, fromDate, toPrice, toDate), responseTtlSeconds);
+        return new Arguments(null, exchange, pair, message, fromPrice, toPrice, fromDate, toDate);
     }
 
-    private Message trend(@NotNull CommandContext context,
-                          @NotNull String exchange, @NotNull String pair, @NotNull String message,
-                          @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate,
-                          @NotNull BigDecimal toPrice, @NotNull ZonedDateTime toDate) {
-
+    private Message trend(@NotNull CommandContext context, @NotNull Arguments arguments) {
+        ZonedDateTime fromDate = arguments.fromDate;
+        ZonedDateTime toDate = arguments.toDate;
+        BigDecimal fromPrice = arguments.fromPrice;
+        BigDecimal toPrice = arguments.toPrice;
         if(fromDate.isAfter(toDate)) { // ensure correct order of prices
-            ZonedDateTime swap = fromDate;
             fromDate = toDate;
-            toDate = swap;
-            BigDecimal value = fromPrice;
+            toDate = arguments.fromDate;
             fromPrice = toPrice;
-            toPrice = value;
+            toPrice = arguments.fromPrice;
         }
         var now = Dates.nowUtc(context.clock());
         TrendAlert trendAlert = new TrendAlert(NEW_ALERT_ID, context.user.getIdLong(),
                 context.serverId(), now, // creation date
                 now, // listening date
-                exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
+                arguments.exchange, arguments.pair, arguments.message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
 
         return saveAlert(context, now, trendAlert);

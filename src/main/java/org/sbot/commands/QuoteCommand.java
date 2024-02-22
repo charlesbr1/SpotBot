@@ -33,6 +33,8 @@ public final class QuoteCommand extends CommandAdapter {
                 option(STRING, PAIR_ARGUMENT, "the pair, like EUR/USDT", true)
                         .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH));
 
+    private record Arguments(String exchange, String pair) {}
+
 
     public QuoteCommand() {
         super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
@@ -40,10 +42,16 @@ public final class QuoteCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
+        var arguments = arguments(context);
+        LOGGER.debug("quote command - {}", arguments);
+        context.reply(quote(arguments.exchange, arguments.pair.toUpperCase()), responseTtlSeconds);
+    }
+
+    static Arguments arguments(@NotNull CommandContext context) {
         String exchange = requireSupportedExchange(context.args.getMandatoryString(EXCHANGE_ARGUMENT));
         String pair = requirePairFormat(context.args.getMandatoryString(PAIR_ARGUMENT).toUpperCase());
-        LOGGER.debug("quote command - exchange : {}, pair : {}", exchange, pair);
-        context.noMoreArgs().reply(quote(exchange, pair.toUpperCase()), responseTtlSeconds);
+        context.noMoreArgs();
+        return new Arguments(exchange, pair);
     }
 
     private Message quote(@NotNull String exchange, @NotNull String pair) {

@@ -47,6 +47,8 @@ public final class SpotBotCommand extends CommandAdapter {
                             .addChoices(List.of(new Choice(CHOICE_DOC, CHOICE_DOC),
                                     new Choice(CHOICE_COMMANDS, CHOICE_COMMANDS))));
 
+    private record Arguments(String selection) {}
+
     private static final String DOC_FOOTER = "EXPLAIN THE range and trend alerts from picture";
 
     private static final String ALERTS_PICTURE_FILE = "range2.png";
@@ -125,7 +127,7 @@ public final class SpotBotCommand extends CommandAdapter {
         try(var file = requireNonNull(SpotBotCommand.class.getResourceAsStream(ALERTS_PICTURE_PATH), "Missing file " + ALERTS_PICTURE_PATH)) {
             alertsPicture = file.readAllBytes();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new IllegalStateException("Unable to load help picture file");
         }
     }
 
@@ -135,9 +137,13 @@ public final class SpotBotCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        String selection = context.args.getString(SELECTION_ARGUMENT).orElse(CHOICE_DOC);
-        LOGGER.debug("spotBot command - selection : {}", selection);
-        context.noMoreArgs().reply(spotBot(selection, context), responseTtlSeconds);
+        var arguments = arguments(context);
+        LOGGER.debug("spotBot command - {}", arguments);
+        context.noMoreArgs().reply(spotBot(arguments.selection, context), responseTtlSeconds);
+    }
+
+    static Arguments arguments(@NotNull CommandContext context) {
+        return new Arguments(context.args.getString(SELECTION_ARGUMENT).orElse(CHOICE_DOC));
     }
 
     private List<Message> spotBot(@NotNull String selection, @NotNull CommandContext context) {

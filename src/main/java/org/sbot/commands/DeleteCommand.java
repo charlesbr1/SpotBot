@@ -34,9 +34,11 @@ public final class DeleteCommand extends CommandAdapter {
                             option(INTEGER, ALERT_ID_ARGUMENT, "id of one alert to delete", true)
                                     .setMinValue(0)),
                     new SubcommandData("filter", "delete all your alerts or filtered by pair or ticker").addOptions(
-                            option(STRING, SEARCH_FILTER_ARGUMENT, "a pair or a ticker to filter the alerts to delete (can be '" + DELETE_ALL + "')", true)
+                            option(STRING, TICKER_PAIR_ARGUMENT, "a pair or a ticker to filter the alerts to delete (can be '" + DELETE_ALL + "')", true)
                                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
                             option(USER, OWNER_ARGUMENT, "for admin only, a member to drop the alerts on your server", false)));
+
+    private record Arguments(Long alertId, String tickerOrPair, Long ownerId) {}
 
     public DeleteCommand() {
         super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
@@ -44,17 +46,21 @@ public final class DeleteCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
+        var arguments = arguments(context);
+        LOGGER.debug("delete command - {}", arguments);
+        context.reply(delete(context, arguments), responseTtlSeconds);
+    }
+
+    static Arguments arguments(@NotNull CommandContext context) {
         Long alertId = context.args.getLong(ALERT_ID_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
-        String tickerOrPair = context.args.getString(SEARCH_FILTER_ARGUMENT)
+        String tickerOrPair = context.args.getString(TICKER_PAIR_ARGUMENT)
                 .map(t -> null != alertId ? t : requireTickerPairLength(t)).orElse(null);
         validateExclusiveArguments(alertId, tickerOrPair);
         Long ownerId = null != tickerOrPair && context.args.getLastArgs(OWNER_ARGUMENT).filter(not(String::isBlank)).isPresent() ?
                 context.args.getMandatoryUserId(OWNER_ARGUMENT) : null;
-
-        LOGGER.debug("delete command - alert_id : {}, owner : {}, ticker_pair : {}", alertId, ownerId, tickerOrPair);
-        context.noMoreArgs().reply(delete(context, alertId, ownerId, null != tickerOrPair ? tickerOrPair : DELETE_ALL), responseTtlSeconds);
+        context.noMoreArgs();
+        return new Arguments(alertId, tickerOrPair, ownerId);
     }
-
     static void validateExclusiveArguments(@Nullable Long alertId, @Nullable String tickerOrPair) {
         if(null == alertId && null == tickerOrPair) {
             throw new IllegalArgumentException("Missing arguments, an alert id or a ticker or a pair is expected");
@@ -64,12 +70,12 @@ public final class DeleteCommand extends CommandAdapter {
         }
     }
 
-    private Message delete(@NotNull CommandContext context, @Nullable Long alertId, @Nullable Long ownerId, @NotNull String tickerOrPair) {
-        if (null != alertId) { // single id delete
-            return deleteById(context, alertId);
-        } else if (null == ownerId || // if ownerId is null -> delete all alerts of current user, or filtered by ticker or pair
-                hasRightOnUser(context, ownerId)) { // ownerId != null -> only an admin can delete alerts of other users on his server
-            return deleteByOwnerOrTickerPair(context, ownerId, tickerOrPair);
+    private Message delete(@NotNull CommandContext context, @NotNull Arguments arguments) {
+        if (null != arguments.alertId) { // single id delete
+            return deleteById(context, arguments.alertId);
+        } else if (null == arguments.ownerId || // if ownerId is null -> delete all alerts of current user, or filtered by ticker or pair
+                hasRightOnUser(context, arguments.ownerId)) { // ownerId != null -> only an admin can delete alerts of other users on his server
+            return deleteByOwnerOrTickerPair(context, arguments.ownerId, arguments.tickerOrPair);
         } else {
             return Message.of(embedBuilder(":clown:" + ' ' + context.user.getEffectiveName(), Color.black, "You are not allowed to delete your mates' alerts" +
                     (isPrivateChannel(context) ? ", you are on a private channel." : "")));
@@ -90,9 +96,10 @@ public final class DeleteCommand extends CommandAdapter {
     }
 
     private Message deleteByOwnerOrTickerPair(@NotNull CommandContext context, @Nullable Long ownerId, @NotNull String tickerOrPair) {
+        long userId = null != ownerId ? ownerId : context.user.getIdLong();
         long deleted = context.transactional(txCtx -> DELETE_ALL.equalsIgnoreCase(tickerOrPair) ?
-                txCtx.alertsDao().deleteAlerts(context.serverId(), null != ownerId ? ownerId : context.user.getIdLong()) :
-                txCtx.alertsDao().deleteAlerts(context.serverId(), null != ownerId ? ownerId : context.user.getIdLong(), tickerOrPair.toUpperCase()));
+                txCtx.alertsDao().deleteAlerts(context.serverId(), userId) :
+                txCtx.alertsDao().deleteAlerts(context.serverId(), userId, tickerOrPair.toUpperCase()));
         if(deleted > 0 && null != ownerId && context.user.getIdLong() != ownerId) {
             sendUpdateNotification(context, ownerId, ownerDeleteNotification(tickerOrPair, requireNonNull(context.member), deleted));
         }

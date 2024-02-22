@@ -30,6 +30,8 @@ public final class RemainderCommand extends CommandAdapter {
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH),
             option(STRING, DATE_ARGUMENT, "a future date when to trigger the remainder, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
                     .setMinLength(DATE_TIME_FORMAT.length()));
+    private record Arguments(String pair, String message, ZonedDateTime date) {}
+
 
     private static final SlashCommandData options = Commands.slash(NAME, DESCRIPTION).addOptions(optionList);
 
@@ -39,15 +41,19 @@ public final class RemainderCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
+        ZonedDateTime now = Dates.nowUtc(context.clock());
+        var arguments = arguments(context, now);
+        LOGGER.debug("remainder command - {}", arguments);
+        context.reply(remainder(context, now, arguments.pair, arguments.date, arguments.message), responseTtlSeconds);
+    }
+
+    static Arguments arguments(@NotNull CommandContext context, @NotNull ZonedDateTime now) {
         String pair = requirePairFormat(context.args.getMandatoryString(PAIR_ARGUMENT).toUpperCase());
         var reversed = context.args.reversed();
-        ZonedDateTime now = Dates.nowUtc(context.clock());
         ZonedDateTime date = requireInFuture(now, reversed.getMandatoryDateTime(context.locale, context.timezone, context.clock(), DATE_ARGUMENT));
         String message = requireAlertMessageMaxLength(reversed.getLastArgs(MESSAGE_ARGUMENT)
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
-
-        LOGGER.debug("remainder command - pair : {}, date : {}, remainder {}", pair, date, message);
-        context.reply(remainder(context, now, pair, date, message), responseTtlSeconds);
+        return new Arguments(pair, message, date);
     }
 
     private Message remainder(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull String pair, @NotNull ZonedDateTime fromDate, @NotNull String message) {

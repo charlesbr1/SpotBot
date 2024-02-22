@@ -5,7 +5,6 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.commands.reader.StringArgumentReader;
 import org.sbot.entities.Message;
@@ -17,7 +16,6 @@ import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
 
-import static java.util.Objects.requireNonNull;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.NUMBER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.entities.alerts.Alert.*;
@@ -48,6 +46,8 @@ public final class RangeCommand extends CommandAdapter {
             option(STRING, TO_DATE_ARGUMENT, "a future date to end the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false)
                     .setMinLength(DATE_TIME_FORMAT.length()));
 
+    private record Arguments(String exchange, String pair, String message, BigDecimal low, BigDecimal high, ZonedDateTime fromDate, ZonedDateTime toDate) {}
+
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(optionList);
 
@@ -57,59 +57,64 @@ public final class RangeCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
+        ZonedDateTime now = Dates.nowUtc(context.clock());
+        var arguments = arguments(context, now);
+        LOGGER.debug("range command - {}", arguments);
+        context.reply(range(context, now, arguments), responseTtlSeconds);
+    }
+
+    static Arguments arguments(@NotNull CommandContext context, @NotNull ZonedDateTime now) {
         String exchange = requireSupportedExchange(context.args.getMandatoryString(EXCHANGE_ARGUMENT));
         String pair = requirePairFormat(context.args.getMandatoryString(PAIR_ARGUMENT).toUpperCase());
         var reversed = context.args.reversed();
         boolean stringReader = context.args instanceof StringArgumentReader;
         ZonedDateTime toDate = reversed.getDateTime(context.locale, context.timezone, context.clock(), TO_DATE_ARGUMENT).orElse(null);
         ZonedDateTime fromDate = !stringReader || null != toDate ? reversed.getDateTime(context.locale, context.timezone, context.clock(), FROM_DATE_ARGUMENT).orElse(null) : null;
-        BigDecimal toPrice = reversed.getNumber(HIGH_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
-        BigDecimal fromPrice = reversed.getNumber(LOW_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
+        BigDecimal high = reversed.getNumber(HIGH_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
+        BigDecimal low = reversed.getNumber(LOW_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
+        String message = requireAlertMessageMaxLength(reversed.getLastArgs(MESSAGE_ARGUMENT)
+                .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
+
         if (stringReader) { // optional arguments are rode backward, this need to ensure correct arguments mapping
             if(null != toDate && null == fromDate) { // both dates are optional, but fromDate is first
                 fromDate = toDate;
                 toDate = null;
             }
-           if(null == fromPrice) { // toPrice mandatory, fromPrice optional
-                fromPrice = toPrice;
+            if(null == low) { // toPrice mandatory, fromPrice optional
+                low = high;
             }
-        } else if(null == toPrice) {
-            toPrice = fromPrice;
+        } else if(null == high) {
+            high = low;
         }
-        if(null == fromPrice) {
-            throw new IllegalArgumentException("Missing from_price");
+        if(null == low) {
+            throw new IllegalArgumentException("Missing low price");
         }
-        ZonedDateTime now = Dates.nowUtc(context.clock());
         if(null != toDate) {
             requireInFuture(now, toDate);
         }
-        String message = requireAlertMessageMaxLength(reversed.getLastArgs(MESSAGE_ARGUMENT)
-                .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
-
-        LOGGER.debug("range command - exchange : {}, pair : {}, low : {}, high : {}, from_date : {}, to_date : {}, message : {}",
-                exchange, pair, fromPrice, toPrice, fromDate, toDate, message);
-        context.reply(range(context, now, exchange, pair, message, fromPrice, requireNonNull(toPrice), fromDate, toDate), responseTtlSeconds);
+        return new Arguments(exchange, pair, message, low, high, fromDate, toDate);
     }
 
     private Message range(@NotNull CommandContext context, @NotNull ZonedDateTime now,
-                          @NotNull String exchange, @NotNull String pair, @NotNull String message,
-                          @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
-                          @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate) {
+                          @NotNull Arguments arguments) {
 
-        if(fromPrice.compareTo(toPrice) > 0) { // ensure correct order of prices
-            BigDecimal swap = fromPrice;
-            fromPrice = toPrice;
-            toPrice = swap;
+        ZonedDateTime fromDate = arguments.fromDate;
+        ZonedDateTime toDate = arguments.toDate;
+        BigDecimal low = arguments.low;
+        BigDecimal high = arguments.high;
+
+        if(low.compareTo(high) > 0) { // ensure correct order of prices
+            low = high;
+            high = arguments.low;
         }
         if(null != fromDate && null != toDate && fromDate.isAfter(toDate)) { // same for dates
-            ZonedDateTime swap = fromDate;
             fromDate = toDate;
-            toDate = swap;
+            toDate = arguments.fromDate;
         }
         RangeAlert rangeAlert = new RangeAlert(NEW_ALERT_ID, context.user.getIdLong(),
                 context.serverId(), now, // creation date
                 null != fromDate && fromDate.isAfter(now) ? fromDate : now, // listening date
-                exchange, pair, message, fromPrice, toPrice, fromDate, toDate,
+                arguments.exchange, arguments.pair, arguments.message, low, high, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
         return saveAlert(context, now, rangeAlert);
     }
