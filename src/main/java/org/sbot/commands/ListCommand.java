@@ -1,6 +1,7 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
@@ -14,11 +15,17 @@ import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
+import static java.time.ZoneId.SHORT_IDS;
+import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.joining;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.commands.SecurityAccess.isAdminMember;
@@ -37,12 +44,15 @@ public final class ListCommand extends CommandAdapter {
     private static final int RESPONSE_TTL_SECONDS = 300;
 
     private static final int MESSAGE_LIST_CHUNK = 100;
+    private static final String LIST_SETTINGS = "settings";
+    private static final String LIST_LOCALES = "locales";
+    private static final String LIST_TIMEZONES = "timezones";
     private static final String LIST_EXCHANGES = "exchanges";
     private static final String LIST_ALL = "all";
 
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(
-                    option(STRING, "selection", "an alert id, or 'exchanges', or 'all' alerts, or an user or a ticker or a pair, 'all' if omitted", false)
+                    option(STRING, "selection", "settings, timezones, alert id, 'all' (alerts), exchanges, user, a ticker, a pair, 'all' if omitted", false)
                             .setMinLength(1),
                     option(STRING, "ticker_pair", "an optional search filter on a ticker or a pair if 'what' is an user", false)
                             .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
@@ -77,6 +87,9 @@ public final class ListCommand extends CommandAdapter {
                 context.reply(listByOwnerAndPair(context, now, tickerOrPair, owner, offset), responseTtlSeconds);
             } else {
                 switch (selection) {
+                    case LIST_SETTINGS : context.reply(settings(context.locale, context.timezone), responseTtlSeconds); break; // list user settings
+                    case LIST_LOCALES: context.reply(locales(), responseTtlSeconds); break; // list available timezones
+                    case LIST_TIMEZONES: context.reply(timezones(), responseTtlSeconds); break; // list available timezones
                     case LIST_EXCHANGES : context.reply(exchanges(), responseTtlSeconds); break; // list exchanges and pairs
                     case LIST_ALL : context.reply(listAll(context, now, offset), responseTtlSeconds); break;  // list all alerts
                     default : context.reply(listByTickerOrPair(context, now, selection.toUpperCase(), offset), responseTtlSeconds);
@@ -226,6 +239,35 @@ public final class ListCommand extends CommandAdapter {
                     (offset + MESSAGE_LIST_CHUNK - 1) + " : " + nextCommand.get())));
         }
         return messages;
+    }
+
+    private Message settings(@NotNull Locale locale, @Nullable ZoneId timezone) {
+        return Message.of(embedBuilder(LIST_SETTINGS, Color.green, "Your current settings :")
+                .addField("locale", locale.toLanguageTag(), true)
+                .addField("timezone", null != timezone ? timezone.getId() : "UTC", true));
+    }
+
+    private Message locales() {
+        return Message.of(embedBuilder(" ", Color.green, "Available locales :\n\n```" +
+                Stream.of(DiscordLocale.values())
+                        .filter(not(DiscordLocale.UNKNOWN::equals))
+                        .map(locale -> {
+                            String desc = locale.toLocale().toLanguageTag();
+                            return desc + (desc.length() < 5 ? "\t" : "") + "\t(" + locale.getNativeName() + ')';
+                        })
+                        .collect(joining("\n")) + "```"));
+    }
+
+    private List<Message> timezones() {
+        var zoneIds = ZoneId.getAvailableZoneIds();
+        zoneIds.addAll(SHORT_IDS.keySet());
+        var zones = zoneIds.stream().sorted().toList();
+        int splitIndex = zones.size() / 3;
+
+        return List.of(Message.of(embedBuilder(" ", Color.green, "Available time zones :\n\n>>> " +
+                        "by offset : +HH:mm, -HH:mm,\n" + String.join(", ", zones.subList(0, splitIndex)))),
+                Message.of(embedBuilder(" ", Color.green, ">>> " + String.join(", ", zones.subList(splitIndex, 2 * splitIndex)))),
+                Message.of(embedBuilder(" ", Color.green, ">>> " + String.join(", ", zones.subList(2 * splitIndex, zones.size())))));
     }
 
     private Message exchanges() {

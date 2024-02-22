@@ -41,7 +41,7 @@ public final class MigrateCommand extends CommandAdapter {
                             option(INTEGER, "alert_id", "id of one alert to migrate", true)
                                     .setMinValue(0),
                             SERVER_ID_OPTION),
-                    new SubcommandData("filtered", "migrate all your alerts or filtered by a ticker or pair").addOptions(
+                    new SubcommandData("filter", "migrate all your alerts or filtered by a ticker or pair").addOptions(
                             option(STRING, "search_filter", "a filter to select the alerts having a ticker or a pair (can be '" + MIGRATE_ALL + "')", true)
                                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
                             SERVER_ID_OPTION,

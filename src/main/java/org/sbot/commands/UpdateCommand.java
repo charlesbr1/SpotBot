@@ -3,6 +3,7 @@ package org.sbot.commands;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
@@ -13,7 +14,9 @@ import org.sbot.utils.Dates;
 
 import java.awt.*;
 import java.math.BigDecimal;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
@@ -30,9 +33,14 @@ import static org.sbot.utils.Dates.formatDiscord;
 public final class UpdateCommand extends CommandAdapter {
 
     private static final String NAME = "update";
-    static final String DESCRIPTION = "update an alert (only 'message' and 'from_date' fields can be updated on a remainder alert)";
+    static final String DESCRIPTION = "update your settings or an alert";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
+    // user settings
+    public static final String CHOICE_LOCALE = "locale";
+    public static final String CHOICE_TIMEZONE = "timezone";
+
+    // alert fields
     private static final String DISPLAY_FROM_PRICE_OR_LOW = "from price (or low)";
     public static final String DISPLAY_FROM_PRICE = "from price";
     public static final String CHOICE_FROM_PRICE = "from_price";
@@ -52,9 +60,17 @@ public final class UpdateCommand extends CommandAdapter {
     public static final String CHOICE_REPEAT = "repeat";
     public static final String CHOICE_SNOOZE = "snooze";
     public static final String CHOICE_ENABLE = "enable";
+
     private static final SlashCommandData options =
-            Commands.slash(NAME, DESCRIPTION).addOptions(
-                    option(STRING, "field", CHOICE_MESSAGE + ", " + CHOICE_FROM_PRICE + ", " + CHOICE_LOW +
+            Commands.slash(NAME, DESCRIPTION).addSubcommands(
+                    new SubcommandData("settings", "update your settings (locale and timezone)").addOptions(
+                            option(STRING, "choice", CHOICE_LOCALE + ", " + CHOICE_TIMEZONE, true)
+                                    .addChoice(CHOICE_LOCALE, CHOICE_LOCALE)
+                                    .addChoice(CHOICE_TIMEZONE, CHOICE_TIMEZONE),
+                            option(STRING, "value", "a new locale or timezone to use by default", true)
+                                    .setMinLength(1)),
+                    new SubcommandData("alert", "update an alert field (only 'message' and 'from_date' fields can be updated on a remainder alert)").addOptions(
+                            option(STRING, "choice", CHOICE_MESSAGE + ", " + CHOICE_FROM_PRICE + ", " + CHOICE_LOW +
                             ", " + CHOICE_TO_PRICE + ", " + CHOICE_HIGH + ", " + CHOICE_FROM_DATE + ", " + CHOICE_DATE +
                             ", " + DISPLAY_TO_DATE + ", " + CHOICE_MARGIN + ", " + CHOICE_REPEAT + ", " + CHOICE_SNOOZE, true)
                             .addChoice(CHOICE_MESSAGE, CHOICE_MESSAGE)
@@ -69,7 +85,7 @@ public final class UpdateCommand extends CommandAdapter {
                     option(INTEGER, "alert_id", "id of the alert", true)
                             .setMinValue(0),
                     option(STRING, "value", "a new value depending on the selected field : a price, a message, or an UTC date (" + Dates.DATE_TIME_FORMAT + ')', true)
-                            .setMinLength(1));
+                            .setMinLength(1)));
 
 
     public UpdateCommand() {
@@ -79,8 +95,15 @@ public final class UpdateCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         String field = context.args.getMandatoryString("field");
-        long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
 
+        if(List.of(CHOICE_LOCALE, CHOICE_TIMEZONE).contains(field)) {
+            String value = context.args.getMandatoryString("value");
+            LOGGER.debug("update command - setting : {}, value : {}", field, value);
+            context.noMoreArgs().reply(Message.of(setting(context, field, value)), responseTtlSeconds);
+            return;
+        }
+
+        long alertId = requirePositive(context.args.getMandatoryLong("alert_id"));
         LOGGER.debug("update command - field : {}, alert_id : {}, value : {}", field, alertId, context.args.getLastArgs("value").orElse(""));
         Runnable[] notificationCallBack = new Runnable[1];
         var now = Dates.nowUtc(context.clock());
@@ -104,6 +127,26 @@ public final class UpdateCommand extends CommandAdapter {
         });
         // perform user notification of its alerts being updated, if needed, once above update transaction is done.
         Optional.ofNullable(notificationCallBack[0]).ifPresent(Runnable::run);
+    }
+
+    private EmbedBuilder setting(@NotNull CommandContext context, @NotNull String setting, @NotNull String value) {
+        return switch (setting) {
+            case CHOICE_LOCALE -> locale(context, value);
+            case CHOICE_TIMEZONE -> timezone(context, value);
+            default -> throw new IllegalArgumentException("Unexpected setting : " + setting);
+        };
+    }
+
+    private EmbedBuilder locale(@NotNull CommandContext context, @NotNull String value) {
+        var locale = requireSupportedLocale(value);
+        context.transaction(txCtx -> txCtx.usersDao().updateLocale(context.user.getIdLong(), locale));
+        return embedBuilder(NAME, Color.green, "Your locale is set to " + locale.toLanguageTag());
+    }
+
+    private EmbedBuilder timezone(@NotNull CommandContext context, @NotNull String value) {
+        var timezone = ZoneId.of(value);
+        context.transaction(txCtx -> txCtx.usersDao().updateTimezone(context.user.getIdLong(), timezone));
+        return embedBuilder(NAME, Color.green, "Your timezone is set to " + timezone.getId());
     }
 
     private BiFunction<Alert, AlertsDao, EmbedBuilder> fromPrice(@NotNull CommandContext context, @NotNull ZonedDateTime now, long alertId, @NotNull Runnable[] outNotificationCallBack) {

@@ -6,10 +6,12 @@ import org.jetbrains.annotations.NotNull;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static java.util.function.Predicate.not;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
 import static org.sbot.utils.Dates.formatDiscord;
@@ -64,11 +66,13 @@ public interface ArgumentValidator {
     }
 
     @NotNull
-    static String requireSupportedLocale(@NotNull String locale) {
-        if(Stream.of(DiscordLocale.values()).noneMatch(l -> locale.equals(l.getLocale()))) {
-            throw new IllegalArgumentException("Provided locale is not supported : " + locale + " (expected one of : " + String.join(", ", Stream.of(DiscordLocale.values()).map(DiscordLocale::getLocale).toList()) + ')');
-        }
-        return locale;
+    static Locale requireSupportedLocale(@NotNull String locale) {
+        return Stream.of(DiscordLocale.values())
+                .filter(l -> locale.equals(l.getLocale()))
+                .filter(not(DiscordLocale.UNKNOWN::equals))
+                .findFirst().map(DiscordLocale::toLocale)
+                .orElseThrow(() -> new IllegalArgumentException("Provided locale is not supported : " + locale +" (expected one of : " +
+                        String.join(", ", Stream.of(DiscordLocale.values()).map(DiscordLocale::getLocale).toList()) + ')'));
     }
 
     @NotNull

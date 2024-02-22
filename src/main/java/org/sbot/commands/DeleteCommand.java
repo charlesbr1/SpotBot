@@ -33,7 +33,7 @@ public final class DeleteCommand extends CommandAdapter {
                     new SubcommandData("id", "delete an alert by id").addOptions(
                             option(INTEGER, "alert_id", "id of one alert to delete", true)
                                     .setMinValue(0)),
-                    new SubcommandData("filtered", "delete all your alerts or filtered by pair or ticker").addOptions(
+                    new SubcommandData("filter", "delete all your alerts or filtered by pair or ticker").addOptions(
                             option(STRING, "search_filter", "a pair or a ticker to filter the alerts to delete (can be '" + DELETE_ALL + "')", true)
                                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
                             option(USER, "owner", "for admin only, a member to drop the alerts on your server", false)));

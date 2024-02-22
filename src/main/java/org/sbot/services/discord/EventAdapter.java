@@ -166,7 +166,8 @@ final class EventAdapter extends ListenerAdapter {
     @Override
     public void onStringSelectInteraction(@NotNull StringSelectInteractionEvent event) {
         try {
-            var user = context.transactional(txCtx -> txCtx.usersDao().setupUser(event.getUser().getIdLong(), event.getUserLocale().toLocale(), context.clock()));
+            var user = context.transactional(txCtx -> txCtx.usersDao().getUser(event.getUser().getIdLong()))
+                    .orElseThrow(() -> new IllegalStateException("User is not configured"));
             var command = CommandContext.of(context, user, event);
             context.discord().getGetInteractionListener(command.name).onInteraction(command);
         } catch (RuntimeException e) {
@@ -178,7 +179,8 @@ final class EventAdapter extends ListenerAdapter {
     }
     public void onModalInteraction(@NotNull ModalInteractionEvent event) {
         try {
-            var user = context.transactional(txCtx -> txCtx.usersDao().setupUser(event.getUser().getIdLong(), event.getUserLocale().toLocale(), context.clock()));
+            var user = context.transactional(txCtx -> txCtx.usersDao().getUser(event.getUser().getIdLong()))
+                    .orElseThrow(() -> new IllegalStateException("User is not configured"));
             var command = CommandContext.of(context, user, event);
             context.discord().getGetInteractionListener(command.name).onInteraction(command);
         } catch (RuntimeException e) {
