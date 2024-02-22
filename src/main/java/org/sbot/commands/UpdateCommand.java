@@ -99,7 +99,7 @@ public final class UpdateCommand extends CommandAdapter {
         if(List.of(CHOICE_LOCALE, CHOICE_TIMEZONE).contains(field)) {
             String value = context.args.getMandatoryString("value");
             LOGGER.debug("update command - setting : {}, value : {}", field, value);
-            context.noMoreArgs().reply(Message.of(setting(context, field, value)), responseTtlSeconds);
+            context.noMoreArgs().reply(setting(context, field, value), responseTtlSeconds);
             return;
         }
 
@@ -129,7 +129,7 @@ public final class UpdateCommand extends CommandAdapter {
         Optional.ofNullable(notificationCallBack[0]).ifPresent(Runnable::run);
     }
 
-    private EmbedBuilder setting(@NotNull CommandContext context, @NotNull String setting, @NotNull String value) {
+    private Message setting(@NotNull CommandContext context, @NotNull String setting, @NotNull String value) {
         return switch (setting) {
             case CHOICE_LOCALE -> locale(context, value);
             case CHOICE_TIMEZONE -> timezone(context, value);
@@ -137,16 +137,26 @@ public final class UpdateCommand extends CommandAdapter {
         };
     }
 
-    private EmbedBuilder locale(@NotNull CommandContext context, @NotNull String value) {
+    private Message locale(@NotNull CommandContext context, @NotNull String value) {
         var locale = requireSupportedLocale(value);
-        context.transaction(txCtx -> txCtx.usersDao().updateLocale(context.user.getIdLong(), locale));
-        return embedBuilder(NAME, Color.green, "Your locale is set to " + locale.toLanguageTag());
+        return context.transactional(txCtx -> {
+            if(txCtx.usersDao().userExists(context.user.getIdLong())) {
+                txCtx.usersDao().updateLocale(context.user.getIdLong(), locale);
+                return Message.of(embedBuilder(NAME, Color.green, "Your locale is set to " + locale.toLanguageTag()));
+            }
+            return userSetupNeeded("Update locale", "Unable to update your locale :");
+        });
     }
 
-    private EmbedBuilder timezone(@NotNull CommandContext context, @NotNull String value) {
+    private Message timezone(@NotNull CommandContext context, @NotNull String value) {
         var timezone = ZoneId.of(value);
-        context.transaction(txCtx -> txCtx.usersDao().updateTimezone(context.user.getIdLong(), timezone));
-        return embedBuilder(NAME, Color.green, "Your timezone is set to " + timezone.getId());
+        return context.transactional(txCtx -> {
+            if(txCtx.usersDao().userExists(context.user.getIdLong())) {
+                txCtx.usersDao().updateTimezone(context.user.getIdLong(), timezone);
+                return Message.of(embedBuilder(NAME, Color.green, "Your timezone is set to " + timezone.getId()));
+            }
+            return userSetupNeeded("Update timezone", "Unable to update your timezone :");
+        });
     }
 
     private BiFunction<Alert, AlertsDao, EmbedBuilder> fromPrice(@NotNull CommandContext context, @NotNull ZonedDateTime now, long alertId, @NotNull Runnable[] outNotificationCallBack) {

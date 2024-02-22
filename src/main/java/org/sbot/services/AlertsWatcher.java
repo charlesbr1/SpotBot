@@ -100,7 +100,7 @@ public final class AlertsWatcher {
                         .flatMap(matchingAlerts -> sendDiscordNotifications(now, matchingAlerts))
                         .forEach(matchingAlert -> deleter.batchId(matchingAlert.alert().id)));
 
-        ZonedDateTime expirationDate = now.minusMonths(1L);
+        ZonedDateTime expirationDate = now.minusMonths(1L); //TODO from conf
         long deleted = alertsDao.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(expirationDate, alertsDeleter);
         LOGGER.debug("Deleted {} alerts with repeat = 0 and lastTrigger or creation date < {}", deleted, expirationDate);
         deleted = alertsDao.fetchAlertsByTypeHavingToDateBefore(trend, expirationDate, alertsDeleter);

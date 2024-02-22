@@ -235,7 +235,7 @@ public final class ListCommand extends CommandAdapter {
             while(messages.size() >= MESSAGE_LIST_CHUNK) {
                 messages.remove(messages.size() - 1);
             }
-            messages.add(Message.of(embedBuilder("...", Color.green, "More results found, to get them type command with offset " +
+            messages.add(Message.of(embedBuilder("...", Color.green, "More results found, to get them use command with offset " +
                     (offset + MESSAGE_LIST_CHUNK - 1) + " : " + nextCommand.get())));
         }
         return messages;
@@ -253,7 +253,7 @@ public final class ListCommand extends CommandAdapter {
                         .filter(not(DiscordLocale.UNKNOWN::equals))
                         .map(locale -> {
                             String desc = locale.toLocale().toLanguageTag();
-                            return desc + (desc.length() < 5 ? "\t" : "") + "\t(" + locale.getNativeName() + ')';
+                            return desc + " ".repeat(10 - desc.length()) +"(" + locale.getNativeName() + ')';
                         })
                         .collect(joining("\n")) + "```"));
     }

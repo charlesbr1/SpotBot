@@ -34,6 +34,12 @@ public class UsersMemory implements UsersDao {
     }
 
     @Override
+    public boolean userExists(long userId) {
+        LOGGER.debug("userExists {}", userId);
+        return users.containsKey(userId);
+    }
+
+    @Override
     @NotNull
     public Map<Long, Locale> getLocales(@NotNull LongStream userIds) {
         var userIdSet = userIds.boxed().collect(toSet());

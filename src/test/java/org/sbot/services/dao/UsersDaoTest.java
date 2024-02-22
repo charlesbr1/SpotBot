@@ -63,13 +63,25 @@ public abstract class UsersDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void getUser(UsersDao users) {
+        ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         long userId = 123L;
         assertTrue(users.getUser(userId).isEmpty());
-        ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         User user = new User(userId, Locale.JAPAN, null, now);
         users.setUser(user);
         assertTrue(users.getUser(user.id()).isPresent());
         assertEquals(user, users.getUser(userId).get());
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideDao")
+    void userExists(UsersDao users) {
+        long userId = 123L;
+        assertFalse(users.userExists(userId));
+        User user = new User(userId, Locale.JAPAN, null, nowUtc());
+        users.setUser(user);
+        assertTrue(users.userExists(userId));
+        users.userBatchDeletes(deleter -> deleter.batchId(userId));
+        assertFalse(users.userExists(userId));
     }
 
     @ParameterizedTest

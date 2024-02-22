@@ -40,16 +40,12 @@ public final class SpotBotCommand extends CommandAdapter {
 
     private static final String CHOICE_DOC = "doc";
     private static final String CHOICE_COMMANDS = "commands";
-    private static final String CHOICE_DATES = "dates";
-    private static final String CHOICE_EXAMPLES = "examples";
 
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(
                     option(STRING, "choice", "one of 'doc' or 'commands' or 'examples', default to doc if omitted", false)
                             .addChoices(List.of(new Choice(CHOICE_DOC, CHOICE_DOC),
-                                    new Choice(CHOICE_COMMANDS, CHOICE_COMMANDS),
-                                    new Choice(CHOICE_DATES, CHOICE_DATES),
-                                    new Choice(CHOICE_EXAMPLES, CHOICE_EXAMPLES))));
+                                    new Choice(CHOICE_COMMANDS, CHOICE_COMMANDS))));
 
     private static final String DOC_FOOTER = "EXPLAIN THE range and trend alerts from picture";
 
@@ -123,19 +119,6 @@ public final class SpotBotCommand extends CommandAdapter {
             ``` /spotbot examples```
             """;
 
-    private static final String EXAMPLES_MESSAGE = """
-            * *list alerts*
-            * *owner @someone*
-            * *pair ETH/USDT*
-            * *range binance eth usdt 1800 1900 zone conso 1900 reached, see https://discord.com/channels...*
-            * *trend binance eth usdt 1800 10/03/2019-12:30 1900 03/11/2021-16:00 daily uptrend tested, see https://discord.com/channels...*
-            * *repeat 123 5*
-            * *snooze 123 24*
-            * *margin 123 3*
-            * *delete 123*
-            * *remainder 10/03/2019-12:30 A message to receive at this date*
-            """;
-
     private static final byte[] alertsPicture;
 
     static {
@@ -161,8 +144,6 @@ public final class SpotBotCommand extends CommandAdapter {
         return switch (choice) {
             case CHOICE_DOC -> List.of(doc(context));
             case CHOICE_COMMANDS -> commands();
-            case CHOICE_DATES -> List.of(dates());
-            case CHOICE_EXAMPLES -> List.of(examples());
             default -> throw new IllegalArgumentException("Invalid argument : " + choice);
         };
     }
@@ -218,13 +199,5 @@ public final class SpotBotCommand extends CommandAdapter {
                 .map(cmdList -> Message.of(embedBuilder(null, Color.green, cmdList.stream()
                         .map(cmd -> "** " + cmd.name + "**\n\n" + SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + cmd.description + commandDescription(cmd.options))
                         .collect(joining("\n\n\n"))))).toList();
-    }
-
-    private static Message dates() {
-        return Message.of((embedBuilder(CHOICE_DATES, Color.green, "TODO doc dates time")));
-    }
-
-    private static Message examples() {
-        return Message.of((embedBuilder(CHOICE_EXAMPLES, Color.green, EXAMPLES_MESSAGE)));
     }
 }

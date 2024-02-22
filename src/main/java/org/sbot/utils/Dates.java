@@ -38,11 +38,11 @@ public interface Dates {
         return LocalDateTime.parse(asDateTimeFormat(locale, dateTime), DATE_TIME_FORMATTER);
     }
 
-    static ZonedDateTime parse(@NotNull Locale locale, @Nullable ZoneId timezone, @NotNull Clock clock, @NotNull String dateTime) {
+    static ZonedDateTime parse(@NotNull Locale locale, @Nullable ZoneId defaultTimezone, @NotNull Clock clock, @NotNull String dateTime) {
         requireNonNull(locale);
         requireNonNull(clock);
         if(dateTime.startsWith(NOW_ARGUMENT)) {
-            return parseNow(timezone, clock, dateTime.replaceFirst(NOW_ARGUMENT, ""));
+            return parseNow(defaultTimezone, clock, dateTime.replaceFirst(NOW_ARGUMENT, ""));
         }
         dateTime = asDateTimeFormat(locale, dateTime);
         try {
@@ -51,15 +51,15 @@ public interface Dates {
             try {
                 return ZonedDateTime.parse(dateTime, ZONED_DATE_TIME_FORMATTER);
             } catch (DateTimeException e2) { // parse as UTC
-                return LocalDateTime.parse(dateTime, DATE_TIME_FORMATTER).atZone(null != timezone ? timezone : UTC);
+                return LocalDateTime.parse(dateTime, DATE_TIME_FORMATTER).atZone(defaultTimezone(defaultTimezone));
             }
         }
     }
 
-    private static ZonedDateTime parseNow(@Nullable ZoneId timezone, @NotNull Clock clock, @Nullable String zoneId) {
+    private static ZonedDateTime parseNow(@Nullable ZoneId defaultTimezone, @NotNull Clock clock, @NotNull String zoneId) {
         ZoneId zone;
         try {
-            zone = null == zoneId || zoneId.isEmpty() ? null != timezone ? timezone : UTC : ZoneId.of(zoneId, ZoneId.SHORT_IDS);
+            zone = zoneId.isEmpty() ? defaultTimezone(defaultTimezone) : ZoneId.of(zoneId, ZoneId.SHORT_IDS);
         } catch (DateTimeException e) {
             if(!zoneId.startsWith("-")) {
                 throw e;
@@ -69,6 +69,10 @@ public interface Dates {
         return clock.instant().atZone(zone);
     }
 
+    private static ZoneId defaultTimezone(@Nullable ZoneId defaultTimezone) {
+        return null != defaultTimezone ? defaultTimezone : UTC;
+    }
+
     static String formatUTC(@NotNull Locale locale, @NotNull ZonedDateTime dateTime) {
         dateTime = dateTime.withZoneSameInstant(Dates.UTC);
         return dateTime.format(LOCALIZED_DATE_FORMATTER.withLocale(locale)) + '-' + dateTime.format(TIME_FORMATTER);
@@ -76,8 +80,8 @@ public interface Dates {
 
     // this extract the day month year part of a date time and rebuild it ordered as DATE_FORMAT
     private static String asDateTimeFormat(@NotNull Locale locale, @NotNull String dateTime) {
-        int separator = 0;
         int maxIndex = dateTime.length() - TIME_FORMAT.length();
+        int separator = 0;
         for(int i = 3; i > 0 && separator <= maxIndex; separator++) {
             if(!Character.isDigit(dateTime.charAt(separator))) {
                 i--; // this skip 3 first groups of digits

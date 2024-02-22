@@ -39,6 +39,8 @@ public interface UsersDao {
 
     Optional<User> getUser(long userId);
 
+    boolean userExists(long userId);
+
     Map<Long, Locale> getLocales(@NotNull LongStream userIds);
 
     void setUser(@NotNull User user);

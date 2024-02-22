@@ -43,6 +43,7 @@ public class UsersSQLite extends AbstractJDBI implements UsersDao {
                 """;
 
         String SELECT_BY_ID = "SELECT id,locale,timezone,last_access FROM users WHERE id=:userId";
+        String COUNT_BY_ID = "SELECT count(*) FROM users WHERE id=:userId";
         String SELECT_ID_LOCALE_HAVING_ID_IN = "SELECT id,locale FROM users WHERE id IN (<ids>)";
         String INSERT_USER = "INSERT INTO users (id,locale,timezone,last_access) VALUES (:id,:locale,:timezone,:lastAccess)";
         String UPDATE_LOCALE = "UPDATE users SET locale=:locale WHERE id=:userId";
@@ -94,6 +95,12 @@ public class UsersSQLite extends AbstractJDBI implements UsersDao {
     public Optional<User> getUser(long userId) {
         LOGGER.debug("getUser {}", userId);
         return findOne(SQL.SELECT_BY_ID, User.class, Map.of("userId", userId));
+    }
+
+    @Override
+    public boolean userExists(long userId) {
+        LOGGER.debug("userExists {}", userId);
+        return 0L < queryOneLong(SQL.COUNT_BY_ID, Map.of("userId", userId));
     }
 
     @Override

@@ -72,7 +72,9 @@ public interface ArgumentValidator {
                 .filter(not(DiscordLocale.UNKNOWN::equals))
                 .findFirst().map(DiscordLocale::toLocale)
                 .orElseThrow(() -> new IllegalArgumentException("Provided locale is not supported : " + locale +" (expected one of : " +
-                        String.join(", ", Stream.of(DiscordLocale.values()).map(DiscordLocale::getLocale).toList()) + ')'));
+                        String.join(", ", Stream.of(DiscordLocale.values())
+                                .filter(not(DiscordLocale.UNKNOWN::equals))
+                                .map(DiscordLocale::getLocale).toList()) + ')'));
     }
 
     @NotNull

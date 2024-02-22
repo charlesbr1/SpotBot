@@ -136,7 +136,11 @@ class ArgumentValidatorTest {
     void requireSupportedLocale() {
         assertThrows(NullPointerException.class, () -> ArgumentValidator.requireSupportedLocale(null));
         for(var locale : DiscordLocale.values()) {
-            assertEquals(locale.toLocale(), ArgumentValidator.requireSupportedLocale(locale.getLocale()));
+            if(DiscordLocale.UNKNOWN.equals(locale)) {
+                assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireSupportedLocale(locale.getLocale()));
+            } else {
+                assertEquals(locale.toLocale(), ArgumentValidator.requireSupportedLocale(locale.getLocale()));
+            }
         }
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireSupportedLocale("fddada"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireSupportedLocale("mars language"));
