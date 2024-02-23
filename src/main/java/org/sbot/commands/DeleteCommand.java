@@ -17,6 +17,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
 import static org.sbot.commands.SecurityAccess.hasRightOnUser;
+import static org.sbot.commands.context.CommandContext.TOO_MANY_ARGUMENTS;
 import static org.sbot.services.discord.Discord.guildName;
 import static org.sbot.utils.ArgumentValidator.*;
 
@@ -66,7 +67,7 @@ public final class DeleteCommand extends CommandAdapter {
             throw new IllegalArgumentException("Missing arguments, an alert id or a ticker or a pair is expected");
         }
         if(null != alertId && null != tickerOrPair) {
-            throw new IllegalArgumentException("Too many arguments provided, either an alert id or a filter on a ticker or a pair is expected");
+            throw new IllegalArgumentException(TOO_MANY_ARGUMENTS + ", either an alert id or a filter on a ticker or a pair is expected");
         }
     }
 

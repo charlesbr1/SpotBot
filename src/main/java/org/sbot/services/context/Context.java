@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.sbot.exchanges.Exchanges;
 import org.sbot.services.dao.UsersDao;
 import org.sbot.services.dao.memory.UsersMemory;
 import org.sbot.services.dao.sql.UsersSQLite;
@@ -76,6 +77,8 @@ public interface Context {
     @NotNull
     Services services();
     @NotNull
+    Exchanges exchanges();
+    @NotNull
     Parameters parameters();
 
     @NotNull
@@ -118,6 +121,7 @@ public interface Context {
 
             private final DataServices dataServices = DataServices.load(repository);
             private final Services services = Services.load(this, discordLoader);
+            private final Exchanges exchanges = new Exchanges();
 
             @NotNull
             @Override
@@ -128,6 +132,9 @@ public interface Context {
             @NotNull
             @Override
             public Services services() { return services; }
+            @NotNull
+            @Override
+            public Exchanges exchanges() { return exchanges; }
             @NotNull
             @Override
             public Parameters parameters() { return parameters; }

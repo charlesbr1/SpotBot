@@ -18,6 +18,7 @@ import org.sbot.commands.reader.ArgumentReader;
 import org.sbot.commands.reader.SlashArgumentReader;
 import org.sbot.commands.reader.StringArgumentReader;
 import org.sbot.entities.Message;
+import org.sbot.exchanges.Exchanges;
 import org.sbot.services.context.Context;
 import org.sbot.services.discord.Discord;
 
@@ -42,6 +43,8 @@ import static org.sbot.utils.ArgumentValidator.requireNotBlank;
 public abstract class CommandContext implements Context {
 
     protected static final Logger LOGGER = LogManager.getLogger(CommandContext.class);
+
+    public static final String TOO_MANY_ARGUMENTS = "Too many arguments provided";
 
     private final @NotNull Context context;
     public final @NotNull String name;
@@ -197,7 +200,7 @@ public abstract class CommandContext implements Context {
 
     public final CommandContext noMoreArgs() {
         if(args.getLastArgs("").filter(not(String::isBlank)).isPresent()) {
-            throw new IllegalArgumentException("Too many arguments provided");
+            throw new IllegalArgumentException(TOO_MANY_ARGUMENTS);
         }
         return this;
     }
@@ -218,6 +221,12 @@ public abstract class CommandContext implements Context {
     @Override
     public final Services services() {
         return context.services();
+    }
+
+    @NotNull
+    @Override
+    public final Exchanges exchanges() {
+        return context.exchanges();
     }
 
     @NotNull

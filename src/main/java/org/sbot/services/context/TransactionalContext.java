@@ -2,6 +2,7 @@ package org.sbot.services.context;
 
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
+import org.sbot.exchanges.Exchanges;
 import org.sbot.services.LastCandlesticksService;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.LastCandlesticksDao;
@@ -69,6 +70,9 @@ public final class TransactionalContext implements Context {
     @NotNull
     @Override
     public Services services() { return context.services(); }
+    @NotNull
+    @Override
+    public Exchanges exchanges() { return context.exchanges(); }
     @NotNull
     @Override
     public Parameters parameters() { return context.parameters(); }

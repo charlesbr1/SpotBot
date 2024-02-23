@@ -139,6 +139,14 @@ class TransactionalContextTest {
     }
 
     @Test
+    void exchanges() {
+        var context = mock(Context.class);
+        TransactionalContext txContext = new TransactionalContext(context, READ_COMMITTED);
+        txContext.exchanges();
+        verify(context).exchanges();
+    }
+
+    @Test
     void parameters() {
         var context = mock(Context.class);
         TransactionalContext txContext = new TransactionalContext(context, READ_COMMITTED);

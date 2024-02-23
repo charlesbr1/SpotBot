@@ -64,24 +64,23 @@ class RemainderCommandTest {
 
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
 
-        CommandContext[] commandContext = new CommandContext[1];
-        commandContext[0] = spy(CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message fe fe  " + date));
-        doNothing().when(commandContext[0]).reply(anyList(), anyInt());
-        command.onCommand(commandContext[0]);
+        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message fe fe  " + date));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
 
         verify(usersDao).userExists(userId);
         verify(alertsDao, never()).addAlert(any());
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
-        verify(commandContext[0]).reply(messagesReply.capture(), anyInt());
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
         List<Message> messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
         assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("Missing user account setup"));
 
-        commandContext[0] = spy(CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message fe fe  " + date));
-        doNothing().when(commandContext[0]).reply(anyList(), eq(command.responseTtlSeconds));
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message fe fe  " + date));
+        doNothing().when(commandContext).reply(anyList(), eq(command.responseTtlSeconds));
         when(usersDao.userExists(userId)).thenReturn(true);
-        command.onCommand(commandContext[0]);
+        command.onCommand(commandContext);
 
         verify(usersDao, times(2)).userExists(userId);
         var alertReply = ArgumentCaptor.forClass(Alert.class);
@@ -105,7 +104,7 @@ class RemainderCommandTest {
         assertEquals(REMAINDER_DEFAULT_SNOOZE, alert.snooze);
 
         messagesReply = ArgumentCaptor.forClass(List.class);
-        verify(commandContext[0]).reply(messagesReply.capture(), eq(command.responseTtlSeconds));
+        verify(commandContext).reply(messagesReply.capture(), eq(command.responseTtlSeconds));
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -121,9 +120,6 @@ class RemainderCommandTest {
         when(messageReceivedEvent.getAuthor()).thenReturn(mock());
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(ChronoUnit.MINUTES);
         Context context = mock(Context.class);
-
-        assertExceptionContains(IllegalArgumentException.class, "Missing command",
-                () -> CommandContext.of(context, null, messageReceivedEvent, ""));
 
         CommandContext[] commandContext = new CommandContext[1];
 

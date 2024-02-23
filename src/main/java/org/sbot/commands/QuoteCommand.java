@@ -8,7 +8,6 @@ import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
 import org.sbot.entities.chart.Candlestick;
 import org.sbot.entities.chart.TimeFrame;
-import org.sbot.exchanges.Exchanges;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
@@ -22,7 +21,7 @@ import static org.sbot.utils.ArgumentValidator.*;
 
 public final class QuoteCommand extends CommandAdapter {
 
-    private static final String NAME = "quote";
+    static final String NAME = "quote";
     static final String DESCRIPTION = "get the last quotation of a pair on the given exchange (1 minute time frame)";
     private static final int RESPONSE_TTL_SECONDS = 300;
 
@@ -33,7 +32,7 @@ public final class QuoteCommand extends CommandAdapter {
                 option(STRING, PAIR_ARGUMENT, "the pair, like EUR/USDT", true)
                         .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH));
 
-    private record Arguments(String exchange, String pair) {}
+    record Arguments(String exchange, String pair) {}
 
 
     public QuoteCommand() {
@@ -44,7 +43,7 @@ public final class QuoteCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         var arguments = arguments(context);
         LOGGER.debug("quote command - {}", arguments);
-        context.reply(quote(arguments.exchange, arguments.pair.toUpperCase()), responseTtlSeconds);
+        context.reply(quote(context, arguments.exchange, arguments.pair.toUpperCase()), responseTtlSeconds);
     }
 
     static Arguments arguments(@NotNull CommandContext context) {
@@ -54,8 +53,8 @@ public final class QuoteCommand extends CommandAdapter {
         return new Arguments(exchange, pair);
     }
 
-    private Message quote(@NotNull String exchange, @NotNull String pair) {
-        return Message.of(embedBuilder(" ", Color.green, parseCandlestick(pair, Exchanges.get(exchange)
+    private Message quote(@NotNull CommandContext context, @NotNull String exchange, @NotNull String pair) {
+        return Message.of(embedBuilder(" ", Color.green, parseCandlestick(pair, context.exchanges().get(exchange)
                 .orElseThrow(() -> new IllegalArgumentException("Unsupported exchange : " + exchange))
                 .getCandlesticks(pair, TimeFrame.ONE_MINUTE, 1))));
     }

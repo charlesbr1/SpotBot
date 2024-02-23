@@ -65,24 +65,23 @@ class RangeCommandTest {
 
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
 
-        CommandContext[] commandContext = new CommandContext[1];
-        commandContext[0] = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo));
-        doNothing().when(commandContext[0]).reply(anyList(), anyInt());
-        command.onCommand(commandContext[0]);
+        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
 
         verify(usersDao).userExists(userId);
         verify(alertsDao, never()).addAlert(any());
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
-        verify(commandContext[0]).reply(messagesReply.capture(), anyInt());
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
         List<Message> messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
         assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("Missing user account setup"));
 
-        commandContext[0] = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc this is the message !! 12,45  23232.6 " + dateFrom + " " + dateTo));
-        doNothing().when(commandContext[0]).reply(anyList(), eq(command.responseTtlSeconds));
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc this is the message !! 12,45  23232.6 " + dateFrom + " " + dateTo));
+        doNothing().when(commandContext).reply(anyList(), eq(command.responseTtlSeconds));
         when(usersDao.userExists(userId)).thenReturn(true);
-        command.onCommand(commandContext[0]);
+        command.onCommand(commandContext);
 
         verify(usersDao, times(2)).userExists(userId);
         var alertReply = ArgumentCaptor.forClass(Alert.class);
@@ -105,7 +104,7 @@ class RangeCommandTest {
         assertEquals(DEFAULT_SNOOZE_HOURS, alert.snooze);
 
         messagesReply = ArgumentCaptor.forClass(List.class);
-        verify(commandContext[0]).reply(messagesReply.capture(), eq(command.responseTtlSeconds));
+        verify(commandContext).reply(messagesReply.capture(), eq(command.responseTtlSeconds));
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -115,10 +114,10 @@ class RangeCommandTest {
 
         // check dates and price reordering
 
-        commandContext[0] = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc this is the message !!  23232.6 12,45 " + dateFrom + " " + dateTo));
-        doNothing().when(commandContext[0]).reply(anyList(), eq(command.responseTtlSeconds));
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc this is the message !!  23232.6 12,45 " + dateFrom + " " + dateTo));
+        doNothing().when(commandContext).reply(anyList(), eq(command.responseTtlSeconds));
         when(usersDao.userExists(userId)).thenReturn(true);
-        command.onCommand(commandContext[0]);
+        command.onCommand(commandContext);
 
         verify(usersDao, times(3)).userExists(userId);
         alertReply = ArgumentCaptor.forClass(Alert.class);
@@ -140,10 +139,10 @@ class RangeCommandTest {
         assertEquals(DEFAULT_REPEAT, alert.repeat);
         assertEquals(DEFAULT_SNOOZE_HOURS, alert.snooze);
 
-        commandContext[0] = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc this is the message !!  23232.6 12,45 " + dateTo + " " + dateFrom));
-        doNothing().when(commandContext[0]).reply(anyList(), eq(command.responseTtlSeconds));
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc this is the message !!  23232.6 12,45 " + dateTo + " " + dateFrom));
+        doNothing().when(commandContext).reply(anyList(), eq(command.responseTtlSeconds));
         when(usersDao.userExists(userId)).thenReturn(true);
-        command.onCommand(commandContext[0]);
+        command.onCommand(commandContext);
 
         verify(usersDao, times(4)).userExists(userId);
         alertReply = ArgumentCaptor.forClass(Alert.class);
@@ -167,10 +166,10 @@ class RangeCommandTest {
 
         // check single price range
 
-        commandContext[0] = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc this is the message !!  12,45 "));
-        doNothing().when(commandContext[0]).reply(anyList(), eq(command.responseTtlSeconds));
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc this is the message !!  12,45 "));
+        doNothing().when(commandContext).reply(anyList(), eq(command.responseTtlSeconds));
         when(usersDao.userExists(userId)).thenReturn(true);
-        command.onCommand(commandContext[0]);
+        command.onCommand(commandContext);
 
         verify(usersDao, times(5)).userExists(userId);
         alertReply = ArgumentCaptor.forClass(Alert.class);
@@ -195,10 +194,10 @@ class RangeCommandTest {
 
         // check from date in past
 
-        commandContext[0] = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc this is the message !!  12,45 " + Dates.formatUTC(DEFAULT_LOCALE, now.minusYears(13L))));
-        doNothing().when(commandContext[0]).reply(anyList(), eq(command.responseTtlSeconds));
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc this is the message !!  12,45 " + Dates.formatUTC(DEFAULT_LOCALE, now.minusYears(13L))));
+        doNothing().when(commandContext).reply(anyList(), eq(command.responseTtlSeconds));
         when(usersDao.userExists(userId)).thenReturn(true);
-        command.onCommand(commandContext[0]);
+        command.onCommand(commandContext);
 
         verify(usersDao, times(6)).userExists(userId);
         alertReply = ArgumentCaptor.forClass(Alert.class);
@@ -229,9 +228,6 @@ class RangeCommandTest {
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(ChronoUnit.MINUTES);
         Context context = mock(Context.class);
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
-
-        assertExceptionContains(IllegalArgumentException.class, "Missing command",
-                () -> CommandContext.of(context, null, messageReceivedEvent, ""));
 
         CommandContext[] commandContext = new CommandContext[1];
 

@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.sbot.commands.CommandAdapter.*;
 import static org.sbot.commands.CommandAdapterTest.assertExceptionContains;
+import static org.sbot.commands.context.CommandContext.TOO_MANY_ARGUMENTS;
 import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.trend;
@@ -68,24 +69,23 @@ class TrendCommandTest {
 
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
 
-        CommandContext[] commandContext = new CommandContext[1];
-        commandContext[0] = spy(CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo));
-        doNothing().when(commandContext[0]).reply(anyList(), anyInt());
-        command.onCommand(commandContext[0]);
+        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
 
         verify(usersDao).userExists(userId);
         verify(alertsDao, never()).addAlert(any());
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
-        verify(commandContext[0]).reply(messagesReply.capture(), anyInt());
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
         List<Message> messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
         assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("Missing user account setup"));
 
-        commandContext[0] = spy(CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo));
-        doNothing().when(commandContext[0]).reply(anyList(), eq(command.responseTtlSeconds));
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo));
+        doNothing().when(commandContext).reply(anyList(), eq(command.responseTtlSeconds));
         when(usersDao.userExists(userId)).thenReturn(true);
-        command.onCommand(commandContext[0]);
+        command.onCommand(commandContext);
 
         verify(usersDao, times(2)).userExists(userId);
         var alertReply = ArgumentCaptor.forClass(Alert.class);
@@ -108,7 +108,7 @@ class TrendCommandTest {
         assertEquals(DEFAULT_SNOOZE_HOURS, alert.snooze);
 
         messagesReply = ArgumentCaptor.forClass(List.class);
-        verify(commandContext[0]).reply(messagesReply.capture(), eq(command.responseTtlSeconds));
+        verify(commandContext).reply(messagesReply.capture(), eq(command.responseTtlSeconds));
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -192,9 +192,6 @@ class TrendCommandTest {
         String dateFrom = Dates.formatUTC(DEFAULT_LOCALE, now.plusHours(3L).plusDays(2L));
         String dateTo = Dates.formatUTC(DEFAULT_LOCALE, now.plusHours(9L).plusDays(2L));
 
-        assertExceptionContains(IllegalArgumentException.class, "Missing command",
-                () -> CommandContext.of(context, null, messageReceivedEvent, ""));
-
         CommandContext[] commandContext = new CommandContext[1];
 
         // test alert id arguments (to show estimated price at a date)
@@ -203,11 +200,11 @@ class TrendCommandTest {
                 () -> TrendCommand.arguments(commandContext[0]));
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + alertId + " " + dateFrom + " other");
-        assertExceptionContains(IllegalArgumentException.class, "Too many arguments provided",
+        assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS,
                 () -> TrendCommand.arguments(commandContext[0]));
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + alertId + " " + dateFrom + " " + dateTo);
-        assertExceptionContains(IllegalArgumentException.class, "Too many arguments provided",
+        assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS,
                 () -> TrendCommand.arguments(commandContext[0]));
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + "   " + alertId + " " + dateFrom);

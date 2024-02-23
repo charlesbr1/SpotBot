@@ -84,7 +84,7 @@ public final class AlertsWatcher {
                 return pairs;
             });
             var tasks = new ArrayList<Callable<Void>>(exchangePairs.size());
-            exchangePairs.forEach((xchange, pairs) -> Exchanges.get(xchange).ifPresentOrElse(exchange -> {
+            exchangePairs.forEach((xchange, pairs) -> context.exchanges().get(xchange).ifPresentOrElse(exchange -> {
                 if (exchange.isVirtual()) {
                     tasks.add(() -> { pairs.forEach(pair -> raiseAlerts(now, exchange, pair)); return null; });
                 } else { // one task by exchange

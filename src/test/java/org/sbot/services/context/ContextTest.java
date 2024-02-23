@@ -2,6 +2,7 @@ package org.sbot.services.context;
 
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
+import org.sbot.exchanges.Exchanges;
 import org.sbot.services.dao.memory.UsersMemory;
 import org.sbot.services.dao.sql.UsersSQLite;
 import org.sbot.services.discord.Discord;
@@ -74,6 +75,14 @@ class ContextTest {
         assertNotNull(context.services().matchingService());
         assertNotNull(context.services().alertsWatcher());
         assertEquals(discord, context.services().discord());
+    }
+
+    @Test
+    void exchanges() {
+        Parameters parameters = Parameters.of(null, "discordTokenFile", 1, 1);
+        Discord discord = mock();
+        var context = Context.of(Clock.systemUTC(), parameters, null, ctx -> discord);
+        assertInstanceOf(Exchanges.class, context.exchanges());
     }
 
     @Test
