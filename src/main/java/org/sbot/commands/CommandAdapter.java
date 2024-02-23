@@ -32,6 +32,15 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected static final Logger LOGGER = LogManager.getLogger(CommandAdapter.class);
 
+    public static final String DISPLAY_FROM_PRICE = "from price";
+    public static final String DISPLAY_TO_PRICE = "to price";
+    public static final String DISPLAY_FROM_PRICE_OR_LOW = "from price (or low)";
+    public static final String DISPLAY_TO_PRICE_OR_HIGH = "to price (or high)";
+    public static final String DISPLAY_FROM_DATE_OR_DATE = "from date (or date)";
+    public static final String DISPLAY_FROM_DATE = "from date";
+    public static final String DISPLAY_TO_DATE = "to date";
+    public static final String DISPLAY_CURRENT_TREND_PRICE = "current trend price";
+
     public static final String SELECTION_ARGUMENT = "selection";
     public static final String VALUE_ARGUMENT = "value";
     public static final String ALERT_ID_ARGUMENT = "alert_id";

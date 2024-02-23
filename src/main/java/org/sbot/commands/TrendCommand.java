@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
+import net.dv8tion.jda.api.utils.MarkdownUtil;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
@@ -50,14 +51,14 @@ public final class TrendCommand extends CommandAdapter {
 
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addSubcommands(
-                    new SubcommandData("price", "get the computed trend price at a provided date").addOptions(
+                    new SubcommandData("price", "get the trend price at a provided date").addOptions(
                             option(INTEGER, ALERT_ID_ARGUMENT, "id of one trend alert", true)
                                     .setMinValue(0),
                             option(STRING, DATE_ARGUMENT, "a date from where to compute the trend price", true)
                                     .setMinLength(NOW_ARGUMENT.length())),
                     new SubcommandData("create", "create a new trend alert").addOptions(optionList));
 
-    private record Arguments(Long alertId, String exchange, String pair, String message, BigDecimal fromPrice, BigDecimal toPrice, ZonedDateTime fromDate, ZonedDateTime toDate) {}
+    record Arguments(Long alertId, String exchange, String pair, String message, BigDecimal fromPrice, BigDecimal toPrice, ZonedDateTime fromDate, ZonedDateTime toDate) {}
 
 
     public TrendCommand() {
@@ -118,15 +119,15 @@ public final class TrendCommand extends CommandAdapter {
     private Message trendPrice(@NotNull CommandContext context, @NotNull ZonedDateTime date, long alertId) {
         var answer = context.transactional(txCtx -> securedAlertAccess(alertId, context, (alert, alertsDao) -> {
             if(trend == alert.type) {
-                return embedBuilder("[" + alert.pair + "] at " + Dates.formatDiscord(date) + " : **" +
-                        formatPrice(currentTrendPrice(date, alert.fromPrice, alert.toPrice, alert.fromDate, alert.toDate), alert.getTicker2()) + "**")
-                        .addField("from price", alert.fromPrice.toPlainString() + ' ' + getSymbol(alert.getTicker2()), true)
-                        .addField("from date", formatDiscord(alert.fromDate), true)
+                return embedBuilder("[" + alert.pair + "] at " + Dates.formatDiscord(date) + " : " + MarkdownUtil.bold(
+                        formatPrice(currentTrendPrice(date, alert.fromPrice, alert.toPrice, alert.fromDate, alert.toDate), alert.getTicker2())))
+                        .addField(DISPLAY_FROM_PRICE, alert.fromPrice.toPlainString() + ' ' + getSymbol(alert.getTicker2()), true)
+                        .addField(DISPLAY_FROM_DATE, formatDiscord(alert.fromDate), true)
                         .addBlankField(true)
-                        .addField("to price", alert.toPrice.toPlainString() + ' ' + getSymbol(alert.getTicker2()), true)
-                        .addField("to date", formatDiscord(alert.toDate), true)
+                        .addField(DISPLAY_TO_PRICE, alert.toPrice.toPlainString() + ' ' + getSymbol(alert.getTicker2()), true)
+                        .addField(DISPLAY_TO_DATE, formatDiscord(alert.toDate), true)
                         .addBlankField(true)
-                        .addField("current trend price", formatPrice(currentTrendPrice(Dates.nowUtc(context.clock()), alert.fromPrice, alert.toPrice, alert.fromDate, alert.toDate), alert.getTicker2()), true);
+                        .addField(DISPLAY_CURRENT_TREND_PRICE, formatPrice(currentTrendPrice(Dates.nowUtc(context.clock()), alert.fromPrice, alert.toPrice, alert.fromDate, alert.toDate), alert.getTicker2()), true);
             }
             throw new IllegalArgumentException("Alert " + alertId + " is not a trend alert");
         }));

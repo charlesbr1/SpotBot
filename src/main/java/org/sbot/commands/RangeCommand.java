@@ -46,7 +46,7 @@ public final class RangeCommand extends CommandAdapter {
             option(STRING, TO_DATE_ARGUMENT, "a future date to end the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false)
                     .setMinLength(DATE_TIME_FORMAT.length()));
 
-    private record Arguments(String exchange, String pair, String message, BigDecimal low, BigDecimal high, ZonedDateTime fromDate, ZonedDateTime toDate) {}
+    record Arguments(String exchange, String pair, String message, BigDecimal low, BigDecimal high, ZonedDateTime fromDate, ZonedDateTime toDate) {}
 
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(optionList);

@@ -40,19 +40,12 @@ public final class UpdateCommand extends CommandAdapter {
     public static final String CHOICE_TIMEZONE = "timezone";
 
     // alert fields
-    private static final String DISPLAY_FROM_PRICE_OR_LOW = "from price (or low)";
-    public static final String DISPLAY_FROM_PRICE = "from price";
     public static final String CHOICE_FROM_PRICE = FROM_PRICE_ARGUMENT;
     public static final String CHOICE_LOW = LOW_ARGUMENT;
-    private static final String DISPLAY_TO_PRICE_OR_HIGH = "to price (or high)";
-    public static final String DISPLAY_TO_PRICE = "to price";
     public static final String CHOICE_TO_PRICE = TO_PRICE_ARGUMENT;
     public static final String CHOICE_HIGH = HIGH_ARGUMENT;
-    public static final String DISPLAY_FROM_DATE_OR_DATE = "from date (or date)";
-    public static final String DISPLAY_FROM_DATE = "from date";
     public static final String CHOICE_FROM_DATE = FROM_DATE_ARGUMENT;
     public static final String CHOICE_DATE = DATE_ARGUMENT;
-    public static final String DISPLAY_TO_DATE = "to date";
     public static final String CHOICE_TO_DATE = TO_DATE_ARGUMENT;
     public static final String CHOICE_MESSAGE = MESSAGE_ARGUMENT;
     public static final String CHOICE_MARGIN = "margin";

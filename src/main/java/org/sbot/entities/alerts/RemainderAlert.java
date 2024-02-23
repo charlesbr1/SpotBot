@@ -21,6 +21,7 @@ public final class RemainderAlert extends Alert {
 
     public static final String REMAINDER_VIRTUAL_EXCHANGE = "@r";
     public static final short REMAINDER_DEFAULT_REPEAT = 1;
+    public static final short REMAINDER_DEFAULT_SNOOZE = 0;
 
     public RemainderAlert(long id, long userId, long serverId,
                           @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
@@ -28,7 +29,7 @@ public final class RemainderAlert extends Alert {
                           @NotNull ZonedDateTime fromDate) {
         super(id, Type.remainder, userId, serverId, creationDate, listeningDate, REMAINDER_VIRTUAL_EXCHANGE, pair, message, null, null,
                 requireNonNull(fromDate, "missing RemainderAlert fromDate"),
-                null, null, MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
+                null, null, MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, REMAINDER_DEFAULT_SNOOZE);
     }
 
     @Override
@@ -40,7 +41,7 @@ public final class RemainderAlert extends Alert {
                                 @NotNull ZonedDateTime fromDate, @Nullable ZonedDateTime toDate,
                                 @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short snooze) {
         if(!REMAINDER_VIRTUAL_EXCHANGE.equals(exchange) || MARGIN_DISABLED.compareTo(margin) != 0 ||
-                null != toDate|| null != fromPrice|| null != toPrice || null != lastTrigger || REMAINDER_DEFAULT_REPEAT < repeat || DEFAULT_SNOOZE_HOURS != snooze) {
+                null != toDate|| null != fromPrice|| null != toPrice || null != lastTrigger || REMAINDER_DEFAULT_REPEAT < repeat || REMAINDER_DEFAULT_SNOOZE != snooze) {
             throw new IllegalArgumentException("Can't update such value in a Remainder Alert");
         }
         return new RemainderAlert(id, userId, serverId, creationDate, listeningDate, pair, message, fromDate);
