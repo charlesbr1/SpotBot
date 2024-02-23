@@ -43,9 +43,10 @@ public final class StringArgumentReader implements ArgumentReader {
 
     @Override
     public Optional<String> getString(@NotNull String unused) {
+        var splitter = reverse ? REVERSE_SPLIT_WORD : SPLIT_WORD;
         List<String> values = !remainingArguments.isBlank() ?
                 // this split arguments into two parts : the first word without spaces, and the rest of the string
-                Arrays.asList((reverse ? REVERSE_SPLIT_WORD : SPLIT_WORD).split(remainingArguments, 2))
+                Arrays.asList(splitter.split(remainingArguments, 2))
                 : Collections.emptyList();
         values = reverse ? values.reversed() : values;
         remainingArguments = values.size() > 1 ? values.get(1) : "";

@@ -1784,17 +1784,13 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void updateListeningDateSnooze(AlertsDao alerts, UsersDao users) {
+    void updateSnooze(AlertsDao alerts, UsersDao users) {
         setUser(users, TEST_USER_ID);
-        ZonedDateTime date = DatesTest.nowUtc().truncatedTo(MILLIS) // clear the nanoseconds as sqlite save milliseconds
-                .minusMonths(1L);
-        Alert alert = createTestAlert().withListeningDateSnooze(date, (short) 51);
+        Alert alert = createTestAlert().withSnooze((short) 51);
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());
-        assertEquals(date, alerts.getAlert(alertId).get().listeningDate);
         assertEquals(51, alerts.getAlert(alertId).get().snooze);
-        alerts.updateListeningDateSnooze(alertId, date.plusHours(123L), (short) 77);
-        assertEquals(date.plusHours(123L), alerts.getAlert(alertId).get().listeningDate);
+        alerts.updateSnooze(alertId, (short) 77);
         assertEquals(77, alerts.getAlert(alertId).get().snooze);
     }
 
@@ -1914,7 +1910,7 @@ public abstract class AlertsDaoTest {
         ZonedDateTime lastTrigger = now.minusDays(3L);
         assertNotEquals(now, lastTrigger);
 
-        Alert alert1 = createTestAlert().withListeningDateSnooze(null, (short) 17).withListeningDateLastTriggerMarginRepeat(null, lastTrigger, ONE, (short) 18);
+        Alert alert1 = createTestAlert().withSnooze((short) 17).withListeningDateLastTriggerMarginRepeat(null, lastTrigger, ONE, (short) 18);
         alert1 = setId(alert1, alerts.addAlert(alert1));
         Alert alert2 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger, TEN, (short) 19);
         alert2 = setId(alert2, alerts.addAlert(alert2));

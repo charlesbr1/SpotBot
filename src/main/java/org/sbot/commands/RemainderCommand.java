@@ -30,7 +30,7 @@ public final class RemainderCommand extends CommandAdapter {
                     .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH),
             option(STRING, DATE_ARGUMENT, "a future date when to trigger the remainder, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
                     .setMinLength(DATE_TIME_FORMAT.length()));
-    private record Arguments(String pair, String message, ZonedDateTime date) {}
+    record Arguments(String pair, String message, ZonedDateTime date) {}
 
 
     private static final SlashCommandData options = Commands.slash(NAME, DESCRIPTION).addOptions(optionList);

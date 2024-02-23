@@ -33,25 +33,21 @@ class UpTimeCommandTest {
         when(event.getMessage()).thenReturn(mock(net.dv8tion.jda.api.entities.Message.class));
         when(event.getAuthor()).thenReturn(mock(User.class));
         Context context = mock(Context.class);
-        when(context.clock()).thenReturn(Clock.systemUTC());
-        org.sbot.entities.User user = new org.sbot.entities.User(TEST_USER_ID, Locale.UK, Dates.UTC, DatesTest.nowUtc());
 
         assertThrows(IllegalArgumentException.class,
-                () -> upTimeCommand.onCommand(CommandContext.of(context, user, event, "uptime a")));
+                () -> upTimeCommand.onCommand(CommandContext.of(context, null, event, "uptime a")));
         verify(context, never()).clock();
 
-        CommandContext commandContext = spy(CommandContext.of(context, user, event, "uptime"));
+        CommandContext commandContext = spy(CommandContext.of(context, null, event, "uptime"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         ArgumentCaptor<List<Message>> argumentCaptor = ArgumentCaptor.forClass(List.class);
 
         upTimeCommand.onCommand(commandContext);
-        verify(context).clock();
         verify(commandContext).reply(argumentCaptor.capture(), eq(upTimeCommand.responseTtlSeconds));
 
         List<Message> message = argumentCaptor.getValue();
         assertEquals(1, message.size());
         assertEquals(1, message.get(0).embeds().size());
-        assertTrue(message.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("up"));
-        assertTrue(message.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("up"));
+        assertTrue(message.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("SpotBot started"));
     }
 }

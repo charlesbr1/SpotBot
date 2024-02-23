@@ -59,9 +59,9 @@ public class JDBITransactionHandler {
 
     private Optional<Handle> clearHandle() {
         return sync(() -> {
-            var handle = this.handle;
+            var previous = this.handle;
             this.handle = null;
-            return Optional.ofNullable(handle);
+            return Optional.ofNullable(previous);
         });
     }
 

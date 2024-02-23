@@ -216,7 +216,7 @@ public abstract class Alert {
         return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
-    public final Alert withListeningDateSnooze(@Nullable ZonedDateTime listeningDate, short snooze) {
+    public final Alert withSnooze(short snooze) {
         return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 

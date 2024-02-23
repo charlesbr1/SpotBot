@@ -385,16 +385,12 @@ public class AlertTest {
     }
 
     @Test
-    void withListeningDateSnooze() {
+    void withSnooze() {
         Alert alert = createTestAlert();
-        assertNull(alert.withListeningDateSnooze(null, (short) 0).listeningDate);
-        assertEquals(0, alert.withListeningDateSnooze(null, (short) 0).snooze);
-
-        ZonedDateTime listeningDate = nowUtc();
+        assertEquals(0, alert.withSnooze((short) 0).snooze);
         short snooze = 2;
-        assertEquals(listeningDate, alert.withListeningDateSnooze(listeningDate, snooze).listeningDate);
-        assertEquals(snooze, alert.withListeningDateSnooze(listeningDate, snooze).snooze);
-        assertThrows(IllegalArgumentException.class, () -> alert.withListeningDateSnooze(listeningDate, (short) -1));
+        assertEquals(snooze, alert.withSnooze(snooze).snooze);
+        assertThrows(IllegalArgumentException.class, () -> alert.withSnooze((short) -1));
     }
 
     @Test

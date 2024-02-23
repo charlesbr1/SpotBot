@@ -9,8 +9,7 @@ import org.sbot.entities.Message;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.services.discord.InteractionListener;
 
-import java.util.function.Function;
-
+import static java.util.function.UnaryOperator.identity;
 import static org.sbot.commands.UpdateCommand.*;
 import static org.sbot.commands.interactions.ModalEditInteraction.*;
 import static org.sbot.entities.alerts.Alert.DEFAULT_REPEAT;
@@ -94,37 +93,35 @@ public class SelectEditInteraction implements InteractionListener {
         context.noMoreArgs();
 
         int minLength = 1;
-        int maxLength = 0;
+        int maxLength;
 
         switch (field) {
             case CHOICE_EDIT:  // send a response that restore previous alert message, if needed
                 context.reply(replyOriginal(null), 0);
-                break;
+                return;
             case CHOICE_DELETE:
                 context.reply(Message.of(deleteModalOf(alertId)), 0); // confirmation modal
-                break;
+                return;
             case CHOICE_ENABLE, CHOICE_DISABLE: // directly performs the update
-                new ModalEditInteraction().onInteraction(context.withArgumentsAndReplyMapper(alertId + " " + CHOICE_ENABLE + " " + (CHOICE_ENABLE.equals(field) ? "true" : "false"), Function.identity()));
-                break;
+                new ModalEditInteraction().onInteraction(context.withArgumentsAndReplyMapper(alertId + " " + CHOICE_ENABLE + " " + (CHOICE_ENABLE.equals(field) ? "true" : "false"), identity()));
+                return;
             case CHOICE_MESSAGE:
                 maxLength = ALERT_MESSAGE_ARG_MAX_LENGTH;
+                break;
             case CHOICE_DATE, CHOICE_FROM_DATE, CHOICE_TO_DATE:
-                if(maxLength == 0) {
-                    minLength = 3; // 'now'
-                    maxLength = DATE_TIME_FORMAT.length() + 64;
-                }
+                minLength = 3; // 'now'
+                maxLength = DATE_TIME_FORMAT.length() + 64;
+                break;
             case CHOICE_LOW, CHOICE_HIGH, CHOICE_FROM_PRICE, CHOICE_TO_PRICE, CHOICE_MARGIN:
-                if(maxLength == 0) {
-                    maxLength = 20;
-                }
+                maxLength = 20;
+                break;
             case CHOICE_REPEAT, CHOICE_SNOOZE:
-                if(maxLength == 0) {
-                    maxLength = 3;
-                } // create a modal to get the value from the user
-                context.reply(Message.of(updateModalOf(alertId, field, minLength, maxLength)), 0);
+                maxLength = 3;
                 break;
             default:
                 throw new IllegalArgumentException("Invalid field to edit : " + field);
         }
+        // create a modal to get the value from the user
+        context.reply(Message.of(updateModalOf(alertId, field, minLength, maxLength)), 0);
     }
 }

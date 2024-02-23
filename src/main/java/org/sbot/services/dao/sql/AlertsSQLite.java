@@ -34,6 +34,7 @@ import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
 import static org.sbot.entities.alerts.Alert.PRIVATE_ALERT;
+import static org.sbot.entities.alerts.Alert.Type.range;
 import static org.sbot.entities.alerts.Alert.Type.remainder;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.Dates.parseUtcDateTime;
@@ -119,7 +120,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String UPDATE_ALERTS_SET_MARGIN_ZERO_DECREMENT_REPEAT_LISTENING_DATE_LAST_TRIGGER_NOW = "UPDATE alerts SET margin=0,last_trigger=:nowMs,listening_date=CASE WHEN repeat>1 THEN (1000*3600*snooze)+:nowMs ELSE null END,repeat=MAX(0,repeat-1) WHERE id=:id";
         String UPDATE_ALERTS_LISTENING_DATE_FROM_DATE = "UPDATE alerts SET listening_date=:listeningDate,from_date=:fromDate WHERE id=:id";
         String UPDATE_ALERTS_REPEAT_LISTENING_DATE = "UPDATE alerts SET repeat=:repeat,listening_date=:listeningDate WHERE id=:id";
-        String UPDATE_ALERTS_SNOOZE_LISTENING_DATE = "UPDATE alerts SET snooze=:snooze,listening_date=:listeningDate WHERE id=:id";
+        String UPDATE_ALERTS_SNOOZE = "UPDATE alerts SET snooze=:snooze WHERE id=:id";
     }
 
     // from jdbi SQL to Alert
@@ -136,22 +137,23 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
             String exchange = rs.getString("exchange");
             String pair = rs.getString("pair");
             String message = rs.getString("message");
-
-            BigDecimal fromPrice = remainder == type ? null : rs.getBigDecimal("from_price");
-            BigDecimal toPrice = remainder == type ? null : rs.getBigDecimal("to_price");
             ZonedDateTime fromDate = parseUtcDateTimeOrNull(rs.getTimestamp("from_date"));
-            ZonedDateTime toDate = remainder == type ? null : parseUtcDateTimeOrNull(rs.getTimestamp("to_date"));
 
-            ZonedDateTime lastTrigger = remainder == type ? null : parseUtcDateTimeOrNull(rs.getTimestamp("last_trigger"));
-            BigDecimal margin = remainder == type ? null : rs.getBigDecimal("margin");
-            short repeat = remainder == type ? 0 : rs.getShort("repeat");
-            short snooze = remainder == type ? 0 : rs.getShort("snooze");
+            if(remainder == type) {
+                return new RemainderAlert(id, userId, serverId, creationDate, listeningDate, pair, message, requireNonNull(fromDate, "missing from_date on a remainder alert " + id));
+            }
+            BigDecimal fromPrice = rs.getBigDecimal("from_price");
+            BigDecimal toPrice = rs.getBigDecimal("to_price");
+            ZonedDateTime toDate = parseUtcDateTimeOrNull(rs.getTimestamp("to_date"));
 
-            return switch (type) {
-                case range -> new RangeAlert(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
-                case trend -> new TrendAlert(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, requireNonNull(fromDate, "missing from_date on trend alert " + id), requireNonNull(toDate, "missing to_date on a trend alert " + id), lastTrigger, margin, repeat, snooze);
-                case remainder -> new RemainderAlert(id, userId, serverId, creationDate, listeningDate, pair, message, requireNonNull(fromDate, "missing from_date on a remainder alert " + id));
-            };
+            ZonedDateTime lastTrigger = parseUtcDateTimeOrNull(rs.getTimestamp("last_trigger"));
+            BigDecimal margin = rs.getBigDecimal("margin");
+            short repeat = rs.getShort("repeat");
+            short snooze = rs.getShort("snooze");
+
+            return range == type ?
+                    new RangeAlert(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze) :
+                    new TrendAlert(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, requireNonNull(fromDate, "missing from_date on trend alert " + id), requireNonNull(toDate, "missing to_date on a trend alert " + id), lastTrigger, margin, repeat, snooze);
         }
     }
 
@@ -448,13 +450,12 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     }
 
     @Override
-    public void updateListeningDateSnooze(long alertId, @Nullable ZonedDateTime listeningDate, short snooze) {
-        LOGGER.debug("updateListeningDateSnooze {} {} {}", alertId, listeningDate, snooze);
+    public void updateSnooze(long alertId, short snooze) {
+        LOGGER.debug("updateSnooze {} {}", alertId, snooze);
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("id", alertId);
-        parameters.put("listeningDate", listeningDate);
         parameters.put("snooze", snooze);
-        update(SQL.UPDATE_ALERTS_SNOOZE_LISTENING_DATE, parameters);
+        update(SQL.UPDATE_ALERTS_SNOOZE, parameters);
     }
 
     @Override

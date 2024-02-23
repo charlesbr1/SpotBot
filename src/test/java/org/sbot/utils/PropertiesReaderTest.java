@@ -20,6 +20,6 @@ class PropertiesReaderTest {
     @Test
     void readFile() {
         assertEquals("12345", PropertiesReader.readFile("src/test/resources/test.file"));
-        assertThrows(RuntimeException.class, () -> PropertiesReader.readFile("src/test/resources/badpath"));
+        assertThrows(IllegalArgumentException.class, () -> PropertiesReader.readFile("src/test/resources/badpath"));
     }
 }

@@ -33,7 +33,7 @@ public interface PropertiesReader {
             properties.load(input);
             return name -> readProperty(name, properties);
         } catch (IOException e) {
-            LogManager.getLogger(PropertiesReader.class).error("Failed to load properties file " + filePath, e);
+            LogManager.getLogger(PropertiesReader.class).error("Failed to load properties file {}", filePath);
             throw new IllegalArgumentException(e);
         }
     }
@@ -51,7 +51,7 @@ public interface PropertiesReader {
             return Files.readString(Paths.get(requireNonNull(filePath, "missing properties file path")));
         } catch (IOException e) {
             LogManager.getLogger(PropertiesReader.class).debug("Failed to read file {}", filePath);
-            throw new RuntimeException(e);
+            throw new IllegalArgumentException("Unable to read file : " + filePath, e);
         }
     }
 }

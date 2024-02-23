@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
@@ -181,7 +182,7 @@ public abstract class CommandContext implements Context {
         };
     }
 
-    public final CommandContext withArgumentsAndReplyMapper(@NotNull String arguments, @NotNull Function<List<Message>, List<Message>> replyMapper) {
+    public final CommandContext withArgumentsAndReplyMapper(@NotNull String arguments, @NotNull UnaryOperator<List<Message>> replyMapper) {
         return new CommandContext(this, arguments) {
             @Override
             public void reply(@NotNull List<Message> messages, int ttlSeconds) {

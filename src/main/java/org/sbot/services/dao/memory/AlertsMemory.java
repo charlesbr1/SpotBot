@@ -352,9 +352,9 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public void updateListeningDateSnooze(long alertId, @Nullable ZonedDateTime listeningDate, short snooze) {
-        LOGGER.debug("updateListeningDateSnooze {} {} {}", alertId, listeningDate, snooze);
-        alerts.computeIfPresent(alertId, (id, alert) -> alert.withListeningDateSnooze(listeningDate, snooze));
+    public void updateSnooze(long alertId, short snooze) {
+        LOGGER.debug("updateSnooze {} {}", alertId, snooze);
+        alerts.computeIfPresent(alertId, (id, alert) -> alert.withSnooze(snooze));
     }
 
     @Override
@@ -393,7 +393,7 @@ public final class AlertsMemory implements AlertsDao {
         requireNonNull(now);
         updater.accept(ids -> alerts.computeIfPresent((Long) ids.get("id"),
                 (id, alert) -> alert.withListeningDateLastTriggerMarginRepeat(
-                        hasRepeat(alert.repeat - 1) ? now.plusHours(alert.snooze) : null, // listening date
+                        hasRepeat(alert.repeat - 1L) ? now.plusHours(alert.snooze) : null, // listening date
                         now, // last trigger
                         MARGIN_DISABLED, (short) (hasRepeat(alert.repeat) ? alert.repeat - 1 : 0))));
     }

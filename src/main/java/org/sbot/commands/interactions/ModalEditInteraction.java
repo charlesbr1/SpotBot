@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 import static java.util.Objects.requireNonNull;
 import static org.sbot.commands.CommandAdapter.ALERT_TIPS;
@@ -98,7 +99,7 @@ public final class ModalEditInteraction implements InteractionListener {
     }
 
     @NotNull
-    private static Function<List<Message>, List<Message>> fromDeleteMapper() {
+    private static UnaryOperator<List<Message>> fromDeleteMapper() {
         // replace listed alert with result of delete alert command, this remove the menu interaction
         BiFunction<Message, MessageEditBuilder, MessageEditData> editMapper = (message, editBuilder) -> {
             var originalEmbed = requireOneItem(editBuilder.getEmbeds());
@@ -113,7 +114,7 @@ public final class ModalEditInteraction implements InteractionListener {
     }
 
     @NotNull
-    private static Function<List<Message>, List<Message>> fromUpdateMapper(@Nullable String newMessage, long alertId) {
+    private static UnaryOperator<List<Message>> fromUpdateMapper(@Nullable String newMessage, long alertId) {
         BiFunction<Message, MessageEditBuilder, MessageEditData> editMapper = (message, editBuilder) -> {
             var originalEmbed = requireOneItem(editBuilder.getEmbeds());
             var newEmbedBuilder = requireOneItem(message.embeds());

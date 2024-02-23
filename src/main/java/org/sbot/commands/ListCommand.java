@@ -201,7 +201,7 @@ public final class ListCommand extends CommandAdapter {
 
     private static ArrayList<Message> toEditableMessages(@NotNull CommandContext context, @NotNull List<Alert> alerts, @NotNull ZonedDateTime now, long offset, long total, boolean editAll) {
         editAll = editAll && (isPrivateChannel(context) || isAdminMember(context.member));
-        // return list of one message containing all the embeds (alerts) between each editable message that can contains only one embed
+        // return list of message containing all the embeds (alerts) between each editable message that can contains only one embed
         long userId = context.user.getIdLong();
         var messages = new ArrayList<Message>();
         for(int i = 0; i < alerts.size(); i++) {

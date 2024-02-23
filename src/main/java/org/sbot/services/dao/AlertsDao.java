@@ -69,7 +69,7 @@ public interface AlertsDao {
     void updateMargin(long alertId, @NotNull BigDecimal margin);
     void updateListeningDateFromDate(long alertId, @Nullable ZonedDateTime listeningDate, @Nullable ZonedDateTime fromDate);
     void updateListeningDateRepeat(long alertId, @Nullable ZonedDateTime listeningDate, short repeat);
-    void updateListeningDateSnooze(long alertId, @Nullable ZonedDateTime listeningDate, short snooze);
+    void updateSnooze(long alertId, short snooze);
 
     void deleteAlert(long alertId);
     long deleteAlerts(long serverId, long userId);

@@ -21,7 +21,6 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.Objects.requireNonNullElse;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.entities.alerts.Alert.*;
@@ -146,7 +145,7 @@ public final class UpdateCommand extends CommandAdapter {
                 txCtx.usersDao().updateLocale(context.user.getIdLong(), locale);
                 return Message.of(embedBuilder(NAME, Color.green, "Your locale is set to " + locale.toLanguageTag()));
             }
-            return userSetupNeeded("Update locale", "Unable to update your locale :");
+            return userSetupNeeded("Update locale", "Unable to save your locale :");
         });
     }
 
@@ -157,7 +156,7 @@ public final class UpdateCommand extends CommandAdapter {
                 txCtx.usersDao().updateTimezone(context.user.getIdLong(), timezone);
                 return Message.of(embedBuilder(NAME, Color.green, "Your timezone is set to " + timezone.getId()));
             }
-            return userSetupNeeded("Update timezone", "Unable to update your timezone :");
+            return userSetupNeeded("Update timezone", "Unable to save your timezone :");
         });
     }
 
@@ -190,17 +189,13 @@ public final class UpdateCommand extends CommandAdapter {
     private BiFunction<Alert, AlertsDao, EmbedBuilder> fromDate(@NotNull CommandContext context, @NotNull ZonedDateTime now, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         ZonedDateTime fromDate = context.args.getDateTime(context.locale, context.timezone, context.clock(), VALUE_ARGUMENT).orElse(null);
         return (alert, alertsDao) -> {
-            if(null == fromDate && (alert.type != range || context.args.getString("").isPresent())) {
-                throw new IllegalArgumentException("Missing from_date value, expected format : " + Dates.DATE_TIME_FORMAT + " UTC");
-            } else if(alert.type == remainder) {
-                requireInFuture(now, fromDate);
-            }
+            validateDateArgument(context, now, alert.type, fromDate, "from_date");
             if(notEquals(fromDate, alert.fromDate)) {
-                if(null == alert.listeningDate || alert.type == trend) {
+                if(!alert.isEnabled() || alert.type == trend) {
                     alert = alert.withFromDate(fromDate);
                     alertsDao.updateFromDate(alertId, fromDate);
-                } else {
-                    var listeningDate = alert.type == remainder ? fromDate : requireNonNullElse(fromDate, now);
+                } else { //TODO faux si range et null == fromDate
+                    var listeningDate = listeningDate(alert.listeningDate, alert);
                     alert = alert.withListeningDateFromDate(listeningDate, fromDate);
                     alertsDao.updateListeningDateFromDate(alertId, listeningDate, fromDate);
                 }
@@ -215,15 +210,11 @@ public final class UpdateCommand extends CommandAdapter {
     private BiFunction<Alert, AlertsDao, EmbedBuilder> toDate(@NotNull CommandContext context, @NotNull ZonedDateTime now, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         ZonedDateTime toDate = context.args.getDateTime(context.locale, context.timezone, context.clock(), VALUE_ARGUMENT).orElse(null);
         return (alert, alertsDao) -> {
-            if(null == toDate  && (alert.type == trend || context.args.getString("") .isPresent())) {
-                throw new IllegalArgumentException("Missing to_date value, expected format : " + Dates.DATE_TIME_FORMAT + " UTC");
-            } else if(null != toDate) {
-                requireInFuture(now, toDate);
-            }
-            String date = null != toDate ? formatDiscord(toDate) : "null";
+            validateDateArgument(context, now, alert.type, toDate, "to_date");
             if(notEquals(toDate, alert.toDate)) {
                 alert = alert.withToDate(toDate);
                 alertsDao.updateToDate(alertId, alert.toDate);
+                String date = null != toDate ? formatDiscord(toDate) : "null";
                 return updateNotifyMessage(context, now, alert, DISPLAY_TO_DATE, date, outNotificationCallBack);
             }
             return ListCommand.listAlert(context, now, alert);
@@ -233,6 +224,14 @@ public final class UpdateCommand extends CommandAdapter {
     private static boolean notEquals(@Nullable ZonedDateTime date1, @Nullable ZonedDateTime date2) {
         return (null != date1 && null == date2) || (null == date1 && null != date2) ||
                 (null != date1 && date1.compareTo(date2) != 0);
+    }
+
+    private static void validateDateArgument(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Type type, @Nullable ZonedDateTime date, @NotNull String field) {
+        if(null == date  && (type != range || context.args.getString("") .isPresent())) {
+            throw new IllegalArgumentException("Missing " + field + " value, expected format : " + Dates.DATE_TIME_FORMAT + " UTC");
+        } else if(trend != type && null != date) {
+            requireInFuture(now, date);
+        }
     }
 
     private BiFunction<Alert, AlertsDao, EmbedBuilder> message(@NotNull CommandContext context, @NotNull ZonedDateTime now, long alertId, @NotNull Runnable[] outNotificationCallBack) {
@@ -260,18 +259,19 @@ public final class UpdateCommand extends CommandAdapter {
     private BiFunction<Alert, AlertsDao, EmbedBuilder> repeat(@NotNull CommandContext context, @NotNull ZonedDateTime now, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         short repeat = requirePositiveShort(context.args.getMandatoryLong(VALUE_ARGUMENT));
         return (alert, alertsDao) -> {
-            alert = alert.withListeningDateRepeat(repeat > 0 ? now : null, repeat);
+            var listeningDate = listeningDate(now, alert);
+            alert = alert.withListeningDateRepeat(repeat > 0 ? listeningDate : null, repeat);
             alertsDao.updateListeningDateRepeat(alertId, alert.listeningDate, alert.repeat);
             return updateNotifyMessage(context, now, alert, CHOICE_REPEAT, repeat + (!hasRepeat(repeat) ? " (disabled)" : ""), outNotificationCallBack)
-                    .appendDescription(hasRepeat(repeat) ? "\n\nThis alert can be raise now" : "");
+                    .appendDescription(hasRepeat(repeat) ? "\n\nThis alert is enable" : ""); //TODO clean from modal
         };
     }
 
     private BiFunction<Alert, AlertsDao, EmbedBuilder> snooze(@NotNull CommandContext context, @NotNull ZonedDateTime now, long alertId, @NotNull Runnable[] outNotificationCallBack) {
         short snooze = requirePositiveShort(context.args.getMandatoryLong(VALUE_ARGUMENT));
         return (alert, alertsDao) -> {
-            alert = alert.withListeningDateSnooze(now, 0 != snooze ? snooze : DEFAULT_SNOOZE_HOURS);
-            alertsDao.updateListeningDateSnooze(alertId, alert.listeningDate, alert.snooze);
+            alert = alert.withSnooze(0 != snooze ? snooze : DEFAULT_SNOOZE_HOURS);
+            alertsDao.updateSnooze(alertId, alert.snooze);
             return updateNotifyMessage(context, now, alert, CHOICE_SNOOZE,
                     (0 != snooze ? "" + snooze : "(default) " + DEFAULT_SNOOZE_HOURS) + (snooze > 1 ? " hours" : " hour"), outNotificationCallBack);
         };
@@ -288,7 +288,8 @@ public final class UpdateCommand extends CommandAdapter {
             }
             if(enable != alert.isEnabled()) {
                 if(enable) {
-                    alert = alert.withListeningDateRepeat(now, alert.repeat <= 0 ? DEFAULT_REPEAT : alert.repeat);
+                    var listeningDate = listeningDate(now, alert);
+                    alert = alert.withListeningDateRepeat(listeningDate, alert.repeat <= 0 ? DEFAULT_REPEAT : alert.repeat);
                 } else {
                     alert = alert.withListeningDateRepeat(null, (short) 0);
                 }
@@ -297,6 +298,16 @@ public final class UpdateCommand extends CommandAdapter {
             }
             return ListCommand.listAlert(context, now, alert);
         };
+    }
+
+    static ZonedDateTime listeningDate(@Nullable ZonedDateTime listeningDate, @NotNull Alert alert) {
+        if(alert.type == trend) {
+            return Optional.ofNullable(alert.listeningDate).orElse(listeningDate);
+        }
+        if(null == alert.fromDate) {
+            return listeningDate;
+        }
+        return alert.fromDate.isAfter(alert.creationDate) ? alert.fromDate : listeningDate;
     }
 
     private EmbedBuilder updateNotifyMessage(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert, @NotNull String fieldName, @NotNull String newValue, @NotNull Runnable[] outNotificationCallBack) {
