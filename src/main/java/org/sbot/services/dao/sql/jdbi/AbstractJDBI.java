@@ -8,7 +8,7 @@ import org.jdbi.v3.core.result.RowView;
 import org.jdbi.v3.core.statement.Query;
 import org.jdbi.v3.core.statement.Update;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
+import org.sbot.services.dao.BatchEntry;
 
 import java.time.ZonedDateTime;
 import java.util.List;

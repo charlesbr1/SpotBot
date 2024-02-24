@@ -11,7 +11,7 @@ import org.sbot.entities.chart.Candlestick;
 import org.sbot.services.dao.LastCandlesticksDao;
 import org.sbot.services.dao.sql.jdbi.AbstractJDBI;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository;
-import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
+import org.sbot.services.dao.BatchEntry;
 import org.sbot.services.dao.sql.jdbi.JDBITransactionHandler;
 
 import java.math.BigDecimal;
@@ -26,6 +26,7 @@ import java.util.function.Consumer;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
+import static org.sbot.services.dao.sql.LastCandlesticksSQLite.SQL.Fields.*;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.parseUtcDateTime;
 
@@ -34,6 +35,18 @@ public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCa
     private static final Logger LOGGER = LogManager.getLogger(LastCandlesticksSQLite.class);
 
     interface SQL {
+
+        interface Fields {
+            String EXCHANGE = "exchange";
+            String PAIR = "pair";
+            String OPEN_TIME = "open_time";
+            String CLOSE_TIME = "close_time";
+            String OPEN = "open";
+            String CLOSE = "close";
+            String HIGH = "high";
+            String LOW = "low";
+        }
+
         String CREATE_TABLE = """
                 CREATE TABLE IF NOT EXISTS last_candlesticks (
                 exchange TEXT NOT NULL,
@@ -50,35 +63,35 @@ public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCa
         String SELECT_PAIRS_EXCHANGES = "SELECT DISTINCT exchange,pair FROM last_candlesticks";
         String SELECT_BY_PAIR = "SELECT open_time,close_time,open,close,high,low FROM last_candlesticks WHERE exchange=:exchange AND pair=:pair";
         String SELECT_CLOSE_TIME_BY_PAIR = "SELECT close_time FROM last_candlesticks WHERE exchange=:exchange AND pair=:pair";
-        String INSERT_LAST_CANDLESTICK = "INSERT INTO last_candlesticks (exchange,pair,open_time,close_time,open,close,high,low) VALUES (:exchange,:pair,:openTime,:closeTime,:open,:close,:high,:low)";
-        String UPDATE_LAST_CANDLESTICK = "UPDATE last_candlesticks SET open_time=:openTime,close_time=:closeTime,open=:open,close=:close,high=:high,low=:low WHERE exchange=:exchange AND pair=:pair";
+        String INSERT_LAST_CANDLESTICK = "INSERT INTO last_candlesticks (exchange,pair,open_time,close_time,open,close,high,low) VALUES (:exchange,:pair,:open_time,:close_time,:open,:close,:high,:low)";
+        String UPDATE_LAST_CANDLESTICK = "UPDATE last_candlesticks SET open_time=:open_time,close_time=:open_time,open=:open,close=:close,high=:high,low=:low WHERE exchange=:exchange AND pair=:pair";
         String DELETE_BY_EXCHANGE_PAIR = "DELETE FROM last_candlesticks WHERE exchange=:exchange AND pair=:pair";
     }
 
     public static final class CandlestickMapper implements RowMapper<Candlestick> {
         @Override
         public Candlestick map(ResultSet rs, StatementContext ctx) throws SQLException {
-            ZonedDateTime openTime = parseUtcDateTime(rs.getTimestamp("open_time"))
+            ZonedDateTime openTime = parseUtcDateTime(rs.getTimestamp(OPEN_TIME))
                     .orElseThrow(() -> new IllegalArgumentException("Missing field last_candlesticks open_time"));
-            ZonedDateTime closeTime = parseUtcDateTime(rs.getTimestamp("close_time"))
+            ZonedDateTime closeTime = parseUtcDateTime(rs.getTimestamp(CLOSE_TIME))
                     .orElseThrow(() -> new IllegalArgumentException("Missing field last_candlesticks close_time"));
-            BigDecimal open = rs.getBigDecimal("open");
-            BigDecimal close = rs.getBigDecimal("close");
-            BigDecimal high = rs.getBigDecimal("high");
-            BigDecimal low = rs.getBigDecimal("low");
+            BigDecimal open = rs.getBigDecimal(OPEN);
+            BigDecimal close = rs.getBigDecimal(CLOSE);
+            BigDecimal high = rs.getBigDecimal(HIGH);
+            BigDecimal low = rs.getBigDecimal(LOW);
             return new Candlestick(openTime, closeTime, open, close, high, low);
         }
     }
 
     private static void bindCandlestickFields(@NotNull String exchange, @NotNull String pair, @NotNull Candlestick candlestick, @NotNull SqlStatement<?> query) {
-        query.bind("exchange", requireSupportedExchange(exchange));
-        query.bind("pair", requirePairFormat(pair));
-        query.bind("openTime", candlestick.openTime());
-        query.bind("closeTime", candlestick.closeTime());
-        query.bind("open", candlestick.open());
-        query.bind("close", candlestick.close());
-        query.bind("high", candlestick.high());
-        query.bind("low", candlestick.low());
+        query.bind(EXCHANGE, requireSupportedExchange(exchange));
+        query.bind(PAIR, requirePairFormat(pair));
+        query.bind(OPEN_TIME, candlestick.openTime());
+        query.bind(CLOSE_TIME, candlestick.closeTime());
+        query.bind(OPEN, candlestick.open());
+        query.bind(CLOSE, candlestick.close());
+        query.bind(HIGH, candlestick.high());
+        query.bind(LOW, candlestick.low());
     }
 
     public LastCandlesticksSQLite(@NotNull JDBIRepository repository) {
@@ -107,20 +120,20 @@ public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCa
         LOGGER.debug("getPairsByExchanges");
         return queryCollect(SQL.SELECT_PAIRS_EXCHANGES, emptyMap(),
                 groupingBy(
-                        rowView -> rowView.getColumn("exchange", String.class),
-                        mapping(rowView -> rowView.getColumn("pair", String.class), toSet())));
+                        rowView -> rowView.getColumn(EXCHANGE, String.class),
+                        mapping(rowView -> rowView.getColumn(PAIR, String.class), toSet())));
     }
 
     @Override
     public Optional<ZonedDateTime> getLastCandlestickCloseTime(@NotNull String exchange, @NotNull String pair) {
         LOGGER.debug("getLastCandlestickCloseTime {} {}", exchange, pair);
-        return findOneDateTime(SQL.SELECT_CLOSE_TIME_BY_PAIR, Map.of("exchange", requireSupportedExchange(exchange), "pair", requirePairFormat(pair)));
+        return findOneDateTime(SQL.SELECT_CLOSE_TIME_BY_PAIR, Map.of(EXCHANGE, requireSupportedExchange(exchange), PAIR, requirePairFormat(pair)));
     }
 
     @Override
     public Optional<Candlestick> getLastCandlestick(@NotNull String exchange, @NotNull String pair) {
         LOGGER.debug("getLastCandlestick {} {}", exchange, pair);
-        return findOne(SQL.SELECT_BY_PAIR, Candlestick.class, Map.of("exchange", requireSupportedExchange(exchange), "pair", requirePairFormat(pair)));
+        return findOne(SQL.SELECT_BY_PAIR, Candlestick.class, Map.of(EXCHANGE, requireSupportedExchange(exchange), PAIR, requirePairFormat(pair)));
     }
 
     @Override

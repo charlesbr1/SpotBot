@@ -105,11 +105,13 @@ public class JDBIRepositoryTest {
         }
     }
 
-    public static <T extends AbstractJDBI> T loadTransactionalDao(BiConsumer<T, Handle> setupTable, Consumer<JDBIRepository> initConstructor, BiFunction<AbstractJDBI, JDBITransactionHandler, T> constructor) {
+    public static <T extends AbstractJDBI> T loadTransactionalDao(BiConsumer<T, Handle> setupTable, BiFunction<AbstractJDBI, JDBITransactionHandler, T> constructor, List<Consumer<JDBIRepository>> initConstructors) {
         JDBIRepository repository = new JDBIRepository(SQLITE_MEMORY_VOLATILE);
-        try { // this register the row mapper then fails because each tx is rollback
-            initConstructor.accept(repository);
-        } catch (RuntimeException e) {
+        for(var init : initConstructors) {
+            try { // this register the row mapper then could fails because each tx is rollback
+                init.accept(repository);
+            } catch (RuntimeException e) {
+            }
         }
         // build a fake abstractJdbi instance that hold repository field
         var abstractJdbi = fakeJdbi(repository);

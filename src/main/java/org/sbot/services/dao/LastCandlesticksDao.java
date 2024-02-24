@@ -2,7 +2,6 @@ package org.sbot.services.dao;
 
 import org.jetbrains.annotations.NotNull;
 import org.sbot.entities.chart.Candlestick;
-import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
 
 import java.time.ZonedDateTime;
 import java.util.Map;

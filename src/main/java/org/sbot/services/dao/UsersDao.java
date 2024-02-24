@@ -49,5 +49,5 @@ public interface UsersDao {
 
     void updateLastAccess(long userId, @NotNull ZonedDateTime lastAccess);
 
-    long deleteHavingLastAccessBefore(@NotNull ZonedDateTime expirationDate);
+    long deleteHavingLastAccessBeforeAndNotInAlerts(@NotNull ZonedDateTime expirationDate);
 }

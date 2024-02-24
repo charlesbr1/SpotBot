@@ -8,6 +8,6 @@ import java.util.stream.Stream;
 class UsersMemoryTest extends UsersDaoTest {
 
     public static Stream<Arguments> provideDao() {
-        return Stream.of(Arguments.of(new UsersMemory()));
+        return Stream.of(Arguments.of(new AlertsMemory().usersDao));
     }
 }

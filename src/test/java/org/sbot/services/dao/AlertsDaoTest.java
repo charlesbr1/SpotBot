@@ -65,12 +65,12 @@ public abstract class AlertsDaoTest {
     @MethodSource("provideDao")
     void userFKConstraint(AlertsDao alerts, UsersDao users) {
         if(alerts instanceof AlertsMemory) {
-            assertDoesNotThrow(() -> alerts.addAlert(createTestAlert()));
+            assertThrows(IllegalArgumentException.class, () -> alerts.addAlert(createTestAlert()));
         } else if(alerts instanceof AlertsSQLite) {
             assertThrows(StatementException.class, () -> alerts.addAlert(createTestAlert()));
-            setUser(users, TEST_USER_ID);
-            assertDoesNotThrow(() -> alerts.addAlert(createTestAlert()));
         }
+        setUser(users, TEST_USER_ID);
+        assertDoesNotThrow(() -> alerts.addAlert(createTestAlert()));
     }
 
     @ParameterizedTest

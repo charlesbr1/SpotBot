@@ -179,8 +179,11 @@ class ArgumentValidatorTest {
         assertEquals("1INCH/BTC", ArgumentValidator.requireTickerPairLength("1INCH/BTC"));
         assertEquals("BTC", ArgumentValidator.requireTickerPairLength("BTC"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("BT"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("BT"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("BT3456"));
         assertEquals("12345/ABCDE", ArgumentValidator.requireTickerPairLength("12345/ABCDE"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("56/ABC"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("566/BC"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("1234567/ABC"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("123456/ABCDE"));
     }
 

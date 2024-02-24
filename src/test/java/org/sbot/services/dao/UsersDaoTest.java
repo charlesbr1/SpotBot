@@ -28,7 +28,7 @@ public abstract class UsersDaoTest {
         assertEquals(user, users.setupUser(userId, Locale.FRANCE, Clock.fixed(now.toInstant(), UTC)));
         assertEquals(user, users.setupUser(userId, Locale.JAPANESE, Clock.fixed(now.toInstant(), UTC)));
 
-        users.deleteHavingLastAccessBefore(now.plusMinutes(1L));
+        users.deleteHavingLastAccessBeforeAndNotInAlerts(now.plusMinutes(1L));
         assertTrue(users.getUser(userId).isEmpty());
 
         user = new User(userId, Locale.JAPANESE, null, now);
@@ -80,7 +80,7 @@ public abstract class UsersDaoTest {
         User user = new User(userId, Locale.JAPAN, null, nowUtc());
         users.setUser(user);
         assertTrue(users.userExists(userId));
-        users.deleteHavingLastAccessBefore(nowUtc().plusMinutes(1L));
+        users.deleteHavingLastAccessBeforeAndNotInAlerts(nowUtc().plusMinutes(1L));
         assertFalse(users.userExists(userId));
     }
 
@@ -182,8 +182,9 @@ public abstract class UsersDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void deleteHavingLastAccessBefore(UsersDao users) {
-        assertThrows(NullPointerException.class, () -> users.deleteHavingLastAccessBefore(null));
+    void deleteHavingLastAccessBeforeAndNotInAlerts(UsersDao users) {
+        //TODO update AndNotInAlerts
+        assertThrows(NullPointerException.class, () -> users.deleteHavingLastAccessBeforeAndNotInAlerts(null));
 
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         var user1 = new User(1L, Locale.US, null, now);
@@ -200,32 +201,32 @@ public abstract class UsersDaoTest {
         assertTrue(users.getUser(user3.id()).isPresent());
         assertTrue(users.getUser(user4.id()).isPresent());
 
-        users.deleteHavingLastAccessBefore(now.minusMonths(1L));
+        users.deleteHavingLastAccessBeforeAndNotInAlerts(now.minusMonths(1L));
         assertTrue(users.getUser(user1.id()).isPresent());
         assertTrue(users.getUser(user2.id()).isPresent());
         assertTrue(users.getUser(user3.id()).isPresent());
         assertTrue(users.getUser(user4.id()).isPresent());
 
         now = now.plusMinutes(1L);
-        users.deleteHavingLastAccessBefore(now.minusWeeks(1L));
+        users.deleteHavingLastAccessBeforeAndNotInAlerts(now.minusWeeks(1L));
         assertTrue(users.getUser(user1.id()).isPresent());
         assertTrue(users.getUser(user2.id()).isPresent());
         assertTrue(users.getUser(user3.id()).isPresent());
         assertTrue(users.getUser(user4.id()).isEmpty());
 
-        users.deleteHavingLastAccessBefore(now.minusDays(1L));
+        users.deleteHavingLastAccessBeforeAndNotInAlerts(now.minusDays(1L));
         assertTrue(users.getUser(user1.id()).isPresent());
         assertTrue(users.getUser(user2.id()).isPresent());
         assertTrue(users.getUser(user3.id()).isEmpty());
         assertTrue(users.getUser(user4.id()).isEmpty());
 
-        users.deleteHavingLastAccessBefore(now.minusHours(1L));
+        users.deleteHavingLastAccessBeforeAndNotInAlerts(now.minusHours(1L));
         assertTrue(users.getUser(user1.id()).isPresent());
         assertTrue(users.getUser(user2.id()).isEmpty());
         assertTrue(users.getUser(user3.id()).isEmpty());
         assertTrue(users.getUser(user4.id()).isEmpty());
 
-        users.deleteHavingLastAccessBefore(now);
+        users.deleteHavingLastAccessBeforeAndNotInAlerts(now);
         assertTrue(users.getUser(user1.id()).isEmpty());
         assertTrue(users.getUser(user2.id()).isEmpty());
         assertTrue(users.getUser(user3.id()).isEmpty());

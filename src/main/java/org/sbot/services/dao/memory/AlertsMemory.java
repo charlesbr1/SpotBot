@@ -6,7 +6,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.services.dao.AlertsDao;
-import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
+import org.sbot.services.dao.UsersDao;
+import org.sbot.services.dao.BatchEntry;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
@@ -27,6 +28,7 @@ import static java.util.stream.Collectors.*;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.range;
 import static org.sbot.entities.alerts.Alert.Type.remainder;
+import static org.sbot.services.dao.BatchEntry.longId;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 
 public final class AlertsMemory implements AlertsDao {
@@ -37,9 +39,11 @@ public final class AlertsMemory implements AlertsDao {
 
     private final AtomicLong idGenerator = new AtomicLong(1L);
 
+    public final UsersDao usersDao;
 
     public AlertsMemory() {
         LOGGER.debug("Loading memory storage for alerts");
+        this.usersDao = new UsersMemory(this);
     }
 
     @Override
@@ -253,6 +257,9 @@ public final class AlertsMemory implements AlertsDao {
 
     @Override
     public long addAlert(@NotNull Alert alert) {
+        if(!usersDao.userExists(alert.userId)) {
+            throw new IllegalArgumentException("Alert reference an user not found in userDao : " + alert);
+        }
         alert = alert.withId(idGenerator::getAndIncrement);
         LOGGER.debug("addAlert {}, with new id {}", alert, alert.id);
         alerts.put(alert.id, alert);
@@ -391,7 +398,7 @@ public final class AlertsMemory implements AlertsDao {
     public void matchedAlertBatchUpdates(@NotNull ZonedDateTime now, @NotNull Consumer<BatchEntry> updater) {
         LOGGER.debug("matchedAlertBatchUpdates");
         requireNonNull(now);
-        updater.accept(ids -> alerts.computeIfPresent((Long) ids.get("id"),
+        updater.accept(ids -> alerts.computeIfPresent(longId(ids),
                 (id, alert) -> alert.withListeningDateLastTriggerMarginRepeat(
                         hasRepeat(alert.repeat - 1L) ? now.plusHours(alert.snooze) : null, // listening date
                         now, // last trigger
@@ -402,13 +409,13 @@ public final class AlertsMemory implements AlertsDao {
     public void marginAlertBatchUpdates(@NotNull ZonedDateTime now, @NotNull Consumer<BatchEntry> updater) {
         LOGGER.debug("marginAlertBatchUpdates");
         requireNonNull(now);
-        updater.accept(ids -> alerts.computeIfPresent((Long) ids.get("id"),
+        updater.accept(ids -> alerts.computeIfPresent(longId(ids),
                 (id, alert) -> alert.withLastTriggerMargin(now, MARGIN_DISABLED)));
     }
 
     @Override
     public void alertBatchDeletes(@NotNull Consumer<BatchEntry> deleter) {
         LOGGER.debug("alertBatchDeletes");
-        deleter.accept(ids -> alerts.remove((Long) ids.get("id")));
+        deleter.accept(ids -> alerts.remove(longId(ids)));
     }
 }

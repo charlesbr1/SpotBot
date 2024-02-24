@@ -15,6 +15,7 @@ import org.jdbi.v3.core.statement.PreparedBatch;
 import org.jdbi.v3.core.statement.Query;
 import org.jdbi.v3.core.statement.Update;
 import org.jetbrains.annotations.NotNull;
+import org.sbot.services.dao.BatchEntry;
 import org.sbot.utils.Dates;
 
 import java.sql.Timestamp;
@@ -50,16 +51,6 @@ public final class JDBIRepository {
         protected Argument build(ZoneId value, ConfigRegistry config) {
             return (position, statement, ctx) -> statement.setString(position, value.getId());
         }
-    }
-
-    @FunctionalInterface
-    public interface BatchEntry {
-
-        default void batchId(long id) {
-            batch(Map.of("id", id));
-        }
-
-        void batch(Map<String, Object> ids);
     }
 
     final Jdbi jdbi;

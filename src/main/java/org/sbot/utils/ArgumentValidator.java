@@ -95,8 +95,14 @@ public interface ArgumentValidator {
 
     @NotNull
     static String requireTickerPairLength(@NotNull String tickerPair) {
-        if (tickerPair.length() > ALERT_MAX_PAIR_LENGTH || tickerPair.length() < ALERT_MIN_TICKER_LENGTH) {
-            throw new IllegalArgumentException("Provided ticker or pair is invalid : " + tickerPair + " (expected " + ALERT_MIN_TICKER_LENGTH + " to " + ALERT_MAX_PAIR_LENGTH + " chars)");
+        int slashIndex = tickerPair.indexOf('/');
+        if(slashIndex > 0) { // pair
+            boolean badTicker = slashIndex > ALERT_MAX_TICKER_LENGTH || slashIndex < ALERT_MIN_TICKER_LENGTH;
+            if (badTicker || tickerPair.length() > ALERT_MAX_PAIR_LENGTH || tickerPair.length() < ALERT_MIN_PAIR_LENGTH) {
+                throw new IllegalArgumentException("Provided  pair is invalid : " + tickerPair + " (expected " + ALERT_MIN_PAIR_LENGTH + " to " + ALERT_MAX_PAIR_LENGTH + " chars)");
+            }
+        } else if (tickerPair.length() > ALERT_MAX_TICKER_LENGTH || tickerPair.length() < ALERT_MIN_TICKER_LENGTH) {
+                throw new IllegalArgumentException("Provided ticker is invalid : " + tickerPair + " (expected " + ALERT_MIN_TICKER_LENGTH + " to " + ALERT_MAX_TICKER_LENGTH + " chars)");
         }
         return tickerPair;
     }

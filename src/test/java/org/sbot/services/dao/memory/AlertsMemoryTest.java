@@ -8,6 +8,7 @@ import java.util.stream.Stream;
 class AlertsMemoryTest extends AlertsDaoTest {
 
     public static Stream<Arguments> provideDao() {
-        return Stream.of(Arguments.of(new AlertsMemory(), new UsersMemory()));
+        var alerts = new AlertsMemory();
+        return Stream.of(Arguments.of(alerts, alerts.usersDao));
     }
 }

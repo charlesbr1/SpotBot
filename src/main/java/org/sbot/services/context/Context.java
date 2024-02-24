@@ -5,21 +5,20 @@ import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.exchanges.Exchanges;
-import org.sbot.services.dao.UsersDao;
-import org.sbot.services.dao.memory.UsersMemory;
-import org.sbot.services.dao.sql.UsersSQLite;
-import org.sbot.services.discord.Discord;
 import org.sbot.services.AlertsWatcher;
 import org.sbot.services.LastCandlesticksService;
 import org.sbot.services.MatchingService;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.LastCandlesticksDao;
+import org.sbot.services.dao.UsersDao;
 import org.sbot.services.dao.memory.AlertsMemory;
 import org.sbot.services.dao.memory.LastCandlesticksMemory;
 import org.sbot.services.dao.sql.AlertsSQLite;
 import org.sbot.services.dao.sql.LastCandlesticksSQLite;
+import org.sbot.services.dao.sql.UsersSQLite;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository;
 import org.sbot.services.dao.sql.jdbi.JDBITransactionHandler;
+import org.sbot.services.discord.Discord;
 
 import java.time.Clock;
 import java.util.function.Consumer;
@@ -38,10 +37,9 @@ public interface Context {
         static DataServices load(@Nullable JDBIRepository repository) {
             if(null == repository) {
                 LogManager.getLogger(DataServices.class).info("Loading data services in memory");
-                var usersDao = new UsersMemory();
                 var alertsDao = new AlertsMemory();
                 var lastCandlesticksDao = new LastCandlesticksMemory();
-                return new DataServices(v -> usersDao, v -> alertsDao, v -> lastCandlesticksDao);
+                return new DataServices(v -> alertsDao.usersDao, v -> alertsDao, v -> lastCandlesticksDao);
             }
             LogManager.getLogger(DataServices.class).info("Loading data services SQLite");
             return new DataServices(new UsersSQLite(repository)::withHandler, new AlertsSQLite(repository)::withHandler,

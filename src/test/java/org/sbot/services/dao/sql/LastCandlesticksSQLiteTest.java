@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.provider.Arguments;
 import org.sbot.services.dao.LastCandlesticksDaoTest;
 
+import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -14,7 +15,7 @@ import static org.sbot.services.dao.sql.jdbi.JDBIRepositoryTest.loadTransactiona
 class LastCandlesticksSQLiteTest extends LastCandlesticksDaoTest {
 
     public static Stream<Arguments> provideDao() {
-        return Stream.of(Arguments.of(loadTransactionalDao(LastCandlesticksSQLite::setupTable, LastCandlesticksSQLite::new, LastCandlesticksSQLite::new)));
+        return Stream.of(Arguments.of(loadTransactionalDao(LastCandlesticksSQLite::setupTable, LastCandlesticksSQLite::new, List.of(LastCandlesticksSQLite::new))));
     }
 
     @Test

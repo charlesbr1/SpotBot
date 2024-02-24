@@ -14,20 +14,18 @@ import java.awt.*;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Predicate.not;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
 import static org.sbot.commands.SecurityAccess.hasRightOnUser;
-import static org.sbot.commands.context.CommandContext.TOO_MANY_ARGUMENTS;
 import static org.sbot.services.discord.Discord.guildName;
 import static org.sbot.utils.ArgumentValidator.*;
 
 public final class DeleteCommand extends CommandAdapter {
 
-    private static final String NAME = "delete";
+    static final String NAME = "delete";
     static final String DESCRIPTION = "delete one or many alerts (only your alerts, but an admin is allowed to do delete any user alerts)";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
-    private static final String DELETE_ALL = "all";
+    static final String DELETE_ALL = "all";
 
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addSubcommands(
@@ -39,7 +37,7 @@ public final class DeleteCommand extends CommandAdapter {
                                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
                             option(USER, OWNER_ARGUMENT, "for admin only, a member to drop the alerts on your server", false)));
 
-    private record Arguments(Long alertId, String tickerOrPair, Long ownerId) {}
+    record Arguments(Long alertId, String tickerOrPair, Long ownerId) {}
 
     public DeleteCommand() {
         super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
@@ -53,22 +51,18 @@ public final class DeleteCommand extends CommandAdapter {
     }
 
     static Arguments arguments(@NotNull CommandContext context) {
-        Long alertId = context.args.getLong(ALERT_ID_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
-        String tickerOrPair = context.args.getString(TICKER_PAIR_ARGUMENT)
-                .map(t -> null != alertId ? t : requireTickerPairLength(t)).orElse(null);
-        validateExclusiveArguments(alertId, tickerOrPair);
-        Long ownerId = null != tickerOrPair && context.args.getLastArgs(OWNER_ARGUMENT).filter(not(String::isBlank)).isPresent() ?
-                context.args.getMandatoryUserId(OWNER_ARGUMENT) : null;
+        var alertId = context.args.getLong(ALERT_ID_ARGUMENT).map(ArgumentValidator::requirePositive);
+        if(alertId.isPresent()) {
+            context.noMoreArgs();
+            return new Arguments(alertId.get(), null, null);
+        }
+        String tickerOrPair = context.args.getMandatoryString(TICKER_PAIR_ARGUMENT);
+        if(!DELETE_ALL.equals(tickerOrPair)) {
+            tickerOrPair = requireTickerPairLength(tickerOrPair);
+        }
+        Long ownerId = context.args.getUserId(OWNER_ARGUMENT).orElse(null);
         context.noMoreArgs();
-        return new Arguments(alertId, tickerOrPair, ownerId);
-    }
-    static void validateExclusiveArguments(@Nullable Long alertId, @Nullable String tickerOrPair) {
-        if(null == alertId && null == tickerOrPair) {
-            throw new IllegalArgumentException("Missing arguments, an alert id or a ticker or a pair is expected");
-        }
-        if(null != alertId && null != tickerOrPair) {
-            throw new IllegalArgumentException(TOO_MANY_ARGUMENTS + ", either an alert id or a filter on a ticker or a pair is expected");
-        }
+        return new Arguments(null, tickerOrPair, ownerId);
     }
 
     private Message delete(@NotNull CommandContext context, @NotNull Arguments arguments) {

@@ -13,14 +13,13 @@ import org.sbot.entities.chart.Candlestick;
 import org.sbot.entities.chart.Candlestick.CandlestickPeriod;
 import org.sbot.entities.chart.TimeFrame;
 import org.sbot.exchanges.Exchange;
-import org.sbot.exchanges.Exchanges;
 import org.sbot.services.MatchingService.MatchingAlert;
 import org.sbot.services.MatchingService.MatchingAlert.MatchingStatus;
 import org.sbot.services.context.Context;
 import org.sbot.services.context.TransactionalContext;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.UsersDao;
-import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
+import org.sbot.services.dao.BatchEntry;
 import org.sbot.services.discord.Discord;
 import org.sbot.utils.Dates;
 
@@ -102,7 +101,7 @@ public final class AlertsWatcher {
 
     void expiredUsersCleanup(@NotNull UsersDao usersDao, @NotNull ZonedDateTime now) {
         ZonedDateTime expirationDate = now.minusMonths(LAST_ACCESS_DELAY_MONTHS);
-        long deleted = usersDao.deleteHavingLastAccessBefore(expirationDate);
+        long deleted = usersDao.deleteHavingLastAccessBeforeAndNotInAlerts(expirationDate);
         LOGGER.debug("Deleted {} users with last access < {}", deleted, expirationDate);
     }
 

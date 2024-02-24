@@ -4,9 +4,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.provider.Arguments;
 import org.sbot.services.dao.AlertsDaoTest;
 import org.sbot.services.dao.sql.jdbi.AbstractJDBI;
+import org.sbot.services.dao.sql.jdbi.JDBIRepository;
 import org.sbot.services.dao.sql.jdbi.JDBITransactionHandler;
 
+import java.util.ArrayList;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -18,6 +22,13 @@ import static org.sbot.services.dao.sql.jdbi.JDBIRepositoryTest.loadTransactiona
 class AlertsSQLiteTest extends AlertsDaoTest {
 
     public static Stream<Arguments> provideDao() {
+        return provideDao(null);
+    }
+
+    public static Stream<Arguments> provideDao(Consumer<JDBIRepository> usersDaoConstructor) {
+        var initConstructors = new ArrayList<Consumer<JDBIRepository>>();
+        Optional.ofNullable(usersDaoConstructor).ifPresent(initConstructors::add);
+        initConstructors.add(AlertsSQLite::new);
         UsersSQLite[] userDao = new UsersSQLite[1];
         return Stream.of(Arguments.of(loadTransactionalDao((dao, handle) -> {
             try {
@@ -31,7 +42,7 @@ class AlertsSQLiteTest extends AlertsDaoTest {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        }, AlertsSQLite::new, (jdbi, txHandler) -> new AlertsSQLite(jdbi, txHandler, new AtomicLong(1))), userDao[0]));
+        },(jdbi, txHandler) -> new AlertsSQLite(jdbi, txHandler, new AtomicLong(1)), initConstructors), userDao[0]));
     }
 
     @Test

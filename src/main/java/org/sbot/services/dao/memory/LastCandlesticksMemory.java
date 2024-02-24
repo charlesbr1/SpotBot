@@ -5,7 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.entities.chart.Candlestick;
 import org.sbot.services.dao.LastCandlesticksDao;
-import org.sbot.services.dao.sql.jdbi.JDBIRepository.BatchEntry;
+import org.sbot.services.dao.BatchEntry;
 
 import java.time.ZonedDateTime;
 import java.util.Map;

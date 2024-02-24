@@ -14,7 +14,7 @@ import static org.sbot.services.dao.sql.jdbi.JDBIRepositoryTest.loadTransactiona
 class UsersSQLiteTest extends UsersDaoTest {
 
     public static Stream<Arguments> provideDao() {
-        return Stream.of(Arguments.of(loadTransactionalDao(UsersSQLite::setupTable, UsersSQLite::new, UsersSQLite::new)));
+        return AlertsSQLiteTest.provideDao(UsersSQLite::new).map(arguments -> Arguments.of(arguments.get()[1]));
     }
 
     @Test

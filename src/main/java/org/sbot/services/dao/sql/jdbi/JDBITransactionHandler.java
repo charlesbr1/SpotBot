@@ -49,10 +49,10 @@ public class JDBITransactionHandler {
         if(null == handle) {
             LOGGER.debug("new tx handler");
             // setup a new tx handler
-            var newHandle = jdbi.open();
-            newHandle.setTransactionIsolationLevel(transactionIsolationLevel);
-            newHandle.execute(ENABLE_FOREIGN_KEY_CONSTRAINT);
-            handle = newHandle.begin();
+            handle = jdbi.open();
+            handle.setTransactionIsolationLevel(transactionIsolationLevel);
+            handle.execute(ENABLE_FOREIGN_KEY_CONSTRAINT);
+            handle.begin();
         }
         return handle;
     }
@@ -69,7 +69,7 @@ public class JDBITransactionHandler {
         LOGGER.debug("commit tx");
         if(null != handle) {
             clearHandle().ifPresent(tx -> {
-                try (tx) { // this finally  call handle close()
+                try (tx) { // this finally call handle close()
                     tx.commit();
                     LOGGER.debug("tx successfully committed");
                 }
