@@ -9,12 +9,33 @@ import java.util.List;
 
 import static java.math.BigDecimal.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.DatesTest.nowUtc;
 
 class ArgumentValidatorTest {
+
+    @Test
+    void BLANK_SPACES() {
+        assertTrue(BLANK_SPACES.matcher(" ").matches());
+        assertTrue(BLANK_SPACES.matcher("  ").matches());
+        assertTrue(BLANK_SPACES.matcher("      ").matches());
+        assertTrue(BLANK_SPACES.matcher("\t").matches());
+        assertTrue(BLANK_SPACES.matcher("\t ").matches());
+        assertTrue(BLANK_SPACES.matcher("\n").matches());
+        assertTrue(BLANK_SPACES.matcher("\n   ").matches());
+        assertTrue(BLANK_SPACES.matcher(" \t  \n   ").matches());
+
+        assertFalse(BLANK_SPACES.matcher("").matches());
+        assertFalse(BLANK_SPACES.matcher("a").matches());
+        assertFalse(BLANK_SPACES.matcher("aabc").matches());
+        assertFalse(BLANK_SPACES.matcher("aabc\tfe").matches());
+        assertFalse(BLANK_SPACES.matcher("aabc  fe").matches());
+        assertFalse(BLANK_SPACES.matcher("aabc  fe  ").matches());
+        assertFalse(BLANK_SPACES.matcher("aa\n    \t   bc  fe  ").matches());
+    }
 
     @Test
     void PAIR_PATTERN() {

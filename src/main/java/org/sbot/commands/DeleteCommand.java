@@ -15,7 +15,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
-import static org.sbot.commands.SecurityAccess.hasRightOnUser;
+import static org.sbot.commands.SecurityAccess.sameUserOrAdmin;
 import static org.sbot.services.discord.Discord.guildName;
 import static org.sbot.utils.ArgumentValidator.*;
 
@@ -69,7 +69,7 @@ public final class DeleteCommand extends CommandAdapter {
         if (null != arguments.alertId) { // single id delete
             return deleteById(context, arguments.alertId);
         } else if (null == arguments.ownerId || // if ownerId is null -> delete all alerts of current user, or filtered by ticker or pair
-                hasRightOnUser(context, arguments.ownerId)) { // ownerId != null -> only an admin can delete alerts of other users on his server
+                sameUserOrAdmin(context, arguments.ownerId)) { // ownerId != null -> only an admin can delete alerts of other users on his server
             return deleteByOwnerOrTickerPair(context, arguments.ownerId, arguments.tickerOrPair);
         } else {
             return Message.of(embedBuilder(":clown:" + ' ' + context.user.getEffectiveName(), Color.black, "You are not allowed to delete your mates' alerts" +

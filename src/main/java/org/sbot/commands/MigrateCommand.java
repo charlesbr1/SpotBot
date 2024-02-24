@@ -19,8 +19,7 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
-import static org.sbot.commands.DeleteCommand.validateExclusiveArguments;
-import static org.sbot.commands.SecurityAccess.hasRightOnUser;
+import static org.sbot.commands.SecurityAccess.sameUserOrAdmin;
 import static org.sbot.entities.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.entities.alerts.Alert.isPrivate;
 import static org.sbot.services.discord.Discord.guildName;
@@ -67,7 +66,7 @@ public final class MigrateCommand extends CommandAdapter {
         Long serverId = context.args.getLong(GUILD_ARGUMENT).orElse(null);
         String tickerOrPair = context.args.getString(TICKER_PAIR_ARGUMENT)
                 .map(t -> null != alertId ? t : requireTickerPairLength(t)).orElse(null);
-        validateExclusiveArguments(alertId, tickerOrPair);
+//TODO        validateExclusiveArguments(alertId, tickerOrPair);
         Long ownerId = null;
         if(null != alertId) { // command id
             if(null == serverId) {
@@ -88,7 +87,7 @@ public final class MigrateCommand extends CommandAdapter {
         if (null != arguments.alertId) { // command id
             return migrateById(context, server, arguments.alertId);
         } else if (null == arguments.ownerId || // command all_or_ticker_or_pair
-                hasRightOnUser(context, arguments.ownerId)) {
+                sameUserOrAdmin(context, arguments.ownerId)) {
             return migrateByOwnerOrTickerPair(context, server, arguments.ownerId, requireNonNull(arguments.tickerOrPair));
         } else {
             return Message.of(embedBuilder(":clown:" + ' ' + context.user.getEffectiveName(), Color.black, "You are not allowed to migrate your mates' alerts" +

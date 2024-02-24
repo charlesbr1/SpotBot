@@ -23,7 +23,7 @@ interface SecurityAccess {
                 (sameServer(context.member, alert.serverId) && isAdminMember(context.member)));
     }
 
-    static boolean hasRightOnUser(@NotNull CommandContext context, long userId) {
+    static boolean sameUserOrAdmin(@NotNull CommandContext context, long userId) {
         return sameUser(context.user, userId) || isAdminMember(context.member);
     }
 

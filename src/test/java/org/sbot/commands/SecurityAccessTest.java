@@ -117,30 +117,30 @@ class SecurityAccessTest {
     }
 
     @Test
-    void hasRightOnUser() {
+    void sameUserOrAdmin() {
         long userId = 123L;
-        assertThrows(NullPointerException.class, () -> SecurityAccess.hasRightOnUser(null, userId));
+        assertThrows(NullPointerException.class, () -> SecurityAccess.sameUserOrAdmin(null, userId));
 
         // same user, private channel -> OK
         User user = mock();
         when(user.getIdLong()).thenReturn(userId);
         var context = contextOf(user, null);
-        assertTrue(SecurityAccess.hasRightOnUser(context, userId));
+        assertTrue(SecurityAccess.sameUserOrAdmin(context, userId));
 
         // not same user, private channel -> KO
-        assertFalse(SecurityAccess.hasRightOnUser(context, 765L));
+        assertFalse(SecurityAccess.sameUserOrAdmin(context, 765L));
 
         // same user, server channel -> OK
         Member member = mock();
         context = contextOf(user, member);
-        assertTrue(SecurityAccess.hasRightOnUser(context, userId));
+        assertTrue(SecurityAccess.sameUserOrAdmin(context, userId));
 
         // not same user, server channel, not admin -> KO
-        assertFalse(SecurityAccess.hasRightOnUser(context, 765L));
+        assertFalse(SecurityAccess.sameUserOrAdmin(context, 765L));
 
         // not same user, server channel, admin -> OK
         when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
-        assertTrue(SecurityAccess.hasRightOnUser(context, 765L));
+        assertTrue(SecurityAccess.sameUserOrAdmin(context, 765L));
     }
 
     @Test

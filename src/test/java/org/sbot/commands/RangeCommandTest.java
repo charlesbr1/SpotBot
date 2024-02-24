@@ -294,6 +294,12 @@ class RangeCommandTest {
         assertExceptionContains(IllegalArgumentException.class, LOW_ARGUMENT,
                 () -> RangeCommand.arguments(commandContext[0], now));
 
+        // use dash for date time separator in string commands
+        when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45  23232.6 " + dateFrom + "  10/10/3010 20:01");
+        assertExceptionContains(IllegalArgumentException.class, LOW_ARGUMENT,
+                () -> RangeCommand.arguments(commandContext[0], now));
+
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45  23232.6 " + dateFrom + "  " + dateTo);
         var arguments = RangeCommand.arguments(commandContext[0], now);
         assertNotNull(arguments);

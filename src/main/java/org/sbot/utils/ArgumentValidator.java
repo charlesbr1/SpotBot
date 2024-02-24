@@ -18,6 +18,8 @@ import static org.sbot.utils.Dates.formatDiscord;
 
 public interface ArgumentValidator {
 
+    Pattern BLANK_SPACES = Pattern.compile("\\s+");
+
 
     int ALERT_MESSAGE_ARG_MAX_LENGTH = 210;
     int ALERT_MIN_TICKER_LENGTH = 3;
@@ -117,7 +119,7 @@ public interface ArgumentValidator {
     static ZonedDateTime requireInFuture(@NotNull ZonedDateTime now, @NotNull ZonedDateTime zonedDateTime) {
         if (zonedDateTime.isBefore(now)) {
             throw new IllegalArgumentException("Provided date : " + formatDiscord(zonedDateTime) +
-                    ", should be after actual : " + formatDiscord(now));
+                    ", should be after time : " + formatDiscord(now));
         }
         return zonedDateTime;
     }

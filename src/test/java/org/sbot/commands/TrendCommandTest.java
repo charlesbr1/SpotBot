@@ -284,6 +284,12 @@ class TrendCommandTest {
         assertExceptionContains(IllegalArgumentException.class, TO_DATE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
+        // use dash for date time separator in string commands
+        when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6   10/10/3010 20:01");
+        assertExceptionContains(IllegalArgumentException.class, TO_DATE_ARGUMENT,
+                () -> TrendCommand.arguments(commandContext[0]));
+
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo);
         arguments = TrendCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
