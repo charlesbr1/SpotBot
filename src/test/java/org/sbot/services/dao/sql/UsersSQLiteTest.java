@@ -9,12 +9,15 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
-import static org.sbot.services.dao.sql.jdbi.JDBIRepositoryTest.loadTransactionalDao;
 
 class UsersSQLiteTest extends UsersDaoTest {
 
     public static Stream<Arguments> provideDao() {
-        return AlertsSQLiteTest.provideDao(UsersSQLite::new).map(arguments -> Arguments.of(arguments.get()[1]));
+        return provideBothDao().map(arguments -> Arguments.of(arguments.get()[1]));
+    }
+
+    public static Stream<Arguments> provideBothDao() {
+        return AlertsSQLiteTest.provideDao(UsersSQLite::new);
     }
 
     @Test

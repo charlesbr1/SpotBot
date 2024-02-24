@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.stream.LongStream;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.sbot.entities.alerts.AlertTest.createTestAlertWithUserId;
 import static org.sbot.utils.Dates.UTC;
 import static org.sbot.utils.DatesTest.nowUtc;
 
@@ -181,9 +182,8 @@ public abstract class UsersDaoTest {
     }
 
     @ParameterizedTest
-    @MethodSource("provideDao")
-    void deleteHavingLastAccessBeforeAndNotInAlerts(UsersDao users) {
-        //TODO update AndNotInAlerts
+    @MethodSource("provideBothDao")
+    void deleteHavingLastAccessBeforeAndNotInAlerts(AlertsDao alerts, UsersDao users) {
         assertThrows(NullPointerException.class, () -> users.deleteHavingLastAccessBeforeAndNotInAlerts(null));
 
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
@@ -191,21 +191,26 @@ public abstract class UsersDaoTest {
         var user2 = new User(2L, Locale.JAPAN, null, now.minusHours(1L));
         var user3 = new User(3L, Locale.FRENCH, null, now.minusDays(1L));
         var user4 = new User(4L, Locale.CANADA, null, now.minusWeeks(1L));
+        var user5 = new User(5L, Locale.GERMAN, null, now.minusDays(1L));
         users.setUser(user1);
         users.setUser(user2);
         users.setUser(user3);
         users.setUser(user4);
+        users.setUser(user5);
+        alerts.addAlert(createTestAlertWithUserId(user5.id()));
 
         assertTrue(users.getUser(user1.id()).isPresent());
         assertTrue(users.getUser(user2.id()).isPresent());
         assertTrue(users.getUser(user3.id()).isPresent());
         assertTrue(users.getUser(user4.id()).isPresent());
+        assertTrue(users.getUser(user5.id()).isPresent());
 
         users.deleteHavingLastAccessBeforeAndNotInAlerts(now.minusMonths(1L));
         assertTrue(users.getUser(user1.id()).isPresent());
         assertTrue(users.getUser(user2.id()).isPresent());
         assertTrue(users.getUser(user3.id()).isPresent());
         assertTrue(users.getUser(user4.id()).isPresent());
+        assertTrue(users.getUser(user5.id()).isPresent());
 
         now = now.plusMinutes(1L);
         users.deleteHavingLastAccessBeforeAndNotInAlerts(now.minusWeeks(1L));
@@ -213,23 +218,27 @@ public abstract class UsersDaoTest {
         assertTrue(users.getUser(user2.id()).isPresent());
         assertTrue(users.getUser(user3.id()).isPresent());
         assertTrue(users.getUser(user4.id()).isEmpty());
+        assertTrue(users.getUser(user5.id()).isPresent());
 
         users.deleteHavingLastAccessBeforeAndNotInAlerts(now.minusDays(1L));
         assertTrue(users.getUser(user1.id()).isPresent());
         assertTrue(users.getUser(user2.id()).isPresent());
         assertTrue(users.getUser(user3.id()).isEmpty());
         assertTrue(users.getUser(user4.id()).isEmpty());
+        assertTrue(users.getUser(user5.id()).isPresent());
 
         users.deleteHavingLastAccessBeforeAndNotInAlerts(now.minusHours(1L));
         assertTrue(users.getUser(user1.id()).isPresent());
         assertTrue(users.getUser(user2.id()).isEmpty());
         assertTrue(users.getUser(user3.id()).isEmpty());
         assertTrue(users.getUser(user4.id()).isEmpty());
+        assertTrue(users.getUser(user5.id()).isPresent());
 
         users.deleteHavingLastAccessBeforeAndNotInAlerts(now);
         assertTrue(users.getUser(user1.id()).isEmpty());
         assertTrue(users.getUser(user2.id()).isEmpty());
         assertTrue(users.getUser(user3.id()).isEmpty());
         assertTrue(users.getUser(user4.id()).isEmpty());
+        assertTrue(users.getUser(user5.id()).isPresent());
     }
 }

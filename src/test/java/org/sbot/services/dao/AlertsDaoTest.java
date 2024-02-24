@@ -63,18 +63,6 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void userFKConstraint(AlertsDao alerts, UsersDao users) {
-        if(alerts instanceof AlertsMemory) {
-            assertThrows(IllegalArgumentException.class, () -> alerts.addAlert(createTestAlert()));
-        } else if(alerts instanceof AlertsSQLite) {
-            assertThrows(StatementException.class, () -> alerts.addAlert(createTestAlert()));
-        }
-        setUser(users, TEST_USER_ID);
-        assertDoesNotThrow(() -> alerts.addAlert(createTestAlert()));
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideDao")
     void getAlert(AlertsDao alerts, UsersDao users) {
         setUser(users, TEST_USER_ID);
         assertThrows(NullPointerException.class, () -> alerts.addAlert(null));
@@ -1523,9 +1511,16 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void addAlert(AlertsDao alerts, UsersDao users) {
-        setUser(users, TEST_USER_ID);
         assertThrows(NullPointerException.class, () -> alerts.addAlert(null));
 
+        // test user foreign key constraint
+        if(alerts instanceof AlertsMemory) {
+            assertThrows(IllegalArgumentException.class, () -> alerts.addAlert(createTestAlert()));
+        } else if(alerts instanceof AlertsSQLite) {
+            assertThrows(StatementException.class, () -> alerts.addAlert(createTestAlert()));
+        }
+
+        setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert();
         long alertId = alerts.addAlert(alert);
         assertTrue(alerts.getAlert(alertId).isPresent());

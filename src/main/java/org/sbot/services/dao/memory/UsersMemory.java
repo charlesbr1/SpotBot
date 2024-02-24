@@ -4,7 +4,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.entities.User;
-import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.UsersDao;
 
 import java.time.ZoneId;
@@ -26,11 +25,11 @@ public class UsersMemory implements UsersDao {
 
     private final Map<Long, User> users = new ConcurrentHashMap<>();
 
-    private final AlertsDao alertsDao;
+    private final AlertsMemory alerts;
 
-    public UsersMemory(@NotNull AlertsDao alertsDao) {
+    public UsersMemory(@NotNull AlertsMemory alerts) {
         LOGGER.debug("Loading memory storage for users");
-        this.alertsDao = requireNonNull(alertsDao);
+        this.alerts = requireNonNull(alerts);
     }
 
     @Override
@@ -86,8 +85,8 @@ public class UsersMemory implements UsersDao {
     public long deleteHavingLastAccessBeforeAndNotInAlerts(@NotNull ZonedDateTime expirationDate) {
         LOGGER.debug("deleteHavingLastAccessBeforeAndNotInAlerts {}", expirationDate);
         requireNonNull(expirationDate);
-        var toDelete = users.values().stream().filter(u ->
-                u.lastAccess().isBefore(expirationDate) && 0 >= alertsDao.countAlertsOfUser(u.id())).toList();
+        var toDelete = users.values().stream().filter(u -> u.lastAccess().isBefore(expirationDate) &&
+                alerts.getAlertsOfUserStream(u.id()).findFirst().isEmpty()).toList();
         users.values().removeAll(toDelete);
         return toDelete.size();
     }

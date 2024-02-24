@@ -178,7 +178,7 @@ public final class AlertsMemory implements AlertsDao {
                 .skip(offset).limit(limit).toList();
     }
 
-    private Stream<Alert> getAlertsOfUserStream(long userId) {
+    Stream<Alert> getAlertsOfUserStream(long userId) {
         return alerts.values().stream().filter(alert -> alert.userId == userId);
     }
 
