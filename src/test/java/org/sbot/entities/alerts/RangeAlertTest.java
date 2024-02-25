@@ -25,9 +25,9 @@ import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.*;
 import static org.sbot.utils.DatesTest.nowUtc;
 
-class RangeAlertTest {
+public class RangeAlertTest {
 
-    static RangeAlert createTestRangeAlert() {
+    public static RangeAlert createTestRangeAlert() {
         return new RangeAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);

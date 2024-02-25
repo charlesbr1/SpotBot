@@ -12,6 +12,7 @@ import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
+import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.utils.Dates.UTC;
 
 class StringArgumentReaderTest {
@@ -84,6 +85,28 @@ class StringArgumentReaderTest {
         assertEquals(21L, reader.getLong("").get());
         assertEquals(33L, reader.getLong("").get());
         assertTrue(reader.getLong("").isEmpty());
+        assertTrue(reader.getLastArgs("").isEmpty());
+    }
+
+    @Test
+    void getType() {
+        StringArgumentReader reader = new StringArgumentReader("test");
+        assertTrue(reader.getType("").isEmpty());
+        assertEquals("test", reader.getLastArgs("").get());
+
+        reader = new StringArgumentReader("range");
+        assertEquals(range, reader.getType("").get());
+
+        reader = new StringArgumentReader("trend");
+        assertEquals(trend, reader.getType("").get());
+
+        reader = new StringArgumentReader("remainder");
+        assertEquals(remainder, reader.getType("").get());
+
+        reader = new StringArgumentReader(" trend remainder ");
+        assertEquals(trend, reader.getType("").get());
+        assertEquals(remainder, reader.getType("").get());
+        assertTrue(reader.getType("").isEmpty());
         assertTrue(reader.getLastArgs("").isEmpty());
     }
 

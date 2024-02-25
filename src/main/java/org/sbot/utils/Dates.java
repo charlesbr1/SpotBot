@@ -88,9 +88,9 @@ public interface Dates {
             throw new DateTimeParseException("Malformed date-time", dateTime, separator);
         }
         String date = dateTime.substring(0, separator);
-        var timeZone = BLANK_SPACES.matcher(dateTime.substring(separator + 1)).replaceAll(" "); // set any spaces as one space
+        var timeAndZone = BLANK_SPACES.matcher(dateTime.substring(separator + 1)).replaceAll(" "); // set any spaces as one space
         return DATE_FORMATTER.format(LOCALIZED_DATE_FORMATTER.withLocale(locale).parse(date)) +
-                (timeZone.startsWith(" ") ? "" : " ") + timeZone;
+                (timeAndZone.startsWith(" ") ? "" : " ") + timeAndZone;
     }
 
     static String formatDiscord(@NotNull ZonedDateTime dateTime) {

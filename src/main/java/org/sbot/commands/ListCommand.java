@@ -2,6 +2,7 @@ package org.sbot.commands;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
+import net.dv8tion.jda.api.interactions.commands.Command.Choice;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
@@ -10,7 +11,8 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
 import org.sbot.entities.alerts.Alert;
-import org.sbot.services.dao.AlertsDao;
+import org.sbot.entities.alerts.Alert.Type;
+import org.sbot.services.dao.AlertsDao.SelectionFilter;
 import org.sbot.services.discord.Discord;
 import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
@@ -29,7 +31,7 @@ import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.commands.SecurityAccess.isAdminMember;
+import static org.sbot.commands.SecurityAccess.*;
 import static org.sbot.commands.interactions.SelectEditInteraction.updateMenuOf;
 import static org.sbot.entities.alerts.Alert.isPrivate;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
@@ -57,10 +59,12 @@ public final class ListCommand extends CommandAdapter {
                             .setMinLength(1),
                     option(STRING, TICKER_PAIR_ARGUMENT, "an optional search filter on a ticker or a pair if selection is an user", false)
                             .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
+                    option(STRING, TYPE_ARGUMENT, "type of alert to list (range, trend or remainder)", false)
+                            .addChoices(Stream.of(Type.values()).map(t -> new Choice(t.name(), t.name())).toList()),
                     option(INTEGER, OFFSET_ARGUMENT, "an offset from where to start the search (results are limited to " + MESSAGE_LIST_CHUNK + " alerts)", false)
                             .setMinValue(0));
 
-    private record Arguments(Long alertId, String selection, Long ownerId, String tickerOrPair, Long offset) {}
+    private record Arguments(Long alertId, Type type, String selection, Long ownerId, String tickerOrPair, Long offset) {}
 
     public ListCommand() {
         super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
@@ -83,8 +87,8 @@ public final class ListCommand extends CommandAdapter {
                     case LIST_LOCALES: context.reply(locales(), responseTtlSeconds); break; // list available timezones
                     case LIST_TIMEZONES: context.reply(timezones(), responseTtlSeconds); break; // list available timezones
                     case LIST_EXCHANGES : context.reply(exchanges(), responseTtlSeconds); break; // list exchanges and pairs
-                    case LIST_ALL : context.reply(listAll(context, now, arguments.offset), responseTtlSeconds); break;  // list all alerts
-                    default : context.reply(listByTickerOrPair(context, now, arguments.selection.toUpperCase(), arguments.offset), responseTtlSeconds);
+                    case LIST_ALL : context.reply(listAll(context, now, arguments), responseTtlSeconds); break;  // list all alerts
+                    default : context.reply(listByTickerOrPair(context, now, arguments), responseTtlSeconds);
                 }
             }
         }
@@ -94,23 +98,24 @@ public final class ListCommand extends CommandAdapter {
         Long alertId = context.args.getLong(SELECTION_ARGUMENT).orElse(null);
         if (null != alertId) {
             context.noMoreArgs();
-            return new Arguments(alertId, null, null, null, null);
+            return new Arguments(alertId, null, null, null, null, null);
         }
         var owner = context.args.getUserId(SELECTION_ARGUMENT).orElse(null);
+        var type = context.args.getType(TYPE_ARGUMENT).orElse(null);
         var offset = null == owner ? null : context.args.getLong(OFFSET_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
         var tickerOrPair = null == owner ? null : context.args.getString(TICKER_PAIR_ARGUMENT).map(String::toUpperCase).orElse(null);
         offset = null == owner || null != offset ? offset : context.args.getLong(OFFSET_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(0L);
         var selection = null == owner ? context.args.getString(SELECTION_ARGUMENT).map(String::toLowerCase).orElse(LIST_ALL) : null;
         offset = null == owner ? context.args.getLong(OFFSET_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(0L) : offset;
         context.noMoreArgs();
-        return new Arguments(null, selection, owner, tickerOrPair, offset);
+        return new Arguments(null, type, selection, owner, tickerOrPair, offset);
     }
 
     private Message listOneAlert(@NotNull CommandContext context, @NotNull ZonedDateTime now, long alertId) {
         return context.transactional(txCtx -> {
             Message[] message = new Message[1];
             var answer = securedAlertAccess(alertId, context, (alert, alertsDao) -> {
-                if(alert.userId == context.user.getIdLong() || isAdminMember(context.member)) {
+                if(sameUserOrAdmin(context, alert.userId)) {
                     message[0] = toMessageWithEdit(context, now, alert, 0L, 0L);
                 } else {
                     message[0] = Message.of(toMessage(context, now, alert, 0L, 0L));
@@ -121,82 +126,49 @@ public final class ListCommand extends CommandAdapter {
         });
     }
 
-    private record AlertsTotal(@NotNull List<Alert> alerts, long total) {}
-
-    private List<Message> listAll(@NotNull CommandContext context, @NotNull ZonedDateTime now, long offset) {
-        var alertsTotal = context.transactional(txCtx -> {
-            var dao = txCtx.alertsDao();
-            long total = isPrivateChannel(context) ?
-                    dao.countAlertsOfUser(context.user.getIdLong()) :
-                    dao.countAlertsOfServer(context.serverId());
-            var alerts = isPrivateChannel(context) ?
-                    dao.getAlertsOfUserOrderByPairId(context.user.getIdLong(), offset, MESSAGE_LIST_CHUNK + 1L) :
-                    dao.getAlertsOfServerOrderByPairUserIdId(context.serverId(), offset, MESSAGE_LIST_CHUNK + 1L);
-            return new AlertsTotal(alerts, total);
-        });
-        var messages = toEditableMessages(context, alertsTotal.alerts, now, offset, alertsTotal.total, false);
-        return paginatedAlerts(messages, offset,
-                () -> "list all " + (offset + MESSAGE_PAGE_SIZE - 1),
-                () ->  offset > 0 ? " for offset : " + offset : "");
+    private List<Message> listAll(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Arguments arguments) {
+        var filter = isPrivateChannel(context) ?
+                SelectionFilter.ofUser(context.user.getIdLong(), arguments.type) :
+                SelectionFilter.ofServer(context.serverId(), arguments.type);
+        return listAlerts(context, now, filter, arguments.offset, false,
+                //TODO ajouter type dans la description
+                () -> "list all " + (arguments.offset + MESSAGE_PAGE_SIZE - 1),
+                () -> arguments.offset > 0 ? " for offset : " + arguments.offset : "");
     }
 
     private List<Message> listByOwnerAndPair(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Arguments arguments) {
-        var ownerId = arguments.ownerId;
-        var tickerOrPair = arguments.tickerOrPair;
-        var offset = arguments.offset;
-        if(null == context.member && context.user.getIdLong() != ownerId) {
+        if(null == context.member && !sameUser(context.user, arguments.ownerId)) {
             return List.of(Message.of(embedBuilder(NAME, Color.red, "You are not allowed to see alerts of members in a private channel")));
         }
+        var filter = isPrivateChannel(context) ?
+                SelectionFilter.ofUser(context.user.getIdLong(), arguments.type).withTickerOrPair(arguments.tickerOrPair) :
+                SelectionFilter.of(context.serverId(), arguments.ownerId, arguments.type).withTickerOrPair(arguments.tickerOrPair);
+        return listAlerts(context, now, filter, arguments.offset, true,
+                () -> "list <@" + arguments.ownerId + '>' +
+                        (null != arguments.tickerOrPair ? ' ' + arguments.tickerOrPair : "") + " " + (arguments.offset + MESSAGE_LIST_CHUNK - 1),
+                () -> " for user <@" + arguments.ownerId + (null != arguments.tickerOrPair ? "> and '" + arguments.tickerOrPair : ">") +
+                        (arguments.offset > 0 ? "', and offset " + arguments.offset : "'"));
+    }
+
+    private List<Message> listByTickerOrPair(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Arguments arguments) {
+        var filter = isPrivateChannel(context) ?
+                SelectionFilter.ofUser(context.user.getIdLong(), arguments.type).withTickerOrPair(arguments.tickerOrPair.toUpperCase()) :
+                SelectionFilter.ofServer(context.serverId(), arguments.type).withTickerOrPair(arguments.tickerOrPair.toUpperCase());
+        return listAlerts(context, now, filter, arguments.offset, isPrivateChannel(context),
+                () -> "list " + arguments.tickerOrPair + " " + (arguments.offset + MESSAGE_LIST_CHUNK - 1),
+                () -> " for ticker or pair '" + arguments.tickerOrPair + (arguments.offset > 0 ? "', and offset : " + arguments.offset : "'"));
+    }
+
+    private List<Message> listAlerts(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull SelectionFilter filter, long offset, boolean editAll, @NotNull Supplier<String> nextCommand, @NotNull Supplier<String> command) {
+        record AlertsTotal(@NotNull List<Alert> alerts, long total) {}
         var alertsTotal = context.transactional(txCtx -> {
             var dao = txCtx.alertsDao();
-            if (isPrivateChannel(context)) {
-                return listUserAlerts(dao, context.user.getIdLong(), offset, tickerOrPair);
-            }
-            return listServerAlerts(dao, context.serverId(), ownerId, offset, tickerOrPair);
-        });
-        var messages = toEditableMessages(context, alertsTotal.alerts, now, offset, alertsTotal.total, true);
-        return paginatedAlerts(messages, offset,
-                () -> "list <@" + ownerId + '>' +
-                        (null != tickerOrPair ? ' ' + tickerOrPair : "") + " " + (offset + MESSAGE_LIST_CHUNK - 1),
-                () -> " for user <@" + ownerId + (null != tickerOrPair ? "> and '" + tickerOrPair : ">") +
-                        (offset > 0 ? "', and offset " + offset : "'"));
-    }
-
-    static AlertsTotal listUserAlerts(@NotNull AlertsDao dao, long userId, long offset, @Nullable String tickerOrPair) {
-        var total = null != tickerOrPair ?
-                dao.countAlertsOfUserAndTickers(userId, tickerOrPair) :
-                dao.countAlertsOfUser(userId);
-        var alerts = null != tickerOrPair ?
-                dao.getAlertsOfUserAndTickersOrderById(userId, offset, MESSAGE_LIST_CHUNK + 1L, tickerOrPair) :
-                dao.getAlertsOfUserOrderByPairId(userId, offset, MESSAGE_LIST_CHUNK + 1L);
-        return new AlertsTotal(alerts, total);
-    }
-
-    static AlertsTotal listServerAlerts(@NotNull AlertsDao dao, long serverId, long ownerId, long offset, @Nullable String tickerOrPair) {
-        var total = null != tickerOrPair ?
-                dao.countAlertsOfServerAndUserAndTickers(serverId, ownerId, tickerOrPair) :
-                dao.countAlertsOfServerAndUser(serverId, ownerId);
-        var alerts = null != tickerOrPair ?
-                dao.getAlertsOfServerAndUserAndTickersOrderById(serverId, ownerId, offset, MESSAGE_LIST_CHUNK + 1L, tickerOrPair) :
-                dao.getAlertsOfServerAndUserOrderByPairId(serverId, ownerId, offset, MESSAGE_LIST_CHUNK + 1L);
-        return new AlertsTotal(alerts, total);
-    }
-
-    private List<Message> listByTickerOrPair(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull String tickerOrPair, long offset) {
-        var alertsTotal = context.transactional(txCtx -> {
-            var dao = txCtx.alertsDao();
-            long total = isPrivateChannel(context) ?
-                    dao.countAlertsOfUserAndTickers(context.user.getIdLong(), tickerOrPair) :
-                    dao.countAlertsOfServerAndTickers(context.serverId(), tickerOrPair);
-            var alerts = isPrivateChannel(context) ?
-                    dao.getAlertsOfUserAndTickersOrderById(context.user.getIdLong(), offset, MESSAGE_LIST_CHUNK + 1L, tickerOrPair) :
-                    dao.getAlertsOfServerAndTickersOrderByUserIdId(context.serverId(), offset, MESSAGE_LIST_CHUNK + 1L, tickerOrPair);
+            long total = dao.countAlerts(filter);
+            var alerts = dao.getAlertsOrderByPairUserIdId(filter, offset, MESSAGE_LIST_CHUNK + 1L);
             return new AlertsTotal(alerts, total);
         });
-        var messages = toEditableMessages(context, alertsTotal.alerts, now, offset, alertsTotal.total, isPrivateChannel(context));
-        return paginatedAlerts(messages, offset,
-                () -> "list " + tickerOrPair + " " + (offset + MESSAGE_LIST_CHUNK - 1),
-                () -> " for ticker or pair '" + tickerOrPair + (offset > 0 ? "', and offset : " + offset : "'"));
+        var messages = toEditableMessages(context, alertsTotal.alerts, now, offset, alertsTotal.total, editAll);
+        return paginatedAlerts(messages, offset, nextCommand, command);
     }
 
     private static ArrayList<Message> toEditableMessages(@NotNull CommandContext context, @NotNull List<Alert> alerts, @NotNull ZonedDateTime now, long offset, long total, boolean editAll) {

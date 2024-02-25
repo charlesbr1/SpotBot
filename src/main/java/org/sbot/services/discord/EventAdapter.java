@@ -20,6 +20,7 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
 import org.sbot.services.context.Context;
+import org.sbot.services.dao.AlertsDao.SelectionFilter;
 
 import java.awt.*;
 import java.util.List;
@@ -64,13 +65,13 @@ final class EventAdapter extends ListenerAdapter {
 
     private void migrateUserAlertsToPrivateChannel(@Nullable Long userId, @NotNull Guild guild, @NotNull String reason) {
         if(null != userId) {
-            long nbMigrated = context.transactional(txCtx -> txCtx.alertsDao().updateServerIdOfUserAndServerId(userId, guild.getIdLong(), PRIVATE_ALERT));
+            long nbMigrated = context.transactional(txCtx -> txCtx.alertsDao().updateServerIdOf(SelectionFilter.of(guild.getIdLong(), userId, null), PRIVATE_ALERT));
             notifyPrivateAlertMigration(userId, reason, nbMigrated);
             LOGGER.debug("Migrated to private {} alerts of user {} on server {}, reason : {}", nbMigrated, userId, guild.getIdLong(), reason);
         } else { // guild removed this bot, migrate all the alerts of this guild to private and notify each user
             List<Long> userIds = context.transactional(txCtx -> {
                 var ids = txCtx.alertsDao().getUserIdsByServerId(guild.getIdLong());
-                long totalMigrated = txCtx.alertsDao().updateServerIdPrivate(guild.getIdLong());
+                long totalMigrated = txCtx.alertsDao().updateServerIdOf(SelectionFilter.ofServer(guild.getIdLong(), null), PRIVATE_ALERT);
                 LOGGER.debug("Migrated to private {} alerts on server {}, reason : {}", totalMigrated, guild.getIdLong(), reason);
                 return ids;
             });

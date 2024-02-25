@@ -8,32 +8,33 @@ import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.SqlStatement;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.entities.alerts.Alert.Type;
 import org.sbot.entities.alerts.RangeAlert;
 import org.sbot.entities.alerts.RemainderAlert;
 import org.sbot.entities.alerts.TrendAlert;
 import org.sbot.services.dao.AlertsDao;
+import org.sbot.services.dao.BatchEntry;
 import org.sbot.services.dao.sql.jdbi.AbstractJDBI;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository;
-import org.sbot.services.dao.BatchEntry;
 import org.sbot.services.dao.sql.jdbi.JDBITransactionHandler;
 
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.ZonedDateTime;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyMap;
+import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
-import static org.sbot.entities.alerts.Alert.PRIVATE_ALERT;
 import static org.sbot.entities.alerts.Alert.Type.range;
 import static org.sbot.entities.alerts.Alert.Type.remainder;
 import static org.sbot.services.dao.sql.AlertsSQLite.SQL.*;
@@ -72,6 +73,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String PERIOD_MS_ARGUMENT = "periodMs";
         String EXPIRATION_DATE_ARGUMENT = "expirationDate";
         String TICKER_OR_PAIR_ARGUMENT = "tickerOrPair";
+        String NEW_SERVER_ID_ARGUMENT = "newServerId";
         String OFFSET_ARGUMENT = "offset";
         String LIMIT_ARGUMENT = "limit";
 
@@ -120,39 +122,19 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String SELECT_ID_MESSAGE_HAVING_ID_IN = "SELECT id,message FROM alerts WHERE id IN (<ids>)";
         String SELECT_PAIRS_EXCHANGES_HAVING_PAST_LISTENING_DATE_WITH_ACTIVE_RANGE =
                 "SELECT DISTINCT exchange,pair FROM alerts WHERE " + PAST_LISTENING_DATE_WITH_ACTIVE_RANGE;
-        String COUNT_ALERTS_OF_USER = "SELECT COUNT(*) FROM alerts WHERE user_id=:user_id";
-        String ALERTS_OF_USER_ORDER_BY_PAIR_ID = "SELECT * FROM alerts WHERE user_id=:user_id ORDER BY pair,id LIMIT :limit OFFSET :offset";
-        String COUNT_ALERTS_OF_USER_AND_TICKER_OR_PAIR = "SELECT COUNT(*) FROM alerts WHERE user_id=:user_id AND pair LIKE '%'||:tickerOrPair||'%'";
-        String ALERTS_OF_USER_AND_TICKER_OR_PAIR_ORDER_BY_ID = "SELECT * FROM alerts WHERE user_id=:user_id AND pair LIKE '%'||:tickerOrPair||'%' ORDER BY id LIMIT :limit OFFSET :offset";
-        String COUNT_ALERTS_OF_SERVER = "SELECT COUNT(*) FROM alerts WHERE server_id=:server_id";
-        String ALERTS_OF_SERVER_ORDER_BY_PAIR_USER_ID_ID = "SELECT * FROM alerts WHERE server_id=:server_id ORDER BY pair,user_id,id LIMIT :limit OFFSET :offset";
-        String COUNT_ALERTS_OF_SERVER_AND_USER = "SELECT COUNT(*) FROM alerts WHERE server_id=:server_id AND user_id=:user_id";
-        String ALERTS_OF_SERVER_AND_USER_ORDER_BY_PAIR_ID = "SELECT * FROM alerts WHERE server_id=:server_id AND user_id=:user_id ORDER BY pair,id LIMIT :limit OFFSET :offset";
-        String COUNT_ALERTS_OF_SERVER_AND_TICKER_OR_PAIR = "SELECT COUNT(*) FROM alerts WHERE server_id=:server_id AND pair LIKE '%'||:tickerOrPair||'%'";
-        String ALERTS_OF_SERVER_AND_TICKER_OR_PAIR_ORDER_BY_USER_ID_ID = "SELECT * FROM alerts WHERE server_id=:server_id AND pair LIKE '%'||:tickerOrPair||'%' ORDER BY user_id,id LIMIT :limit OFFSET :offset";
-        String COUNT_ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR = "SELECT COUNT(*) FROM alerts WHERE server_id=:server_id AND user_id=:user_id AND pair LIKE '%'||:tickerOrPair||'%'";
-        String ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR_ORDER_BY_ID = "SELECT * FROM alerts WHERE server_id=:server_id AND user_id=:user_id AND pair LIKE '%'||:tickerOrPair||'%' ORDER BY id LIMIT :limit OFFSET :offset";
+        String COUNT_ALERTS_OF_SELECTION = "SELECT COUNT(*) FROM alerts WHERE ";
+        String ALERTS_OF_SELECTION = "SELECT * FROM alerts WHERE ";
+        String ORDER_BY_PAIR_USER_ID_ID_WITH_OFFSET_LIMIT = " ORDER BY pair,user_id,id LIMIT :limit OFFSET :offset";
+        String ORDER_BY_PAIR_ID_WITH_OFFSET_LIMIT = " ORDER BY pair,id LIMIT :limit OFFSET :offset";
         String DELETE_BY_ID = "DELETE FROM alerts WHERE id=:id";
-        String DELETE_BY_USER_ID_AND_SERVER_ID = "DELETE FROM alerts WHERE user_id=:user_id AND server_id=:server_id";
-        String DELETE_BY_USER_ID_AND_SERVER_ID_AND_TICKER_OR_PAIR = "DELETE FROM alerts WHERE user_id=:user_id AND server_id=:server_id AND pair LIKE '%'||:tickerOrPair||'%'";
+        String DELETE_BY_SELECTION = "DELETE FROM alerts WHERE ";
         String INSERT_ALERT_FIELDS_MAPPING = "INSERT INTO alerts (id,type,user_id,server_id,creation_date,listening_date,exchange,pair,message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze) " +
                 // class field names arguments (userId and not user_id), for direct alert mapping using query.bindFields
                 "VALUES (:id,:type,:userId,:serverId,:creationDate,:listeningDate,:exchange,:pair,:message,:fromPrice,:toPrice,:fromDate,:toDate,:lastTrigger,:margin,:repeat,:snooze)";
-        String UPDATE_ALERTS_SERVER_ID_BY_ID = "UPDATE alerts SET server_id=:server_id WHERE id=:id";
-        String UPDATE_ALERTS_SERVER_ID_PRIVATE = "UPDATE alerts SET server_id=" + PRIVATE_ALERT + " WHERE server_id=:server_id";
-        String UPDATE_ALERTS_SERVER_ID_BY_USER_ID_AND_SERVER_ID = "UPDATE alerts SET server_id=:newServerId WHERE user_id=:user_id AND server_id=:server_id";
-        String UPDATE_ALERTS_SERVER_ID_BY_USER_ID_AND_SERVER_ID_TICKER_OR_PAIR = "UPDATE alerts SET server_id=:newServerId WHERE user_id=:user_id AND server_id=:server_id AND pair LIKE '%'||:tickerOrPair||'%'";
-        String UPDATE_ALERTS_FROM_PRICE = "UPDATE alerts SET from_price=:from_price WHERE id=:id";
-        String UPDATE_ALERTS_TO_PRICE = "UPDATE alerts SET to_price=:to_price WHERE id=:id";
-        String UPDATE_ALERTS_FROM_DATE = "UPDATE alerts SET from_date=:from_date WHERE id=:id";
-        String UPDATE_ALERTS_TO_DATE = "UPDATE alerts SET to_date=:to_date WHERE id=:id";
-        String UPDATE_ALERTS_MESSAGE = "UPDATE alerts SET message=:message WHERE id=:id";
-        String UPDATE_ALERTS_MARGIN = "UPDATE alerts SET margin=:margin WHERE id=:id";
-        String UPDATE_ALERTS_SET_LAST_TRIGGER_MARGIN_ZERO = "UPDATE alerts SET last_trigger=:last_trigger,margin=0 WHERE id=:id";
-        String UPDATE_ALERTS_SET_MARGIN_ZERO_DECREMENT_REPEAT_LISTENING_DATE_LAST_TRIGGER_NOW = "UPDATE alerts SET margin=0,last_trigger=:nowMs,listening_date=CASE WHEN repeat>1 THEN (1000*3600*snooze)+:nowMs ELSE null END,repeat=MAX(0,repeat-1) WHERE id=:id";
-        String UPDATE_ALERTS_LISTENING_DATE_FROM_DATE = "UPDATE alerts SET listening_date=:listening_date,from_date=:from_date WHERE id=:id";
-        String UPDATE_ALERTS_REPEAT_LISTENING_DATE = "UPDATE alerts SET repeat=:repeat,listening_date=:listening_date WHERE id=:id";
-        String UPDATE_ALERTS_SNOOZE = "UPDATE alerts SET snooze=:snooze WHERE id=:id";
+        String UPDATE_ALERT_FIELDS_BY_ID = "UPDATE alerts SET {} WHERE id=:id";
+        String UPDATE_ALERTS_SERVER_ID_OF_SELECTION = "UPDATE alerts SET server_id=:newServerId WHERE ";
+        String UPDATE_ALERT_SET_LAST_TRIGGER_MARGIN_ZERO = "UPDATE alerts SET last_trigger=:last_trigger,margin=0 WHERE id=:id";
+        String UPDATE_ALERT_SET_MARGIN_ZERO_DECREMENT_REPEAT_LISTENING_DATE_LAST_TRIGGER_NOW = "UPDATE alerts SET margin=0,last_trigger=:nowMs,listening_date=CASE WHEN repeat>1 THEN (1000*3600*snooze)+:nowMs ELSE null END,repeat=MAX(0,repeat-1) WHERE id=:id";
     }
 
     // from jdbi SQL to Alert
@@ -226,24 +208,62 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         return findOneLong(handle, SQL.SELECT_MAX_ID, emptyMap()).orElse(0L);
     }
 
-    @Override
-    public Optional<Alert> getAlert(long alertId) {
-        LOGGER.debug("getAlert {}", alertId);
-        return findOne(SQL.SELECT_BY_ID, Alert.class,
-                Map.of(ID, alertId));
+    @NotNull
+    static Map<String, Object> selectionFilter(@NotNull SelectionFilter filter) {
+        var selection = LinkedHashMap.<String, Object>newLinkedHashMap(6);
+        BiConsumer<String, Object> put = (name, value) -> {
+            if (null != value) {
+                selection.put(name, value);
+            }
+        };
+        put.accept(SERVER_ID, filter.serverId());
+        put.accept(USER_ID, filter.userId());
+        put.accept(TYPE, Optional.ofNullable(filter.type()).map(Type::name).orElse(null));
+        put.accept(TICKER_OR_PAIR_ARGUMENT, filter.tickerOrPair());
+        return selection;
     }
 
-    @Override
-    public Optional<Alert> getAlertWithoutMessage(long alertId) {
-        LOGGER.debug("getAlertWithoutMessage {}", alertId);
-        return findOne(SQL.SELECT_WITHOUT_MESSAGE_BY_ID, Alert.class,
-                Map.of(ID, alertId));
+    @NotNull
+    static String searchFilter(@NotNull Map<String, Object> selection) {
+        if(selection.isEmpty()) {
+            return "1 = 1"; // no op filter
+        }
+        return selection.entrySet().stream()
+                .map(entry -> {
+                    if(TICKER_OR_PAIR_ARGUMENT.equals(entry.getKey())) {
+                        return PAIR + " LIKE '%'||:" + TICKER_OR_PAIR_ARGUMENT + "||'%'";
+                    }
+                    return entry.getValue() instanceof CharSequence ?
+                            entry.getKey() + " LIKE :" + entry.getKey() :
+                            entry.getKey() + "=:" + entry.getKey();
+                })
+                .collect(joining(" AND "));
     }
 
-    @Override
-    public List<Long> getUserIdsByServerId(long serverId) {
-        LOGGER.debug("getUserIdsByServerId {}", serverId);
-        return query(SQL.SELECT_USER_ID_BY_SERVER_ID, Long.class, Map.of(SERVER_ID, serverId));
+    @NotNull
+    static Map<String, Object> updateParameters(@NotNull Map<UpdateField, Object> fields) {
+        var map = HashMap.<String, Object>newHashMap(10);
+        fields.entrySet().stream().map(entry -> switch (entry.getKey()) {
+            case SERVER_ID ->  entry(SERVER_ID, entry.getValue());
+            case LISTENING_DATE ->  new SimpleImmutableEntry<>(LISTENING_DATE, entry.getValue());
+            case FROM_PRICE ->  entry(FROM_PRICE, entry.getValue());
+            case TO_PRICE ->  entry(TO_PRICE, entry.getValue());
+            case FROM_DATE ->  new SimpleImmutableEntry<>(FROM_DATE, entry.getValue());
+            case TO_DATE ->  new SimpleImmutableEntry<>(TO_DATE, entry.getValue());
+            case MESSAGE ->  entry(MESSAGE, entry.getValue());
+            case MARGIN ->  entry(MARGIN, entry.getValue());
+            case REPEAT ->  entry(REPEAT, entry.getValue());
+            case SNOOZE ->  entry(SNOOZE, entry.getValue());
+        }).forEach(entry -> map.put(entry.getKey(), entry.getValue())); // this accepts null value
+        return map;
+    }
+
+    @NotNull
+    static String updateQuery(@NotNull Collection<String> fields) {
+        if(fields.isEmpty()) {
+            throw new IllegalArgumentException("Empty update parameters map");
+        }
+        return fields.stream().map(field -> field + "=:" + field).collect(joining(","));
     }
 
     @Override
@@ -270,17 +290,6 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
 
     @Override
     @NotNull
-    public Map<Long, String> getAlertMessages(@NotNull LongStream alertIds) {
-        var alertIdList = alertIds.boxed().toList();
-        LOGGER.debug("getAlertMessages {}", alertIdList);
-        if(alertIdList.isEmpty()) {
-            return emptyMap();
-        }
-        return queryMap(SQL.SELECT_ID_MESSAGE_HAVING_ID_IN, new GenericType<>() {}, query -> query.bindList("ids", alertIdList), ID, MESSAGE);
-    }
-
-    @Override
-    @NotNull
     public Map<String, Set<String>> getPairsByExchangesHavingPastListeningDateWithActiveRange(@NotNull ZonedDateTime now, int checkPeriodMin) {
         LOGGER.debug("getPairsByExchangesHavingPastListeningDateWithActiveRange {} {}", now, checkPeriodMin);
         Long nowMs = now.toInstant().toEpochMilli();
@@ -292,91 +301,52 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     }
 
     @Override
-    public long countAlertsOfUser(long userId) {
-        LOGGER.debug("countAlertsOfUser {}", userId);
-        return queryOneLong(SQL.COUNT_ALERTS_OF_USER, Map.of(USER_ID, userId));
+    @NotNull
+    public List<Long> getUserIdsByServerId(long serverId) {
+        LOGGER.debug("getUserIdsByServerId {}", serverId);
+        return query(SQL.SELECT_USER_ID_BY_SERVER_ID, Long.class, Map.of(SERVER_ID, serverId));
     }
 
     @Override
-    public long countAlertsOfUserAndTickers(long userId, @NotNull String tickerOrPair) {
-        LOGGER.debug("countAlertsOfUserAndTickers {} {}", userId, tickerOrPair);
-        return queryOneLong(SQL.COUNT_ALERTS_OF_USER_AND_TICKER_OR_PAIR,
-                Map.of(USER_ID, userId, TICKER_OR_PAIR_ARGUMENT, tickerOrPair));
+    public Optional<Alert> getAlert(long alertId) {
+        LOGGER.debug("getAlert {}", alertId);
+        return findOne(SQL.SELECT_BY_ID, Alert.class, Map.of(ID, alertId));
     }
 
     @Override
-    public long countAlertsOfServer(long serverId) {
-        LOGGER.debug("countAlertsOfServer {}", serverId);
-        return queryOneLong(SQL.COUNT_ALERTS_OF_SERVER, Map.of(SERVER_ID, serverId));
-    }
-
-    @Override
-    public long countAlertsOfServerAndUser(long serverId, long userId) {
-        LOGGER.debug("countAlertsOfServerAndUser {} {}", serverId, userId);
-        return queryOneLong(SQL.COUNT_ALERTS_OF_SERVER_AND_USER,
-                Map.of(SERVER_ID, serverId, USER_ID, userId));
-    }
-
-    @Override
-    public long countAlertsOfServerAndTickers(long serverId, @NotNull String tickerOrPair) {
-        LOGGER.debug("countAlertsOfServerAndTickers {} {}", serverId, tickerOrPair);
-        return queryOneLong(SQL.COUNT_ALERTS_OF_SERVER_AND_TICKER_OR_PAIR,
-                Map.of(SERVER_ID, serverId, TICKER_OR_PAIR_ARGUMENT, tickerOrPair));
-    }
-
-    @Override
-    public long countAlertsOfServerAndUserAndTickers(long serverId, long userId, @NotNull String tickerOrPair) {
-        LOGGER.debug("countAlertsOfServerAndUserAndTickers {} {} {}", serverId, userId, tickerOrPair);
-        return queryOneLong(SQL.COUNT_ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR,
-                Map.of(SERVER_ID, serverId, USER_ID, userId, TICKER_OR_PAIR_ARGUMENT, tickerOrPair));
+    public Optional<Alert> getAlertWithoutMessage(long alertId) {
+        LOGGER.debug("getAlertWithoutMessage {}", alertId);
+        return findOne(SQL.SELECT_WITHOUT_MESSAGE_BY_ID, Alert.class, Map.of(ID, alertId));
     }
 
     @Override
     @NotNull
-    public List<Alert> getAlertsOfUserOrderByPairId(long userId, long offset, long limit) {
-        LOGGER.debug("getAlertsOfUserOrderByPairId {} {} {}", userId, offset, limit);
-        return query(SQL.ALERTS_OF_USER_ORDER_BY_PAIR_ID, Alert.class,
-                Map.of(USER_ID, userId, OFFSET_ARGUMENT, offset, LIMIT_ARGUMENT, limit));
+    public Map<Long, String> getAlertMessages(@NotNull LongStream alertIds) {
+        var alertIdList = alertIds.boxed().toList();
+        LOGGER.debug("getAlertMessages {}", alertIdList);
+        if(alertIdList.isEmpty()) {
+            return emptyMap();
+        }
+        return queryMap(SQL.SELECT_ID_MESSAGE_HAVING_ID_IN, new GenericType<>() {}, query -> query.bindList("ids", alertIdList), ID, MESSAGE);
     }
 
     @Override
-    @NotNull
-    public List<Alert> getAlertsOfUserAndTickersOrderById(long userId, long offset, long limit, @NotNull String tickerOrPair) {
-        LOGGER.debug("getAlertsOfUserAndTickersOrderById {} {} {} {}", userId, offset, limit, tickerOrPair);
-        return query(SQL.ALERTS_OF_USER_AND_TICKER_OR_PAIR_ORDER_BY_ID, Alert.class,
-                Map.of(USER_ID, userId, OFFSET_ARGUMENT, offset, LIMIT_ARGUMENT, limit, TICKER_OR_PAIR_ARGUMENT, tickerOrPair));
+    public long countAlerts(@NotNull SelectionFilter filter) {
+        LOGGER.debug("countAlerts {}", filter);
+        var selection = selectionFilter(filter);
+        return queryOneLong(SQL.COUNT_ALERTS_OF_SELECTION + searchFilter(selection), selection);
     }
 
-    @Override
     @NotNull
-    public List<Alert> getAlertsOfServerOrderByPairUserIdId(long serverId, long offset, long limit) {
-        LOGGER.debug("getAlertsOfServerOrderByPairUserIdId {} {} {}", serverId, offset, limit);
-        return query(SQL.ALERTS_OF_SERVER_ORDER_BY_PAIR_USER_ID_ID, Alert.class,
-                Map.of(SERVER_ID, serverId, OFFSET_ARGUMENT, offset, LIMIT_ARGUMENT, limit));
-    }
-
     @Override
-    @NotNull
-    public List<Alert> getAlertsOfServerAndUserOrderByPairId(long serverId, long userId, long offset, long limit) {
-        LOGGER.debug("getAlertsOfServerAndUserOrderByPairId {} {} {} {}", serverId, userId, offset, limit);
-        return query(SQL.ALERTS_OF_SERVER_AND_USER_ORDER_BY_PAIR_ID, Alert.class,
-                Map.of(SERVER_ID, serverId, USER_ID, userId, OFFSET_ARGUMENT, offset, LIMIT_ARGUMENT, limit));
-    }
-
-    @Override
-    @NotNull
-    public List<Alert> getAlertsOfServerAndTickersOrderByUserIdId(long serverId, long offset, long limit, @NotNull String tickerOrPair) {
-        LOGGER.debug("getAlertsOfServerAndTickersOrderByUserIdId {} {} {} {}", serverId, offset, limit, tickerOrPair);
-        return query(SQL.ALERTS_OF_SERVER_AND_TICKER_OR_PAIR_ORDER_BY_USER_ID_ID, Alert.class,
-                Map.of(SERVER_ID, serverId, OFFSET_ARGUMENT, offset, LIMIT_ARGUMENT, limit, TICKER_OR_PAIR_ARGUMENT, tickerOrPair));
-    }
-
-    @Override
-    @NotNull
-    public List<Alert> getAlertsOfServerAndUserAndTickersOrderById(long serverId, long userId, long offset, long limit, @NotNull String tickerOrPair) {
-        LOGGER.debug("getAlertsOfServerAndUserAndTickersOrderById {} {} {} {} {}", serverId, userId, offset, limit, tickerOrPair);
-        return query(SQL.ALERTS_OF_SERVER_AND_USER_AND_TICKER_OR_PAIR_ORDER_BY_ID, Alert.class,
-                Map.of(SERVER_ID, serverId, USER_ID, userId, OFFSET_ARGUMENT, offset, LIMIT_ARGUMENT, limit, TICKER_OR_PAIR_ARGUMENT, tickerOrPair));
+    public List<Alert> getAlertsOrderByPairUserIdId(@NotNull SelectionFilter filter, long offset, long limit) {
+        LOGGER.debug("getAlertsOrderByPairUserIdId {} {} {}", filter, offset, limit);
+        var selection = selectionFilter(filter);
+        String sql = SQL.ALERTS_OF_SELECTION + searchFilter(selection);
+        selection.put(OFFSET_ARGUMENT, offset);
+        selection.put(LIMIT_ARGUMENT, limit);
+        sql += null != filter.userId() ? ORDER_BY_PAIR_ID_WITH_OFFSET_LIMIT : ORDER_BY_PAIR_USER_ID_ID_WITH_OFFSET_LIMIT;
+        return query(sql, Alert.class, selection);
     }
 
     @Override
@@ -388,106 +358,21 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     }
 
     @Override
-    public void updateServerId(long alertId, long serverId) {
-        LOGGER.debug("updateServerId {} {}", alertId, serverId);
-        update(SQL.UPDATE_ALERTS_SERVER_ID_BY_ID,
-                Map.of(ID, alertId, SERVER_ID, serverId));
-    }
-
-    @Override
-    public long updateServerIdPrivate(long serverId) {
-        LOGGER.debug("updateServerIdPrivate {}", serverId);
-        return update(SQL.UPDATE_ALERTS_SERVER_ID_PRIVATE,
-                Map.of(SERVER_ID, serverId));
-    }
-
-    @Override
-    public long updateServerIdOfUserAndServerId(long userId, long serverId, long newServerId) {
-        LOGGER.debug("updateServerIdOfUserAndServerId {} {} {}", userId, serverId, newServerId);
-        return update(SQL.UPDATE_ALERTS_SERVER_ID_BY_USER_ID_AND_SERVER_ID,
-                Map.of(USER_ID, userId, SERVER_ID, serverId, "newServerId", newServerId));
-    }
-
-    @Override
-    public long updateServerIdOfUserAndServerIdAndTickers(long userId, long serverId, @NotNull String tickerOrPair, long newServerId) {
-        LOGGER.debug("updateServerIdOfUserAndServerIdAndTickers {} {} {} {}", userId, serverId, tickerOrPair, newServerId);
-        return update(SQL.UPDATE_ALERTS_SERVER_ID_BY_USER_ID_AND_SERVER_ID_TICKER_OR_PAIR,
-                Map.of(USER_ID, userId, SERVER_ID, serverId, "newServerId", newServerId, TICKER_OR_PAIR_ARGUMENT, tickerOrPair));
-    }
-
-    @Override
-    public void updateFromPrice(long alertId, @NotNull BigDecimal fromPrice) {
-        LOGGER.debug("updateFromPrice {} {}", alertId, fromPrice);
-        update(SQL.UPDATE_ALERTS_FROM_PRICE,
-                Map.of(ID, alertId, FROM_PRICE, fromPrice));
-    }
-
-    @Override
-    public void updateToPrice(long alertId, @NotNull BigDecimal toPrice) {
-        LOGGER.debug("updateToPrice {} {}", alertId, toPrice);
-        update(SQL.UPDATE_ALERTS_TO_PRICE,
-                Map.of(ID, alertId, TO_PRICE, toPrice));
-    }
-
-    @Override
-    public void updateFromDate(long alertId, @Nullable ZonedDateTime fromDate) {
-        LOGGER.debug("updateFromDate {} {}", alertId, fromDate);
-        Map<String, Object> parameters = new HashMap<>();
+    public void update(long alertId, @NotNull Map<UpdateField, Object> fields) {
+        LOGGER.debug("update {} {}", alertId, fields);
+        var parameters = updateParameters(fields);
+        String sql = SQL.UPDATE_ALERT_FIELDS_BY_ID.replace("{}", updateQuery(parameters.keySet()));
         parameters.put(ID, alertId);
-        parameters.put(FROM_DATE, fromDate);
-        update(SQL.UPDATE_ALERTS_FROM_DATE, parameters);
+        update(sql, parameters);
     }
 
     @Override
-    public void updateToDate(long alertId, @Nullable ZonedDateTime toDate) {
-        LOGGER.debug("updateToDate {} {}", alertId, toDate);
-        Map<String, Object> parameters = new HashMap<>();
-        parameters.put(ID, alertId);
-        parameters.put(TO_DATE, toDate);
-        update(SQL.UPDATE_ALERTS_TO_DATE, parameters);
-    }
-
-    @Override
-    public void updateMessage(long alertId, @NotNull String message) {
-        LOGGER.debug("updateMessage {} {}", alertId, message);
-        update(SQL.UPDATE_ALERTS_MESSAGE,
-                Map.of(ID, alertId, MESSAGE, message));
-    }
-
-    @Override
-    public void updateMargin(long alertId, @NotNull BigDecimal margin) {
-        LOGGER.debug("updateMargin {} {}", alertId, margin);
-        update(SQL.UPDATE_ALERTS_MARGIN,
-                Map.of(ID, alertId, MARGIN, margin));
-    }
-
-    @Override
-    public void updateListeningDateFromDate(long alertId, @Nullable ZonedDateTime listeningDate, @Nullable ZonedDateTime fromDate) {
-        LOGGER.debug("updateListeningDateFromDate {} {} {}", alertId, listeningDate, fromDate);
-        Map<String, Object> parameters = new HashMap<>();
-        parameters.put(ID, alertId);
-        parameters.put(LISTENING_DATE, listeningDate);
-        parameters.put(FROM_DATE, fromDate);
-        update(SQL.UPDATE_ALERTS_LISTENING_DATE_FROM_DATE, parameters);
-    }
-
-    @Override
-    public void updateListeningDateRepeat(long alertId, @Nullable ZonedDateTime listeningDate, short repeat) {
-        LOGGER.debug("updateListeningDateRepeat {} {} {}", alertId, listeningDate, repeat);
-        Map<String, Object> parameters = new HashMap<>();
-        parameters.put(ID, alertId);
-        parameters.put(LISTENING_DATE, listeningDate);
-        parameters.put(REPEAT, repeat);
-        update(SQL.UPDATE_ALERTS_REPEAT_LISTENING_DATE, parameters);
-    }
-
-    @Override
-    public void updateSnooze(long alertId, short snooze) {
-        LOGGER.debug("updateSnooze {} {}", alertId, snooze);
-        Map<String, Object> parameters = new HashMap<>();
-        parameters.put(ID, alertId);
-        parameters.put(SNOOZE, snooze);
-        update(SQL.UPDATE_ALERTS_SNOOZE, parameters);
+    public long updateServerIdOf(@NotNull SelectionFilter filter, long newServerId) {
+        LOGGER.debug("updateServerIdOf {} {}", filter, newServerId);
+        var selection = selectionFilter(filter);
+        String sql = SQL.UPDATE_ALERTS_SERVER_ID_OF_SELECTION + searchFilter(selection);
+        selection.put(NEW_SERVER_ID_ARGUMENT, newServerId);
+        return update(sql, selection);
     }
 
     @Override
@@ -497,31 +382,24 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     }
 
     @Override
-    public long deleteAlerts(long serverId, long userId) {
-        LOGGER.debug("deleteAlerts {} {}", serverId, userId);
-        return update(SQL.DELETE_BY_USER_ID_AND_SERVER_ID,
-                Map.of(USER_ID, userId, SERVER_ID, serverId));
-    }
-
-    @Override
-    public long deleteAlerts(long serverId, long userId, @NotNull String tickerOrPair) {
-        LOGGER.debug("deleteAlerts {} {} {}", serverId, userId, tickerOrPair);
-        return update(SQL.DELETE_BY_USER_ID_AND_SERVER_ID_AND_TICKER_OR_PAIR,
-                Map.of(USER_ID, userId, SERVER_ID, serverId, TICKER_OR_PAIR_ARGUMENT, tickerOrPair));
+    public long deleteAlerts(@NotNull SelectionFilter filter) {
+        LOGGER.debug("deleteAlert {}", filter);
+        var selection = selectionFilter(filter);
+        return update(SQL.DELETE_BY_SELECTION + searchFilter(selection), selection);
     }
 
     @Override
     public void matchedAlertBatchUpdates(@NotNull ZonedDateTime now, @NotNull Consumer<BatchEntry> updater) {
         LOGGER.debug("matchedAlertBatchUpdates");
         Long nowMs = now.toInstant().toEpochMilli();
-        batchUpdates(updater, SQL.UPDATE_ALERTS_SET_MARGIN_ZERO_DECREMENT_REPEAT_LISTENING_DATE_LAST_TRIGGER_NOW, Map.of(NOW_MS_ARGUMENT, nowMs));
+        batchUpdates(updater, SQL.UPDATE_ALERT_SET_MARGIN_ZERO_DECREMENT_REPEAT_LISTENING_DATE_LAST_TRIGGER_NOW, Map.of(NOW_MS_ARGUMENT, nowMs));
     }
 
     @Override
     public void marginAlertBatchUpdates(@NotNull ZonedDateTime now, @NotNull Consumer<BatchEntry> updater) {
         LOGGER.debug("marginAlertBatchUpdates");
         Long nowMs = now.toInstant().toEpochMilli();
-        batchUpdates(updater, SQL.UPDATE_ALERTS_SET_LAST_TRIGGER_MARGIN_ZERO, Map.of(LAST_TRIGGER, nowMs));
+        batchUpdates(updater, SQL.UPDATE_ALERT_SET_LAST_TRIGGER_MARGIN_ZERO, Map.of(LAST_TRIGGER, nowMs));
     }
 
     @Override

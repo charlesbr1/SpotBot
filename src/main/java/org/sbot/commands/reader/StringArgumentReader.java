@@ -2,6 +2,7 @@ package org.sbot.commands.reader;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.sbot.entities.alerts.Alert.Type;
 import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
 
@@ -15,10 +16,11 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 
 import static java.util.function.Predicate.not;
+import static org.sbot.utils.ArgumentValidator.BLANK_SPACES;
 
 public final class StringArgumentReader implements ArgumentReader {
 
-    private static final Pattern SPLIT_WORD = Pattern.compile("\\s+");
+    private static final Pattern SPLIT_WORD = BLANK_SPACES;
     private static final Pattern REVERSE_SPLIT_WORD = Pattern.compile("\\s+(?=\\S+$)");
 
     @NotNull
@@ -76,6 +78,11 @@ public final class StringArgumentReader implements ArgumentReader {
     @Override
     public Optional<Long> getUserId(@NotNull String unused) {
         return getNext(ArgumentValidator::requireUser);
+    }
+
+    @Override
+    public Optional<Type> getType(@NotNull String unused) {
+        return getNext(Type::valueOf);
     }
 
     private <U> Optional<U> getNext(@NotNull Function<? super String, ? extends U> mapper) {

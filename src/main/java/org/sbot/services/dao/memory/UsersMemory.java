@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.entities.User;
+import org.sbot.services.dao.AlertsDao.SelectionFilter;
 import org.sbot.services.dao.UsersDao;
 
 import java.time.ZoneId;
@@ -86,7 +87,7 @@ public class UsersMemory implements UsersDao {
         LOGGER.debug("deleteHavingLastAccessBeforeAndNotInAlerts {}", expirationDate);
         requireNonNull(expirationDate);
         var toDelete = users.values().stream().filter(u -> u.lastAccess().isBefore(expirationDate) &&
-                alerts.getAlertsOfUserStream(u.id()).findFirst().isEmpty()).toList();
+                alerts.getAlertsStream(SelectionFilter.ofUser(u.id(), null)).findFirst().isEmpty()).toList();
         users.values().removeAll(toDelete);
         return toDelete.size();
     }

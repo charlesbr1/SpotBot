@@ -1,17 +1,20 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.interactions.commands.Command.Choice;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
+import org.sbot.entities.alerts.Alert.Type;
+import org.sbot.services.dao.AlertsDao.SelectionFilter;
 import org.sbot.utils.ArgumentValidator;
 
 import java.awt.*;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
@@ -35,9 +38,11 @@ public final class DeleteCommand extends CommandAdapter {
                     new SubcommandData("filter", "delete all your alerts or filtered by pair or ticker").addOptions(
                             option(STRING, TICKER_PAIR_ARGUMENT, "a pair or a ticker to filter the alerts to delete (can be '" + DELETE_ALL + "')", true)
                                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
-                            option(USER, OWNER_ARGUMENT, "for admin only, a member to drop the alerts on your server", false)));
+                            option(STRING, TYPE_ARGUMENT, "type of alert to delete (range, trend or remainder)", false)
+                                    .addChoices(Stream.of(Type.values()).map(t -> new Choice(t.name(), t.name())).toList()),
+                            option(USER, OWNER_ARGUMENT, "for admin only, an user whose alerts will be deleted", false)));
 
-    record Arguments(Long alertId, String tickerOrPair, Long ownerId) {}
+    record Arguments(Long alertId, Type type, String tickerOrPair, Long ownerId) {}
 
     public DeleteCommand() {
         super(NAME, DESCRIPTION, options, RESPONSE_TTL_SECONDS);
@@ -54,15 +59,16 @@ public final class DeleteCommand extends CommandAdapter {
         var alertId = context.args.getLong(ALERT_ID_ARGUMENT).map(ArgumentValidator::requirePositive);
         if(alertId.isPresent()) {
             context.noMoreArgs();
-            return new Arguments(alertId.get(), null, null);
+            return new Arguments(alertId.get(), null, null, null);
         }
         String tickerOrPair = context.args.getMandatoryString(TICKER_PAIR_ARGUMENT);
         if(!DELETE_ALL.equals(tickerOrPair)) {
             tickerOrPair = requireTickerPairLength(tickerOrPair);
         }
+        Type type = context.args.getType(TYPE_ARGUMENT).orElse(null);
         Long ownerId = context.args.getUserId(OWNER_ARGUMENT).orElse(null);
         context.noMoreArgs();
-        return new Arguments(null, tickerOrPair, ownerId);
+        return new Arguments(null, type, tickerOrPair, ownerId);
     }
 
     private Message delete(@NotNull CommandContext context, @NotNull Arguments arguments) {
@@ -70,7 +76,7 @@ public final class DeleteCommand extends CommandAdapter {
             return deleteById(context, arguments.alertId);
         } else if (null == arguments.ownerId || // if ownerId is null -> delete all alerts of current user, or filtered by ticker or pair
                 sameUserOrAdmin(context, arguments.ownerId)) { // ownerId != null -> only an admin can delete alerts of other users on his server
-            return deleteByOwnerOrTickerPair(context, arguments.ownerId, arguments.tickerOrPair);
+            return deleteByOwnerOrTickerPair(context, arguments);
         } else {
             return Message.of(embedBuilder(":clown:" + ' ' + context.user.getEffectiveName(), Color.black, "You are not allowed to delete your mates' alerts" +
                     (isPrivateChannel(context) ? ", you are on a private channel." : "")));
@@ -90,13 +96,13 @@ public final class DeleteCommand extends CommandAdapter {
         return Message.of(answer);
     }
 
-    private Message deleteByOwnerOrTickerPair(@NotNull CommandContext context, @Nullable Long ownerId, @NotNull String tickerOrPair) {
-        long userId = null != ownerId ? ownerId : context.user.getIdLong();
-        long deleted = context.transactional(txCtx -> DELETE_ALL.equalsIgnoreCase(tickerOrPair) ?
-                txCtx.alertsDao().deleteAlerts(context.serverId(), userId) :
-                txCtx.alertsDao().deleteAlerts(context.serverId(), userId, tickerOrPair.toUpperCase()));
-        if(deleted > 0 && null != ownerId && context.user.getIdLong() != ownerId) {
-            sendUpdateNotification(context, ownerId, ownerDeleteNotification(tickerOrPair, requireNonNull(context.member), deleted));
+    private Message deleteByOwnerOrTickerPair(@NotNull CommandContext context, @NotNull Arguments arguments) {
+        String tickerOrPair = DELETE_ALL.equalsIgnoreCase(arguments.tickerOrPair) ? null : arguments.tickerOrPair.toUpperCase();
+        long userId = null != arguments.ownerId ? arguments.ownerId : context.user.getIdLong();
+        long deleted = context.transactional(txCtx -> txCtx.alertsDao()
+                .deleteAlerts(SelectionFilter.of(context.serverId(), userId, arguments.type).withTickerOrPair(tickerOrPair)));
+        if(deleted > 0 && null != arguments.ownerId && context.user.getIdLong() != arguments.ownerId) {
+            sendUpdateNotification(context, arguments.ownerId, ownerDeleteNotification(arguments.tickerOrPair, requireNonNull(context.member), deleted));
         }
         return Message.of(embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), Color.green, deleted + " " + (deleted > 1 ? " alerts" : " alert") + " deleted"));
     }

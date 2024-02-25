@@ -5,74 +5,75 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.entities.alerts.Alert.Type;
 
-import java.math.BigDecimal;
 import java.time.ZonedDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 public interface AlertsDao {
 
-    Optional<Alert> getAlert(long id);
+    enum UpdateField {
+        SERVER_ID,
+        LISTENING_DATE,
+        FROM_PRICE,
+        TO_PRICE,
+        FROM_DATE,
+        TO_DATE,
+        MESSAGE,
+        MARGIN,
+        REPEAT,
+        SNOOZE
+    }
 
-    Optional<Alert> getAlertWithoutMessage(long alertId);
-    List<Long> getUserIdsByServerId(long serverId);
+    record SelectionFilter(@Nullable Long serverId, @Nullable Long userId, @Nullable Type type, @Nullable String tickerOrPair) {
+
+        public static SelectionFilter ofUser(long userId, @Nullable Type type) {
+            return new SelectionFilter( null, userId, type, null);
+        }
+        public static SelectionFilter ofServer(long serverId, @Nullable Type type) {
+            return new SelectionFilter(serverId, null, type, null);
+        }
+        public static SelectionFilter of(long serverId, long userId, @Nullable Type type) {
+            return new SelectionFilter(serverId, userId, type, null);
+        }
+
+        public SelectionFilter withTickerOrPair(@Nullable String tickerOrPair) {
+            return new SelectionFilter(serverId, userId, type, tickerOrPair);
+        }
+    }
 
     long fetchAlertsWithoutMessageByExchangeAndPairHavingPastListeningDateWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull ZonedDateTime now, int checkPeriodMin, @NotNull Consumer<Stream<Alert>> alertsConsumer);
     long fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer);
     long fetchAlertsByTypeHavingToDateBefore(@NotNull Type type, @NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer);
 
     @NotNull
-    Map<Long, String> getAlertMessages(@NotNull LongStream alertIds);
-
-    @NotNull
     Map<String, Set<String>> getPairsByExchangesHavingPastListeningDateWithActiveRange(@NotNull ZonedDateTime now, int checkPeriodMin);
 
-    long countAlertsOfUser(long userId);
-    long countAlertsOfServer(long serverId);
-    long countAlertsOfServerAndUser(long serverId, long user);
-    long countAlertsOfUserAndTickers(long userId, @NotNull String tickerOrPair);
-    long countAlertsOfServerAndTickers(long serverId, @NotNull String tickerOrPair);
-    long countAlertsOfServerAndUserAndTickers(long serverId, long userId, @NotNull String tickerOrPair);
+    @NotNull
+    List<Long> getUserIdsByServerId(long serverId);
 
+    Optional<Alert> getAlert(long id);
+
+    Optional<Alert> getAlertWithoutMessage(long alertId);
 
     @NotNull
-    List<Alert> getAlertsOfUserOrderByPairId(long userId, long offset, long limit);
-    @NotNull
-    List<Alert> getAlertsOfUserAndTickersOrderById(long userId, long offset, long limit, @NotNull String tickerOrPair);
-    @NotNull
-    List<Alert> getAlertsOfServerOrderByPairUserIdId(long serverId, long offset, long limit);
-    @NotNull
-    List<Alert> getAlertsOfServerAndUserOrderByPairId(long serverId, long userId, long offset, long limit);
-    @NotNull
-    List<Alert> getAlertsOfServerAndTickersOrderByUserIdId(long serverId, long offset, long limit, @NotNull String tickerOrPair);
-    @NotNull
-    List<Alert> getAlertsOfServerAndUserAndTickersOrderById(long serverId, long userId, long offset, long limit, @NotNull String tickerOrPair);
+    Map<Long, String> getAlertMessages(@NotNull LongStream alertIds);
 
+    long countAlerts(@NotNull SelectionFilter filter);
+
+    @NotNull
+    List<Alert> getAlertsOrderByPairUserIdId(@NotNull SelectionFilter filter, long offset, long limit);
 
     long addAlert(@NotNull Alert alert);
 
-    void updateServerId(long alertId, long serverId);
-    long updateServerIdPrivate(long serverId);
-    long updateServerIdOfUserAndServerId(long userId, long serverId, long newServerId);
-    long updateServerIdOfUserAndServerIdAndTickers(long userId, long serverId, @NotNull String tickerOrPair, long newServerId);
-    void updateFromPrice(long alertId, @NotNull BigDecimal fromPrice);
-    void updateToPrice(long alertId, @NotNull BigDecimal toPrice);
-    void updateFromDate(long alertId, @Nullable ZonedDateTime fromDate);
-    void updateToDate(long alertId, @Nullable ZonedDateTime toDate);
-    void updateMessage(long alertId, @NotNull String message);
-    void updateMargin(long alertId, @NotNull BigDecimal margin);
-    void updateListeningDateFromDate(long alertId, @Nullable ZonedDateTime listeningDate, @Nullable ZonedDateTime fromDate);
-    void updateListeningDateRepeat(long alertId, @Nullable ZonedDateTime listeningDate, short repeat);
-    void updateSnooze(long alertId, short snooze);
+    void update(long alertId, @NotNull Map<UpdateField, Object> fields);
+
+    long updateServerIdOf(@NotNull SelectionFilter filter, long newServerId);
 
     void deleteAlert(long alertId);
-    long deleteAlerts(long serverId, long userId);
-    long deleteAlerts(long serverId, long userId, @NotNull String tickerOrPair);
+
+    long deleteAlerts(@NotNull SelectionFilter filter);
 
     // this set the alert' margin to MARGIN_DISABLED, lastTrigger to now, and decrease repeat if not zero
     void matchedAlertBatchUpdates(@NotNull ZonedDateTime now, @NotNull Consumer<BatchEntry> updater);

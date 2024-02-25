@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.sbot.entities.alerts.Alert.Type;
 import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
 
@@ -64,6 +65,11 @@ public final class SlashArgumentReader implements ArgumentReader {
     public Optional<Long> getUserId(@NotNull String fieldName) {
         return getValue(fieldName, OptionMapping::getAsUser, User::getIdLong)
                 .or(() -> getValue(fieldName, OptionMapping::getAsString, ArgumentValidator::requireUser)); // needed if the field is declared as STRING (list command)
+    }
+
+    @Override
+    public Optional<Type> getType(@NotNull String fieldName) {
+        return getValue(fieldName, OptionMapping::getAsString, Type::valueOf);
     }
 
     private <T, U> Optional<T> getValue(@NotNull String fieldName, @NotNull Function<? super OptionMapping, ? extends U> optionMapping, @NotNull Function<U, T> mapper) {
