@@ -833,7 +833,44 @@ public abstract class AlertsDaoTest {
     @MethodSource("provideDao")
     void countAlerts(AlertsDao alerts, UsersDao users) {
         assertThrows(NullPointerException.class, () -> alerts.countAlerts(null));
-        //TODO
+
+        long user1 = 123L;
+        long user2 = 222L;
+        long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
+        long server1 = 789L;
+        long server2 = 987L;
+        alerts.addAlert(createTestAlertWithUserIdAndPairType(user1, "ETH/BTC", range).withServerId(server1));
+        alerts.addAlert(createTestAlertWithUserIdAndPairType(user1, "ETH/USD", trend).withServerId(server2));
+        alerts.addAlert(createTestAlertWithUserIdAndPairType(user1, "ETH/BTC", remainder).withServerId(server2));
+        alerts.addAlert(createTestAlertWithUserIdAndPairType(user2, "DOT/BTC", range).withServerId(server1));
+        alerts.addAlert(createTestAlertWithUserIdAndPairType(user3, "ETH/BTC", remainder).withServerId(server2));
+
+        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(server1, null)));
+        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(server1, range)));
+        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(server1, trend)));
+        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(server1, remainder)));
+        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(server1, null).withTickerOrPair("ETH/BTC")));
+        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(server1, range).withTickerOrPair("ETH/BTC")));
+        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(server1, remainder).withTickerOrPair("ETH/BTC")));
+        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(server1, null).withTickerOrPair("BTC")));
+        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(server1, remainder).withTickerOrPair("BTC")));
+        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(server1, null).withTickerOrPair("DOT")));
+        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(server1, range).withTickerOrPair("DOT")));
+        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(server1, trend).withTickerOrPair("DOT")));
+
+        assertEquals(3, alerts.countAlerts(SelectionFilter.ofServer(server2, null)));
+        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(server2, range)));
+        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(server2, trend)));
+        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(server2, remainder)));
+        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(server2, null).withTickerOrPair("ETH/BTC")));
+        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(server2, remainder).withTickerOrPair("ETH/BTC")));
+        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(server2, range).withTickerOrPair("ETH/BTC")));
+        assertEquals(3, alerts.countAlerts(SelectionFilter.ofServer(server2, null).withTickerOrPair("ETH")));
+        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(server2, trend).withTickerOrPair("ETH")));
+        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(server2, remainder).withTickerOrPair("ETH")));
     }
 
     @ParameterizedTest
@@ -1060,7 +1097,40 @@ public abstract class AlertsDaoTest {
     @MethodSource("provideDao")
     void getAlertsOrderByPairUserIdId(AlertsDao alerts, UsersDao users) {
         assertThrows(NullPointerException.class, () -> alerts.getAlertsOrderByPairUserIdId(null, 0L, 0L));
-        //TODO
+        long user1 = 123L;
+        long user2 = 222L;
+        long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
+        long server1 = 789L;
+        long server2 = 987L;
+        alerts.addAlert(createTestAlertWithUserIdAndPairType(user1, "ETH/BTC", range).withServerId(server1));
+        alerts.addAlert(createTestAlertWithUserIdAndPairType(user1, "ETH/USD", trend).withServerId(server2));
+        alerts.addAlert(createTestAlertWithUserIdAndPairType(user1, "ETH/BTC", remainder).withServerId(server2));
+        alerts.addAlert(createTestAlertWithUserIdAndPairType(user2, "DOT/BTC", trend).withServerId(server1));
+        alerts.addAlert(createTestAlertWithUserIdAndPairType(user3, "ETH/BTC", range).withServerId(server2));
+
+        assertEquals(2, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, null), 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, trend), 0, 1000).size());
+        assertEquals(0, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, remainder), 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, range), 0, 1000).size());
+
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, null).withTickerOrPair( "ETH/BTC"), 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, range).withTickerOrPair( "ETH/BTC"), 0, 1000).size());
+
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, null).withTickerOrPair( "ETH"), 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, range).withTickerOrPair( "ETH"), 0, 1000).size());
+        assertEquals(0, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, remainder).withTickerOrPair( "ETH"), 0, 1000).size());
+
+        assertEquals(2, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, null).withTickerOrPair("BTC"), 0, 1000)).size());
+        assertEquals(1, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, trend).withTickerOrPair("BTC"), 0, 1000)).size());
+        assertEquals(0, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, remainder).withTickerOrPair("BTC"), 0, 1000).size());
+
+        assertEquals(3, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server2, null), 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server2, trend), 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server2, remainder), 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server2, range), 0, 1000).size());
     }
 
     @ParameterizedTest
@@ -1081,10 +1151,10 @@ public abstract class AlertsDaoTest {
         alerts.addAlert(createTestAlertWithUserIdAndPair(user3, "ETH/BTC").withServerId(server2));
 
         var filterUser1 = SelectionFilter.ofUser(user1, null);
-        assertEquals(3, assertSortedByPairId(alerts.getAlertsOrderByPairUserIdId(filterUser1, 0, 1000)).size());
+        assertEquals(3, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(filterUser1, 0, 1000)).size());
         assertEquals(3, alerts.getAlertsOrderByPairUserIdId(filterUser1, 0, 1000).stream().filter(alert -> alert.userId == user1).count());
-        assertEquals(3, assertSortedByPairId(alerts.getAlertsOrderByPairUserIdId(filterUser1, 0, 3)).size());
-        assertEquals(2, assertSortedByPairId(alerts.getAlertsOrderByPairUserIdId(filterUser1, 0, 2)).size());
+        assertEquals(3, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(filterUser1, 0, 3)).size());
+        assertEquals(2, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(filterUser1, 0, 2)).size());
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(filterUser1, 0, 1).size());
         assertEquals(0, alerts.getAlertsOrderByPairUserIdId(filterUser1, 0, 0).size());
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(filterUser1, 2, 3).size());
@@ -1118,18 +1188,18 @@ public abstract class AlertsDaoTest {
         alerts.addAlert(createTestAlertWithUserIdAndPair(user2, "DOT/BTC").withServerId(server1));
         alerts.addAlert(createTestAlertWithUserIdAndPair(user3, "ETH/BTC").withServerId(server2));
 
-        assertEquals(2, assertSortedByPairId(alerts.getAlertsOrderByPairUserIdId(ofUser(user1, "ETH/BTC"), 0, 1000)).size());
+        assertEquals(2, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(ofUser(user1, "ETH/BTC"), 0, 1000)).size());
         assertEquals(2, alerts.getAlertsOrderByPairUserIdId(ofUser(user1, "ETH/BTC"), 0, 1000).stream()
                 .filter(alert -> alert.pair.contains("ETH/BTC"))
                 .filter(alert -> alert.userId == user1).count());
-        assertEquals(2, assertSortedByPairId(alerts.getAlertsOrderByPairUserIdId(ofUser(user1, "ETH/BTC"), 0, 2)).size());
+        assertEquals(2, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(ofUser(user1, "ETH/BTC"), 0, 2)).size());
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(ofUser(user1, "ETH/BTC"), 0, 1).size());
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(ofUser(user1, "ETH/BTC"), 1, 2).size());
         assertEquals(0, alerts.getAlertsOrderByPairUserIdId(ofUser(user1, "ETH/BTC"), 0, 0).size());
         assertEquals(0, alerts.getAlertsOrderByPairUserIdId(ofUser(user1, "ETH/BTC"), 2, 3).size());
         assertEquals(0, alerts.getAlertsOrderByPairUserIdId(ofUser(user1, "ETH/BTC"), 20, 3).size());
 
-        assertEquals(3, assertSortedByPairId(alerts.getAlertsOrderByPairUserIdId(ofUser(user1, "ETH"), 0, 1000)).size());
+        assertEquals(3, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(ofUser(user1, "ETH"), 0, 1000)).size());
         assertEquals(3, alerts.getAlertsOrderByPairUserIdId(ofUser(user1, "ETH"), 0, 3).stream()
                 .filter(alert -> alert.pair.contains("ETH"))
                 .filter(alert -> alert.userId == user1).count());
@@ -1139,7 +1209,7 @@ public abstract class AlertsDaoTest {
                 .filter(alert -> alert.pair.contains("USD"))
                 .filter(alert -> alert.userId == user1).count());
 
-        assertEquals(2, assertSortedByPairId(alerts.getAlertsOrderByPairUserIdId(ofUser(user1, "BTC"), 0, 1000)).size());
+        assertEquals(2, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(ofUser(user1, "BTC"), 0, 1000)).size());
         assertEquals(2, alerts.getAlertsOrderByPairUserIdId(ofUser(user1, "BTC"), 0, 2).stream()
                 .filter(alert -> alert.pair.contains("BTC"))
                 .filter(alert -> alert.userId == user1).count());
@@ -1235,7 +1305,7 @@ public abstract class AlertsDaoTest {
         alerts.addAlert(createTestAlertWithUserIdAndPair(user3, "ETH/BTC").withServerId(server2));
 
         var filterServer1User1 = SelectionFilter.of(server1, user1, null);
-        assertEquals(3, assertSortedByPairId(alerts.getAlertsOrderByPairUserIdId(filterServer1User1, 0, 1000)).size());
+        assertEquals(3, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(filterServer1User1, 0, 1000)).size());
         assertEquals(3, alerts.getAlertsOrderByPairUserIdId(filterServer1User1, 0, 1000).stream()
                 .filter(alert -> alert.serverId == server1)
                 .filter(alert -> alert.userId == user1)
@@ -1254,12 +1324,12 @@ public abstract class AlertsDaoTest {
         assertEquals(0, alerts.getAlertsOrderByPairUserIdId(filterServer1User3, 0, 1000).size());
 
         var filterServer2User1 = SelectionFilter.of(server2, user1, null);
-        assertEquals(2, assertSortedByPairId(alerts.getAlertsOrderByPairUserIdId(filterServer2User1, 0, 1000)).size());
+        assertEquals(2, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(filterServer2User1, 0, 1000)).size());
         assertEquals(2, alerts.getAlertsOrderByPairUserIdId(filterServer2User1, 0, 1000).stream()
                 .filter(alert -> alert.serverId == server2)
                 .filter(alert -> alert.userId == user1)
                 .count());
-        assertEquals(2, assertSortedByPairId(alerts.getAlertsOrderByPairUserIdId(filterServer2User1, 0, 2)).size());
+        assertEquals(2, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(filterServer2User1, 0, 2)).size());
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(filterServer2User1, 0, 1).size());
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(filterServer2User1, 1, 2).size());
         assertEquals(0, alerts.getAlertsOrderByPairUserIdId(filterServer2User1, 0, 0).size());
@@ -1432,13 +1502,13 @@ public abstract class AlertsDaoTest {
                 .count());
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(of(server2, user1, "ETH/BTC"), 0, 1).size());
 
-        assertEquals(2, assertSortedByPairId(alerts.getAlertsOrderByPairUserIdId(of(server2, user1, "ETH"), 0, 1000)).size());
+        assertEquals(2, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(of(server2, user1, "ETH"), 0, 1000)).size());
         assertEquals(2, alerts.getAlertsOrderByPairUserIdId(of(server2, user1, "ETH"), 0, 1000).stream()
                 .filter(alert -> alert.serverId == server2)
                 .filter(alert -> alert.userId == user1)
                 .filter(alert -> alert.pair.contains("ETH"))
                 .count());
-        assertEquals(2, assertSortedByPairId(alerts.getAlertsOrderByPairUserIdId(of(server2, user1, "ETH"), 0, 2)).size());
+        assertEquals(2, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(of(server2, user1, "ETH"), 0, 2)).size());
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(of(server2, user1, "ETH"), 0, 1).size());
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(of(server2, user1, "ETH"), 1, 2).size());
         assertEquals(0, alerts.getAlertsOrderByPairUserIdId(of(server2, user1, "ETH"), 2, 1).size());
@@ -1538,7 +1608,7 @@ public abstract class AlertsDaoTest {
 
         assertEquals(0, alerts.getAlertsOrderByPairUserIdId(of(server2, user3, "USD"), 0, 1000).size());
 
-        assertEquals(3, assertSortedByPairId(alerts.getAlertsOrderByPairUserIdId(of(server2, user3, "BTC"), 0, 1000)).size());
+        assertEquals(3, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(of(server2, user3, "BTC"), 0, 1000)).size());
         assertEquals(3, alerts.getAlertsOrderByPairUserIdId(of(server2, user3, "BTC"), 0, 1000).stream()
                 .filter(alert -> alert.serverId == server2)
                 .filter(alert -> alert.userId == user3)
@@ -1556,11 +1626,6 @@ public abstract class AlertsDaoTest {
     private List<Alert> assertSortedByPairUserIdId(@NotNull List<Alert> alerts) {
         return assertSortedBy(alerts, (a, b) -> a.pair.compareTo(b.pair) < 0 || (a.pair.equals(b.pair) &&
                 (a.userId < b.userId || (a.userId == b.userId && a.id <= b.id))));
-    }
-
-    @NotNull
-    private List<Alert> assertSortedByPairId(@NotNull List<Alert> alerts) {
-        return assertSortedBy(alerts, (a, b) -> a.pair.compareTo(b.pair) < 0 || (a.pair.equals(b.pair) && a.id <= b.id));
     }
 
     @NotNull
@@ -1604,7 +1669,44 @@ public abstract class AlertsDaoTest {
     @MethodSource("provideDao")
     void updateServerIdOf(AlertsDao alerts, UsersDao users) {
         assertThrows(NullPointerException.class, () -> alerts.updateServerIdOf(null, 0L));
-        //TODO type test
+
+        long user1 = 123L;
+        long user2 = 222L;
+        long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
+        long server1 = 789L;
+        long server2 = 987L;
+        Alert alertU1S1 = createTestAlertWithUserIdAndPairType(user1, "ETH/BTC", range).withServerId(server1);
+        alertU1S1 = setId(alertU1S1, alerts.addAlert(alertU1S1));
+        Alert alertU1S2 = createTestAlertWithUserIdAndPairType(user1, "ETH/USD", trend).withServerId(server2);
+        alertU1S2 = setId(alertU1S2, alerts.addAlert(alertU1S2));
+        Alert alertU2S1 = createTestAlertWithUserIdAndPairType(user2, "DOT/BTC", trend).withServerId(server1);
+        alertU2S1 = setId(alertU2S1, alerts.addAlert(alertU2S1));
+        Alert alertU3S2 = createTestAlertWithUserIdAndPairType(user3, "ETH/BTC", remainder).withServerId(server2);
+        alertU3S2 = setId(alertU3S2, alerts.addAlert(alertU3S2));
+
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user1, null).withTickerOrPair("ETH/BTC"), 0, 1000).contains(alertU1S1));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user1, range).withTickerOrPair("ETH/BTC"), 0, 1000).contains(alertU1S1));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user1, trend).withTickerOrPair("ETH/BTC"), 0, 1000).contains(alertU1S1));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user2, null).withTickerOrPair("BTC"), 0, 1000).contains(alertU2S1));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user2, trend).withTickerOrPair("BTC"), 0, 1000).contains(alertU2S1));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user2, range).withTickerOrPair("BTC"), 0, 1000).contains(alertU2S1));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user2, null).withTickerOrPair("DOT"), 0, 1000).contains(alertU2S1));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user2, trend).withTickerOrPair("DOT"), 0, 1000).contains(alertU2S1));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user2, remainder).withTickerOrPair("DOT"), 0, 1000).contains(alertU2S1));
+
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user1, null).withTickerOrPair("ETH"), 0, 1000).contains(alertU1S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user1, trend).withTickerOrPair("ETH"), 0, 1000).contains(alertU1S2));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user1, remainder).withTickerOrPair("ETH"), 0, 1000).contains(alertU1S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user1, null).withTickerOrPair("USD"), 0, 1000).contains(alertU1S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user1, trend).withTickerOrPair("USD"), 0, 1000).contains(alertU1S2));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user1, range).withTickerOrPair("USD"), 0, 1000).contains(alertU1S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user3, null).withTickerOrPair("ETH"), 0, 1000).contains(alertU3S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user3, remainder).withTickerOrPair("ETH"), 0, 1000).contains(alertU3S2));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user3, range).withTickerOrPair("ETH"), 0, 1000).contains(alertU3S2));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user3, trend).withTickerOrPair("ETH"), 0, 1000).contains(alertU3S2));
     }
 
     @ParameterizedTest
@@ -1915,7 +2017,32 @@ public abstract class AlertsDaoTest {
     @MethodSource("provideDao")
     void deleteAlerts(AlertsDao alerts, UsersDao users) {
         assertThrows(NullPointerException.class, () -> alerts.deleteAlerts(null));
-        //TODO type test
+
+        long user1 = 123L;
+        long user2 = 222L;
+        long user3 = 321L;
+        setUser(users, user1);
+        setUser(users, user2);
+        setUser(users, user3);
+        long server1 = 789L;
+        long server2 = 987L;
+
+        alerts.addAlert(createTestAlertWithUserIdAndPairType(user1, "ETH/BTC", range).withServerId(server1));
+        alerts.addAlert(createTestAlertWithUserIdAndPairType(user1, "ETH/USD", trend).withServerId(server2));
+        alerts.addAlert(createTestAlertWithUserIdAndPairType(user2, "DOT/BTC", trend).withServerId(server1));
+        alerts.addAlert(createTestAlertWithUserIdAndPairType(user3, "ETH/BTC", remainder).withServerId(server2));
+
+        assertEquals(0, alerts.deleteAlerts(SelectionFilter.of(server1, user1, trend).withTickerOrPair( "ETH/BTC")));
+        assertEquals(1, alerts.deleteAlerts(SelectionFilter.of(server1, user1, range).withTickerOrPair( "ETH/BTC")));
+
+        assertEquals(0, alerts.deleteAlerts(SelectionFilter.ofServer(server2, range).withTickerOrPair("ETH")));
+        assertEquals(1, alerts.deleteAlerts(SelectionFilter.ofServer(server2, remainder).withTickerOrPair("ETH")));
+        assertEquals(0, alerts.deleteAlerts(SelectionFilter.ofServer(server2, remainder).withTickerOrPair("ETH")));
+        assertEquals(1, alerts.deleteAlerts(SelectionFilter.ofServer(server2, null).withTickerOrPair("ETH")));
+        assertEquals(0, alerts.deleteAlerts(SelectionFilter.ofServer(server2, null).withTickerOrPair("ETH")));
+
+        assertEquals(0, alerts.deleteAlerts(SelectionFilter.ofUser(user2, remainder)));
+        assertEquals(1, alerts.deleteAlerts(SelectionFilter.ofUser(user2, null)));
     }
 
     @ParameterizedTest
