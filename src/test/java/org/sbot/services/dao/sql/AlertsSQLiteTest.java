@@ -13,18 +13,17 @@ import org.sbot.utils.DatesTest;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-import static java.util.Collections.*;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.sbot.entities.alerts.Alert.Type.*;
+import static org.sbot.entities.alerts.AlertTest.createTestAlert;
 import static org.sbot.services.dao.sql.AlertsSQLite.SQL.Fields.*;
 import static org.sbot.services.dao.sql.AlertsSQLite.SQL.TICKER_OR_PAIR_ARGUMENT;
 import static org.sbot.services.dao.sql.jdbi.JDBIRepositoryTest.fakeJdbi;
@@ -141,50 +140,50 @@ class AlertsSQLiteTest extends AlertsDaoTest {
 
     @Test
     void updateParameters() {
-        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateParameters(null));
-
-        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateParameters(singletonMap(UpdateField.SERVER_ID, null)));
-        assertDoesNotThrow(() -> AlertsSQLite.updateParameters(singletonMap(UpdateField.LISTENING_DATE, null)));
-        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateParameters(singletonMap(UpdateField.FROM_PRICE, null)));
-        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateParameters(singletonMap(UpdateField.TO_PRICE, null)));
-        assertDoesNotThrow(() -> AlertsSQLite.updateParameters(singletonMap(UpdateField.FROM_DATE, null)));
-        assertDoesNotThrow(() -> AlertsSQLite.updateParameters(singletonMap(UpdateField.TO_DATE, null)));
-        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateParameters(singletonMap(UpdateField.MESSAGE, null)));
-        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateParameters(singletonMap(UpdateField.MARGIN, null)));
-        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateParameters(singletonMap(UpdateField.REPEAT, null)));
-        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateParameters(singletonMap(UpdateField.SNOOZE, null)));
+        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateParameters(null, null));
+        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateParameters(null, mock()));
+        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateParameters(mock(), null));
 
         long serverId = 1123L;
-        var parameters = AlertsSQLite.updateParameters(Map.of(UpdateField.SERVER_ID, serverId));
+        var alert = createTestAlert();
+        var parameters = AlertsSQLite.updateParameters(alert.withServerId(serverId), EnumSet.of(UpdateField.SERVER_ID));
         assertEquals(Map.of(SERVER_ID, serverId), parameters);
         ZonedDateTime date = DatesTest.nowUtc().truncatedTo(ChronoUnit.MILLIS);
-        parameters = AlertsSQLite.updateParameters(Map.of(UpdateField.LISTENING_DATE, date));
+        parameters = AlertsSQLite.updateParameters(alert.withListeningDateRepeat(date, alert.repeat), EnumSet.of(UpdateField.LISTENING_DATE));
         assertEquals(Map.of(LISTENING_DATE, date), parameters);
-        parameters = AlertsSQLite.updateParameters(Map.of(UpdateField.FROM_PRICE, new BigDecimal("34.3434")));
+        parameters = AlertsSQLite.updateParameters(alert.withFromPrice(new BigDecimal("34.3434")), EnumSet.of(UpdateField.FROM_PRICE));
         assertEquals(Map.of(FROM_PRICE, new BigDecimal("34.3434")), parameters);
-        parameters = AlertsSQLite.updateParameters(Map.of(UpdateField.TO_PRICE, new BigDecimal("134.3434")));
+        parameters = AlertsSQLite.updateParameters(alert.withToPrice(new BigDecimal("134.3434")), Set.of(UpdateField.TO_PRICE));
         assertEquals(Map.of(TO_PRICE, new BigDecimal("134.3434")), parameters);
-        parameters = AlertsSQLite.updateParameters(Map.of(UpdateField.FROM_DATE, date));
+        parameters = AlertsSQLite.updateParameters(alert.withFromDate(date), EnumSet.of(UpdateField.FROM_DATE));
         assertEquals(Map.of(FROM_DATE, date), parameters);
-        parameters = AlertsSQLite.updateParameters(Map.of(UpdateField.TO_DATE, date.plusHours(3L)));
+        parameters = AlertsSQLite.updateParameters(alert.withToDate(date.plusHours(3L)), Set.of(UpdateField.TO_DATE));
         assertEquals(Map.of(TO_DATE, date.plusHours(3L)), parameters);
-        parameters = AlertsSQLite.updateParameters(Map.of(UpdateField.MESSAGE, "new messs test"));
+        parameters = AlertsSQLite.updateParameters(alert.withMessage("new messs test"), EnumSet.of(UpdateField.MESSAGE));
         assertEquals(Map.of(MESSAGE, "new messs test"), parameters);
-        parameters = AlertsSQLite.updateParameters(Map.of(UpdateField.MARGIN, new BigDecimal("4")));
+        parameters = AlertsSQLite.updateParameters(alert.withMargin(new BigDecimal("4")), Set.of(UpdateField.MARGIN));
         assertEquals(Map.of(MARGIN, new BigDecimal("4")), parameters);
-        parameters = AlertsSQLite.updateParameters(Map.of(UpdateField.REPEAT, (short) 2));
+        parameters = AlertsSQLite.updateParameters(alert.withListeningDateRepeat(alert.listeningDate, (short) 2), EnumSet.of(UpdateField.REPEAT));
         assertEquals(Map.of(REPEAT, (short) 2), parameters);
-        parameters = AlertsSQLite.updateParameters(Map.of(UpdateField.SNOOZE, (short) 23));
+        parameters = AlertsSQLite.updateParameters(alert.withSnooze((short) 23), Set.of(UpdateField.SNOOZE));
         assertEquals(Map.of(SNOOZE, (short) 23), parameters);
 
-        parameters = AlertsSQLite.updateParameters(Map.of(
-                UpdateField.SNOOZE, (short) 223,
-                UpdateField.FROM_PRICE, new BigDecimal("99"),
-                UpdateField.TO_PRICE, new BigDecimal("199"),
-                UpdateField.MESSAGE, "updated",
-                UpdateField.SERVER_ID, 999L,
-                UpdateField.TO_DATE, date.plusHours(31L),
-                UpdateField.FROM_DATE, date.minusMinutes(7L)));
+        parameters = AlertsSQLite.updateParameters(alert
+                        .withSnooze((short) 223)
+                        .withFromPrice(new BigDecimal("99"))
+                        .withToPrice(new BigDecimal("199"))
+                        .withMessage("updated")
+                        .withServerId(999L)
+                        .withToDate(date.plusHours(31L))
+                        .withFromDate(date.minusMinutes(7L)),
+                EnumSet.of(
+                        UpdateField.SNOOZE,
+                        UpdateField.FROM_PRICE,
+                        UpdateField.TO_PRICE,
+                        UpdateField.MESSAGE,
+                        UpdateField.SERVER_ID,
+                        UpdateField.TO_DATE,
+                        UpdateField.FROM_DATE));
         assertEquals(Map.of(SNOOZE, (short) 223,
                 FROM_PRICE, new BigDecimal("99"),
                 TO_PRICE, new BigDecimal("199"),
@@ -193,12 +192,17 @@ class AlertsSQLiteTest extends AlertsDaoTest {
                 TO_DATE, date.plusHours(31L),
                 FROM_DATE, date.minusMinutes(7L)), parameters);
 
-        parameters = AlertsSQLite.updateParameters(Map.of(
-                UpdateField.LISTENING_DATE, date.plusMinutes(666L),
-                UpdateField.REPEAT, (short) 3,
-                UpdateField.SNOOZE, (short) 54,
-                UpdateField.FROM_PRICE, new BigDecimal("1.2"),
-                UpdateField.MESSAGE, "updated again"));
+        parameters = AlertsSQLite.updateParameters(alert
+                        .withListeningDateRepeat(date.plusMinutes(666L), (short) 3)
+                        .withSnooze((short) 54)
+                        .withFromPrice(new BigDecimal("1.2"))
+                        .withMessage("updated again"),
+                Set.of(
+                        UpdateField.LISTENING_DATE,
+                        UpdateField.REPEAT,
+                        UpdateField.SNOOZE,
+                        UpdateField.FROM_PRICE,
+                        UpdateField.MESSAGE));
         assertEquals(Map.of(LISTENING_DATE, date.plusMinutes(666L),
                 REPEAT, (short) 3,
                 SNOOZE, (short) 54,

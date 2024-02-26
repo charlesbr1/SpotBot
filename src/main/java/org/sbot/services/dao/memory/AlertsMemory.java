@@ -8,19 +8,20 @@ import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.BatchEntry;
 import org.sbot.services.dao.UsersDao;
 
-import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.*;
+import java.util.function.BiConsumer;
+import java.util.function.BiPredicate;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.*;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.range;
@@ -56,22 +57,6 @@ public final class AlertsMemory implements AlertsDao {
         put.accept((alert, v) -> alert.type == v, filter.type());
         put.accept((alert, v) -> alert.pair.contains((String) v), filter.tickerOrPair());
         return selection.stream().reduce(Predicate::and).orElse(a -> true);
-    }
-
-    @NotNull
-    static Function<Alert, Alert> fieldsMapper(@NotNull Map<UpdateField, Object> fields) {
-        return fields.entrySet().stream().<Function<Alert, Alert>>map(entry -> switch (entry.getKey()) {
-            case SERVER_ID ->  alert -> alert.withServerId((Long) entry.getValue());
-            case LISTENING_DATE -> alert -> alert.withListeningDateRepeat((ZonedDateTime) entry.getValue(), alert.repeat);
-            case FROM_PRICE -> alert -> alert.withFromPrice((BigDecimal) entry.getValue());
-            case TO_PRICE -> alert -> alert.withToPrice((BigDecimal) entry.getValue());
-            case FROM_DATE -> alert -> alert.withFromDate((ZonedDateTime) entry.getValue());
-            case TO_DATE -> alert -> alert.withToDate((ZonedDateTime) entry.getValue());
-            case MESSAGE -> alert -> alert.withMessage((String) entry.getValue());
-            case MARGIN -> alert -> alert.withMargin((BigDecimal) entry.getValue());
-            case REPEAT -> alert -> alert.withListeningDateRepeat(alert.listeningDate, (short) entry.getValue());
-            case SNOOZE -> alert -> alert.withSnooze((short) entry.getValue());
-        }).reduce(Function::andThen).orElse(identity());
     }
 
     @Override
@@ -194,10 +179,11 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public void update(long alertId, @NotNull Map<UpdateField, Object> fields) {
-        LOGGER.debug("update {} {}", alertId, fields);
-        requireNonNull(fields);
-        alerts.computeIfPresent(alertId, (id, alert) -> fieldsMapper(fields).apply(alert));
+    // memory dao save the provided alert directly
+    public void update(@NotNull Alert alert, @NotNull Set<UpdateField> fields) {
+        LOGGER.debug("update {} {}", fields, alert);
+        requireNonNull(fields); // unused, to be compliant with SQL dao
+        alerts.computeIfPresent(alert.id, (id, a) -> alert);
     }
 
     @Override

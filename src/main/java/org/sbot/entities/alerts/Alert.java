@@ -1,6 +1,7 @@
 package org.sbot.entities.alerts;
 
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.utils.MarkdownUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -24,7 +25,6 @@ import static net.dv8tion.jda.api.entities.MessageEmbed.TITLE_MAX_LENGTH;
 import static org.sbot.entities.alerts.Alert.Type.remainder;
 import static org.sbot.entities.chart.Ticker.getSymbol;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.NOT_MATCHING;
-import static org.sbot.services.discord.Discord.SINGLE_LINE_BLOCK_QUOTE_MARKDOWN;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.formatDiscordRelative;
 
@@ -272,7 +272,7 @@ public abstract class Alert {
                 "<@" + userId + ">\nYour " + type.name() + " set";
         return header + " on " + exchange + ' ' + pair +
                 (matchingStatus.notMatching() ? "" : (matchingStatus.isMargin() ? " reached **margin** threshold. Set a new one using :\n\n" +
-                        SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + "*margin " + id + " 'amount in " + getSymbol(getTicker2()) + "'*" :
+                        MarkdownUtil.quote("*update margin " + id + " 'amount in " + getSymbol(getTicker2()) + "'*") :
                         " was **tested !**") +  "\n\n:rocket: Check out the price !!") +
                 (matchingStatus.notMatching() && isQuietOrDisabled(now) ? "\n\n** " + withQuietTime(now) + "**" : "") +
                 (matchingStatus.notMatching() ? Optional.ofNullable(lastTrigger)

@@ -9,6 +9,7 @@ import net.dv8tion.jda.api.interactions.commands.Command.Choice;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import net.dv8tion.jda.api.utils.MarkdownUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
@@ -203,7 +204,7 @@ public final class SpotBotCommand extends CommandAdapter {
         // split the list because it exceeds max discord message length
         return split(6, commands)
                 .map(cmdList -> Message.of(embedBuilder(null, Color.green, cmdList.stream()
-                        .map(cmd -> "** " + cmd.name + "**\n\n" + SINGLE_LINE_BLOCK_QUOTE_MARKDOWN + cmd.description + commandDescription(cmd.options))
+                        .map(cmd -> "** " + cmd.name + "**\n\n" + MarkdownUtil.quote(cmd.description + commandDescription(cmd.options)))
                         .collect(joining("\n\n\n"))))).toList();
     }
 }

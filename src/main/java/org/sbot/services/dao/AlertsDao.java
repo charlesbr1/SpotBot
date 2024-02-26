@@ -67,7 +67,7 @@ public interface AlertsDao {
 
     long addAlert(@NotNull Alert alert);
 
-    void update(long alertId, @NotNull Map<UpdateField, Object> fields);
+    void update(@NotNull Alert alert, @NotNull Set<UpdateField> fields);
 
     long updateServerIdOf(@NotNull SelectionFilter filter, long newServerId);
 

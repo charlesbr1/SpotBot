@@ -6,6 +6,7 @@ import net.dv8tion.jda.api.interactions.commands.Command.Choice;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
+import net.dv8tion.jda.api.utils.MarkdownUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
@@ -36,7 +37,6 @@ import static org.sbot.commands.interactions.SelectEditInteraction.updateMenuOf;
 import static org.sbot.entities.alerts.Alert.isPrivate;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.services.discord.Discord.MESSAGE_PAGE_SIZE;
-import static org.sbot.services.discord.Discord.MULTI_LINE_BLOCK_QUOTE_MARKDOWN;
 import static org.sbot.utils.ArgumentValidator.ALERT_MAX_PAIR_LENGTH;
 import static org.sbot.utils.ArgumentValidator.ALERT_MIN_TICKER_LENGTH;
 
@@ -261,6 +261,6 @@ public final class ListCommand extends CommandAdapter {
 
     private Message exchanges() {
         return Message.of(embedBuilder(LIST_EXCHANGES, Color.green, //TODO add pairs
-                MULTI_LINE_BLOCK_QUOTE_MARKDOWN + "* " + String.join("\n* ", SUPPORTED_EXCHANGES)));
+                MarkdownUtil.quoteBlock("* " + String.join("\n* ", SUPPORTED_EXCHANGES))));
     }
 }

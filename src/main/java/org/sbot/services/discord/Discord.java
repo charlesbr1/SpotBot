@@ -64,9 +64,6 @@ public final class Discord {
         void sendMessages(@NotNull List<Message> messages);
     }
 
-    public static final String SINGLE_LINE_BLOCK_QUOTE_MARKDOWN = "> ";
-    public static final String MULTI_LINE_BLOCK_QUOTE_MARKDOWN = ">>> ";
-
     private final JDA jda;
     private final Map<String, CommandListener> commands = new ConcurrentHashMap<>();
     private final Map<String, InteractionListener> interactions = new ConcurrentHashMap<>();

@@ -24,10 +24,10 @@ import java.util.stream.LongStream;
 
 import static java.math.BigDecimal.*;
 import static java.time.temporal.ChronoUnit.MILLIS;
-import static java.util.Collections.singletonMap;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
-import static org.sbot.entities.alerts.Alert.*;
+import static org.sbot.entities.alerts.Alert.DEFAULT_SNOOZE_HOURS;
+import static org.sbot.entities.alerts.Alert.MARGIN_DISABLED;
 import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.entities.alerts.AlertTest.*;
 import static org.sbot.entities.alerts.RangeAlertTest.createTestRangeAlert;
@@ -1825,43 +1825,33 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void update(AlertsDao alerts, UsersDao users) {
-        assertThrows(NullPointerException.class, () -> alerts.update(1L, null));
+        assertThrows(NullPointerException.class, () -> alerts.update(null, null));
+        assertThrows(NullPointerException.class, () -> alerts.update(null, Set.of(MESSAGE)));
+        assertThrows(NullPointerException.class, () -> alerts.update(createTestAlert(), null));
+
         setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert().withServerId(123L);
-        long alertId = alerts.addAlert(alert);
-        assertTrue(alerts.getAlert(alertId).isPresent());
-        assertEquals(123L, alerts.getAlert(alertId).get().serverId);
-        assertEquals(alert.listeningDate, alerts.getAlert(alertId).get().listeningDate);
-        assertEquals(alert.toDate, alerts.getAlert(alertId).get().toDate);
-        assertEquals(alert.toPrice, alerts.getAlert(alertId).get().toPrice);
-        assertEquals(alert.message, alerts.getAlert(alertId).get().message);
-        assertEquals(alert.margin, alerts.getAlert(alertId).get().margin);
-        assertEquals(alert.repeat, alerts.getAlert(alertId).get().repeat);
-        assertEquals(alert.snooze, alerts.getAlert(alertId).get().snooze);
+        alert = setId(alert, alerts.addAlert(alert));
+        alerts.update(alert, EnumSet.allOf(AlertsDao.UpdateField.class));
+        assertTrue(alerts.getAlert(alert.id).isPresent());
+        assertDeepEquals(alert, alerts.getAlert(alert.id).get());
 
         ZonedDateTime date = DatesTest.nowUtc().truncatedTo(MILLIS) // clear the nanoseconds as sqlite save milliseconds
                 .plusHours(1L);
-        alerts.update(alertId, Map.of(
-                SERVER_ID, 321L,
-                LISTENING_DATE, date,
-                FROM_PRICE, new BigDecimal("1212"),
-                TO_PRICE, new BigDecimal("91212"),
-                FROM_DATE, date,
-                TO_DATE, date.plusDays(2L),
-                MESSAGE, "new test message updated",
-                MARGIN, new BigDecimal("34"),
-                REPEAT, (short) 22,
-                SNOOZE, (short) 11));
-        assertEquals(321L, alerts.getAlert(alertId).get().serverId);
-        assertEquals(date, alerts.getAlert(alertId).get().listeningDate);
-        assertEquals(new BigDecimal("1212"), alerts.getAlert(alertId).get().fromPrice);
-        assertEquals(new BigDecimal("91212"), alerts.getAlert(alertId).get().toPrice);
-        assertEquals(date, alerts.getAlert(alertId).get().fromDate);
-        assertEquals(date.plusDays(2L), alerts.getAlert(alertId).get().toDate);
-        assertEquals("new test message updated", alerts.getAlert(alertId).get().message);
-        assertEquals(new BigDecimal("34"), alerts.getAlert(alertId).get().margin);
-        assertEquals((short) 22, alerts.getAlert(alertId).get().repeat);
-        assertEquals((short) 11, alerts.getAlert(alertId).get().snooze);
+        alert = alert
+                .withServerId(321L)
+                .withListeningDateRepeat(date, (short) 22)
+                .withFromPrice(new BigDecimal("1212"))
+                .withToPrice(new BigDecimal("91212"))
+                .withFromDate(date)
+                .withToDate(date.plusDays(2L))
+                .withMessage("new test message updated")
+                .withMargin(new BigDecimal("34"))
+                .withSnooze((short) 11);
+
+        alerts.update(alert, EnumSet.allOf(AlertsDao.UpdateField.class));
+        assertTrue(alerts.getAlert(alert.id).isPresent());
+        assertDeepEquals(alert, alerts.getAlert(alert.id).get());
     }
 
     @ParameterizedTest
@@ -1869,13 +1859,11 @@ public abstract class AlertsDaoTest {
     void updateServerId(AlertsDao alerts, UsersDao users) {
         setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert().withServerId(123L);
-        long alertId = alerts.addAlert(alert);
-        assertTrue(alerts.getAlert(alertId).isPresent());
-        assertEquals(123L, alerts.getAlert(alertId).get().serverId);
-        alerts.update(alertId, singletonMap(SERVER_ID, 321L));
-        assertEquals(321L, alerts.getAlert(alertId).get().serverId);
-
-        assertThrows(NullPointerException.class, () -> alerts.update(1L, singletonMap(SERVER_ID, null)));
+        alert = setId(alert, alerts.addAlert(alert));
+        assertTrue(alerts.getAlert(alert.id).isPresent());
+        assertEquals(123L, alerts.getAlert(alert.id).get().serverId);
+        alerts.update(alert.withServerId(321L), Set.of(SERVER_ID));
+        assertEquals(321L, alerts.getAlert(alert.id).get().serverId);
     }
 
     @ParameterizedTest
@@ -1885,11 +1873,11 @@ public abstract class AlertsDaoTest {
         ZonedDateTime date = DatesTest.nowUtc().truncatedTo(MILLIS) // clear the nanoseconds as sqlite save milliseconds
                 .minusMonths(1L);
         Alert alert = createTestAlert().withToDate(date.plusYears(33L)).withListeningDateFromDate(date, date.plusMinutes(37L));
-        long alertId = alerts.addAlert(alert);
-        assertTrue(alerts.getAlert(alertId).isPresent());
-        assertEquals(date, alerts.getAlert(alertId).get().listeningDate);
-        alerts.update(alertId, singletonMap(LISTENING_DATE, date.plusDays(3L)));
-        assertEquals(date.plusDays(3L), alerts.getAlert(alertId).get().listeningDate);
+        alert = setId(alert, alerts.addAlert(alert));
+        assertTrue(alerts.getAlert(alert.id).isPresent());
+        assertEquals(date, alerts.getAlert(alert.id).get().listeningDate);
+        alerts.update(alert.withListeningDateRepeat(date.plusDays(3L), alert.repeat), Set.of(LISTENING_DATE));
+        assertEquals(date.plusDays(3L), alerts.getAlert(alert.id).get().listeningDate);
     }
 
     @ParameterizedTest
@@ -1897,13 +1885,14 @@ public abstract class AlertsDaoTest {
     void updateFromPrice(AlertsDao alerts, UsersDao users) {
         setUser(users, TEST_USER_ID);
         Alert alert = createTestRangeAlert().withFromPrice(ONE);
-        long alertId = alerts.addAlert(alert);
-        assertTrue(alerts.getAlert(alertId).isPresent());
-        assertEquals(ONE, alerts.getAlert(alertId).get().fromPrice);
-        alerts.update(alertId, singletonMap(FROM_PRICE, TWO));
-        assertEquals(TWO, alerts.getAlert(alertId).get().fromPrice);
+        alert = setId(alert, alerts.addAlert(alert));
+        assertTrue(alerts.getAlert(alert.id).isPresent());
+        assertEquals(ONE, alerts.getAlert(alert.id).get().fromPrice);
+        alerts.update(alert.withFromPrice(TWO), Set.of(FROM_PRICE));
+        assertEquals(TWO, alerts.getAlert(alert.id).get().fromPrice);
 
-        assertThrows(NullPointerException.class, () -> alerts.update(1L, singletonMap(FROM_PRICE, null)));
+        var falert = alert;
+        assertThrows(NullPointerException.class, () -> alerts.update(falert.withFromPrice(null), Set.of(FROM_PRICE)));
     }
 
     @ParameterizedTest
@@ -1911,13 +1900,14 @@ public abstract class AlertsDaoTest {
     void updateToPrice(AlertsDao alerts, UsersDao users) {
         setUser(users, TEST_USER_ID);
         Alert alert = createTestRangeAlert().withToPrice(BigDecimal.valueOf(100L));
-        long alertId = alerts.addAlert(alert);
-        assertTrue(alerts.getAlert(alertId).isPresent());
-        assertEquals(BigDecimal.valueOf(100L), alerts.getAlert(alertId).get().toPrice);
-        alerts.update(alertId, singletonMap(TO_PRICE, BigDecimal.valueOf(30L)));
-        assertEquals(BigDecimal.valueOf(30L), alerts.getAlert(alertId).get().toPrice);
+        alert = setId(alert, alerts.addAlert(alert));
+        assertTrue(alerts.getAlert(alert.id).isPresent());
+        assertEquals(BigDecimal.valueOf(100L), alerts.getAlert(alert.id).get().toPrice);
+        alerts.update(alert.withToPrice(BigDecimal.valueOf(30L)), Set.of(TO_PRICE));
+        assertEquals(BigDecimal.valueOf(30L), alerts.getAlert(alert.id).get().toPrice);
 
-        assertThrows(NullPointerException.class, () -> alerts.update(1L, singletonMap(TO_PRICE, null)));
+        var falert = alert;
+        assertThrows(NullPointerException.class, () -> alerts.update(falert.withToPrice(null), Set.of(TO_PRICE)));
     }
 
     @ParameterizedTest
@@ -1926,11 +1916,11 @@ public abstract class AlertsDaoTest {
         setUser(users, TEST_USER_ID);
         ZonedDateTime date = TEST_FROM_DATE.minusWeeks(2L).truncatedTo(MILLIS); // clear the nanoseconds as sqlite save milliseconds
         Alert alert = createTestAlert().withFromDate(date);
-        long alertId = alerts.addAlert(alert);
-        assertTrue(alerts.getAlert(alertId).isPresent());
-        assertEquals(date, alerts.getAlert(alertId).get().fromDate);
-        alerts.update(alertId, singletonMap(FROM_DATE, date.plusHours(3L)));
-        assertEquals(date.plusHours(3L), alerts.getAlert(alertId).get().fromDate);
+        alert = setId(alert, alerts.addAlert(alert));
+        assertTrue(alerts.getAlert(alert.id).isPresent());
+        assertEquals(date, alerts.getAlert(alert.id).get().fromDate);
+        alerts.update(alert.withFromDate(date.plusHours(3L)), Set.of(FROM_DATE));
+        assertEquals(date.plusHours(3L), alerts.getAlert(alert.id).get().fromDate);
     }
 
     @ParameterizedTest
@@ -1939,11 +1929,11 @@ public abstract class AlertsDaoTest {
         setUser(users, TEST_USER_ID);
         ZonedDateTime date = DatesTest.nowUtc().truncatedTo(MILLIS); // clear the nanoseconds as sqlite save milliseconds
         Alert alert = createTestAlert().withToDate(date);
-        long alertId = alerts.addAlert(alert);
-        assertTrue(alerts.getAlert(alertId).isPresent());
-        assertEquals(date, alerts.getAlert(alertId).get().toDate);
-        alerts.update(alertId, singletonMap(TO_DATE, date.plusHours(3L)));
-        assertEquals(date.plusHours(3L), alerts.getAlert(alertId).get().toDate);
+        alert = setId(alert, alerts.addAlert(alert));
+        assertTrue(alerts.getAlert(alert.id).isPresent());
+        assertEquals(date, alerts.getAlert(alert.id).get().toDate);
+        alerts.update(alert.withToDate(date.plusHours(3L)), Set.of(TO_DATE));
+        assertEquals(date.plusHours(3L), alerts.getAlert(alert.id).get().toDate);
     }
 
     @ParameterizedTest
@@ -1951,13 +1941,14 @@ public abstract class AlertsDaoTest {
     void updateMessage(AlertsDao alerts, UsersDao users) {
         setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert().withMessage("message");
-        long alertId = alerts.addAlert(alert);
-        assertTrue(alerts.getAlert(alertId).isPresent());
-        assertEquals("message", alerts.getAlert(alertId).get().message);
-        alerts.update(alertId, singletonMap(MESSAGE, "new message"));
-        assertEquals("new message", alerts.getAlert(alertId).get().message);
+        alert = setId(alert, alerts.addAlert(alert));
+        assertTrue(alerts.getAlert(alert.id).isPresent());
+        assertEquals("message", alerts.getAlert(alert.id).get().message);
+        alerts.update(alert.withMessage("new message"), Set.of(MESSAGE));
+        assertEquals("new message", alerts.getAlert(alert.id).get().message);
 
-        assertThrows(NullPointerException.class, () -> alerts.update(1L, singletonMap(MESSAGE, null)));
+        var falert = alert;
+        assertThrows(NullPointerException.class, () -> alerts.update(falert.withMessage(null), Set.of(MESSAGE)));
     }
 
     @ParameterizedTest
@@ -1965,13 +1956,14 @@ public abstract class AlertsDaoTest {
     void updateMargin(AlertsDao alerts, UsersDao users) {
         setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert().withMargin(ONE);
-        long alertId = alerts.addAlert(alert);
-        assertTrue(alerts.getAlert(alertId).isPresent());
-        assertEquals(ONE, alerts.getAlert(alertId).get().margin);
-        alerts.update(alertId, singletonMap(MARGIN, TWO));
-        assertEquals(TWO, alerts.getAlert(alertId).get().margin);
+        alert = setId(alert, alerts.addAlert(alert));
+        assertTrue(alerts.getAlert(alert.id).isPresent());
+        assertEquals(ONE, alerts.getAlert(alert.id).get().margin);
+        alerts.update(alert.withMargin(TWO), Set.of(MARGIN));
+        assertEquals(TWO, alerts.getAlert(alert.id).get().margin);
 
-        assertThrows(NullPointerException.class, () -> alerts.update(1L, singletonMap(MARGIN, null)));
+        var falert = alert;
+        assertThrows(NullPointerException.class, () -> alerts.update(falert.withMargin(null), Set.of(MARGIN)));
     }
 
     @ParameterizedTest
@@ -1979,13 +1971,11 @@ public abstract class AlertsDaoTest {
     void updateRepeat(AlertsDao alerts, UsersDao users) {
         setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert().withListeningDateRepeat(DatesTest.nowUtc(), (short) 13);
-        long alertId = alerts.addAlert(alert);
-        assertTrue(alerts.getAlert(alertId).isPresent());
-        assertEquals(13, alerts.getAlert(alertId).get().repeat);
-        alerts.update(alertId, Map.of(REPEAT, (short) 7));
-        assertEquals(7, alerts.getAlert(alertId).get().repeat);
-
-        assertThrows(NullPointerException.class, () -> alerts.update(1L, singletonMap(REPEAT, null)));
+        alert = setId(alert, alerts.addAlert(alert));
+        assertTrue(alerts.getAlert(alert.id).isPresent());
+        assertEquals(13, alerts.getAlert(alert.id).get().repeat);
+        alerts.update(alert.withListeningDateRepeat(alert.listeningDate, (short) 7), Set.of(REPEAT));
+        assertEquals(7, alerts.getAlert(alert.id).get().repeat);
     }
 
     @ParameterizedTest
@@ -1993,13 +1983,11 @@ public abstract class AlertsDaoTest {
     void updateSnooze(AlertsDao alerts, UsersDao users) {
         setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert().withSnooze((short) 51);
-        long alertId = alerts.addAlert(alert);
-        assertTrue(alerts.getAlert(alertId).isPresent());
-        assertEquals(51, alerts.getAlert(alertId).get().snooze);
-        alerts.update(alertId, singletonMap(SNOOZE, (short) 77));
-        assertEquals(77, alerts.getAlert(alertId).get().snooze);
-
-        assertThrows(NullPointerException.class, () -> alerts.update(1L, singletonMap(SNOOZE, null)));
+        alert = setId(alert, alerts.addAlert(alert));
+        assertTrue(alerts.getAlert(alert.id).isPresent());
+        assertEquals(51, alerts.getAlert(alert.id).get().snooze);
+        alerts.update(alert.withSnooze((short) 77), Set.of(SNOOZE));
+        assertEquals(77, alerts.getAlert(alert.id).get().snooze);
     }
 
     @ParameterizedTest
