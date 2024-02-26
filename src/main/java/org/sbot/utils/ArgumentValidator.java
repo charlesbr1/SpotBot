@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static java.util.function.Predicate.not;
+import static net.dv8tion.jda.api.entities.Message.MentionType.USER;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
 import static org.sbot.utils.Dates.formatDiscord;
@@ -31,8 +32,7 @@ public interface ArgumentValidator {
     Pattern PAIR_PATTERN = Pattern.compile("^[A-Z0-9]{" + ALERT_MIN_TICKER_LENGTH + ',' + ALERT_MAX_TICKER_LENGTH +
             "}/[A-Z0-9]{" + ALERT_MIN_TICKER_LENGTH + ',' + ALERT_MAX_TICKER_LENGTH + "}$"); // TICKER/TICKER format
 
-    Pattern DISCORD_USER_ID_PATTERN = Pattern.compile("<@(\\d+)>"); // matches id from discord user mention
-    Pattern START_WITH_DISCORD_USER_ID_PATTERN = Pattern.compile("^<@(\\d+)>"); // matches id from discord user mention
+    Pattern START_WITH_DISCORD_USER_ID_PATTERN = Pattern.compile("^<@!?(\\d+)>"); // matches id from discord user mention
 
     static int requirePositive(int value) {
         return (int) requirePositive((long) value);
@@ -125,7 +125,7 @@ public interface ArgumentValidator {
     }
 
     static long requireUser(@NotNull String userMention) {
-        Matcher matcher = DISCORD_USER_ID_PATTERN.matcher(userMention);
+        Matcher matcher = USER.getPattern().matcher(userMention);
         if(!matcher.matches())
             throw new IllegalArgumentException("Provided string is not an user mention : " + userMention);
         return Long.parseLong(matcher.group(1));

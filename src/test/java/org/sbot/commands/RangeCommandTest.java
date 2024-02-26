@@ -30,6 +30,7 @@ import static org.sbot.commands.CommandAdapterTest.assertExceptionContains;
 import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.range;
+import static org.sbot.utils.ArgumentValidator.ALERT_MESSAGE_ARG_MAX_LENGTH;
 import static org.sbot.utils.Dates.UTC;
 
 class RangeCommandTest {
@@ -357,5 +358,40 @@ class RangeCommandTest {
         assertEquals(new BigDecimal("123.6"), arguments.low());
         assertEquals(new BigDecimal("123.6"), arguments.high());
         assertEquals("this is the message !!", arguments.message());
+
+
+        // bad exchange
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " badExchange dot/xrp this is the message !! 12,45  23232.6 " + dateFrom + "  " + dateTo);
+        assertExceptionContains(IllegalArgumentException.class, EXCHANGE_ARGUMENT,
+                () -> RangeCommand.arguments(commandContext[0], now));
+
+        // negative prices
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! -12,45  23232.6 " + dateFrom + "  " + dateTo);
+        assertExceptionContains(IllegalArgumentException.class, "Negative",
+                () -> RangeCommand.arguments(commandContext[0], now));
+
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45  -23232.6 " + dateFrom + "  " + dateTo);
+        assertExceptionContains(IllegalArgumentException.class, "Negative",
+                () -> RangeCommand.arguments(commandContext[0], now));
+
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! -12,45  -23232.6 " + dateFrom + "  " + dateTo);
+        assertExceptionContains(IllegalArgumentException.class, "Negative",
+                () -> RangeCommand.arguments(commandContext[0], now));
+
+        // test dates in past
+        // from date in past ok
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45  23232.6 11/11/1011-11:11  ");
+        assertDoesNotThrow(() -> RangeCommand.arguments(commandContext[0], now));
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45  23232.6 11/11/1011-11:11  " + dateTo);
+        assertDoesNotThrow(() -> RangeCommand.arguments(commandContext[0], now));
+        // to date in past ko
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45  23232.6 11/11/1011-11:11  11/11/1111-11:11 ");
+        assertExceptionContains(IllegalArgumentException.class, "after",
+                () -> RangeCommand.arguments(commandContext[0], now));
+
+        // message too long
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + "aa".repeat(ALERT_MESSAGE_ARG_MAX_LENGTH) + " 12,45  23232.6 " + dateFrom + "  " + dateTo);
+        assertExceptionContains(IllegalArgumentException.class, "too long",
+                () -> RangeCommand.arguments(commandContext[0], now));
     }
 }

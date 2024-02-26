@@ -34,6 +34,7 @@ import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.trend;
 import static org.sbot.entities.alerts.AlertTest.*;
+import static org.sbot.utils.ArgumentValidator.ALERT_MESSAGE_ARG_MAX_LENGTH;
 import static org.sbot.utils.Dates.UTC;
 
 class TrendCommandTest {
@@ -240,6 +241,10 @@ class TrendCommandTest {
         assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dotxrp");
+        assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
+                () -> TrendCommand.arguments(commandContext[0]));
+
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp");
         assertExceptionContains(IllegalArgumentException.class, TO_DATE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
@@ -302,5 +307,37 @@ class TrendCommandTest {
         assertEquals(new BigDecimal("23232.6"), arguments.toPrice());
 
         assertEquals("this is the message !!", arguments.message());
+
+        // alert id negative
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + "  -1 " + dateFrom);
+        assertExceptionContains(IllegalArgumentException.class, "Negative",
+                () -> TrendCommand.arguments(commandContext[0]));
+
+        // bad exchange
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " badExchange dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo);
+        assertExceptionContains(IllegalArgumentException.class, EXCHANGE_ARGUMENT,
+                () -> TrendCommand.arguments(commandContext[0]));
+
+        // negative prices
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! -12,45 " + dateFrom + " 23232.6 " + dateTo);
+        assertExceptionContains(IllegalArgumentException.class, "Negative",
+                () -> TrendCommand.arguments(commandContext[0]));
+
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " -23232.6 " + dateTo);
+        assertExceptionContains(IllegalArgumentException.class, "Negative",
+                () -> TrendCommand.arguments(commandContext[0]));
+
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! -12,45 " + dateFrom + " -23232.6 " + dateTo);
+        assertExceptionContains(IllegalArgumentException.class, "Negative",
+                () -> TrendCommand.arguments(commandContext[0]));
+
+        // dates in past OK
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 10/10/1010-20:01 23232.6 10/10/1810-20:01");
+        assertDoesNotThrow(() -> TrendCommand.arguments(commandContext[0]));
+
+        // message too long
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + "aa".repeat(ALERT_MESSAGE_ARG_MAX_LENGTH) + " 12,45 " + dateFrom + " 23232.6 " + dateTo);
+        assertExceptionContains(IllegalArgumentException.class, "too long",
+                () -> TrendCommand.arguments(commandContext[0]));
     }
 }

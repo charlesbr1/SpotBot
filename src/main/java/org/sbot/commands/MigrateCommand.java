@@ -52,9 +52,9 @@ public final class MigrateCommand extends CommandAdapter {
                     new SubcommandData("filter", "migrate all your alerts or filtered by a ticker or pair").addOptions(
                             option(STRING, TICKER_PAIR_ARGUMENT, "a filter to select the alerts having a ticker or a pair (can be '" + MIGRATE_ALL + "')", true)
                                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
+                            SERVER_ID_OPTION,
                             option(STRING, TYPE_ARGUMENT, "type of alert to migrate (range, trend or remainder)", false)
                                     .addChoices(Stream.of(Type.values()).map(t -> new Choice(t.name(), t.name())).toList()),
-                            SERVER_ID_OPTION,
                             option(USER, OWNER_ARGUMENT, "for admin only, owner of the alerts to migrate", false)));
 
     private record Arguments(Long alertId, Type type, Long serverId, String tickerOrPair, Long ownerId) {}
@@ -130,7 +130,7 @@ public final class MigrateCommand extends CommandAdapter {
                 throw notGuildMemberException(alert.userId, guild);
             }
             alertsDao.update(alert.withServerId(serverId), EnumSet.of(SERVER_ID));
-            if(context.user.getIdLong() != alert.userId) {
+            if(context.user.getIdLong() != alert.userId) { // send notification once transaction is successful
                 outNotificationCallBack[0] = () -> sendUpdateNotification(context, alert.userId, ownerMigrateNotification(alertId, requireNonNull(context.member), guild));
             }
             return embed;

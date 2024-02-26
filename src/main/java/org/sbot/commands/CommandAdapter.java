@@ -101,8 +101,7 @@ public abstract class CommandAdapter implements CommandListener {
             if(SecurityAccess.notFound(context, alert)) {
                 return embedBuilder(":ghost: " + context.user.getEffectiveName(), Color.red, "Alert " + alertId + " not found");
             } else if(SecurityAccess.isDenied(context, alert)) {
-                return embedBuilder(":clown: " + context.user.getEffectiveName(), Color.black, "You are not allowed to update alert " + alertId +
-                        (isPrivateChannel(context) ? ", you are on a private channel." : ""));
+                return embedBuilder(":clown: " + context.user.getEffectiveName(), Color.black, "You are not allowed to modify alert " + alertId);
             }
             var embedBuilder = updateHandler.apply(alert, dao).setTitle(":+1: " + context.user.getEffectiveName());
             return embedBuilder.setColor(Optional.ofNullable(embedBuilder.build().getColor()).orElse(Color.green));
@@ -159,7 +158,7 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected void sendUpdateNotification(@NotNull CommandContext context, long userId, @NotNull Message message) {
         if(!isPrivateChannel(context)) {
-            context.discord().userChannel(userId).ifPresent(channel -> channel.sendMessages(List.of(message)));
+            context.discord().sendPrivateMessage(userId, message);
         }
     }
 }

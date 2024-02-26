@@ -45,6 +45,6 @@ public class AlertCommand extends CommandAdapter {
                 default -> remainder;
             };
         }
-        return Type.valueOf(context.args.getMandatoryString(TYPE_ARGUMENT));
+        return context.args.getMandatoryType(TYPE_ARGUMENT);
     }
 }

@@ -267,4 +267,17 @@ class StringArgumentReaderTest {
         var finalReader = new StringArgumentReader("abc");
         assertThrows(IllegalArgumentException.class, () -> finalReader.getMandatoryUserId(""));
     }
+
+    @Test
+    void getMandatoryType() {
+        var reader = new StringArgumentReader("range");
+        assertEquals(range, reader.getMandatoryType(""));
+        reader = new StringArgumentReader("trend");
+        assertEquals(trend, reader.getMandatoryType(""));
+        reader = new StringArgumentReader("remainder");
+        assertEquals(remainder, reader.getMandatoryType(""));
+
+        var finalReader = new StringArgumentReader("abc");
+        assertThrows(IllegalArgumentException.class, () -> finalReader.getMandatoryType(""));
+    }
 }

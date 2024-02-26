@@ -59,33 +59,6 @@ class ArgumentValidatorTest {
     }
 
     @Test
-    void DISCORD_USER_ID_PATTERN() {
-        assertTrue(DISCORD_USER_ID_PATTERN.matcher("<@1234>").matches());
-        assertEquals("aze", DISCORD_USER_ID_PATTERN.matcher("<@1234>aze").replaceFirst(""));
-        assertEquals("abcaze", DISCORD_USER_ID_PATTERN.matcher("abc<@1234>aze").replaceFirst(""));
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher(" <@1234>").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("a<@1234>").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("1<@1234>").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("&<@1234>").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("@<@1234>").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("<@1234> ").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("<@1234>a").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("<@1234>1").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("<@1234>&").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("<@1234").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("<@123a4>").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("@1234>").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("<1234>").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("<@ 1234>").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("< @1234>").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("<@1234 >").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("<@abcd>").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("<@>").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("<>").matches());
-        assertFalse(DISCORD_USER_ID_PATTERN.matcher("").matches());
-    }
-
-    @Test
     void START_WITH_DISCORD_USER_ID_PATTERN() {
         assertTrue(START_WITH_DISCORD_USER_ID_PATTERN.matcher("<@1234>").matches());
         assertEquals("aze", START_WITH_DISCORD_USER_ID_PATTERN.matcher("<@1234>aze").replaceFirst(""));
@@ -230,8 +203,6 @@ class ArgumentValidatorTest {
     @Test
     void requireUser() {
         assertEquals(1234L, ArgumentValidator.requireUser("<@1234>"));
-        assertEquals("aze", DISCORD_USER_ID_PATTERN.matcher("<@1234>aze").replaceFirst(""));
-        assertEquals("abcaze", DISCORD_USER_ID_PATTERN.matcher("abc<@1234>aze").replaceFirst(""));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(" <@1234>"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("a<@1234>"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("1<@1234>"));

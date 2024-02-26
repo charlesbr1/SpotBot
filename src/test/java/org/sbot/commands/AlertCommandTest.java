@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.sbot.commands.AlertCommand.TYPE_ARGUMENT;
+import static org.sbot.entities.alerts.Alert.Type.*;
 
 class AlertCommandTest {
 
@@ -30,7 +31,7 @@ class AlertCommandTest {
             var field = CommandContext.class.getField("args");
             field.setAccessible(true);
             field.set(context, argumentReader);
-            when(argumentReader.getMandatoryString(TYPE_ARGUMENT)).thenReturn(RangeCommand.NAME);
+            when(argumentReader.getMandatoryType(TYPE_ARGUMENT)).thenReturn(range);
             alertCommand.onCommand(context);
             Assertions.fail();
         } catch (Exception e) {
@@ -38,7 +39,7 @@ class AlertCommandTest {
         }
 
         try {
-            when(argumentReader.getMandatoryString(TYPE_ARGUMENT)).thenReturn(TrendCommand.NAME);
+            when(argumentReader.getMandatoryType(TYPE_ARGUMENT)).thenReturn(trend);
             alertCommand.onCommand(context);
             Assertions.fail();
         } catch (Exception e) {
@@ -46,7 +47,7 @@ class AlertCommandTest {
         }
 
         try {
-            when(argumentReader.getMandatoryString(TYPE_ARGUMENT)).thenReturn(RemainderCommand.NAME);
+            when(argumentReader.getMandatoryType(TYPE_ARGUMENT)).thenReturn(remainder);
             alertCommand.onCommand(context);
             Assertions.fail();
         } catch (Exception e) {

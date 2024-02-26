@@ -38,6 +38,10 @@ public interface ArgumentReader {
         return getUserId(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing user mention for argument '" + fieldName + '\''));
     }
 
+    default Type getMandatoryType(@NotNull String fieldName) {
+        return getType(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing or bad alert type"));
+    }
+
     @NotNull
     default ArgumentReader reversed() {
         return this;

@@ -121,7 +121,7 @@ public final class UpdateCommand extends CommandAdapter {
             var answer = securedAlertAccess(alertId, context, updater);
             (CHOICE_MESSAGE.equals(field) ? context : context.noMoreArgs()).reply(Message.of(answer), responseTtlSeconds);
         });
-        // perform user notification of its alerts being updated, if needed, once above update transaction is done.
+        // perform user notification of its alerts being updated, if needed, once above update transaction is successful.
         Optional.ofNullable(notificationCallBack[0]).ifPresent(Runnable::run);
     }
 

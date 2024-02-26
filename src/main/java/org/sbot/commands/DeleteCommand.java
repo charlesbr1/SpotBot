@@ -18,6 +18,7 @@ import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
+import static org.sbot.commands.SecurityAccess.sameUser;
 import static org.sbot.commands.SecurityAccess.sameUserOrAdmin;
 import static org.sbot.services.discord.Discord.guildName;
 import static org.sbot.utils.ArgumentValidator.*;
@@ -35,7 +36,7 @@ public final class DeleteCommand extends CommandAdapter {
                     new SubcommandData("id", "delete an alert by id").addOptions(
                             option(INTEGER, ALERT_ID_ARGUMENT, "id of one alert to delete", true)
                                     .setMinValue(0)),
-                    new SubcommandData("filter", "delete all your alerts or filtered by pair or ticker").addOptions(
+                    new SubcommandData("filter", "delete all your alerts or filtered by pair or ticker or type").addOptions(
                             option(STRING, TICKER_PAIR_ARGUMENT, "a pair or a ticker to filter the alerts to delete (can be '" + DELETE_ALL + "')", true)
                                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
                             option(STRING, TYPE_ARGUMENT, "type of alert to delete (range, trend or remainder)", false)
@@ -67,6 +68,9 @@ public final class DeleteCommand extends CommandAdapter {
         }
         Type type = context.args.getType(TYPE_ARGUMENT).orElse(null);
         Long ownerId = context.args.getUserId(OWNER_ARGUMENT).orElse(null);
+        if(null == type && context.args.getLastArgs(TYPE_ARGUMENT).isPresent()) {
+            type = context.args.getMandatoryType(TYPE_ARGUMENT); // string command flexible on argument order
+        }
         context.noMoreArgs();
         return new Arguments(null, type, tickerOrPair, ownerId);
     }
@@ -75,7 +79,7 @@ public final class DeleteCommand extends CommandAdapter {
         if (null != arguments.alertId) { // single id delete
             return deleteById(context, arguments.alertId);
         } else if (null == arguments.ownerId || // if ownerId is null -> delete all alerts of current user, or filtered by ticker or pair
-                sameUserOrAdmin(context, arguments.ownerId)) { // ownerId != null -> only an admin can delete alerts of other users on his server
+                sameUserOrAdmin(context, arguments.ownerId)) { // ownerId != null -> only an admin can delete other users alerts on his server
             return deleteByOwnerOrTickerPair(context, arguments);
         } else {
             return Message.of(embedBuilder(":clown:" + ' ' + context.user.getEffectiveName(), Color.black, "You are not allowed to delete your mates' alerts" +
@@ -87,7 +91,7 @@ public final class DeleteCommand extends CommandAdapter {
         Runnable[] outNotificationCallBack = new Runnable[1];
         var answer = context.transactional(txCtx -> securedAlertAccess(alertId, context, (alert, alertsDao) -> {
             alertsDao.deleteAlert(alertId);
-            if(context.user.getIdLong() != alert.userId) {
+            if(!sameUser(context.user, alert.userId)) { // send notification once transaction is successful
                 outNotificationCallBack[0] = () -> sendUpdateNotification(context, alert.userId, ownerDeleteNotification(alertId, requireNonNull(context.member)));
             }
             return embedBuilder("Alert " + alertId + " deleted");
@@ -101,8 +105,8 @@ public final class DeleteCommand extends CommandAdapter {
         long userId = null != arguments.ownerId ? arguments.ownerId : context.user.getIdLong();
         long deleted = context.transactional(txCtx -> txCtx.alertsDao()
                 .deleteAlerts(SelectionFilter.of(context.serverId(), userId, arguments.type).withTickerOrPair(tickerOrPair)));
-        if(deleted > 0 && null != arguments.ownerId && context.user.getIdLong() != arguments.ownerId) {
-            sendUpdateNotification(context, arguments.ownerId, ownerDeleteNotification(arguments.tickerOrPair, requireNonNull(context.member), deleted));
+        if(deleted > 0 && !sameUser(context.user, userId)) {
+            sendUpdateNotification(context, userId, ownerDeleteNotification(arguments.tickerOrPair, requireNonNull(context.member), deleted));
         }
         return Message.of(embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), Color.green, deleted + " " + (deleted > 1 ? " alerts" : " alert") + " deleted"));
     }

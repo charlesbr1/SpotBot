@@ -283,10 +283,8 @@ public final class AlertsWatcher {
 
     private void sendPrivateAlerts(@NotNull ZonedDateTime now, @NotNull List<MatchingAlert> matchingAlerts, @NotNull Map<Long, Locale> userLocales) {
         matchingAlerts.stream().collect(groupingBy(matchingAlert -> matchingAlert.alert().userId))
-                .forEach((userId, userAlerts) -> // retrieving user channel is a blocking task (there is a cache though)
-                        Thread.ofVirtual().name("SpotBot private channel " + userId)
-                                .start(() -> context.discord().userChannel(userId) //TODO pass userLocales
-                                        .ifPresent(channel -> channel.sendMessages(List.of(toMessage(now, userAlerts))))));
+                .forEach((userId, userAlerts) -> // TODO pass userLocales
+                        context.discord().sendPrivateMessage(userId, toMessage(now, userAlerts)));
     }
 
     @NotNull

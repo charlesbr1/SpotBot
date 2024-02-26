@@ -1,16 +1,10 @@
 package org.sbot.services.discord;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
-import net.dv8tion.jda.api.entities.Activity;
-import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.MessageEmbed;
-import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
-import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.requests.RestAction;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
@@ -35,7 +29,6 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static java.util.Comparator.comparing;
-import static java.util.Optional.empty;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static net.dv8tion.jda.api.entities.Message.MAX_EMBED_COUNT;
@@ -68,11 +61,6 @@ public final class Discord {
     private final Map<String, CommandListener> commands = new ConcurrentHashMap<>();
     private final Map<String, InteractionListener> interactions = new ConcurrentHashMap<>();
 
-    // this allows to keep the minimum jda cache settings, user private channel may be requested by many threads in bulk
-    private final Cache<Long, Optional<MessageChannel>> privateChannelCache = Caffeine.newBuilder()
-            .expireAfterWrite(PRIVATE_CHANNEL_CACHE_TLL_MIN, TimeUnit.MINUTES)
-            .maximumSize(Short.MAX_VALUE)
-            .build();
 
     public Discord(@NotNull Context context, @NotNull List<CommandListener> commands, @NotNull List<InteractionListener> interactions) {
         jda = loadDiscordConnection(context.parameters().discordTokenFile());
@@ -96,15 +84,17 @@ public final class Discord {
         return jda.getSelfUser().getAsMention();
     }
 
-    public Optional<BotChannel> userChannel(long userId) {
-        return getPrivateChannel(userId).map(channel ->
-                messages -> sendMessages(messages, channel::sendMessageEmbeds, 0));
-    }
-
     public static Optional<Role> spotBotRole(@NotNull Guild guild) {
         return guild.getRolesByName(DISCORD_BOT_ROLE, true).stream()
                 .filter(not(Role::isManaged))
                 .max(comparing(Role::getPositionRaw));
+    }
+
+    public void sendPrivateMessage(long userId, @NotNull Message message) {
+        jda.retrieveUserById(userId)
+                .flatMap(User::openPrivateChannel)
+                .onSuccess(channel -> sendMessages(List.of(message), channel::sendMessageEmbeds, 0))
+                .queue();
     }
 
     public static void sendMessages(@NotNull List<Message> messages, @NotNull Function<List<MessageEmbed>, MessageCreateRequest<?>> mapper, int ttlSeconds) {
@@ -181,21 +171,6 @@ public final class Discord {
     public static Optional<TextChannel> getSpotBotChannel(@NotNull Guild guild) {
         return guild.getTextChannelsByName(DISCORD_BOT_CHANNEL, true)
                 .stream().findFirst();
-    }
-
-    @NotNull
-    private Optional<MessageChannel> getPrivateChannel(long userId) {
-        LOGGER.debug("Retrieving user private channel {}...", userId);
-        return privateChannelCache.get(userId, this::loadPrivateChannel);
-    }
-
-    private Optional<MessageChannel> loadPrivateChannel(long userId) {
-        try {
-            return Optional.of(jda.retrieveUserById(userId).complete().openPrivateChannel().complete());
-        } catch (RuntimeException e) {
-            LOGGER.warn("Failed to retrieve discord private channel for user " + userId, e);
-            return empty();
-        }
     }
 
     public CommandListener getGetCommandListener(@NotNull String command) {
