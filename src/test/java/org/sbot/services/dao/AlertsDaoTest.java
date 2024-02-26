@@ -1890,9 +1890,6 @@ public abstract class AlertsDaoTest {
         assertEquals(ONE, alerts.getAlert(alert.id).get().fromPrice);
         alerts.update(alert.withFromPrice(TWO), Set.of(FROM_PRICE));
         assertEquals(TWO, alerts.getAlert(alert.id).get().fromPrice);
-
-        var falert = alert;
-        assertThrows(NullPointerException.class, () -> alerts.update(falert.withFromPrice(null), Set.of(FROM_PRICE)));
     }
 
     @ParameterizedTest
@@ -1905,9 +1902,6 @@ public abstract class AlertsDaoTest {
         assertEquals(BigDecimal.valueOf(100L), alerts.getAlert(alert.id).get().toPrice);
         alerts.update(alert.withToPrice(BigDecimal.valueOf(30L)), Set.of(TO_PRICE));
         assertEquals(BigDecimal.valueOf(30L), alerts.getAlert(alert.id).get().toPrice);
-
-        var falert = alert;
-        assertThrows(NullPointerException.class, () -> alerts.update(falert.withToPrice(null), Set.of(TO_PRICE)));
     }
 
     @ParameterizedTest
@@ -1946,9 +1940,6 @@ public abstract class AlertsDaoTest {
         assertEquals("message", alerts.getAlert(alert.id).get().message);
         alerts.update(alert.withMessage("new message"), Set.of(MESSAGE));
         assertEquals("new message", alerts.getAlert(alert.id).get().message);
-
-        var falert = alert;
-        assertThrows(NullPointerException.class, () -> alerts.update(falert.withMessage(null), Set.of(MESSAGE)));
     }
 
     @ParameterizedTest
@@ -1961,9 +1952,6 @@ public abstract class AlertsDaoTest {
         assertEquals(ONE, alerts.getAlert(alert.id).get().margin);
         alerts.update(alert.withMargin(TWO), Set.of(MARGIN));
         assertEquals(TWO, alerts.getAlert(alert.id).get().margin);
-
-        var falert = alert;
-        assertThrows(NullPointerException.class, () -> alerts.update(falert.withMargin(null), Set.of(MARGIN)));
     }
 
     @ParameterizedTest

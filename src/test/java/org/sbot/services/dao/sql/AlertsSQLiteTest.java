@@ -117,19 +117,21 @@ class AlertsSQLiteTest extends AlertsDaoTest {
         long userId = 654L;
 
         var selection = SelectionFilter.ofServer(serverId, null);
-        assertEquals(SERVER_ID + "=:" + SERVER_ID, AlertsSQLite.asSearchFilter(selection));
+        assertInstanceOf(CharSequence.class, AlertsSQLite.asSearchFilter(selection));
+        assertNotEquals(SERVER_ID + "=:" + SERVER_ID, AlertsSQLite.asSearchFilter(selection));
+        assertEquals(SERVER_ID + "=:" + SERVER_ID, AlertsSQLite.asSearchFilter(selection).toString());
 
         selection = SelectionFilter.ofUser(userId, null);
-        assertEquals(USER_ID + "=:" + USER_ID, AlertsSQLite.asSearchFilter(selection));
+        assertEquals(USER_ID + "=:" + USER_ID, AlertsSQLite.asSearchFilter(selection).toString());
 
         selection = SelectionFilter.of(serverId, userId, null);
-        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID, AlertsSQLite.asSearchFilter(selection));
+        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID, AlertsSQLite.asSearchFilter(selection).toString());
 
         selection = SelectionFilter.of(serverId, userId, trend);
-        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID + " AND " + TYPE + " LIKE :" + TYPE, AlertsSQLite.asSearchFilter(selection));
+        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID + " AND " + TYPE + " LIKE :" + TYPE, AlertsSQLite.asSearchFilter(selection).toString());
 
         selection = SelectionFilter.of(serverId, userId, remainder).withTickerOrPair("SOL/EUR");
-        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID + " AND " + TYPE + " LIKE :" + TYPE + " AND " + PAIR + " LIKE '%'||:" + TICKER_OR_PAIR_ARGUMENT + "||'%'", AlertsSQLite.asSearchFilter(selection));
+        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID + " AND " + TYPE + " LIKE :" + TYPE + " AND " + PAIR + " LIKE '%'||:" + TICKER_OR_PAIR_ARGUMENT + "||'%'", AlertsSQLite.asSearchFilter(selection).toString());
     }
 
     @Test
@@ -209,7 +211,9 @@ class AlertsSQLiteTest extends AlertsDaoTest {
         assertThrows(NullPointerException.class, () -> AlertsSQLite.asUpdateQuery(null));
         assertThrows(IllegalArgumentException.class, () -> AlertsSQLite.asUpdateQuery(emptyList()));
 
-        assertEquals("field=:field", AlertsSQLite.asUpdateQuery(List.of("field")));
-        assertEquals("field=:field,other=:other", AlertsSQLite.asUpdateQuery(List.of("field", "other")));
+        assertInstanceOf(CharSequence.class, AlertsSQLite.asUpdateQuery(List.of("field")));
+        assertNotEquals("field=:field", AlertsSQLite.asUpdateQuery(List.of("field")));
+        assertEquals("field=:field", AlertsSQLite.asUpdateQuery(List.of("field")).toString());
+        assertEquals("field=:field,other=:other", AlertsSQLite.asUpdateQuery(List.of("field", "other")).toString());
     }
 }
