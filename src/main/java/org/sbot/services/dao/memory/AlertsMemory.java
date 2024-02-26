@@ -12,8 +12,6 @@ import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiConsumer;
-import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.LongStream;
@@ -45,18 +43,13 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @NotNull
-    static Predicate<Alert> selectionFilter(@NotNull SelectionFilter filter) {
-        var selection = new ArrayList<Predicate<Alert>>(4);
-        BiConsumer<BiPredicate<Alert, Object>, Object> put = (predicate, value) -> {
-            if (null != value) {
-                selection.add(alert -> predicate.test(alert, value));
-            }
-        };
-        put.accept((alert, v) -> alert.serverId == (Long) v, filter.serverId());
-        put.accept((alert, v) -> alert.userId == (Long) v, filter.userId());
-        put.accept((alert, v) -> alert.type == v, filter.type());
-        put.accept((alert, v) -> alert.pair.contains((String) v), filter.tickerOrPair());
-        return selection.stream().reduce(Predicate::and).orElse(a -> true);
+    static Predicate<Alert> asSearchFilter(@NotNull SelectionFilter filter) {
+        return Stream.<Optional<Predicate<Alert>>>of(
+                        Optional.ofNullable(filter.serverId()).map(serverId -> alert -> alert.serverId == serverId),
+                        Optional.ofNullable(filter.userId()).map(userId -> alert -> alert.userId == userId),
+                        Optional.ofNullable(filter.type()).map(type -> alert -> alert.type == type),
+                        Optional.ofNullable(filter.tickerOrPair()).map(tickerOrPair -> alert -> alert.pair.contains(tickerOrPair)))
+                .flatMap(Optional::stream).reduce(Predicate::and).orElse(alert -> true);
     }
 
     @Override
@@ -79,8 +72,8 @@ public final class AlertsMemory implements AlertsDao {
         ZonedDateTime nowPlusDelta = now.plusMinutes(Math.ceilDiv(requirePositive(checkPeriodMin), 2));
         return alerts.filter(alert ->
                 (null != alert.listeningDate && alert.listeningDate.compareTo(nowPlusOneSecond) <= 0) &&
-                        (alert.type != remainder || alert.fromDate.isBefore(nowPlusDelta)) &&
-                        (alert.type != range || (null == alert.toDate || alert.toDate.compareTo(now) > 0)));
+                (alert.type != remainder || alert.fromDate.isBefore(nowPlusDelta)) &&
+                (alert.type != range || (null == alert.toDate || alert.toDate.compareTo(now) > 0)));
     }
 
     @Override
@@ -88,11 +81,11 @@ public final class AlertsMemory implements AlertsDao {
         LOGGER.debug("fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore {}", expirationDate);
         requireNonNull(expirationDate);
         long[] read = new long[] {0L};
-        alertsConsumer.accept(alerts.values().stream()
-                .filter(alert -> alert.repeat <= 0 &&
-                        ((null != alert.lastTrigger && alert.lastTrigger.isBefore(expirationDate)) ||
-                         (null == alert.lastTrigger && alert.creationDate.isBefore(expirationDate))) &&
-                        ++read[0] != 0));
+        Predicate<Alert> predicate = alert -> alert.repeat <= 0 &&
+                    ((null != alert.lastTrigger && alert.lastTrigger.isBefore(expirationDate)) ||
+                    (null == alert.lastTrigger && alert.creationDate.isBefore(expirationDate))) &&
+                ++read[0] != 0;
+        alertsConsumer.accept(alerts.values().stream().filter(predicate));
         return read[0];
     }
 
@@ -101,10 +94,9 @@ public final class AlertsMemory implements AlertsDao {
         LOGGER.debug("fetchAlertsByTypeHavingToDateBefore {} {}", type, expirationDate);
         requireNonNull(type); requireNonNull(expirationDate);
         long[] read = new long[] {0L};
-        alertsConsumer.accept(alerts.values().stream()
-                .filter(alert -> alert.type == type &&
-                        (null != alert.toDate && alert.toDate.isBefore(expirationDate)) &&
-                        ++read[0] != 0));
+        Predicate<Alert> typeAndToDateBefore = alert -> alert.type == type && null != alert.toDate &&
+                alert.toDate.isBefore(expirationDate) && ++read[0] != 0;
+        alertsConsumer.accept(alerts.values().stream().filter(typeAndToDateBefore));
         return read[0];
     }
 
@@ -155,7 +147,7 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     Stream<Alert> getAlertsStream(@NotNull SelectionFilter filter) {
-        return alerts.values().stream().filter(selectionFilter(filter));
+        return alerts.values().stream().filter(asSearchFilter(filter));
     }
 
     @NotNull
@@ -179,21 +171,21 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    // memory dao save the provided alert directly
+    // memory dao directly store the provided alert
     public void update(@NotNull Alert alert, @NotNull Set<UpdateField> fields) {
         LOGGER.debug("update {} {}", fields, alert);
-        requireNonNull(fields); // unused, to be compliant with SQL dao
+        requireNonNull(fields); // unused, simulate sql layer
         alerts.computeIfPresent(alert.id, (id, a) -> alert);
     }
 
     @Override
     public long updateServerIdOf(@NotNull SelectionFilter filter, long newServerId) {
         LOGGER.debug("updateServerIdOf {} {}", filter, newServerId);
-        var selection = selectionFilter(filter);
-        long[] removedAlerts = new long[] {0L};
+        long[] updated = new long[] {0L};
+        var selection = asSearchFilter(filter).and(a -> ++updated[0] != 0);
         alerts.replaceAll((alertId, alert) ->
-                selection.test(alert) && ++removedAlerts[0] != 0 ? alert.withServerId(newServerId) : alert);
-        return removedAlerts[0];
+                selection.test(alert) ? alert.withServerId(newServerId) : alert);
+        return updated[0];
     }
 
     @Override
@@ -205,10 +197,9 @@ public final class AlertsMemory implements AlertsDao {
     @Override
     public long deleteAlerts(@NotNull SelectionFilter filter) {
         LOGGER.debug("deleteAlerts {}", filter);
-        var selection = selectionFilter(filter);
-        long[] removedAlerts = new long[] {0L};
-        alerts.values().removeIf(alert -> selection.test(alert) && ++removedAlerts[0] != 0);
-        return removedAlerts[0];
+        long[] deleted = new long[] {0L};
+        alerts.values().removeIf(asSearchFilter(filter).and(a -> ++deleted[0] != 0));
+        return deleted[0];
     }
 
     @Override

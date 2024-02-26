@@ -19,7 +19,6 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.sbot.entities.alerts.Alert.Type.*;
@@ -66,42 +65,42 @@ class AlertsSQLiteTest extends AlertsDaoTest {
     }
 
     @Test
-    void selectionFilter() {
-        assertThrows(NullPointerException.class, () -> AlertsSQLite.searchFilter(null));
+    void parametersOf() {
+        assertThrows(NullPointerException.class, () -> AlertsSQLite.parametersOf(null));
 
         long serverId = 123L;
         long userId = 654L;
 
         var selection = SelectionFilter.ofServer(serverId, null);
-        var map = AlertsSQLite.selectionFilter(selection);
+        var map = AlertsSQLite.parametersOf(selection);
         assertEquals(serverId, map.get(SERVER_ID));
         assertNull(map.get(USER_ID));
         assertNull(map.get(TICKER_OR_PAIR_ARGUMENT));
         assertNull(map.get(TYPE));
 
         selection = SelectionFilter.ofUser(userId, null);
-        map = AlertsSQLite.selectionFilter(selection);
+        map = AlertsSQLite.parametersOf(selection);
         assertNull(map.get(SERVER_ID));
         assertEquals(userId, map.get(USER_ID));
         assertNull(map.get(TICKER_OR_PAIR_ARGUMENT));
         assertNull(map.get(TYPE));
 
         selection = SelectionFilter.of(serverId, userId, null);
-        map = AlertsSQLite.selectionFilter(selection);
+        map = AlertsSQLite.parametersOf(selection);
         assertEquals(serverId, map.get(SERVER_ID));
         assertEquals(userId, map.get(USER_ID));
         assertNull(map.get(TICKER_OR_PAIR_ARGUMENT));
         assertNull(map.get(TYPE));
 
         selection = SelectionFilter.of(serverId, userId, range);
-        map = AlertsSQLite.selectionFilter(selection);
+        map = AlertsSQLite.parametersOf(selection);
         assertEquals(serverId, map.get(SERVER_ID));
         assertEquals(userId, map.get(USER_ID));
         assertNull(map.get(TICKER_OR_PAIR_ARGUMENT));
         assertEquals(range.name(), map.get(TYPE));
 
         selection = SelectionFilter.of(serverId, userId, remainder).withTickerOrPair("DOT/FTT");
-        map = AlertsSQLite.selectionFilter(selection);
+        map = AlertsSQLite.parametersOf(selection);
         assertEquals(serverId, map.get(SERVER_ID));
         assertEquals(userId, map.get(USER_ID));
         assertEquals("DOT/FTT", map.get(TICKER_OR_PAIR_ARGUMENT));
@@ -110,65 +109,60 @@ class AlertsSQLiteTest extends AlertsDaoTest {
 
 
     @Test
-    void searchFilter() {
-        assertThrows(NullPointerException.class, () -> AlertsSQLite.searchFilter(null));
-        assertEquals("1 = 1", AlertsSQLite.searchFilter(emptyMap()));
+    void asSearchFilter() {
+        assertThrows(NullPointerException.class, () -> AlertsSQLite.asSearchFilter(null));
+        assertEquals("1 = 1", AlertsSQLite.asSearchFilter(new SelectionFilter(null, null, null, null)));
 
         long serverId = 123L;
         long userId = 654L;
 
         var selection = SelectionFilter.ofServer(serverId, null);
-        var map = AlertsSQLite.selectionFilter(selection);
-        assertEquals(SERVER_ID + "=:" + SERVER_ID, AlertsSQLite.searchFilter(map));
+        assertEquals(SERVER_ID + "=:" + SERVER_ID, AlertsSQLite.asSearchFilter(selection));
 
         selection = SelectionFilter.ofUser(userId, null);
-        map = AlertsSQLite.selectionFilter(selection);
-        assertEquals(USER_ID + "=:" + USER_ID, AlertsSQLite.searchFilter(map));
+        assertEquals(USER_ID + "=:" + USER_ID, AlertsSQLite.asSearchFilter(selection));
 
         selection = SelectionFilter.of(serverId, userId, null);
-        map = AlertsSQLite.selectionFilter(selection);
-        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID, AlertsSQLite.searchFilter(map));
+        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID, AlertsSQLite.asSearchFilter(selection));
 
         selection = SelectionFilter.of(serverId, userId, trend);
-        map = AlertsSQLite.selectionFilter(selection);
-        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID + " AND " + TYPE + " LIKE :" + TYPE, AlertsSQLite.searchFilter(map));
+        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID + " AND " + TYPE + " LIKE :" + TYPE, AlertsSQLite.asSearchFilter(selection));
 
         selection = SelectionFilter.of(serverId, userId, remainder).withTickerOrPair("SOL/EUR");
-        map = AlertsSQLite.selectionFilter(selection);
-        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID + " AND " + TYPE + " LIKE :" + TYPE + " AND " + PAIR + " LIKE '%'||:" + TICKER_OR_PAIR_ARGUMENT + "||'%'", AlertsSQLite.searchFilter(map));
+        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID + " AND " + TYPE + " LIKE :" + TYPE + " AND " + PAIR + " LIKE '%'||:" + TICKER_OR_PAIR_ARGUMENT + "||'%'", AlertsSQLite.asSearchFilter(selection));
     }
 
     @Test
-    void updateParameters() {
-        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateParameters(null, null));
-        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateParameters(null, mock()));
-        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateParameters(mock(), null));
+    void updateParametersOf() {
+        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateParametersOf(null, null));
+        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateParametersOf(null, mock()));
+        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateParametersOf(mock(), null));
 
         long serverId = 1123L;
         var alert = createTestAlert();
-        var parameters = AlertsSQLite.updateParameters(alert.withServerId(serverId), EnumSet.of(UpdateField.SERVER_ID));
+        var parameters = AlertsSQLite.updateParametersOf(alert.withServerId(serverId), EnumSet.of(UpdateField.SERVER_ID));
         assertEquals(Map.of(SERVER_ID, serverId), parameters);
         ZonedDateTime date = DatesTest.nowUtc().truncatedTo(ChronoUnit.MILLIS);
-        parameters = AlertsSQLite.updateParameters(alert.withListeningDateRepeat(date, alert.repeat), EnumSet.of(UpdateField.LISTENING_DATE));
+        parameters = AlertsSQLite.updateParametersOf(alert.withListeningDateRepeat(date, alert.repeat), EnumSet.of(UpdateField.LISTENING_DATE));
         assertEquals(Map.of(LISTENING_DATE, date), parameters);
-        parameters = AlertsSQLite.updateParameters(alert.withFromPrice(new BigDecimal("34.3434")), EnumSet.of(UpdateField.FROM_PRICE));
+        parameters = AlertsSQLite.updateParametersOf(alert.withFromPrice(new BigDecimal("34.3434")), EnumSet.of(UpdateField.FROM_PRICE));
         assertEquals(Map.of(FROM_PRICE, new BigDecimal("34.3434")), parameters);
-        parameters = AlertsSQLite.updateParameters(alert.withToPrice(new BigDecimal("134.3434")), Set.of(UpdateField.TO_PRICE));
+        parameters = AlertsSQLite.updateParametersOf(alert.withToPrice(new BigDecimal("134.3434")), Set.of(UpdateField.TO_PRICE));
         assertEquals(Map.of(TO_PRICE, new BigDecimal("134.3434")), parameters);
-        parameters = AlertsSQLite.updateParameters(alert.withFromDate(date), EnumSet.of(UpdateField.FROM_DATE));
+        parameters = AlertsSQLite.updateParametersOf(alert.withFromDate(date), EnumSet.of(UpdateField.FROM_DATE));
         assertEquals(Map.of(FROM_DATE, date), parameters);
-        parameters = AlertsSQLite.updateParameters(alert.withToDate(date.plusHours(3L)), Set.of(UpdateField.TO_DATE));
+        parameters = AlertsSQLite.updateParametersOf(alert.withToDate(date.plusHours(3L)), Set.of(UpdateField.TO_DATE));
         assertEquals(Map.of(TO_DATE, date.plusHours(3L)), parameters);
-        parameters = AlertsSQLite.updateParameters(alert.withMessage("new messs test"), EnumSet.of(UpdateField.MESSAGE));
+        parameters = AlertsSQLite.updateParametersOf(alert.withMessage("new messs test"), EnumSet.of(UpdateField.MESSAGE));
         assertEquals(Map.of(MESSAGE, "new messs test"), parameters);
-        parameters = AlertsSQLite.updateParameters(alert.withMargin(new BigDecimal("4")), Set.of(UpdateField.MARGIN));
+        parameters = AlertsSQLite.updateParametersOf(alert.withMargin(new BigDecimal("4")), Set.of(UpdateField.MARGIN));
         assertEquals(Map.of(MARGIN, new BigDecimal("4")), parameters);
-        parameters = AlertsSQLite.updateParameters(alert.withListeningDateRepeat(alert.listeningDate, (short) 2), EnumSet.of(UpdateField.REPEAT));
+        parameters = AlertsSQLite.updateParametersOf(alert.withListeningDateRepeat(alert.listeningDate, (short) 2), EnumSet.of(UpdateField.REPEAT));
         assertEquals(Map.of(REPEAT, (short) 2), parameters);
-        parameters = AlertsSQLite.updateParameters(alert.withSnooze((short) 23), Set.of(UpdateField.SNOOZE));
+        parameters = AlertsSQLite.updateParametersOf(alert.withSnooze((short) 23), Set.of(UpdateField.SNOOZE));
         assertEquals(Map.of(SNOOZE, (short) 23), parameters);
 
-        parameters = AlertsSQLite.updateParameters(alert
+        parameters = AlertsSQLite.updateParametersOf(alert
                         .withSnooze((short) 223)
                         .withFromPrice(new BigDecimal("99"))
                         .withToPrice(new BigDecimal("199"))
@@ -192,7 +186,7 @@ class AlertsSQLiteTest extends AlertsDaoTest {
                 TO_DATE, date.plusHours(31L),
                 FROM_DATE, date.minusMinutes(7L)), parameters);
 
-        parameters = AlertsSQLite.updateParameters(alert
+        parameters = AlertsSQLite.updateParametersOf(alert
                         .withListeningDateRepeat(date.plusMinutes(666L), (short) 3)
                         .withSnooze((short) 54)
                         .withFromPrice(new BigDecimal("1.2"))
@@ -211,11 +205,11 @@ class AlertsSQLiteTest extends AlertsDaoTest {
     }
 
     @Test
-    void updateQuery() {
-        assertThrows(NullPointerException.class, () -> AlertsSQLite.updateQuery(null));
-        assertThrows(IllegalArgumentException.class, () -> AlertsSQLite.updateQuery(emptyList()));
+    void asUpdateQuery() {
+        assertThrows(NullPointerException.class, () -> AlertsSQLite.asUpdateQuery(null));
+        assertThrows(IllegalArgumentException.class, () -> AlertsSQLite.asUpdateQuery(emptyList()));
 
-        assertEquals("field=:field", AlertsSQLite.updateQuery(List.of("field")));
-        assertEquals("field=:field,other=:other", AlertsSQLite.updateQuery(List.of("field", "other")));
+        assertEquals("field=:field", AlertsSQLite.asUpdateQuery(List.of("field")));
+        assertEquals("field=:field,other=:other", AlertsSQLite.asUpdateQuery(List.of("field", "other")));
     }
 }

@@ -26,7 +26,6 @@ import java.time.ZonedDateTime;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -209,47 +208,40 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     }
 
     @NotNull
-    static Map<String, Object> selectionFilter(@NotNull SelectionFilter filter) {
-        var selection = LinkedHashMap.<String, Object>newLinkedHashMap(6);
-        BiConsumer<String, Object> put = (name, value) -> {
-            if (null != value) {
-                selection.put(name, value);
-            }
-        };
-        put.accept(SERVER_ID, filter.serverId());
-        put.accept(USER_ID, filter.userId());
-        put.accept(TYPE, Optional.ofNullable(filter.type()).map(Type::name).orElse(null));
-        put.accept(TICKER_OR_PAIR_ARGUMENT, filter.tickerOrPair());
+    static Map<String, Object> parametersOf(@NotNull SelectionFilter filter) {
+        var selection = LinkedHashMap.<String, Object>newLinkedHashMap(6); // 4 + offset, limit
+        if(null != filter.serverId()) selection.put(SERVER_ID, filter.serverId());
+        if(null != filter.userId()) selection.put(USER_ID, filter.userId());
+        if(null != filter.type()) selection.put(TYPE, filter.type().name());
+        if(null != filter.tickerOrPair()) selection.put(TICKER_OR_PAIR_ARGUMENT, filter.tickerOrPair());
         return selection;
     }
 
     @NotNull
-    static String searchFilter(@NotNull Map<String, Object> selection) {
-        if(selection.isEmpty()) {
-            return "1 = 1"; // no op filter
-        }
-        return selection.entrySet().stream()
-                .map(entry -> {
-                    if(TICKER_OR_PAIR_ARGUMENT.equals(entry.getKey())) {
-                        return PAIR + " LIKE '%'||:" + TICKER_OR_PAIR_ARGUMENT + "||'%'";
-                    }
-                    return entry.getValue() instanceof CharSequence ?
-                            entry.getKey() + " LIKE :" + entry.getKey() :
-                            entry.getKey() + "=:" + entry.getKey();
-                })
-                .collect(joining(" AND "));
+    static String asSearchFilter(@NotNull SelectionFilter filter) {
+        var builder = new StringBuilder(64);
+        var andOp = " AND ";
+        if(null != filter.serverId())
+            builder.append(SERVER_ID).append("=:").append(SERVER_ID);
+        if(null != filter.userId())
+            builder.append(builder.isEmpty() ? "" : andOp).append(USER_ID).append("=:").append(USER_ID);
+        if(null != filter.type())
+            builder.append(builder.isEmpty() ? "" : andOp).append(TYPE).append(" LIKE :").append(TYPE);
+        if(null != filter.tickerOrPair())
+            builder.append(builder.isEmpty() ? "" : andOp).append(PAIR).append(" LIKE '%'||:").append(TICKER_OR_PAIR_ARGUMENT).append("||'%'");
+        return builder.isEmpty() ? "1 = 1" : builder.toString();
     }
 
     @NotNull
-    static Map<String, Object> updateParameters(@NotNull Alert alert, @NotNull Set<UpdateField> fields) {
+    static Map<String, Object> updateParametersOf(@NotNull Alert alert, @NotNull Set<UpdateField> fields) {
         requireNonNull(alert);
-        var map = HashMap.<String, Object>newHashMap(10);
+        var map = LinkedHashMap.<String, Object>newLinkedHashMap(11); // 10 + id
         fields.stream().map(field -> switch (field) {
             case SERVER_ID ->  entry(SERVER_ID, alert.serverId);
             case LISTENING_DATE ->  new SimpleImmutableEntry<>(LISTENING_DATE, alert.listeningDate);
-            case FROM_PRICE ->  entry(FROM_PRICE, alert.fromPrice);
+            case FROM_PRICE ->  entry(FROM_PRICE, alert.fromPrice); // actually, prices are never updated to null
             case TO_PRICE ->  entry(TO_PRICE, alert.toPrice);
-            case FROM_DATE ->  new SimpleImmutableEntry<>(FROM_DATE, alert.fromDate);
+            case FROM_DATE ->  new SimpleImmutableEntry<>(FROM_DATE, alert.fromDate); // this accepts null value
             case TO_DATE ->  new SimpleImmutableEntry<>(TO_DATE, alert.toDate);
             case MESSAGE ->  entry(MESSAGE, alert.message);
             case MARGIN ->  entry(MARGIN, alert.margin);
@@ -260,7 +252,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     }
 
     @NotNull
-    static String updateQuery(@NotNull Collection<String> fields) {
+    static String asUpdateQuery(@NotNull Collection<String> fields) {
         if(fields.isEmpty()) {
             throw new IllegalArgumentException("Empty update parameters map");
         }
@@ -334,18 +326,17 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     @Override
     public long countAlerts(@NotNull SelectionFilter filter) {
         LOGGER.debug("countAlerts {}", filter);
-        var selection = selectionFilter(filter);
-        return queryOneLong(SQL.COUNT_ALERTS_OF_SELECTION + searchFilter(selection), selection);
+        return queryOneLong(SQL.COUNT_ALERTS_OF_SELECTION + asSearchFilter(filter), parametersOf(filter));
     }
 
     @NotNull
     @Override
     public List<Alert> getAlertsOrderByPairUserIdId(@NotNull SelectionFilter filter, long offset, long limit) {
         LOGGER.debug("getAlertsOrderByPairUserIdId {} {} {}", filter, offset, limit);
-        var selection = selectionFilter(filter);
-        String sql = SQL.ALERTS_OF_SELECTION + searchFilter(selection);
+        var selection = parametersOf(filter);
         selection.put(OFFSET_ARGUMENT, offset);
         selection.put(LIMIT_ARGUMENT, limit);
+        String sql = SQL.ALERTS_OF_SELECTION + asSearchFilter(filter);
         sql += null != filter.userId() ? ORDER_BY_PAIR_ID_WITH_OFFSET_LIMIT : ORDER_BY_PAIR_USER_ID_ID_WITH_OFFSET_LIMIT;
         return query(sql, Alert.class, selection);
     }
@@ -361,8 +352,8 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     @Override
     public void update(@NotNull Alert alert, @NotNull Set<UpdateField> fields) {
         LOGGER.debug("update {} {}", fields, alert);
-        var parameters = updateParameters(alert, fields);
-        String sql = SQL.UPDATE_ALERT_FIELDS_BY_ID.replace("{}", updateQuery(parameters.keySet()));
+        var parameters = updateParametersOf(alert, fields);
+        String sql = SQL.UPDATE_ALERT_FIELDS_BY_ID.replace("{}", asUpdateQuery(parameters.keySet()));
         parameters.put(ID, alert.id);
         update(sql, parameters);
     }
@@ -370,10 +361,9 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     @Override
     public long updateServerIdOf(@NotNull SelectionFilter filter, long newServerId) {
         LOGGER.debug("updateServerIdOf {} {}", filter, newServerId);
-        var selection = selectionFilter(filter);
-        String sql = SQL.UPDATE_ALERTS_SERVER_ID_OF_SELECTION + searchFilter(selection);
+        var selection = parametersOf(filter);
         selection.put(NEW_SERVER_ID_ARGUMENT, newServerId);
-        return update(sql, selection);
+        return update(SQL.UPDATE_ALERTS_SERVER_ID_OF_SELECTION + asSearchFilter(filter), selection);
     }
 
     @Override
@@ -385,8 +375,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     @Override
     public long deleteAlerts(@NotNull SelectionFilter filter) {
         LOGGER.debug("deleteAlert {}", filter);
-        var selection = selectionFilter(filter);
-        return update(SQL.DELETE_BY_SELECTION + searchFilter(selection), selection);
+        return update(SQL.DELETE_BY_SELECTION + asSearchFilter(filter), parametersOf(filter));
     }
 
     @Override

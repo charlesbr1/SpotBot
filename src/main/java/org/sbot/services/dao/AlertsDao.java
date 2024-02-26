@@ -75,10 +75,10 @@ public interface AlertsDao {
 
     long deleteAlerts(@NotNull SelectionFilter filter);
 
-    // this set the alert' margin to MARGIN_DISABLED, lastTrigger to now, and decrease repeat if not zero
+    // this set the alert margin to MARGIN_DISABLED, lastTrigger to now, and decrease repeat if not at zero
     void matchedAlertBatchUpdates(@NotNull ZonedDateTime now, @NotNull Consumer<BatchEntry> updater);
 
-    // this set the alert' margin to MARGIN_DISABLED
+    // this set the alert margin to MARGIN_DISABLED
     void marginAlertBatchUpdates(@NotNull ZonedDateTime now, @NotNull Consumer<BatchEntry> updater);
 
     void alertBatchDeletes(@NotNull Consumer<BatchEntry> deleter);
