@@ -1,5 +1,6 @@
 package org.sbot.utils;
 
+import net.dv8tion.jda.api.interactions.DiscordLocale;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Timestamp;
@@ -419,5 +420,18 @@ public class DatesTest {
         utcDate = nowUtc().truncatedTo(ChronoUnit.MILLIS);
         timestamp = new Timestamp(utcDate.toInstant().toEpochMilli());
         assertEquals(utcDate, Dates.parseUtcDateTimeOrNull(timestamp));
+    }
+
+    @Test
+    void localePatterns() {
+        assertEquals("dd/MM/yyyy HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.FRENCH.toLocale()));
+        assertEquals("dd/MM/yyyy HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.ENGLISH_UK.toLocale()));
+        assertEquals("M/d/yyyy HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.ENGLISH_US.toLocale()));
+        assertEquals("yyyy/M/d HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.JAPANESE.toLocale()));
+        assertEquals("dd. MM. yyyy. HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.CROATIAN.toLocale()));
+        assertEquals("dd/MM/yyyy HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.PORTUGUESE_BRAZILIAN.toLocale()));
+        assertEquals("d-M-yyyy HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.DUTCH.toLocale()));
+        assertEquals("dd.MM.yyyy HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.TURKISH.toLocale()));
+        assertEquals("d.MM.yyyy HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.POLISH.toLocale()));
     }
 }

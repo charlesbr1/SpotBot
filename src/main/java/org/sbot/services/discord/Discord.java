@@ -5,16 +5,17 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.requests.RestAction;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
-import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import net.dv8tion.jda.api.utils.Compression;
 import net.dv8tion.jda.api.utils.FileUpload;
 import net.dv8tion.jda.api.utils.messages.MessageCreateRequest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.sbot.SpotBot;
 import org.sbot.entities.Message;
 import org.sbot.services.context.Context;
@@ -22,9 +23,9 @@ import org.sbot.services.context.Context;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -44,17 +45,10 @@ public final class Discord {
     public static final String DISCORD_BOT_CHANNEL = SpotBot.appProperties.get("discord.bot.channel");
     public static final String DISCORD_BOT_ROLE = SpotBot.appProperties.get("discord.bot.role");
 
-    private static final int PRIVATE_CHANNEL_CACHE_TLL_MIN = Math.max(1, SpotBot.appProperties.getIntOr("discord.private-channel.cache.ttl-minutes", 5));
-
 
     @FunctionalInterface
     public interface DiscordLoader {
         Discord newInstance(@NotNull Context context, @NotNull List<CommandListener> commands, @NotNull List<InteractionListener> interactions);
-    }
-
-    @FunctionalInterface
-    public interface BotChannel {
-        void sendMessages(@NotNull List<Message> messages);
     }
 
     private final JDA jda;
@@ -74,11 +68,6 @@ public final class Discord {
         return guild.getName() + " (" + guild.getIdLong() + ")";
     }
 
-    public static Optional<BotChannel> spotBotChannel(@NotNull Guild guild) {
-        return getSpotBotChannel(guild).map(channel ->
-                messages -> sendMessages(messages, channel::sendMessageEmbeds, 0));
-    }
-
     @NotNull
     public String spotBotUserMention() {
         return jda.getSelfUser().getAsMention();
@@ -90,20 +79,32 @@ public final class Discord {
                 .max(comparing(Role::getPositionRaw));
     }
 
-    public void sendPrivateMessage(long userId, @NotNull Message message) {
-        jda.retrieveUserById(userId)
+    public void sendGuildMessage(@NotNull Guild guild, @NotNull Message message, @NotNull Runnable onSuccess) {
+        getSpotBotChannel(guild).ifPresent(channel -> sendMessages(List.of(message), channel::sendMessageEmbeds, onSuccess, 0));
+    }
+
+    public void sendPrivateMessage(long userId, @NotNull Message message, @Nullable Runnable onSuccess) {
+        jda.retrieveUserById(userId) // TODO check cache usage JDABuilder.createLight
                 .flatMap(User::openPrivateChannel)
-                .onSuccess(channel -> sendMessages(List.of(message), channel::sendMessageEmbeds, 0))
+                .onSuccess(channel -> sendMessages(List.of(message), channel::sendMessageEmbeds, onSuccess, 0))
                 .queue();
     }
 
-    public static void sendMessages(@NotNull List<Message> messages, @NotNull Function<List<MessageEmbed>, MessageCreateRequest<?>> mapper, int ttlSeconds) {
-        asyncOrderedSubmit(messages.stream().flatMap(message -> asMessageRequests(message, mapper)), ttlSeconds);
+    public static void sendMessages(@NotNull List<Message> messages, @NotNull Function<List<MessageEmbed>, MessageCreateAction> mapper, int ttlSeconds) {
+        sendMessages(messages, mapper, null, ttlSeconds);
     }
 
-    private static Stream<MessageCreateRequest<?>> asMessageRequests(@NotNull Message message, @NotNull Function<List<MessageEmbed>, MessageCreateRequest<?>> mapper) {
+    private static void sendMessages(@NotNull List<Message> messages, @NotNull Function<List<MessageEmbed>, MessageCreateAction> mapper, @Nullable Runnable onSuccess,  int ttlSeconds) {
+        submitWithTtl(messages.stream().flatMap(message -> asMessageRequests(message, mapper)), onSuccess, ttlSeconds);
+    }
+
+    public static void replyMessages(@NotNull List<Message> messages, @NotNull InteractionHook interactionHook, int ttlSeconds) {
+        submitWithTtl(messages.stream().flatMap(message -> asMessageRequests(message, interactionHook::sendMessageEmbeds)), null, ttlSeconds);
+    }
+
+    private static <T extends MessageCreateRequest<?>> Stream<T> asMessageRequests(@NotNull Message message, @NotNull Function<List<MessageEmbed>, T> mapper) {
         return split(MAX_EMBED_COUNT, message.embeds().stream().map(EmbedBuilder::build)).map(mapper)
-                .peek(request -> {
+                .map(request -> {
                     Optional.ofNullable(message.files()).map(files -> files.stream().map(file -> FileUpload.fromData(file.content(), file.name())).toList()).ifPresent(request::setFiles);
                     Optional.ofNullable(message.component()).ifPresent(request::setComponents);
                     Optional.ofNullable(message.mentionRoles()).ifPresent(request::mentionRoles);
@@ -115,32 +116,29 @@ public final class Discord {
                     if(!mentionedRolesAndUsers.isEmpty()) {
                         request.setContent(mentionedRolesAndUsers);
                     }
+                    return request;
                 });
     }
 
     // this ensures the rest action are done in order
-    private static void asyncOrderedSubmit(@NotNull Stream<MessageCreateRequest<?>> restActions, int ttlSeconds) {
-        //TODO see if it finally works without chaining, or with restaction flatMap()
-        restActions
-                .reduce(CompletableFuture.<Void>completedFuture(null),
-                        (future, nextMessage) -> future.thenRun(() -> submitWithTtl(nextMessage, ttlSeconds)),
-                        CompletableFuture::allOf)
-                .whenComplete((v, error) -> {
-                    if (null != error) {
-                        LOGGER.error("Exception occurred while sending discord message", error);
-                    }
-                });
-    }
-
-    private static void submitWithTtl(MessageCreateRequest<?> message, int ttlSeconds) {
-        switch (message) {
-            case ReplyCallbackAction reply when ttlSeconds > 0 ->
-                    reply.submit().thenApply(m -> m.deleteOriginal().queueAfter(ttlSeconds, TimeUnit.SECONDS));
-            case MessageCreateAction reply when ttlSeconds > 0 ->
-                    reply.submit().thenApply(m -> m.delete().queueAfter(ttlSeconds, TimeUnit.SECONDS));
-            case RestAction<?> reply -> reply.queue();
-            case null, default -> throw new IllegalArgumentException("Unsupported message type : " + message);
+    private static void submitWithTtl(@NotNull Stream<RestAction<net.dv8tion.jda.api.entities.Message>> restActions, @Nullable Runnable onSuccess, int ttlSeconds) {
+        Consumer<net.dv8tion.jda.api.entities.Message> doNothing = message ->  {};
+        Consumer<net.dv8tion.jda.api.entities.Message> delete = message -> message.delete().queueAfter(ttlSeconds, TimeUnit.SECONDS);
+        for (var iterator = restActions.iterator(); iterator.hasNext();) {
+            var request = iterator.next();
+            var success = ttlSeconds > 0 ? delete : doNothing;
+            success = null == onSuccess || iterator.hasNext() ? success : success.andThen(m -> onSuccess.run());
+            request.queue(success,
+                    err -> LOGGER.error("Exception occurred while sending discord message", err));
         }
+        // TODO check  if it finally works without chaining
+/*        restActions.reduce((message, nextMessage) -> message
+                .onSuccess(m -> m.delete().queueAfter(ttlSeconds, TimeUnit.SECONDS))
+                .flatMap(m -> nextMessage)).ifPresent(request ->
+                request.queue(
+                        m -> m.delete().queueAfter(ttlSeconds, TimeUnit.SECONDS),
+                        err -> LOGGER.error("Exception occurred while sending discord message", err)));
+ */
     }
 
     @NotNull

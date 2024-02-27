@@ -8,7 +8,6 @@ import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
 import org.sbot.utils.Dates;
 
-import java.awt.Color;
 import java.time.ZonedDateTime;
 
 public final class UpTimeCommand extends CommandAdapter {
@@ -36,6 +35,6 @@ public final class UpTimeCommand extends CommandAdapter {
     }
     private Message uptime() {
         String answer = MarkdownUtil.quote("SpotBot started " + Dates.formatDiscordRelative(start));
-        return Message.of(embedBuilder(NAME, Color.green, answer));
+        return Message.of(embedBuilder(NAME, OK_COLOR, answer));
     }
 }

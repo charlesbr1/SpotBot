@@ -16,7 +16,6 @@ import org.sbot.entities.alerts.Alert.Type;
 import org.sbot.services.dao.AlertsDao.SelectionFilter;
 import org.sbot.utils.ArgumentValidator;
 
-import java.awt.*;
 import java.util.EnumSet;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -101,7 +100,7 @@ public final class MigrateCommand extends CommandAdapter {
                 sameUserOrAdmin(context, arguments.ownerId)) {
             return migrateByOwnerOrTickerPair(context, server, arguments);
         } else {
-            return Message.of(embedBuilder(":clown:" + ' ' + context.user.getEffectiveName(), Color.black, "You are not allowed to migrate your mates' alerts" +
+            return Message.of(embedBuilder(":clown:" + ' ' + context.user.getEffectiveName(), DENIED_COLOR, "You are not allowed to migrate your mates' alerts" +
                     (isPrivateChannel(context) ? ", you are on a private channel." : "")));
         }
     }
@@ -117,7 +116,7 @@ public final class MigrateCommand extends CommandAdapter {
         Runnable[] outNotificationCallBack = new Runnable[1];
         var answer = context.transactional(txCtx -> securedAlertAccess(alertId, context, (alert, alertsDao) -> {
             if(sameId(guild, alert.serverId)) {
-                return embedBuilder("Alert " + alertId + " is already into " + (null == guild ? "this private channel" : "guild " + guildName(guild)));
+                throw new IllegalArgumentException("Alert " + alertId + " is already in " + (null == guild ? "this private channel" : "guild " + guildName(guild)));
             }
             EmbedBuilder embed;
             var serverId = PRIVATE_ALERT;
@@ -156,10 +155,10 @@ public final class MigrateCommand extends CommandAdapter {
         long serverId = null != guild ? guild.getIdLong() : PRIVATE_ALERT;
         long migrated = context.transactional(txCtx -> txCtx.alertsDao()
                 .updateServerIdOf(SelectionFilter.of(context.serverId(), userId, arguments.type).withTickerOrPair(pair), serverId));
-        if(migrated > 0 && null != arguments.ownerId && !sameUser(context.user, arguments.ownerId)) {
-            sendUpdateNotification(context, arguments.ownerId, ownerMigrateNotification(arguments.tickerOrPair, requireNonNull(context.member), guild, migrated));
+        if(migrated > 0 && !sameUser(context.user, userId)) {
+            sendUpdateNotification(context, userId, ownerMigrateNotification(arguments.tickerOrPair, requireNonNull(context.member), guild, migrated));
         }
-        return Message.of(embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), Color.green, migrated + " " + (migrated > 1 ? " alerts" : " alert") +
+        return Message.of(embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), OK_COLOR, migrated + " " + (migrated > 1 ? " alerts" : " alert") +
                 " migrated to " + (null == guild ? "user private channel" : "guild " + guildName(guild))));
     }
 
@@ -172,13 +171,13 @@ public final class MigrateCommand extends CommandAdapter {
     }
 
     private Message ownerMigrateNotification(long alertId, @NotNull Member member, @Nullable Guild guild) {
-        return Message.of(embedBuilder("Notice of alert migration", Color.lightGray,
+        return Message.of(embedBuilder("Notice of alert migration", NOTIFICATION_COLOR,
                 "Your alert " + alertId + " was migrated from guild " + guildName(member.getGuild()) + " to " +
                         (null != guild ? guildName(guild) : "your private channel")));
     }
 
     private Message ownerMigrateNotification(@NotNull String tickerOrPair, @NotNull Member member, @Nullable Guild guild, long nbMigrated) {
-        return Message.of(embedBuilder("Notice of " + (nbMigrated > 1 ? "alerts" : "alert") + " migration", Color.lightGray,
+        return Message.of(embedBuilder("Notice of " + (nbMigrated > 1 ? "alerts" : "alert") + " migration", NOTIFICATION_COLOR,
                 (MIGRATE_ALL.equalsIgnoreCase(tickerOrPair) ? "All your alerts were" :
                         (nbMigrated > 1 ? nbMigrated + " of your alerts having pair or ticker '" + tickerOrPair + "' were" : "Your alert was") +
                                 " migrated from guild " + guildName(member.getGuild()) + " to " +

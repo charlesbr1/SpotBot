@@ -12,6 +12,7 @@ import org.sbot.services.discord.InteractionListener;
 import static java.util.function.UnaryOperator.identity;
 import static org.sbot.commands.UpdateCommand.*;
 import static org.sbot.commands.interactions.ModalEditInteraction.*;
+import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.DEFAULT_REPEAT;
 import static org.sbot.entities.alerts.Alert.DEFAULT_SNOOZE_HOURS;
 import static org.sbot.entities.alerts.Alert.Type.range;
@@ -19,12 +20,14 @@ import static org.sbot.entities.alerts.Alert.Type.remainder;
 import static org.sbot.utils.ArgumentValidator.ALERT_MESSAGE_ARG_MAX_LENGTH;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.Dates.DATE_TIME_FORMAT;
+import static org.sbot.utils.Dates.LocalePatterns;
 
 public class SelectEditInteraction implements InteractionListener {
 
     static final String NAME = "edit-alert";
     private static final String CHOICE_EDIT = "edit";
     public static final String CHOICE_DISABLE = "disable";
+    public static final String CHOICE_MIGRATE = "migrate";
     public static final String CHOICE_DELETE = "delete";
 
     public static StringSelectMenu updateMenuOf(@NotNull Alert alert) {
@@ -66,6 +69,7 @@ public class SelectEditInteraction implements InteractionListener {
             menu.addOption(CHOICE_REPEAT, CHOICE_REPEAT, "update the number of time the alert will be raise, 0 to disable", Emoji.fromUnicode("U+1F504"));
             menu.addOption(CHOICE_SNOOZE, CHOICE_SNOOZE, "update the delay to wait between two raises of the alert, in hours, 0 will set to default " + DEFAULT_SNOOZE_HOURS + " hours", Emoji.fromUnicode("U+1F910"));
         }
+        menu.addOption(CHOICE_MIGRATE, CHOICE_MIGRATE, "migrate this alert to another guild or private messages", Emoji.fromUnicode("U+1F500"));
         menu.addOption(CHOICE_DELETE, CHOICE_DELETE, "delete this alert", Emoji.fromUnicode("U+1F5D1"));
         return menu.build();
     }
@@ -93,7 +97,8 @@ public class SelectEditInteraction implements InteractionListener {
         context.noMoreArgs();
 
         int minLength = 1;
-        int maxLength;
+        int maxLength = 20;
+        String hint;
 
         switch (field) {
             case CHOICE_EDIT:  // send a response that restore previous alert message, if needed
@@ -107,21 +112,34 @@ public class SelectEditInteraction implements InteractionListener {
                 return;
             case CHOICE_MESSAGE:
                 maxLength = ALERT_MESSAGE_ARG_MAX_LENGTH;
+                hint = ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max";
                 break;
             case CHOICE_DATE, CHOICE_FROM_DATE, CHOICE_TO_DATE:
                 minLength = 3; // 'now'
                 maxLength = DATE_TIME_FORMAT.length() + 64;
+                hint = LocalePatterns.getOrDefault(context.locale, LocalePatterns.get(DEFAULT_LOCALE));
                 break;
-            case CHOICE_LOW, CHOICE_HIGH, CHOICE_FROM_PRICE, CHOICE_TO_PRICE, CHOICE_MARGIN:
-                maxLength = 20;
+            case CHOICE_MIGRATE:
+                hint = "guild id, 0 for private channel";
                 break;
-            case CHOICE_REPEAT, CHOICE_SNOOZE:
+            case CHOICE_MARGIN:
+                hint = "enter a price delta";
+                break;
+            case CHOICE_LOW, CHOICE_HIGH, CHOICE_FROM_PRICE, CHOICE_TO_PRICE:
+                hint = "enter a price";
+                break;
+            case CHOICE_SNOOZE:
                 maxLength = 3;
+                hint = "time in hours to wait before this alert can be raise again";
+                break;
+            case CHOICE_REPEAT:
+                maxLength = 3;
+                hint = "number of times this alert will be raise";
                 break;
             default:
                 throw new IllegalArgumentException("Invalid field to edit : " + field);
         }
         // create a modal to get the value from the user
-        context.reply(Message.of(updateModalOf(alertId, field, minLength, maxLength)), 0);
+        context.reply(Message.of(updateModalOf(alertId, field, hint, minLength, maxLength)), 0);
     }
 }

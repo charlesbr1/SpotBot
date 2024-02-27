@@ -12,7 +12,6 @@ import org.sbot.entities.alerts.Alert.Type;
 import org.sbot.services.dao.AlertsDao.SelectionFilter;
 import org.sbot.utils.ArgumentValidator;
 
-import java.awt.*;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -82,7 +81,7 @@ public final class DeleteCommand extends CommandAdapter {
                 sameUserOrAdmin(context, arguments.ownerId)) { // ownerId != null -> only an admin can delete other users alerts on his server
             return deleteByOwnerOrTickerPair(context, arguments);
         } else {
-            return Message.of(embedBuilder(":clown:" + ' ' + context.user.getEffectiveName(), Color.black, "You are not allowed to delete your mates' alerts" +
+            return Message.of(embedBuilder(":clown:" + ' ' + context.user.getEffectiveName(), DENIED_COLOR, "You are not allowed to delete your mates' alerts" +
                     (isPrivateChannel(context) ? ", you are on a private channel." : "")));
         }
     }
@@ -108,17 +107,17 @@ public final class DeleteCommand extends CommandAdapter {
         if(deleted > 0 && !sameUser(context.user, userId)) {
             sendUpdateNotification(context, userId, ownerDeleteNotification(arguments.tickerOrPair, requireNonNull(context.member), deleted));
         }
-        return Message.of(embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), Color.green, deleted + " " + (deleted > 1 ? " alerts" : " alert") + " deleted"));
+        return Message.of(embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), OK_COLOR, deleted + (deleted > 1 ? " alerts" : " alert") + " deleted"));
     }
 
 
     private Message ownerDeleteNotification(long alertId, @NotNull Member member) {
-        return Message.of(embedBuilder("Notice of alert deletion", Color.lightGray,
+        return Message.of(embedBuilder("Notice of alert deletion", NOTIFICATION_COLOR,
                 "Your alert " + alertId + " was deleted on guild " + guildName(member.getGuild())));
     }
 
     private Message ownerDeleteNotification(@NotNull String tickerOrPair, @NotNull Member member, long nbDeleted) {
-        return Message.of(embedBuilder("Notice of " + (nbDeleted > 1 ? "alerts" : "alert") + " deletion", Color.lightGray,
+        return Message.of(embedBuilder("Notice of " + (nbDeleted > 1 ? "alerts" : "alert") + " deletion", NOTIFICATION_COLOR,
                 (DELETE_ALL.equalsIgnoreCase(tickerOrPair) ? "All your alerts were" :
                         (nbDeleted > 1 ? nbDeleted + " of your alerts having pair or ticker '" + tickerOrPair + "' were" : "Your alert was") +
                                 " deleted on guild " + guildName(member.getGuild()))));

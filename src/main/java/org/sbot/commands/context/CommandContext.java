@@ -153,7 +153,7 @@ public abstract class CommandContext implements Context {
             @Override
             public void reply(@NotNull List<Message> messages, int ttlSeconds) {
                 reply(messages, modal -> event.replyModal(modal).queue(),
-                        msg -> Discord.sendMessages(messages, event.getHook().setEphemeral(true)::sendMessageEmbeds, ttlSeconds),
+                        msg -> Discord.replyMessages(messages, event.getHook().setEphemeral(true), ttlSeconds),
                         editMapper -> event.getHook().retrieveOriginal()
                                 .queue(message -> message.editMessage(editMapper.apply(MessageEditBuilder.fromMessage(message))).queue(),
                                         err -> LOGGER.error("Failed to retrieve message on slash interaction", err)));
@@ -166,7 +166,7 @@ public abstract class CommandContext implements Context {
             @Override
             public void reply(@NotNull List<Message> messages, int ttlSeconds) {
                 reply(messages, modal -> event.replyModal(modal).queue(),
-                        msg -> Discord.sendMessages(messages, event.getHook().setEphemeral(true)::sendMessageEmbeds, ttlSeconds),
+                        msg -> Discord.replyMessages(messages, event.getHook().setEphemeral(true), ttlSeconds),
                         editMapper -> event.editMessage(editMapper.apply(MessageEditBuilder.fromMessage(event.getMessage()))).queue());
             }
         };
@@ -178,7 +178,7 @@ public abstract class CommandContext implements Context {
             @Override
             public void reply(@NotNull List<Message> messages, int ttlSeconds) {
                 reply(messages, modal -> { throw new UnsupportedOperationException("No modal on modal command reply"); },
-                        msg -> Discord.sendMessages(messages, event.getHook().setEphemeral(true)::sendMessageEmbeds, ttlSeconds),
+                        msg -> Discord.replyMessages(messages, event.getHook().setEphemeral(true), ttlSeconds),
                         null == event.getMessage() ? editMapper -> { throw new UnsupportedOperationException("This modal have no message"); } :
                         editMapper -> event.editMessage(editMapper.apply(MessageEditBuilder.fromMessage(event.getMessage()))).queue());
             }

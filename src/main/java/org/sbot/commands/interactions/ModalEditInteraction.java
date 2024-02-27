@@ -16,15 +16,14 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.DeleteCommand;
+import org.sbot.commands.MigrateCommand;
 import org.sbot.commands.UpdateCommand;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
+import org.sbot.services.discord.CommandListener;
 import org.sbot.services.discord.InteractionListener;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
@@ -53,9 +52,9 @@ public final class ModalEditInteraction implements InteractionListener {
                 .addComponents(ActionRow.of(input)).build();
     }
 
-    public static Modal updateModalOf(long alertId, @NotNull String field, int minLength, int maxLength) {
+    public static Modal updateModalOf(long alertId, @NotNull String field, @NotNull String hint, int minLength, int maxLength) {
         TextInput input = TextInput.create(field, field, TextInputStyle.SHORT)
-                .setPlaceholder("edit " + field)
+                .setPlaceholder(hint)
                 .setRequiredRange(minLength, maxLength)
                 .build();
         return Modal.create(NAME + "#" + alertId, "Edit Alert #" + alertId)
@@ -72,38 +71,58 @@ public final class ModalEditInteraction implements InteractionListener {
     public void onInteraction(@NotNull CommandContext context) {
         long alertId = requirePositive(context.args.getMandatoryLong(ALERT_ID_ARGUMENT));
         String field = context.args.getMandatoryString(SELECTION_ARGUMENT);
+        CommandListener command;
+        CommandContext commandContext;
+        String value = null;
         if(CHOICE_DELETE.equals(field)) {
             if("ok".equalsIgnoreCase(context.args.getMandatoryString(VALUE_ARGUMENT))) {
-                new DeleteCommand().onCommand(context.noMoreArgs().withArgumentsAndReplyMapper(String.valueOf(alertId), fromDeleteMapper()));
+                command = new DeleteCommand();
+                commandContext = context.noMoreArgs().withArgumentsAndReplyMapper(String.valueOf(alertId), replaceMapper());
             } else {
                 context.noMoreArgs().reply(replyOriginal(null), 0);
+                return;
             }
-            return;
-        }
-        String value, newMessage = null;
-        if(CHOICE_MESSAGE.equals(field)) {
-            value = newMessage = context.args.getLastArgs(MESSAGE_ARGUMENT)
-                    .orElseThrow(() -> new IllegalArgumentException("Missing message value"));
         } else {
-            value = context.args.getMandatoryString(VALUE_ARGUMENT);
-            context.noMoreArgs();
+            String newMessage = null;
+            if(CHOICE_MESSAGE.equals(field)) {
+                value = newMessage = context.args.getLastArgs(MESSAGE_ARGUMENT)
+                        .orElseThrow(() -> new IllegalArgumentException("Missing message value"));
+            } else {
+                value = context.args.getMandatoryString(VALUE_ARGUMENT);
+                context.noMoreArgs();
+            }
+            if(CHOICE_MIGRATE.equals(field)) {
+                command = new MigrateCommand();
+                commandContext = context.withArgumentsAndReplyMapper(alertId + " " + value, replaceMapper());
+            } else {
+                command = new UpdateCommand();
+                commandContext = context.withArgumentsAndReplyMapper(field + " " + alertId + " " + value,
+                        fromUpdateMapper(newMessage, alertId));
+            }
         }
         try {
-            new UpdateCommand().onCommand(context.withArgumentsAndReplyMapper(field + " " + alertId + " " + value,
-                    fromUpdateMapper(newMessage, alertId)));
+            command.onCommand(commandContext);
         } catch (RuntimeException e) {
             LOGGER.debug("Error while updating alert", e);
-            String failed = "```diff\n- failed to update " + field + " with value : " + value + "\n" + e.getMessage() + UPDATE_FAILED_FOOTER;
+            String failed = "```diff\n- failed to " + switch (field) {
+                case CHOICE_DELETE -> "delete alert " + alertId;
+                case CHOICE_MIGRATE -> "migrate alert " + alertId + " to guild " + value;
+                default -> "update " + field + " with value : " + value;
+            } + "\n" + e.getMessage() + UPDATE_FAILED_FOOTER;
             context.reply(replyOriginal(failed), 0);
         }
     }
 
     @NotNull
-    private static UnaryOperator<List<Message>> fromDeleteMapper() {
-        // replace listed alert with result of delete alert command, this remove the menu interaction
+    private static UnaryOperator<List<Message>> replaceMapper() {
+        // replace listed alert content with result of delete/migrate command, this remove the menu interaction
         BiFunction<Message, MessageEditBuilder, MessageEditData> editMapper = (message, editBuilder) -> {
-            var originalEmbed = requireOneItem(editBuilder.getEmbeds());
             var newEmbedBuilder = requireOneItem(message.embeds());
+            var built = newEmbedBuilder.build();
+            if(!DENIED_COLOR.equals(built.getColor())) { // user rights changed
+                throw new ConcurrentModificationException(built.getDescription());
+            }
+            var originalEmbed = requireOneItem(editBuilder.getEmbeds());
             newEmbedBuilder.setTitle(null);
             newEmbedBuilder.setColor(originalEmbed.getColor());
             editBuilder.setEmbeds(newEmbedBuilder.build());
@@ -116,10 +135,14 @@ public final class ModalEditInteraction implements InteractionListener {
     @NotNull
     private static UnaryOperator<List<Message>> fromUpdateMapper(@Nullable String newMessage, long alertId) {
         BiFunction<Message, MessageEditBuilder, MessageEditData> editMapper = (message, editBuilder) -> {
-            var originalEmbed = requireOneItem(editBuilder.getEmbeds());
             var newEmbedBuilder = requireOneItem(message.embeds());
+            var built = newEmbedBuilder.build();
+            if(!DENIED_COLOR.equals(built.getColor())) { // user rights changed
+                throw new ConcurrentModificationException(built.getDescription());
+            }
+            var originalEmbed = requireOneItem(editBuilder.getEmbeds());
             // switch the enable / disable item in menu if enabled state changed
-            switchEnableItem(editBuilder, alertId, newEmbedBuilder.getDescriptionBuilder().indexOf(DISABLED) >= 0);
+            switchEnableItem(editBuilder, alertId, requireNonNull(built.getDescription()).contains(DISABLED));
             // update message reply with update command reply updated to be in same format as ones produced by list command
             return editBuilder.setEmbeds(updatedMessageEmbeds(originalEmbed, newEmbedBuilder, newMessage, false)).build();
         };

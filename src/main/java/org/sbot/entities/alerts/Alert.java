@@ -50,7 +50,11 @@ public abstract class Alert {
     public static final long PRIVATE_ALERT = 0L;
     public static final long NEW_ALERT_ID = 0L;
 
-    public static final BigDecimal ONE_HOUR_SECONDS = new BigDecimal(Duration.ofHours(1L).toSeconds());
+    public static final Color DISABLED_COLOR = Color.black;
+    public static final Color PRIVATE_COLOR = Color.blue;
+    public static final Color PUBLIC_COLOR = Color.green;
+    public static final Color MATCHED_COLOR = Color.green;
+    public static final Color MARGIN_COLOR = Color.orange;
 
 
     public final long id;
@@ -256,13 +260,13 @@ public abstract class Alert {
     public final EmbedBuilder onRaiseMessage(@NotNull MatchingAlert matchingAlert, @NotNull ZonedDateTime now) {
         return asMessage(matchingAlert.status(), matchingAlert.matchingCandlestick(), now)
                 .setTitle(raiseTitle(matchingAlert.alert(), matchingAlert.status()))
-                .setColor(matchingAlert.status().isMatched() ? Color.green : Color.orange);
+                .setColor(matchingAlert.status().isMatched() ? MATCHED_COLOR : MARGIN_COLOR);
     }
 
     @NotNull
     public final EmbedBuilder descriptionMessage(@NotNull ZonedDateTime now, @Nullable String guildName) {
         return asMessage(NOT_MATCHING, null, now)
-                .setColor(!hasRepeat(repeat) ? Color.black : isPrivate(serverId) ? Color.blue : Color.green)
+                .setColor(!isEnabled() ? DISABLED_COLOR : isPrivate(serverId) ? PRIVATE_COLOR : PUBLIC_COLOR)
                 .appendDescription(null != guildName ? "\n\nguild : " + guildName : "");
     }
 

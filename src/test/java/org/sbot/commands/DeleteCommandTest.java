@@ -12,6 +12,7 @@ import org.sbot.services.context.Context;
 import org.sbot.services.context.Context.DataServices;
 import org.sbot.services.context.Context.Services;
 import org.sbot.services.dao.AlertsDao;
+import org.sbot.services.dao.AlertsDao.SelectionFilter;
 import org.sbot.services.discord.Discord;
 
 import java.util.List;
@@ -118,7 +119,7 @@ class DeleteCommandTest {
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
         assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("deleted"));
-        verify(discord, never()).sendPrivateMessage(anyInt(), any());
+        verify(discord, never()).sendPrivateMessage(anyInt(), any(), eq(null));
 
         // delete by id, alert exists, not same user, not same channel, not found
         when(messageReceivedEvent.getMember()).thenReturn(member);
@@ -173,7 +174,7 @@ class DeleteCommandTest {
         verify(alertsDao).getAlertWithoutMessage(alertId);
         verify(alertsDao).deleteAlert(alertId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord).sendPrivateMessage(eq(userId + 1), any());
+        verify(discord).sendPrivateMessage(eq(userId + 1), any(), eq(null));
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -188,7 +189,7 @@ class DeleteCommandTest {
         verify(alertsDao).getAlertWithoutMessage(alertId);
         verify(alertsDao).deleteAlert(alertId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord, never()).sendPrivateMessage(eq(userId), any());
+        verify(discord, never()).sendPrivateMessage(eq(userId), any(), eq(null));
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -197,7 +198,251 @@ class DeleteCommandTest {
 
     @Test
     void onCommandDeleteByFilter() {
+        long userId = 321L;
+        long serverId = 123L;
+        MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
+        when(messageReceivedEvent.getMessage()).thenReturn(mock());
+        User user = mock();
+        when(messageReceivedEvent.getAuthor()).thenReturn(user);
+        when(user.getIdLong()).thenReturn(userId);
+        Member member = mock();
+        Guild guild = mock();
+        when(member.getGuild()).thenReturn(guild);
+        when(guild.getIdLong()).thenReturn(serverId);
+        Context context = mock(Context.class);
+        AlertsDao alertsDao = mock();
+        DataServices dataServices = mock();
+        when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(context.dataServices()).thenReturn(dataServices);
+        Discord discord = mock();
+        when(context.discord()).thenReturn(discord);
+        Services services = mock();
+        when(services.discord()).thenReturn(discord);
+        when(context.services()).thenReturn(services);
 
+        var command = new DeleteCommand();
+
+        assertThrows(NullPointerException.class, () -> command.onCommand(null));
+
+        // delete all, current user, private channel, ok
+        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " all" ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao).deleteAlerts(SelectionFilter.of(PRIVATE_ALERT, userId, null));
+        ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        List<Message> messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert deleted"));
+
+
+        // delete all, not same user, private channel, denied
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " all  <@" + (userId + 1) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).deleteAlerts(SelectionFilter.of(PRIVATE_ALERT, userId + 1, null));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("not allowed"));
+
+        // delete filter, current user, private channel, ok
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd  <@" + (userId) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao).deleteAlerts(SelectionFilter.of(PRIVATE_ALERT, userId, null).withTickerOrPair("ETH/USD"));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert deleted"));
+
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " btc/usd trend <@" + (userId) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao).deleteAlerts(SelectionFilter.of(PRIVATE_ALERT, userId, trend).withTickerOrPair("BTC/USD"));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert deleted"));
+
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/xrp remainder" ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao).deleteAlerts(SelectionFilter.of(PRIVATE_ALERT, userId, remainder).withTickerOrPair("ETH/XRP"));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert deleted"));
+
+        // delete filter, not same user, private channel, denied
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd  <@" + (userId + 2) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).deleteAlerts(SelectionFilter.of(PRIVATE_ALERT, userId + 2, null).withTickerOrPair("ETH/USD"));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("not allowed"));
+
+        // delete all, current user, server channel, ok
+        when(messageReceivedEvent.getMember()).thenReturn(member);
+
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " all " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao).deleteAlerts(SelectionFilter.of(serverId, userId, null));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert deleted"));
+
+        // delete all, not same user, server channel, denied
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " all  <@" + (userId + 1) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).deleteAlerts(SelectionFilter.of(serverId, userId + 1, null));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("not allowed"));
+
+        // delete all, not same user, server channel, admin, ok
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " all  <@" + (userId + 1) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao).deleteAlerts(SelectionFilter.of(serverId, userId + 1, null));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(eq(userId + 1), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert deleted"));
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(false);
+
+        when(alertsDao.deleteAlerts(SelectionFilter.of(serverId, userId + 1, null))).thenReturn(3L);
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " all  <@" + (userId + 1) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, times(2)).deleteAlerts(SelectionFilter.of(serverId, userId + 1, null));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord).sendPrivateMessage(eq(userId + 1), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("3 alerts deleted"));
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(false);
+
+        // delete filter, current user, server channel, ok
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd  <@" + (userId) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao).deleteAlerts(SelectionFilter.of(serverId, userId, null).withTickerOrPair("ETH/USD"));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(eq(userId), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert deleted"));
+
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " btc/usd  remainder " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao).deleteAlerts(SelectionFilter.of(serverId, userId, remainder).withTickerOrPair("BTC/USD"));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert deleted"));
+
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " btc/usd  range " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao).deleteAlerts(SelectionFilter.of(serverId, userId, range).withTickerOrPair("BTC/USD"));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert deleted"));
+
+        // delete filter, not same user, server channel, denied
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd  <@" + (userId + 3) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).deleteAlerts(SelectionFilter.of(serverId, userId + 3, null).withTickerOrPair("ETH/USD"));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(eq(userId), any(), any());
+        verify(discord, never()).sendPrivateMessage(eq(userId + 3), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("not allowed"));
+
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd trend <@" + (userId + 3) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).deleteAlerts(SelectionFilter.of(serverId, userId + 3, trend).withTickerOrPair("ETH/USD"));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(eq(userId + 3), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("not allowed"));
+
+        // delete filter, not same user, server channel, admin, ok
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd  <@" + (userId + 3) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao).deleteAlerts(SelectionFilter.of(serverId, userId + 3, null).withTickerOrPair("ETH/USD"));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(eq(userId), any(), any());
+        verify(discord, never()).sendPrivateMessage(eq(userId + 3), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert deleted"));
+
+        when(alertsDao.deleteAlerts(SelectionFilter.of(serverId, userId + 3, null).withTickerOrPair("ETH/USD"))).thenReturn(1L);
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd  <@" + (userId + 3) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, times(2)).deleteAlerts(SelectionFilter.of(serverId, userId + 3, null).withTickerOrPair("ETH/USD"));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(eq(userId), any(), any());
+        verify(discord).sendPrivateMessage(eq(userId + 3), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("1 alert deleted"));
+
+        when(alertsDao.deleteAlerts(SelectionFilter.of(serverId, userId + 5, trend).withTickerOrPair("ETH/USD"))).thenReturn(7L);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd trend <@" + (userId + 5) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao).deleteAlerts(SelectionFilter.of(serverId, userId + 5, trend).withTickerOrPair("ETH/USD"));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord).sendPrivateMessage(eq(userId + 5), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("7 alerts deleted"));
     }
 
     @Test

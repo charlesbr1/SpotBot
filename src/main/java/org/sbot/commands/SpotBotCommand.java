@@ -96,8 +96,8 @@ public final class SpotBotCommand extends CommandAdapter {
             **snooze**
 
             Range and margin alerts also have two parameters, *repeat* and *snooze*, that can be set using the commands of their respective names.
-            * **repeat** : the number of times a triggered alert will be raised (default : {repeat})
-            * **snooze** : the time in hours to wait before the alert can be raised again (default : {snooze} hours)
+            * **repeat** : the number of times an alert will be raise (default : {repeat})
+            * **snooze** : the time in hours to wait before the alert can be raise again (default : {snooze} hours)
 
             Once an alert is raised, it decreases in number of *repeat* and becomes ignored during *snooze* hours.
             If it's number of repeat reach 0, the alert is disabled and will be deleted one month later, this let you time to enable it again, if never.
@@ -157,7 +157,7 @@ public final class SpotBotCommand extends CommandAdapter {
     private static Message doc(@NotNull CommandContext context) {
         Guild guild = Optional.ofNullable(context.member).map(Member::getGuild).orElse(null);
         String selfMention = context.discord().spotBotUserMention();
-        EmbedBuilder builder = embedBuilder(null, Color.green, formattedHeader(context, guild, selfMention));
+        EmbedBuilder builder = embedBuilder(null, OK_COLOR, formattedHeader(context, guild, selfMention));
         builder.addBlankField(false);
         builder.setImage("attachment://" + ALERTS_PICTURE_FILE);
         builder.setFooter(DOC_FOOTER);
@@ -202,8 +202,8 @@ public final class SpotBotCommand extends CommandAdapter {
                 .map(command -> new Command(command.name(), command.description() ,command.options()));
 
         // split the list because it exceeds max discord message length
-        return split(6, commands)
-                .map(cmdList -> Message.of(embedBuilder(null, Color.green, cmdList.stream()
+        return split(5, commands)
+                .map(cmdList -> Message.of(embedBuilder(null, OK_COLOR, cmdList.stream()
                         .map(cmd -> "** " + cmd.name + "**\n\n" + MarkdownUtil.quote(cmd.description + commandDescription(cmd.options)))
                         .collect(joining("\n\n\n"))))).toList();
     }

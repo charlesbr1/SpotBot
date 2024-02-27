@@ -12,7 +12,6 @@ import org.sbot.entities.alerts.Alert;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.utils.Dates;
 
-import java.awt.*;
 import java.math.BigDecimal;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -138,7 +137,7 @@ public final class UpdateCommand extends CommandAdapter {
         return context.transactional(txCtx -> {
             if(txCtx.usersDao().userExists(context.user.getIdLong())) {
                 txCtx.usersDao().updateLocale(context.user.getIdLong(), locale);
-                return Message.of(embedBuilder(NAME, Color.green, "Your locale is set to " + locale.toLanguageTag()));
+                return Message.of(embedBuilder(NAME, OK_COLOR, "Your locale is set to " + locale.toLanguageTag()));
             }
             return userSetupNeeded("Update locale", "Unable to save your locale :");
         });
@@ -149,7 +148,7 @@ public final class UpdateCommand extends CommandAdapter {
         return context.transactional(txCtx -> {
             if(txCtx.usersDao().userExists(context.user.getIdLong())) {
                 txCtx.usersDao().updateTimezone(context.user.getIdLong(), timezone);
-                return Message.of(embedBuilder(NAME, Color.green, "Your timezone is set to " + timezone.getId()));
+                return Message.of(embedBuilder(NAME, OK_COLOR, "Your timezone is set to " + timezone.getId()));
             }
             return userSetupNeeded("Update timezone", "Unable to save your timezone :");
         });
@@ -321,7 +320,7 @@ public final class UpdateCommand extends CommandAdapter {
     private void ownerUpdateNotification(@NotNull CommandContext context, @NotNull Alert alert, @NotNull String field, @NotNull String newValue, @NotNull Runnable[] outNotificationCallBack) {
         if(context.user.getIdLong() != alert.userId) {
             outNotificationCallBack[0] = () -> sendUpdateNotification(context, alert.userId,
-                    Message.of(embedBuilder("Notice of alert update", Color.lightGray,
+                    Message.of(embedBuilder("Notice of alert update", NOTIFICATION_COLOR,
                 "Your alert " + alert.id + " was updated on guild " + guildName(requireNonNull(context.member).getGuild()) +
                         ", " + field + " = " + newValue)));
         }

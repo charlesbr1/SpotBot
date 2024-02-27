@@ -18,7 +18,6 @@ import org.sbot.services.discord.Discord;
 import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
 
-import java.awt.*;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -138,7 +137,7 @@ public final class ListCommand extends CommandAdapter {
 
     private List<Message> listByOwnerAndPair(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Arguments arguments) {
         if(null == context.member && !sameUser(context.user, arguments.ownerId)) {
-            return List.of(Message.of(embedBuilder(NAME, Color.red, "You are not allowed to see alerts of members in a private channel")));
+            return List.of(Message.of(embedBuilder(NAME, DENIED_COLOR, "You are not allowed to see alerts of members in a private channel")));
         }
         var filter = isPrivateChannel(context) ?
                 SelectionFilter.ofUser(context.user.getIdLong(), arguments.type).withTickerOrPair(arguments.tickerOrPair) :
@@ -212,7 +211,7 @@ public final class ListCommand extends CommandAdapter {
 
     private static List<Message> paginatedAlerts(@NotNull ArrayList<Message> messages, long offset, @NotNull Supplier<String> nextCommand, @NotNull Supplier<String> command) {
         if (messages.isEmpty()) {
-            return List.of(Message.of(embedBuilder("Alerts search", Color.yellow,
+            return List.of(Message.of(embedBuilder("Alerts search", OK_COLOR,
                     "No alert found" + command.get())));
         } else {
             return shrinkToPageSize(messages, offset, nextCommand);
@@ -224,20 +223,20 @@ public final class ListCommand extends CommandAdapter {
             while(messages.size() >= MESSAGE_LIST_CHUNK) {
                 messages.remove(messages.size() - 1);
             }
-            messages.add(Message.of(embedBuilder("...", Color.green, "More results found, to get them use command with offset " +
+            messages.add(Message.of(embedBuilder("...", OK_COLOR, "More results found, to get them use command with offset " +
                     (offset + MESSAGE_LIST_CHUNK - 1) + " : " + nextCommand.get())));
         }
         return messages;
     }
 
     private Message settings(@NotNull Locale locale, @Nullable ZoneId timezone) {
-        return Message.of(embedBuilder(LIST_SETTINGS, Color.green, "Your current settings :")
+        return Message.of(embedBuilder(LIST_SETTINGS, OK_COLOR, "Your current settings :")
                 .addField("locale", locale.toLanguageTag(), true)
                 .addField("timezone", null != timezone ? timezone.getId() : "UTC", true));
     }
 
     private Message locales() {
-        return Message.of(embedBuilder(" ", Color.green, "Available locales :\n\n```" +
+        return Message.of(embedBuilder(" ", OK_COLOR, "Available locales :\n\n```" +
                 Stream.of(DiscordLocale.values())
                         .filter(not(DiscordLocale.UNKNOWN::equals))
                         .map(locale -> {
@@ -253,14 +252,14 @@ public final class ListCommand extends CommandAdapter {
         var zones = zoneIds.stream().sorted().toList();
         int splitIndex = zones.size() / 3;
 
-        return List.of(Message.of(embedBuilder(" ", Color.green, "Available time zones :\n\n>>> " +
+        return List.of(Message.of(embedBuilder(" ", OK_COLOR, "Available time zones :\n\n>>> " +
                         "by offset : +HH:mm, -HH:mm,\n" + String.join(", ", zones.subList(0, splitIndex)))),
-                Message.of(embedBuilder(" ", Color.green, ">>> " + String.join(", ", zones.subList(splitIndex, 2 * splitIndex)))),
-                Message.of(embedBuilder(" ", Color.green, ">>> " + String.join(", ", zones.subList(2 * splitIndex, zones.size())))));
+                Message.of(embedBuilder(" ", OK_COLOR, ">>> " + String.join(", ", zones.subList(splitIndex, 2 * splitIndex)))),
+                Message.of(embedBuilder(" ", OK_COLOR, ">>> " + String.join(", ", zones.subList(2 * splitIndex, zones.size())))));
     }
 
     private Message exchanges() {
-        return Message.of(embedBuilder(LIST_EXCHANGES, Color.green, //TODO add pairs
+        return Message.of(embedBuilder(LIST_EXCHANGES, OK_COLOR, //TODO add pairs
                 MarkdownUtil.quoteBlock("* " + String.join("\n* ", SUPPORTED_EXCHANGES))));
     }
 }

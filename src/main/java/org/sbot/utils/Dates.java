@@ -1,5 +1,6 @@
 package org.sbot.utils;
 
+import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.utils.TimeFormat;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -8,10 +9,17 @@ import java.sql.Timestamp;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Collections;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
+import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.toMap;
+import static net.dv8tion.jda.api.interactions.DiscordLocale.UNKNOWN;
 import static org.sbot.utils.ArgumentValidator.BLANK_SPACES;
 
 public interface Dates {
@@ -33,6 +41,8 @@ public interface Dates {
     DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(DATE_TIME_FORMAT);
     DateTimeFormatter ZONED_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(DATE_TIME_FORMAT + ZONED_FORMAT);
     DateTimeFormatter DASH_ZONED_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(DATE_TIME_FORMAT + DASH_ZONED_FORMAT);
+
+    Map<Locale, String> LocalePatterns = Collections.unmodifiableMap(localePatterns());
 
     static LocalDateTime parseLocalDateTime(@NotNull Locale locale, @NotNull String dateTime) {
         return LocalDateTime.parse(asDateTimeFormat(locale, dateTime), DATE_TIME_FORMATTER);
@@ -120,5 +130,19 @@ public interface Dates {
     @Nullable
     static ZonedDateTime parseUtcDateTimeOrNull(@Nullable Timestamp timestamp) {
         return parseUtcDateTime(timestamp).orElse(null);
+    }
+
+    @NotNull
+    private static Map<Locale, String> localePatterns() {
+        LocalDate date = LocalDate.parse("03/05/2011", DATE_FORMATTER);
+        return Stream.of(DiscordLocale.values()).filter(not(UNKNOWN::equals)).map(DiscordLocale::toLocale)
+                .collect(toMap(identity(), locale -> LOCALIZED_DATE_FORMATTER.withLocale(locale).format(date)
+                            .replace("2011", "yyyy")
+                            .replace("11", "yy")
+                            .replace("05", "MM")
+                            .replace("5", "M")
+                            .replace("03", "dd")
+                            .replace("3", "d") +
+                            ' ' + TIME_FORMAT + " (optional) zone"));
     }
 }

@@ -10,7 +10,6 @@ import org.sbot.entities.chart.Candlestick;
 import org.sbot.entities.chart.TimeFrame;
 import org.sbot.utils.Dates;
 
-import java.awt.*;
 import java.util.List;
 
 import static java.util.Comparator.comparing;
@@ -54,7 +53,7 @@ public final class QuoteCommand extends CommandAdapter {
     }
 
     private Message quote(@NotNull CommandContext context, @NotNull String exchange, @NotNull String pair) {
-        return Message.of(embedBuilder(" ", Color.green, parseCandlestick(pair, context.exchanges().get(exchange)
+        return Message.of(embedBuilder(" ", OK_COLOR, parseCandlestick(pair, context.exchanges().get(exchange)
                 .orElseThrow(() -> new IllegalArgumentException("Unsupported exchange : " + exchange))
                 .getCandlesticks(pair, TimeFrame.ONE_MINUTE, 1))));
     }

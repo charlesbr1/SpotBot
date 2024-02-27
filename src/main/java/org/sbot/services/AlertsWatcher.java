@@ -18,9 +18,8 @@ import org.sbot.services.MatchingService.MatchingAlert.MatchingStatus;
 import org.sbot.services.context.Context;
 import org.sbot.services.context.TransactionalContext;
 import org.sbot.services.dao.AlertsDao;
-import org.sbot.services.dao.UsersDao;
 import org.sbot.services.dao.BatchEntry;
-import org.sbot.services.discord.Discord;
+import org.sbot.services.dao.UsersDao;
 import org.sbot.utils.Dates;
 
 import java.awt.*;
@@ -42,6 +41,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
 import static org.sbot.SpotBot.appProperties;
+import static org.sbot.commands.CommandAdapter.NOTIFICATION_COLOR;
 import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.entities.alerts.Alert.isPrivate;
 import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_VIRTUAL_EXCHANGE;
@@ -277,14 +277,13 @@ public final class AlertsWatcher {
         var users = matchingAlerts.stream().map(MatchingAlert::alert).map(Alert::getUserId).distinct().map(String::valueOf).toList();
         //TODO user must still be on server check, or else <@123> appears in discord
         // query each user on server ?
-        Discord.spotBotChannel(guild).ifPresent(channel -> // TODO use userLocales
-                channel.sendMessages(List.of(toMessage(now, matchingAlerts, roles, users))));
+        context.discord().sendGuildMessage(guild, toMessage(now, matchingAlerts, roles, users), null);
     }
 
     private void sendPrivateAlerts(@NotNull ZonedDateTime now, @NotNull List<MatchingAlert> matchingAlerts, @NotNull Map<Long, Locale> userLocales) {
         matchingAlerts.stream().collect(groupingBy(matchingAlert -> matchingAlert.alert().userId))
                 .forEach((userId, userAlerts) -> // TODO pass userLocales
-                        context.discord().sendPrivateMessage(userId, toMessage(now, userAlerts)));
+                        context.discord().sendPrivateMessage(userId, toMessage(now, userAlerts), null));
     }
 
     @NotNull
@@ -303,7 +302,7 @@ public final class AlertsWatcher {
             //TODO separate method, guidName
             var description = alert.descriptionMessage(now, "todo");
             return description.setDescription("Following alert has expired and will be deleted :\n\n" + description.getDescriptionBuilder())
-                    .setTitle("Delete notification - alert #" + alert.id).setColor(Color.black);
+                    .setTitle("Delete notification - alert #" + alert.id).setColor(NOTIFICATION_COLOR);
         }
         return alert.onRaiseMessage(matchingAlert, now);
     }

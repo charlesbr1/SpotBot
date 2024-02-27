@@ -59,6 +59,11 @@ public abstract class CommandAdapter implements CommandListener {
     protected static final String FROM_DATE_ARGUMENT = "from_date";
     protected static final String TO_DATE_ARGUMENT = "to_date";
 
+    public static final Color OK_COLOR = Color.green;
+    public static final Color DENIED_COLOR = Color.orange;
+    public static final Color NOT_FOUND_COLOR = Color.red;
+    public static final Color NOTIFICATION_COLOR = Color.lightGray;
+
     private final String name;
     private final String description;
     private final SlashCommandData options;
@@ -99,12 +104,12 @@ public abstract class CommandAdapter implements CommandListener {
             var dao = txCtx.alertsDao();
             Alert alert = dao.getAlertWithoutMessage(alertId).orElse(null);
             if(SecurityAccess.notFound(context, alert)) {
-                return embedBuilder(":ghost: " + context.user.getEffectiveName(), Color.red, "Alert " + alertId + " not found");
+                return embedBuilder(":ghost: " + context.user.getEffectiveName(), NOT_FOUND_COLOR, "Alert " + alertId + " not found");
             } else if(SecurityAccess.isDenied(context, alert)) {
-                return embedBuilder(":clown: " + context.user.getEffectiveName(), Color.black, "You are not allowed to modify alert " + alertId);
+                return embedBuilder(":clown: " + context.user.getEffectiveName(), DENIED_COLOR, "You are not allowed to modify alert " + alertId);
             }
             var embedBuilder = updateHandler.apply(alert, dao).setTitle(":+1: " + context.user.getEffectiveName());
-            return embedBuilder.setColor(Optional.ofNullable(embedBuilder.build().getColor()).orElse(Color.green));
+            return embedBuilder.setColor(Optional.ofNullable(embedBuilder.build().getColor()).orElse(OK_COLOR));
         });
     }
 
@@ -141,7 +146,7 @@ public abstract class CommandAdapter implements CommandListener {
     }
 
     protected static Message userSetupNeeded(@NotNull String title, @NotNull String message) {
-        return Message.of(embedBuilder(requireNonNull(title), Color.red, requireNonNull(message) +
+        return Message.of(embedBuilder(requireNonNull(title), NOT_FOUND_COLOR, requireNonNull(message) +
                         "\n\n> Missing user account setup !" +
                         "\n\nPlease use any slash command to setup your account once, like /spotbot, then try again."));
     }
@@ -158,7 +163,7 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected void sendUpdateNotification(@NotNull CommandContext context, long userId, @NotNull Message message) {
         if(!isPrivateChannel(context)) {
-            context.discord().sendPrivateMessage(userId, message);
+            context.discord().sendPrivateMessage(userId, message, null);
         }
     }
 }

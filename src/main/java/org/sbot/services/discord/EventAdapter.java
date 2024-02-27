@@ -85,7 +85,7 @@ final class EventAdapter extends ListenerAdapter {
             context.discord().sendPrivateMessage(userId, Message.of(embedBuilder("Notice of " + (null == nbMigrated || nbMigrated > 1 ? "alerts" : "alert") + " migration", Color.lightGray,
                             reason + ((nbMigrated == null ? ", all your alerts on this guild were " :
                                     (nbMigrated > 1 ? ", all your alerts (" + nbMigrated + ") on this guild were " :
-                                            ", your alert on this guild was "))) + "migrated to your private channel")));
+                                            ", your alert on this guild was "))) + "migrated to your private channel")), null);
         }
     }
 

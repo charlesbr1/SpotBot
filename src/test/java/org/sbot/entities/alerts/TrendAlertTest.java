@@ -6,6 +6,7 @@ import org.sbot.entities.chart.Candlestick;
 import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -18,12 +19,13 @@ import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.trend;
 import static org.sbot.entities.alerts.AlertTest.*;
 import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
-import static org.sbot.entities.alerts.TrendAlert.ONE_HOUR_SECONDS;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.*;
 import static org.sbot.utils.Dates.UTC;
 import static org.sbot.utils.DatesTest.nowUtc;
 
 class TrendAlertTest {
+
+    private static final BigDecimal ONE_HOUR_SECONDS = new BigDecimal(Duration.ofHours(1L).toSeconds());
 
     static TrendAlert createTestTrendAlert() {
         return new TrendAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
