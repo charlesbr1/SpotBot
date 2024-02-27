@@ -25,7 +25,7 @@ import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
 import static net.dv8tion.jda.api.interactions.commands.build.OptionData.MAX_POSITIVE_NUMBER;
 import static org.sbot.commands.SecurityAccess.sameUser;
 import static org.sbot.commands.SecurityAccess.sameUserOrAdmin;
-import static org.sbot.entities.alerts.Alert.PRIVATE_ALERT;
+import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
 import static org.sbot.entities.alerts.Alert.isPrivate;
 import static org.sbot.services.dao.AlertsDao.UpdateField.SERVER_ID;
 import static org.sbot.services.discord.Discord.guildName;
@@ -40,7 +40,7 @@ public final class MigrateCommand extends CommandAdapter {
     static final String GUILD_ARGUMENT = "guild_id";
     static final String MIGRATE_ALL = "all";
 
-    private static final OptionData SERVER_ID_OPTION = option(NUMBER, GUILD_ARGUMENT, PRIVATE_ALERT + " for private channel or id of a guild server whose alert owner is a member and this bot too", true)
+    private static final OptionData SERVER_ID_OPTION = option(NUMBER, GUILD_ARGUMENT, PRIVATE_MESSAGES + " for private channel or id of a guild server whose alert owner is a member and this bot too", true)
             .setMaxValue((long) MAX_POSITIVE_NUMBER);
 
     private static final SlashCommandData options =
@@ -71,11 +71,11 @@ public final class MigrateCommand extends CommandAdapter {
     }
 
     static Arguments arguments(@NotNull CommandContext context) {
-        Long alertId = context.args.getLong(ALERT_ID_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
-        if(null != alertId) {
+        var alertId = context.args.getLong(ALERT_ID_ARGUMENT).map(ArgumentValidator::requirePositive);
+        if(alertId.isPresent()) {
             long serverId = context.args.getMandatoryLong(GUILD_ARGUMENT);
             context.noMoreArgs();
-            return new Arguments(alertId, null, serverId, null, null);
+            return new Arguments(alertId.get(), null, serverId, null, null);
         }
         Long serverId = context.args.getLong(GUILD_ARGUMENT).orElse(null);
         String tickerOrPair = requireTickerPairLength(context.args.getMandatoryString(TICKER_PAIR_ARGUMENT));
@@ -145,10 +145,10 @@ public final class MigrateCommand extends CommandAdapter {
     private Message migrateByIdToPrivate(@NotNull CommandContext context, long alertId) {
         Runnable[] outNotificationCallBack = new Runnable[1];
         EmbedBuilder answer = context.transactional(txCtx -> securedAlertAccess(alertId, context, (alert, alertsDao) -> {
-            if (PRIVATE_ALERT == alert.serverId) {
+            if (PRIVATE_MESSAGES == alert.serverId) {
                 throw new IllegalArgumentException("Alert " + alertId + " is already in this private channel");
             }
-            alertsDao.update(alert.withServerId(PRIVATE_ALERT), EnumSet.of(SERVER_ID));
+            alertsDao.update(alert.withServerId(PRIVATE_MESSAGES), EnumSet.of(SERVER_ID));
             if (!sameUser(context.user, alert.userId)) { // send notification once transaction is successful
                 outNotificationCallBack[0] = () -> sendUpdateNotification(context, alert.userId, ownerMigrateNotification(alertId, requireNonNull(context.member), null));
             }
@@ -171,19 +171,20 @@ public final class MigrateCommand extends CommandAdapter {
         if(null != guild && notGuildMember(guild, userId)) {
             throw notGuildMemberException(userId, guild);
         }
-        String pair = MIGRATE_ALL.equalsIgnoreCase(arguments.tickerOrPair) ? null : arguments.tickerOrPair.toUpperCase();
-        long serverId = null != guild ? guild.getIdLong() : PRIVATE_ALERT;
-        long migrated = context.transactional(txCtx -> txCtx.alertsDao()
-                .updateServerIdOf(SelectionFilter.of(context.serverId(), userId, arguments.type).withTickerOrPair(pair), serverId));
+        String tickerOrPair = MIGRATE_ALL.equalsIgnoreCase(arguments.tickerOrPair) ? null : arguments.tickerOrPair.toUpperCase();
+        long serverId = null != guild ? guild.getIdLong() : PRIVATE_MESSAGES;
+        var filter = (isPrivateChannel(context) ? SelectionFilter.ofUser(userId, arguments.type) : SelectionFilter.of(context.serverId(), userId, arguments.type))
+                .withTickerOrPair(tickerOrPair);
+        long migrated = context.transactional(txCtx -> txCtx.alertsDao().updateServerIdOf(filter, serverId));
         if(migrated > 0 && !sameUser(context.user, userId)) {
             sendUpdateNotification(context, userId, ownerMigrateNotification(arguments.tickerOrPair, requireNonNull(context.member), guild, migrated));
         }
-        return Message.of(embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), OK_COLOR, migrated + " " + (migrated > 1 ? " alerts" : " alert") +
+        return Message.of(embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), OK_COLOR, migrated + (migrated > 1 ? " alerts" : " alert") +
                 " migrated to " + (null == guild ? "user private channel" : "guild " + guildName(guild))));
     }
 
     static boolean sameId(@Nullable Guild guild, long serverId) {
-        return null != guild ? guild.getIdLong() == serverId : PRIVATE_ALERT == serverId;
+        return null != guild ? guild.getIdLong() == serverId : PRIVATE_MESSAGES == serverId;
     }
 
     static IllegalArgumentException notGuildMemberException(long userId, @NotNull Guild guild) {

@@ -131,7 +131,7 @@ class TrendCommandTest {
         when(messageReceivedEvent.getMember()).thenReturn(member);
         Guild guild = mock();
         when(member.getGuild()).thenReturn(guild);
-        when(guild.getIdLong()).thenReturn(PRIVATE_ALERT);
+        when(guild.getIdLong()).thenReturn(PRIVATE_MESSAGES);
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(ChronoUnit.MINUTES);
         Context context = mock(Context.class);
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
@@ -160,13 +160,13 @@ class TrendCommandTest {
 
         commandContext[0] = spy(CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + "   " + alertId + " " + dateFrom));
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlert()
-                .withServerId(PRIVATE_ALERT)));
+                .withServerId(PRIVATE_MESSAGES)));
         assertThrows(IllegalArgumentException.class, () -> command.onCommand(commandContext[0]));
 
         commandContext[0] = spy(CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + "   " + alertId + " " + dateFrom));
         doNothing().when(commandContext[0]).reply(anyList(), eq(command.responseTtlSeconds));
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithType(trend)
-                .withServerId(PRIVATE_ALERT))); // switch alert as private to get security grant
+                .withServerId(PRIVATE_MESSAGES))); // switch alert as private to get security grant
         command.onCommand(commandContext[0]);
 
         verify(commandContext[0]).reply(messagesReply.capture(), eq(command.responseTtlSeconds));

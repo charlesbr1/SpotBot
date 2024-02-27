@@ -62,10 +62,7 @@ public final class DeleteCommand extends CommandAdapter {
             context.noMoreArgs();
             return new Arguments(alertId.get(), null, null, null);
         }
-        String tickerOrPair = context.args.getMandatoryString(TICKER_PAIR_ARGUMENT);
-        if(!DELETE_ALL.equals(tickerOrPair)) {
-            tickerOrPair = requireTickerPairLength(tickerOrPair);
-        }
+        String tickerOrPair = requireTickerPairLength(context.args.getMandatoryString(TICKER_PAIR_ARGUMENT));
         Type type = context.args.getType(TYPE_ARGUMENT).orElse(null);
         Long ownerId = context.args.getUserId(OWNER_ARGUMENT).orElse(null);
         if(null == type && context.args.getLastArgs(TYPE_ARGUMENT).isPresent()) {
@@ -103,8 +100,9 @@ public final class DeleteCommand extends CommandAdapter {
     private Message deleteByOwnerOrTickerPair(@NotNull CommandContext context, @NotNull Arguments arguments) {
         String tickerOrPair = DELETE_ALL.equalsIgnoreCase(arguments.tickerOrPair) ? null : arguments.tickerOrPair.toUpperCase();
         long userId = null != arguments.ownerId ? arguments.ownerId : context.user.getIdLong();
-        long deleted = context.transactional(txCtx -> txCtx.alertsDao()
-                .deleteAlerts(SelectionFilter.of(context.serverId(), userId, arguments.type).withTickerOrPair(tickerOrPair)));
+        var filter = (isPrivateChannel(context) ? SelectionFilter.ofUser(userId, arguments.type) : SelectionFilter.of(context.serverId(), userId, arguments.type))
+                .withTickerOrPair(tickerOrPair);
+        long deleted = context.transactional(txCtx -> txCtx.alertsDao().deleteAlerts(filter));
         if(deleted > 0 && !sameUser(context.user, userId)) {
             sendUpdateNotification(context, userId, ownerDeleteNotification(arguments.tickerOrPair, requireNonNull(context.member), deleted));
         }

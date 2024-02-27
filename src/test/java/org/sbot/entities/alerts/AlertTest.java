@@ -205,7 +205,7 @@ public class AlertTest {
 
     @Test
     void isPrivate() {
-        assertTrue(Alert.isPrivate(Alert.PRIVATE_ALERT));
+        assertTrue(Alert.isPrivate(Alert.PRIVATE_MESSAGES));
         assertFalse(Alert.isPrivate(1234L));
     }
 

@@ -27,7 +27,7 @@ import static org.sbot.commands.CommandAdapter.*;
 import static org.sbot.commands.CommandAdapterTest.assertExceptionContains;
 import static org.sbot.commands.DeleteCommand.DELETE_ALL;
 import static org.sbot.commands.context.CommandContext.TOO_MANY_ARGUMENTS;
-import static org.sbot.entities.alerts.Alert.PRIVATE_ALERT;
+import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
 import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.entities.alerts.AlertTest.createTestAlertWithUserId;
 
@@ -107,7 +107,7 @@ class DeleteCommandTest {
         assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("deleted"));
 
         alertId++;
-        when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(PRIVATE_ALERT)));
+        when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(PRIVATE_MESSAGES)));
         when(messageReceivedEvent.getMember()).thenReturn(null);
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + "  " + alertId));
         doNothing().when(commandContext).reply(anyList(), anyInt());
@@ -229,7 +229,7 @@ class DeleteCommandTest {
         var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " all" ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).deleteAlerts(SelectionFilter.of(PRIVATE_ALERT, userId, null));
+        verify(alertsDao).deleteAlerts(SelectionFilter.ofUser(userId, null));
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
@@ -243,7 +243,7 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " all  <@" + (userId + 1) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao, never()).deleteAlerts(SelectionFilter.of(PRIVATE_ALERT, userId + 1, null));
+        verify(alertsDao, never()).deleteAlerts(SelectionFilter.ofUser(userId + 1, null));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
         messages = messagesReply.getValue();
@@ -255,7 +255,7 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd  <@" + (userId) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).deleteAlerts(SelectionFilter.of(PRIVATE_ALERT, userId, null).withTickerOrPair("ETH/USD"));
+        verify(alertsDao).deleteAlerts(SelectionFilter.ofUser(userId, null).withTickerOrPair("ETH/USD"));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
         messages = messagesReply.getValue();
@@ -266,7 +266,7 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " btc/usd trend <@" + (userId) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).deleteAlerts(SelectionFilter.of(PRIVATE_ALERT, userId, trend).withTickerOrPair("BTC/USD"));
+        verify(alertsDao).deleteAlerts(SelectionFilter.ofUser(userId, trend).withTickerOrPair("BTC/USD"));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
@@ -276,7 +276,7 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/xrp remainder" ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).deleteAlerts(SelectionFilter.of(PRIVATE_ALERT, userId, remainder).withTickerOrPair("ETH/XRP"));
+        verify(alertsDao).deleteAlerts(SelectionFilter.ofUser(userId, remainder).withTickerOrPair("ETH/XRP"));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
@@ -287,7 +287,7 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd  <@" + (userId + 2) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao, never()).deleteAlerts(SelectionFilter.of(PRIVATE_ALERT, userId + 2, null).withTickerOrPair("ETH/USD"));
+        verify(alertsDao, never()).deleteAlerts(SelectionFilter.ofUser(userId + 2, null).withTickerOrPair("ETH/USD"));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
         messages = messagesReply.getValue();
@@ -350,7 +350,7 @@ class DeleteCommandTest {
         when(member.hasPermission(ADMINISTRATOR)).thenReturn(false);
 
         // delete filter, current user, server channel, ok
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd  <@" + (userId) + "> " ));
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd  <@" + userId + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao).deleteAlerts(SelectionFilter.of(serverId, userId, null).withTickerOrPair("ETH/USD"));

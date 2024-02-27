@@ -37,7 +37,7 @@ import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static org.sbot.commands.CommandAdapter.isPrivateChannel;
 import static org.sbot.entities.User.DEFAULT_LOCALE;
-import static org.sbot.entities.alerts.Alert.PRIVATE_ALERT;
+import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
 import static org.sbot.utils.ArgumentValidator.requireNotBlank;
 
 public abstract class CommandContext implements Context {
@@ -195,7 +195,7 @@ public abstract class CommandContext implements Context {
     }
 
     public final long serverId() {
-        return null != member ? member.getGuild().getIdLong() : PRIVATE_ALERT;
+        return null != member ? member.getGuild().getIdLong() : PRIVATE_MESSAGES;
     }
 
     public final CommandContext noMoreArgs() {

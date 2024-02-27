@@ -11,6 +11,7 @@ import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
 import org.sbot.services.context.Context;
 import org.sbot.services.dao.AlertsDao;
+import org.sbot.services.dao.AlertsDao.SelectionFilter;
 import org.sbot.services.discord.Discord;
 
 import java.util.List;
@@ -29,7 +30,7 @@ import static org.sbot.commands.CommandAdapterTest.assertExceptionContains;
 import static org.sbot.commands.MigrateCommand.GUILD_ARGUMENT;
 import static org.sbot.commands.MigrateCommand.MIGRATE_ALL;
 import static org.sbot.commands.context.CommandContext.TOO_MANY_ARGUMENTS;
-import static org.sbot.entities.alerts.Alert.PRIVATE_ALERT;
+import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
 import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.entities.alerts.AlertTest.createTestAlertWithUserId;
 import static org.sbot.services.dao.AlertsDao.UpdateField.SERVER_ID;
@@ -105,7 +106,7 @@ class MigrateCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao).getAlertWithoutMessage(alertId);
-        verify(alertsDao).update(alert.withServerId(PRIVATE_ALERT), Set.of(SERVER_ID));
+        verify(alertsDao).update(alert.withServerId(PRIVATE_MESSAGES), Set.of(SERVER_ID));
         verify(alertsDao, never()).updateServerIdOf(any(), anyLong());
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
@@ -115,12 +116,12 @@ class MigrateCommandTest {
 
         // migrate by id, alert exists, same user, private channel, alert private, to private -> ko
         alertId++;
-        alert = createTestAlertWithUserId(userId).withServerId(PRIVATE_ALERT);
+        alert = createTestAlertWithUserId(userId).withServerId(PRIVATE_MESSAGES);
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(alert));
         when(messageReceivedEvent.getMember()).thenReturn(null);
         var finalCommandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " 0"));
         assertExceptionContains(IllegalArgumentException.class, "already in this private channel", () -> command.onCommand(finalCommandContext));
-        verify(alertsDao).update(alert.withServerId(PRIVATE_ALERT), Set.of(SERVER_ID));
+        verify(alertsDao).update(alert.withServerId(PRIVATE_MESSAGES), Set.of(SERVER_ID));
         verify(alertsDao, never()).updateServerIdOf(any(), anyLong());
 
         // migrate by id, alert exists, same user, private channel, alert server, to same server -> ko
@@ -149,7 +150,7 @@ class MigrateCommandTest {
         when(guild2.retrieveMemberById(userId)).thenReturn(restAction);
 
         var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " " + (serverId + 1)));
-        doNothing().when(commandContext).reply(anyList(), anyInt());
+        doNothing().when(fc1).reply(anyList(), anyInt());
         assertExceptionContains(IllegalArgumentException.class, "not a member of guild", () -> command.onCommand(fc1));
         verify(alertsDao).getAlertWithoutMessage(alertId);
 
@@ -259,7 +260,7 @@ class MigrateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("migrated"));
 
-        // delete by id, alert exists, same user, same channel, ok
+        // migrate by id, alert exists, same user, same channel, ok
         when(member.hasPermission(ADMINISTRATOR)).thenReturn(false);
         alertId++;
         var fid3 = alertId;
@@ -304,6 +305,295 @@ class MigrateCommandTest {
 
     @Test
     void onCommandMigrateByFilter() {
+        long userId = 321L;
+        long serverId = 123L;
+        MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
+        when(messageReceivedEvent.getMessage()).thenReturn(mock());
+        User user = mock();
+        when(messageReceivedEvent.getAuthor()).thenReturn(user);
+        when(user.getIdLong()).thenReturn(userId);
+        Member member = mock();
+        Guild guild = mock();
+        when(member.getGuild()).thenReturn(guild);
+        when(guild.getIdLong()).thenReturn(serverId);
+        Context context = mock(Context.class);
+        AlertsDao alertsDao = mock();
+        Context.DataServices dataServices = mock();
+        when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(context.dataServices()).thenReturn(dataServices);
+        Discord discord = mock();
+        when(context.discord()).thenReturn(discord);
+        Context.Services services = mock();
+        when(services.discord()).thenReturn(discord);
+        when(context.services()).thenReturn(services);
+
+        var command = new MigrateCommand();
+
+        assertThrows(NullPointerException.class, () -> command.onCommand(null));
+
+        // migrate all, current user, private channel, ok
+        var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " all 0" ));
+        doNothing().when(fc1).reply(anyList(), anyInt());
+        assertExceptionContains(IllegalArgumentException.class, "already into the private channel", () -> command.onCommand(fc1));
+
+        var fc2 = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " all " + serverId));
+        doNothing().when(fc2).reply(anyList(), anyInt());
+        assertExceptionContains(IllegalArgumentException.class, "Bot is not supported on this guild", () -> command.onCommand(fc2));
+
+        when(discord.getGuildServer(serverId)).thenReturn(Optional.of(guild));
+        var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " all " + serverId));
+        doNothing().when(fc3).reply(anyList(), anyInt());
+        CacheRestAction<Member> restAction = mock();
+        when(guild.retrieveMemberById(userId)).thenReturn(restAction);
+        assertExceptionContains(IllegalArgumentException.class, "not a member of guild", () -> command.onCommand(fc3));
+
+        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " all " + serverId));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(restAction.complete()).thenReturn(mock());
+        command.onCommand(commandContext);
+
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao).updateServerIdOf(any(), eq(serverId));
+        ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        var messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert migrated"));
+
+
+        // migrate all, not same user, private channel, denied
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " all " + serverId + " <@" + (userId + 1) + "> "));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao).updateServerIdOf(any(), eq(serverId));
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("not allowed"));
+
+        // migrate filter, current user, private channel, ok
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " eth/usd  " + serverId + " <@" + (userId) + "> "));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao).updateServerIdOf(SelectionFilter.ofUser(userId, null).withTickerOrPair("ETH/USD"), serverId);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert migrated"));
+
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " btc/usd  " + serverId + " trend <@" + (userId) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao).updateServerIdOf(SelectionFilter.ofUser(userId, trend).withTickerOrPair("BTC/USD"), serverId);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert migrated"));
+
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " eth/xrp remainder " + serverId));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao).updateServerIdOf(SelectionFilter.ofUser(userId, remainder).withTickerOrPair("ETH/XRP"), serverId);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert migrated"));
+
+        // migrate filter, not same user, private channel, denied
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " eth/usd " + serverId + " <@" + (userId + 2) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao, never()).updateServerIdOf(SelectionFilter.ofUser(userId + 2, null).withTickerOrPair("ETH/USD"), serverId);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("not allowed"));
+
+        // migrate all, current user, server channel, ok
+        serverId++;
+        Guild guild2 = mock();
+        when(guild2.getIdLong()).thenReturn(serverId);
+        when(guild2.retrieveMemberById(userId)).thenReturn(restAction);
+        when(discord.getGuildServer(serverId)).thenReturn(Optional.of(guild2));
+        when(messageReceivedEvent.getMember()).thenReturn(member);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " all " + serverId));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao, never()).updateServerIdOf(SelectionFilter.of(serverId, userId, null), serverId);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert migrated"));
+
+        // migrate all, not same user, server channel, denied
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " all " + serverId + " <@" + (userId + 1) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao, never()).updateServerIdOf(SelectionFilter.of(serverId, userId + 1, null), serverId);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("not allowed"));
+
+        // migrate all, not same user, server channel, admin, ok
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
+        when(guild2.retrieveMemberById(userId + 1)).thenReturn(restAction);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " all " + serverId + " <@" + (userId + 1) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 1, null), serverId);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(eq(userId + 1), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert migrated"));
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(false);
+
+        when(alertsDao.updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 1, null), serverId)).thenReturn(3L);
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " all " + serverId + " <@" + (userId + 1) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao, times(2)).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 1, null), serverId);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord).sendPrivateMessage(eq(userId + 1), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("3 alerts migrated"));
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(false);
+
+        // migrate filter, current user, server channel, ok
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " eth/usd " + serverId + " <@" + userId + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId, null).withTickerOrPair("ETH/USD"), serverId);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(eq(userId), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert migrated"));
+
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " btc/usd " + serverId + "  remainder " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId, remainder).withTickerOrPair("BTC/USD"), serverId);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(eq(userId), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert migrated"));
+
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " btc/usd  range " + serverId));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId, range).withTickerOrPair("BTC/USD"), serverId);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(eq(userId), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert migrated"));
+
+        // migrate filter, not same user, server channel, denied
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " eth/usd " + serverId + " <@" + (userId + 3) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao, never()).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 3, null).withTickerOrPair("ETH/USD"), serverId);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(eq(userId + 3), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("not allowed"));
+
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " eth/usd  " + serverId + " trend <@" + (userId + 3) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao, never()).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 3, trend).withTickerOrPair("ETH/USD"), serverId);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(eq(userId + 3), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("not allowed"));
+
+        // migrate filter, not same user, server channel, admin, ok
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
+        when(guild2.retrieveMemberById(userId + 3)).thenReturn(restAction);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " eth/usd " + serverId + " <@" + (userId + 3) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 3, null).withTickerOrPair("ETH/USD"), serverId);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord, never()).sendPrivateMessage(eq(userId + 3), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert migrated"));
+
+        when(alertsDao.updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 3, null).withTickerOrPair("ETH/USD"), serverId)).thenReturn(1L);
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " eth/usd " + serverId + " <@" + (userId + 3) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao, times(2)).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 3, null).withTickerOrPair("ETH/USD"), serverId);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord).sendPrivateMessage(eq(userId + 3), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("1 alert migrated"));
+
+        when(guild2.retrieveMemberById(userId + 5)).thenReturn(restAction);
+        when(alertsDao.updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 5, trend).withTickerOrPair("ETH/USD"), serverId)).thenReturn(7L);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " eth/usd trend " + serverId + " <@" + (userId + 5) + "> " ));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).update(any(), any());
+        verify(alertsDao).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 5, trend).withTickerOrPair("ETH/USD"), serverId);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(discord).sendPrivateMessage(eq(userId + 5), any(), any());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("7 alerts migrated"));
     }
 
     @Test
@@ -513,16 +803,21 @@ class MigrateCommandTest {
     @Test
     void sameId() {
         assertFalse(MigrateCommand.sameId(null, 1L));
-        assertTrue(MigrateCommand.sameId(null, PRIVATE_ALERT));
+        assertTrue(MigrateCommand.sameId(null, PRIVATE_MESSAGES));
         Guild guild = mock();
         when(guild.getIdLong()).thenReturn(123L);
         assertFalse(MigrateCommand.sameId(guild, 1L));
-        assertFalse(MigrateCommand.sameId(guild, PRIVATE_ALERT));
+        assertFalse(MigrateCommand.sameId(guild, PRIVATE_MESSAGES));
         assertTrue(MigrateCommand.sameId(guild, 123L));
     }
 
     @Test
     void notGuildMemberException() {
         assertInstanceOf(IllegalArgumentException.class, MigrateCommand.notGuildMemberException(0, mock()));
+    }
+
+    @Test
+    void alertAlreadyInGuildException() {
+        assertInstanceOf(IllegalArgumentException.class, MigrateCommand.alertAlreadyInGuildException(0, mock()));
     }
 }

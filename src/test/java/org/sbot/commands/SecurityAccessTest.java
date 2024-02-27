@@ -11,7 +11,7 @@ import static net.dv8tion.jda.api.Permission.ADMINISTRATOR;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.sbot.entities.alerts.Alert.PRIVATE_ALERT;
+import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
 import static org.sbot.entities.alerts.AlertTest.createTestAlertWithUserId;
 
 class SecurityAccessTest {
@@ -45,7 +45,7 @@ class SecurityAccessTest {
         User user = mock();
         when(user.getIdLong()).thenReturn(userId);
         var context = contextOf(user, null);
-        when(context.serverId()).thenReturn(PRIVATE_ALERT);
+        when(context.serverId()).thenReturn(PRIVATE_MESSAGES);
         Alert alert = createTestAlertWithUserId(userId);
         assertFalse(SecurityAccess.notFound(context, alert));
 

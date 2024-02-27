@@ -14,7 +14,6 @@ import org.sbot.utils.Dates;
 
 import java.awt.*;
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.Objects;
 import java.util.Optional;
@@ -47,7 +46,7 @@ public abstract class Alert {
     public static final BigDecimal MARGIN_DISABLED = BigDecimal.ZERO;
     public static final short DEFAULT_REPEAT = 10;
     public static final short DEFAULT_SNOOZE_HOURS = 8;
-    public static final long PRIVATE_ALERT = 0L;
+    public static final long PRIVATE_MESSAGES = 0L;
     public static final long NEW_ALERT_ID = 0L;
 
     public static final Color DISABLED_COLOR = Color.black;
@@ -127,7 +126,7 @@ public abstract class Alert {
     protected abstract EmbedBuilder asMessage(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick, @NotNull ZonedDateTime now);
 
     public static boolean isPrivate(long serverId) {
-        return PRIVATE_ALERT == serverId;
+        return PRIVATE_MESSAGES == serverId;
     }
 
     public static boolean hasRepeat(long repeat) {
