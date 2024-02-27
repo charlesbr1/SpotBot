@@ -17,6 +17,7 @@ import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
+import static net.dv8tion.jda.api.interactions.commands.build.OptionData.MAX_POSITIVE_NUMBER;
 import static org.sbot.commands.SecurityAccess.sameUser;
 import static org.sbot.commands.SecurityAccess.sameUserOrAdmin;
 import static org.sbot.services.discord.Discord.guildName;
@@ -34,7 +35,7 @@ public final class DeleteCommand extends CommandAdapter {
             Commands.slash(NAME, DESCRIPTION).addSubcommands(
                     new SubcommandData("id", "delete an alert by id").addOptions(
                             option(INTEGER, ALERT_ID_ARGUMENT, "id of one alert to delete", true)
-                                    .setMinValue(0)),
+                                    .setMinValue(0).setMaxValue((long) MAX_POSITIVE_NUMBER)),
                     new SubcommandData("filter", "delete all your alerts or filtered by pair or ticker or type").addOptions(
                             option(STRING, TICKER_PAIR_ARGUMENT, "a pair or a ticker to filter the alerts to delete (can be '" + DELETE_ALL + "')", true)
                                     .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
@@ -81,7 +82,7 @@ public final class DeleteCommand extends CommandAdapter {
                 sameUserOrAdmin(context, arguments.ownerId)) { // ownerId != null -> only an admin can delete other users alerts on his server
             return deleteByOwnerOrTickerPair(context, arguments);
         } else {
-            return Message.of(embedBuilder(":clown:" + ' ' + context.user.getEffectiveName(), DENIED_COLOR, "You are not allowed to delete your mates' alerts" +
+            return Message.of(embedBuilder(":clown:" + ' ' + context.user.getEffectiveName(), DENIED_COLOR, "You are not allowed to delete your mates alerts" +
                     (isPrivateChannel(context) ? ", you are on a private channel." : "")));
         }
     }

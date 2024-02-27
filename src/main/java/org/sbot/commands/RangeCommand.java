@@ -116,6 +116,6 @@ public final class RangeCommand extends CommandAdapter {
                 null != fromDate && fromDate.isAfter(now) ? fromDate : now, // listening date
                 arguments.exchange, arguments.pair, arguments.message, low, high, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
-        return saveAlert(context, now, rangeAlert);
+        return createdAlertMessage(context, now, saveAlert(context, rangeAlert));
     }
 }

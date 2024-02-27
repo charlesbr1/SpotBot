@@ -61,6 +61,6 @@ public final class RemainderCommand extends CommandAdapter {
                 context.serverId(), now, // creation date
                 fromDate, // listening date
                 pair, message, fromDate);
-        return saveAlert(context, now, remainderAlert);
+        return createdAlertMessage(context, now, saveAlert(context, remainderAlert));
     }
 }

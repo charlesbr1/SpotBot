@@ -1663,6 +1663,8 @@ public abstract class AlertsDaoTest {
                 alerts.deleteAlert(i - 3);
             assertEquals(i, alerts.addAlert(createTestAlert()));
         }
+        var finalAlert = setId(alert, alerts.addAlert(alert));
+        assertThrows(IllegalArgumentException.class, () -> alerts.addAlert(finalAlert));
     }
 
     @ParameterizedTest

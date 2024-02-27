@@ -147,6 +147,7 @@ public final class Discord {
             LOGGER.info("Loading discord connection...");
             return JDABuilder.createLight(readFile(tokenFile), // read the file here to avoid keeping the discord token in memory
                             GatewayIntent.GUILD_MESSAGES,
+                            GatewayIntent.GUILD_MEMBERS, // for user retrieval (migrate command)
                             GatewayIntent.DIRECT_MESSAGES)
                     .setActivity(Activity.watching("prices"))
                     .setCompression(Compression.ZLIB)

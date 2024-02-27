@@ -69,40 +69,40 @@ public final class ModalEditInteraction implements InteractionListener {
 
     @Override
     public void onInteraction(@NotNull CommandContext context) {
-        long alertId = requirePositive(context.args.getMandatoryLong(ALERT_ID_ARGUMENT));
-        String field = context.args.getMandatoryString(SELECTION_ARGUMENT);
-        CommandListener command;
-        CommandContext commandContext;
+        String field = null;
         String value = null;
-        if(CHOICE_DELETE.equals(field)) {
-            if("ok".equalsIgnoreCase(context.args.getMandatoryString(VALUE_ARGUMENT))) {
-                command = new DeleteCommand();
-                commandContext = context.noMoreArgs().withArgumentsAndReplyMapper(String.valueOf(alertId), replaceMapper());
+        Long alertId = null;
+        try {
+            field = context.args.getMandatoryString(SELECTION_ARGUMENT);
+            alertId = requirePositive(context.args.getMandatoryLong(ALERT_ID_ARGUMENT));
+            CommandListener command;
+            CommandContext commandContext;
+            boolean isMessage = CHOICE_MESSAGE.equals(field);
+            if(CHOICE_DELETE.equals(field)) {
+                if("ok".equalsIgnoreCase(context.args.getMandatoryString(VALUE_ARGUMENT))) {
+                    command = new DeleteCommand();
+                    commandContext = context.withArgumentsAndReplyMapper(String.valueOf(alertId), replaceMapper());
+                } else {
+                    context.noMoreArgs().reply(replyOriginal(null), 0);
+                    return;
+                }
             } else {
-                context.noMoreArgs().reply(replyOriginal(null), 0);
-                return;
+                value = isMessage ? context.args.getLastArgs(MESSAGE_ARGUMENT).orElseThrow(() -> new IllegalArgumentException("Missing message value")) :
+                        context.args.getMandatoryString(VALUE_ARGUMENT);
+                if(CHOICE_MIGRATE.equals(field)) {
+                    command = new MigrateCommand();
+                    commandContext = context.withArgumentsAndReplyMapper(alertId + " " + value, replaceMapper());
+                } else {
+                    command = new UpdateCommand();
+                    commandContext = context.withArgumentsAndReplyMapper(field + " " + alertId + " " + value,
+                            fromUpdateMapper(isMessage ? value : null, alertId));
+                }
             }
-        } else {
-            String newMessage = null;
-            if(CHOICE_MESSAGE.equals(field)) {
-                value = newMessage = context.args.getLastArgs(MESSAGE_ARGUMENT)
-                        .orElseThrow(() -> new IllegalArgumentException("Missing message value"));
-            } else {
-                value = context.args.getMandatoryString(VALUE_ARGUMENT);
+            if(!isMessage) {
                 context.noMoreArgs();
             }
-            if(CHOICE_MIGRATE.equals(field)) {
-                command = new MigrateCommand();
-                commandContext = context.withArgumentsAndReplyMapper(alertId + " " + value, replaceMapper());
-            } else {
-                command = new UpdateCommand();
-                commandContext = context.withArgumentsAndReplyMapper(field + " " + alertId + " " + value,
-                        fromUpdateMapper(newMessage, alertId));
-            }
-        }
-        try {
             command.onCommand(commandContext);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException e) { // always reply with an edited message
             LOGGER.debug("Error while updating alert", e);
             String failed = "```diff\n- failed to " + switch (field) {
                 case CHOICE_DELETE -> "delete alert " + alertId;

@@ -15,14 +15,15 @@ import org.sbot.utils.Dates;
 import java.math.BigDecimal;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiFunction;
 
 import static java.util.Objects.requireNonNull;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
+import static net.dv8tion.jda.api.interactions.commands.build.OptionData.MAX_POSITIVE_NUMBER;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.services.dao.AlertsDao.UpdateField.*;
@@ -76,7 +77,7 @@ public final class UpdateCommand extends CommandAdapter {
                             .addChoice(CHOICE_SNOOZE, CHOICE_SNOOZE)
                             .addChoice(CHOICE_ENABLE, CHOICE_ENABLE),
                     option(INTEGER, ALERT_ID_ARGUMENT, "id of the alert", true)
-                            .setMinValue(0),
+                            .setMinValue(0).setMaxValue((long) MAX_POSITIVE_NUMBER),
                     option(STRING, VALUE_ARGUMENT, "a new value depending on the selected field : a price, a message, or an UTC date (" + Dates.DATE_TIME_FORMAT + ')', true)
                             .setMinLength(1)));
 
@@ -160,7 +161,7 @@ public final class UpdateCommand extends CommandAdapter {
             String fieldName = range == alert.type ? CHOICE_LOW : DISPLAY_FROM_PRICE;
             if(fromPrice.compareTo(alert.fromPrice) != 0) {
                 alert = alert.withFromPrice(fromPrice);
-                alertsDao.update(alert, EnumSet.of(FROM_PRICE));
+                alertsDao.update(alert, Set.of(FROM_PRICE));
                 return updateNotifyMessage(context, now, alert, fieldName, fromPrice.toPlainString(), outNotificationCallBack);
             }
             return ListCommand.listAlert(context, now, alert);
@@ -173,7 +174,7 @@ public final class UpdateCommand extends CommandAdapter {
             String fieldName = range == alert.type ? CHOICE_HIGH : DISPLAY_TO_PRICE;
             if(toPrice.compareTo(alert.toPrice) != 0) {
                 alert = alert.withToPrice(toPrice);
-                alertsDao.update(alert, EnumSet.of(TO_PRICE));
+                alertsDao.update(alert, Set.of(TO_PRICE));
                 return updateNotifyMessage(context, now, alert, fieldName, toPrice.toPlainString(), outNotificationCallBack);
             }
             return ListCommand.listAlert(context, now, alert);
@@ -185,7 +186,7 @@ public final class UpdateCommand extends CommandAdapter {
         return (alert, alertsDao) -> {
             validateDateArgument(context, now, alert.type, fromDate, "from_date");
             if(notEquals(fromDate, alert.fromDate)) {
-                var fields = EnumSet.of(FROM_DATE);
+                var fields = Set.of(FROM_DATE);
                 if(!alert.isEnabled() || alert.type == trend) {
                     alert = alert.withFromDate(fromDate);
                 } else { //TODO faux si range et null == fromDate
@@ -208,7 +209,7 @@ public final class UpdateCommand extends CommandAdapter {
             validateDateArgument(context, now, alert.type, toDate, "to_date");
             if(notEquals(toDate, alert.toDate)) {
                 alert = alert.withToDate(toDate);
-                alertsDao.update(alert, EnumSet.of(TO_DATE));
+                alertsDao.update(alert, Set.of(TO_DATE));
                 String date = null != toDate ? formatDiscord(toDate) : "null";
                 return updateNotifyMessage(context, now, alert, DISPLAY_TO_DATE, date, outNotificationCallBack);
             }
@@ -233,7 +234,7 @@ public final class UpdateCommand extends CommandAdapter {
         String message = requireAlertMessageMaxLength(context.args.getLastArgs(VALUE_ARGUMENT).orElse(""));
         return (alert, alertsDao) -> {
             alert = alert.withMessage(message);
-            alertsDao.update(alert, EnumSet.of(MESSAGE));
+            alertsDao.update(alert, Set.of(MESSAGE));
             return updateNotifyMessage(context, now, alert, CHOICE_MESSAGE, message, outNotificationCallBack)
                     .appendDescription(remainder != alert.type ? alertMessageTips(message, alert.id) : "");
         };
@@ -244,7 +245,7 @@ public final class UpdateCommand extends CommandAdapter {
         return (alert, alertsDao) -> {
             if(margin.compareTo(alert.margin) != 0) {
                 alert = alert.withMargin(margin);
-                alertsDao.update(alert, EnumSet.of(MARGIN));
+                alertsDao.update(alert, Set.of(MARGIN));
                 return updateNotifyMessage(context, now, alert, CHOICE_MARGIN, margin.toPlainString(), outNotificationCallBack);
             }
             return ListCommand.listAlert(context, now, alert);
@@ -256,7 +257,7 @@ public final class UpdateCommand extends CommandAdapter {
         return (alert, alertsDao) -> {
             var listeningDate = listeningDate(now, alert);
             alert = alert.withListeningDateRepeat(repeat > 0 ? listeningDate : null, repeat);
-            alertsDao.update(alert, EnumSet.of(REPEAT, LISTENING_DATE));
+            alertsDao.update(alert, Set.of(REPEAT, LISTENING_DATE));
             return updateNotifyMessage(context, now, alert, CHOICE_REPEAT, repeat + (!hasRepeat(repeat) ? " (disabled)" : ""), outNotificationCallBack)
                     .appendDescription(hasRepeat(repeat) ? "\n\nThis alert is enable" : ""); //TODO clean from modal
         };
@@ -266,7 +267,7 @@ public final class UpdateCommand extends CommandAdapter {
         short snooze = requirePositiveShort(context.args.getMandatoryLong(VALUE_ARGUMENT));
         return (alert, alertsDao) -> {
             alert = alert.withSnooze(0 != snooze ? snooze : DEFAULT_SNOOZE_HOURS);
-            alertsDao.update(alert, EnumSet.of(SNOOZE));
+            alertsDao.update(alert, Set.of(SNOOZE));
             return updateNotifyMessage(context, now, alert, CHOICE_SNOOZE,
                     (0 != snooze ? "" + snooze : "(default) " + DEFAULT_SNOOZE_HOURS) + (snooze > 1 ? " hours" : " hour"), outNotificationCallBack);
         };
@@ -288,7 +289,7 @@ public final class UpdateCommand extends CommandAdapter {
                 } else {
                     alert = alert.withListeningDateRepeat(null, (short) 0);
                 }
-                alertsDao.update(alert, EnumSet.of(REPEAT, LISTENING_DATE));
+                alertsDao.update(alert, Set.of(REPEAT, LISTENING_DATE));
                 return updateNotifyMessage(context, now, alert, enable ? UPDATE_ENABLED_HEADER : UPDATE_DISABLED_HEADER, Boolean.toString(enable), CHOICE_ENABLE, outNotificationCallBack);
             }
             return ListCommand.listAlert(context, now, alert);

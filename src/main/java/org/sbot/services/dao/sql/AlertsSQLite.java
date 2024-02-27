@@ -33,6 +33,7 @@ import java.util.stream.Stream;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
+import static org.sbot.entities.alerts.Alert.NEW_ALERT_ID;
 import static org.sbot.entities.alerts.Alert.Type.range;
 import static org.sbot.entities.alerts.Alert.Type.remainder;
 import static org.sbot.services.dao.sql.AlertsSQLite.SQL.*;
@@ -247,7 +248,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
                 case MARGIN ->          parameters.put(MARGIN, alert.margin);
                 case REPEAT ->          parameters.put(REPEAT, alert.repeat);
                 case SNOOZE ->          parameters.put(SNOOZE, alert.snooze);
-            };
+            }
         });
         return parameters;
     }
@@ -347,8 +348,11 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
 
     @Override
     public long addAlert(@NotNull Alert alert) {
+        if(NEW_ALERT_ID != alert.id) {
+            throw new IllegalArgumentException("Alert id must be new (0) : " + alert);
+        }
         var alertWithId = alert.withId(idGenerator::getAndIncrement);
-        LOGGER.debug("addAlert {}, with new id {}", alert, alertWithId.id);
+        LOGGER.debug("addAlert {}", alert);
         update(SQL.INSERT_ALERT_FIELDS_MAPPING, query -> bindAlertFields(alertWithId, query));
         return alertWithId.id;
     }

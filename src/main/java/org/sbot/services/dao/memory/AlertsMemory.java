@@ -161,11 +161,13 @@ public final class AlertsMemory implements AlertsDao {
 
     @Override
     public long addAlert(@NotNull Alert alert) {
-        if(!usersDao.userExists(alert.userId)) {
+        if(NEW_ALERT_ID != alert.id) {
+            throw new IllegalArgumentException("Alert id is not new : " + alert);
+        } else if(!usersDao.userExists(alert.userId)) {
             throw new IllegalArgumentException("Alert reference an user not found in userDao : " + alert);
         }
         alert = alert.withId(idGenerator::getAndIncrement);
-        LOGGER.debug("addAlert {}, with new id {}", alert, alert.id);
+        LOGGER.debug("addAlert {}", alert);
         alerts.put(alert.id, alert);
         return alert.id;
     }

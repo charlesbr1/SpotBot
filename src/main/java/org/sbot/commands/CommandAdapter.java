@@ -18,7 +18,6 @@ import org.sbot.services.discord.CommandListener;
 
 import java.awt.*;
 import java.time.ZonedDateTime;
-import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
@@ -128,19 +127,23 @@ public abstract class CommandAdapter implements CommandListener {
                 .setDescription(text);
     }
 
-    protected static Message saveAlert(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert) {
-        Long alertId = context.transactional(txCtx -> {
-            if(txCtx.usersDao().userExists(alert.userId)) { // enforce foreign key constraint on user_id
-                return txCtx.alertsDao().addAlert(alert);
+    @Nullable
+    protected static Alert saveAlert(@NotNull CommandContext context, @NotNull Alert alert) {
+        return context.transactional(txCtx -> {
+            if (txCtx.usersDao().userExists(alert.userId)) { // enforce foreign key constraint on user_id
+                return alert.withId(() -> txCtx.alertsDao().addAlert(alert));
             }
             return null;
         });
-        if(null == alertId) {
+    }
+
+    protected static Message createdAlertMessage(@NotNull CommandContext context, @NotNull ZonedDateTime now, @Nullable Alert alert) {
+        if(null == alert) {
             return userSetupNeeded(context.name, "Unable to create a new alert :");
         }
-        var message = ListCommand.toMessageWithEdit(context, now, alert.withId(() -> alertId), 0, 0);
+        var message = ListCommand.toMessageWithEdit(context, now, alert, 0, 0);
         if (remainder != alert.type) {
-            requireOneItem(message.embeds()).appendDescription(alertMessageTips(alert.message, alertId));
+            requireOneItem(message.embeds()).appendDescription(alertMessageTips(alert.message, alert.id));
         }
         return message;
     }

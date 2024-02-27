@@ -121,6 +121,7 @@ class DeleteCommandTest {
         assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("deleted"));
         verify(discord, never()).sendPrivateMessage(anyInt(), any(), eq(null));
 
+        // guild channel
         // delete by id, alert exists, not same user, not same channel, not found
         when(messageReceivedEvent.getMember()).thenReturn(member);
         alertId++;
@@ -455,8 +456,8 @@ class DeleteCommandTest {
         CommandContext[] commandContext = new CommandContext[1];
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME);
-        assertExceptionContains(IllegalArgumentException.class, EXCHANGE_ARGUMENT,
-                () -> QuoteCommand.arguments(commandContext[0]));
+        assertExceptionContains(IllegalArgumentException.class, TICKER_PAIR_ARGUMENT,
+                () -> DeleteCommand.arguments(commandContext[0]));
 
         // id command
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + "  123 az");

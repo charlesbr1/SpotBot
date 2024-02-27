@@ -113,7 +113,7 @@ public final class TrendCommand extends CommandAdapter {
                 arguments.exchange, arguments.pair, arguments.message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
 
-        return saveAlert(context, now, trendAlert);
+        return createdAlertMessage(context, now, saveAlert(context, trendAlert));
     }
 
     private Message trendPrice(@NotNull CommandContext context, @NotNull ZonedDateTime date, long alertId) {
