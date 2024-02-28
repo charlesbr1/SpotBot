@@ -73,8 +73,8 @@ public final class ModalEditInteraction implements InteractionListener {
         String value = null;
         Long alertId = null;
         try {
-            field = context.args.getMandatoryString(SELECTION_ARGUMENT);
             alertId = requirePositive(context.args.getMandatoryLong(ALERT_ID_ARGUMENT));
+            field = context.args.getMandatoryString(SELECTION_ARGUMENT);
             CommandListener command;
             CommandContext commandContext;
             boolean isMessage = CHOICE_MESSAGE.equals(field);
@@ -119,7 +119,7 @@ public final class ModalEditInteraction implements InteractionListener {
         BiFunction<Message, MessageEditBuilder, MessageEditData> editMapper = (message, editBuilder) -> {
             var newEmbedBuilder = requireOneItem(message.embeds());
             var built = newEmbedBuilder.build();
-            if(!DENIED_COLOR.equals(built.getColor())) { // user rights changed
+            if(DENIED_COLOR.equals(built.getColor())) { // user rights changed
                 throw new ConcurrentModificationException(built.getDescription());
             }
             var originalEmbed = requireOneItem(editBuilder.getEmbeds());
@@ -137,7 +137,7 @@ public final class ModalEditInteraction implements InteractionListener {
         BiFunction<Message, MessageEditBuilder, MessageEditData> editMapper = (message, editBuilder) -> {
             var newEmbedBuilder = requireOneItem(message.embeds());
             var built = newEmbedBuilder.build();
-            if(!DENIED_COLOR.equals(built.getColor())) { // user rights changed
+            if(DENIED_COLOR.equals(built.getColor())) { // user rights changed
                 throw new ConcurrentModificationException(built.getDescription());
             }
             var originalEmbed = requireOneItem(editBuilder.getEmbeds());

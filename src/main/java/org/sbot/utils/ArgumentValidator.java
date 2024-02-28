@@ -2,11 +2,13 @@ package org.sbot.utils;
 
 import net.dv8tion.jda.api.interactions.DiscordLocale;
 import org.jetbrains.annotations.NotNull;
+import org.sbot.entities.alerts.Alert.Type;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -125,10 +127,20 @@ public interface ArgumentValidator {
     }
 
     static long requireUser(@NotNull String userMention) {
+        return asUser(userMention).orElseThrow(() -> new IllegalArgumentException("Provided string is not an user mention : " + userMention));
+    }
+
+    static Optional<Long> asUser(@NotNull String userMention) {
         Matcher matcher = USER.getPattern().matcher(userMention);
-        if(!matcher.matches())
-            throw new IllegalArgumentException("Provided string is not an user mention : " + userMention);
-        return Long.parseLong(matcher.group(1));
+        return matcher.matches() ? Optional.of(Long.parseLong(matcher.group(1))) : Optional.empty();
+    }
+
+    static Optional<Type> asType(@NotNull String type) {
+        try {
+            return Optional.of(Type.valueOf(type));
+        } catch (RuntimeException e) {
+            return Optional.empty();
+        }
     }
 
     static <T> T requireOneItem(@NotNull List<T> list) {

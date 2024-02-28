@@ -177,15 +177,14 @@ final class EventAdapter extends ListenerAdapter {
                     .queue(m -> m.deleteOriginal().queueAfter(30, TimeUnit.SECONDS));
         }
     }
+
+    @Override
     public void onModalInteraction(@NotNull ModalInteractionEvent event) {
         try {
             var user = context.transactional(txCtx -> txCtx.usersDao().getUser(event.getUser().getIdLong()))
                     .orElseThrow(() -> new IllegalStateException("User is not configured"));
             var command = CommandContext.of(context, user, event);
-            var listener = Optional.ofNullable(context.discord().getGetInteractionListener(command.name))
-                    .orElseThrow(() -> new IllegalArgumentException("Unknown modal : " + command.name));
-            event.deferEdit().queue(); // some interactions (migrate) may contains rest calls
-            listener.onInteraction(command);
+            context.discord().getGetInteractionListener(command.name).onInteraction(command);
         } catch (RuntimeException e) {
             LOGGER.warn("Internal error while processing discord modal interaction : " + event, e);
             event.replyEmbeds(embedBuilder(":confused: Oops !", Color.red,

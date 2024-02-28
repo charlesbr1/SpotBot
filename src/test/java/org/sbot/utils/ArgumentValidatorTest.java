@@ -6,10 +6,12 @@ import org.junit.jupiter.api.Test;
 import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static java.math.BigDecimal.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
@@ -223,6 +225,43 @@ class ArgumentValidatorTest {
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<@>"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<>"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(""));
+    }
+
+    @Test
+    void asUser() {
+        assertEquals(Optional.of(1234L), ArgumentValidator.asUser("<@1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(" <@1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("a<@1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("1<@1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("&<@1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("@<@1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@1234> "));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@1234>a"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@1234>1"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@1234>&"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@1234"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@123a4>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("@1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("<1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@ 1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("< @1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@1234 >"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@abcd>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("<>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(""));
+    }
+
+    @Test
+    void asType() {
+        assertEquals(Optional.of(range), ArgumentValidator.asType("range"));
+        assertEquals(Optional.of(trend), ArgumentValidator.asType("trend"));
+        assertEquals(Optional.of(remainder), ArgumentValidator.asType("remainder"));
+        assertEquals(Optional.empty(), ArgumentValidator.asType(null));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(""));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("1remainder"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("remainder2"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser("@<>"));
     }
 
     @Test

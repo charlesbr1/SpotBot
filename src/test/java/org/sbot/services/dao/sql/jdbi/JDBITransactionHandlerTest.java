@@ -109,7 +109,7 @@ public class JDBITransactionHandlerTest {
 
         // Thread test
         AtomicLong counter = new AtomicLong(0);
-        int innerLoopSize = Short.MAX_VALUE;
+        int innerLoopSize = 100000;
         try(var executor = Executors.newWorkStealingPool()) {
             var tasks = new ArrayList<Callable<Long>>();
             for (int i = innerLoopSize; i-- != 0; ) {
@@ -120,8 +120,7 @@ public class JDBITransactionHandlerTest {
                 });
             }
             executor.invokeAll(tasks);
-            assertNotEquals(innerLoopSize, counter.get());
-            System.out.println("counter : " + counter.get());
+            assertNotEquals(innerLoopSize, counter.get()); // this may sometime fails if no concurrency issue happens...
 
             tasks.clear();
             counter.set(0L);
