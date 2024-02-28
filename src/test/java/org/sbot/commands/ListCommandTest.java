@@ -10,6 +10,7 @@ import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
 import org.sbot.services.context.Context;
 import org.sbot.services.dao.AlertsDao;
+import org.sbot.services.dao.AlertsDao.SelectionFilter;
 import org.sbot.services.discord.Discord;
 
 import java.time.Clock;
@@ -26,8 +27,7 @@ import static org.sbot.commands.CommandAdapterTest.assertExceptionContains;
 import static org.sbot.commands.ListCommand.*;
 import static org.sbot.commands.context.CommandContext.TOO_MANY_ARGUMENTS;
 import static org.sbot.entities.alerts.Alert.Type.*;
-import static org.sbot.entities.alerts.AlertTest.createTestAlert;
-import static org.sbot.entities.alerts.AlertTest.createTestAlertWithUserId;
+import static org.sbot.entities.alerts.AlertTest.*;
 import static org.sbot.utils.Dates.UTC;
 
 class ListCommandTest {
@@ -35,13 +35,13 @@ class ListCommandTest {
     @Test
     void asNextCommand() {
         Arguments arguments = new Arguments(null, null, null, null, null, null);
-        assertEquals("list all 99", arguments.asNextCommand());
+        assertEquals("list all 22", arguments.asNextCommand(22));
         arguments = new Arguments(null, range, "selection", 123L, "eth", 12L);
-        assertEquals("list <@123> eth range 111", arguments.asNextCommand());
+        assertEquals("list <@123> eth range 34", arguments.asNextCommand(22));
         arguments = new Arguments(null, range, "selection", 123L, null, 12L);
-        assertEquals("list <@123> range 111", arguments.asNextCommand());
+        assertEquals("list <@123> range 24", arguments.asNextCommand(12));
         arguments = new Arguments(null, range, "selection", null, null, 12L);
-        assertEquals("list all range 111", arguments.asNextCommand());
+        assertEquals("list all range 20", arguments.asNextCommand(8));
     }
 
     @Test
@@ -521,72 +521,639 @@ class ListCommandTest {
             assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains(arg));
         }
 
-        // id command
+        // id command, public channel, not found
         var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  123"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).getAlertWithoutMessage(123L);
+        verify(alertsDao).getAlert(123L);
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         List<Message> messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
-        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("123 not found"));
+        assertNotNull(messages.get(0).embeds().get(0));
+        var embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("123 not found"));
+        assertNull(embed.getFooter());
 
+        // id command, public channel, not same user, found, not editable
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  321"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
-        when(alertsDao.getAlertWithoutMessage(321L)).thenReturn(Optional.of(createTestAlert().withServerId(serverId)));
+        var alert = createTestAlert().withServerId(serverId);
+        when(alertsDao.getAlert(321L)).thenReturn(Optional.of(alert));
         command.onCommand(commandContext);
-        verify(alertsDao).getAlertWithoutMessage(321L);
+        verify(alertsDao).getAlert(321L);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
-        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("TestAlert"));
-        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("serverId=123"));
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=123"));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertNull(embed.getFooter());
         assertNull(messages.get(0).component()); // no edit menu
 
-        // with same user -> editable
+        // id command, public channel, same user, found, editable
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  321"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
-        when(alertsDao.getAlertWithoutMessage(321L)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(serverId)));
+        alert = createTestAlertWithUserId(userId).withServerId(serverId);
+        when(alertsDao.getAlert(321L)).thenReturn(Optional.of(alert));
         command.onCommand(commandContext);
-        verify(alertsDao, times(2)).getAlertWithoutMessage(321L);
+        verify(alertsDao, times(2)).getAlert(321L);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
-        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("TestAlert"));
-        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("serverId=123"));
-        assertNotNull(messages.get(0).component());
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=123"));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertNull(embed.getFooter());
+        assertEquals(1, messages.get(0).component().size());
         assertNotNull(messages.get(0).component().get(0)); // edit menu
 
-        // not same user, admin -> editable
+        // id command, private channel, not same user, not found
+        when(messageReceivedEvent.getMember()).thenReturn(null);
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  321"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
-        when(alertsDao.getAlertWithoutMessage(321L)).thenReturn(Optional.of(createTestAlertWithUserId(userId+1).withServerId(serverId)));
-        when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
+        alert = createTestAlertWithUserId(userId + 1);
+        when(alertsDao.getAlert(321L)).thenReturn(Optional.of(alert));
         command.onCommand(commandContext);
-        verify(alertsDao, times(3)).getAlertWithoutMessage(321L);
+        verify(alertsDao, times(3)).getAlert(321L);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
-        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("TestAlert"));
-        assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("serverId=123"));
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("321 not found"));
+        assertNull(embed.getFooter());
+        assertNull(messages.get(0).component()); // no edit menu
+
+
+        // id command, private channel with same user -> editable
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  321"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.getAlert(321L)).thenReturn(Optional.of(createTestAlertWithUserId(userId)));
+        command.onCommand(commandContext);
+        verify(alertsDao, times(4)).getAlert(321L);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + TEST_SERVER_ID));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertNull(embed.getFooter());
         assertNotNull(messages.get(0).component());
+        assertEquals(1, messages.get(0).component().size());
+        assertNotNull(messages.get(0).component().get(0)); // edit menu
+
+        // id command, public channel not same user, admin -> found, editable
+        when(messageReceivedEvent.getMember()).thenReturn(member);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  321"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.getAlert(321L)).thenReturn(Optional.of(createTestAlertWithUserId(userId+1).withServerId(serverId)));
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
+        command.onCommand(commandContext);
+        verify(alertsDao, times(5)).getAlert(321L);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + serverId));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertNull(embed.getFooter());
+        assertNotNull(messages.get(0).component());
+        assertEquals(1, messages.get(0).component().size());
         assertNotNull(messages.get(0).component().get(0));
         when(member.hasPermission(ADMINISTRATOR)).thenReturn(false);
 
-        // all, user, ticker or pair
+        // all, private channel, not editable
+        when(messageReceivedEvent.getMember()).thenReturn(null);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " all  3"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.countAlerts(SelectionFilter.ofUser(userId, null))).thenReturn(7L);
+        alert = createTestAlertWithUserId(userId);
+        when(alertsDao.getAlertsOrderByPairUserIdId(SelectionFilter.ofUser(userId, null), 3, MESSAGE_LIST_CHUNK)).thenReturn(List.of(alert, alert, alert));
+        command.onCommand(commandContext);
+        verify(alertsDao).countAlerts(SelectionFilter.ofUser(userId, null));
+        verify(alertsDao).getAlertsOrderByPairUserIdId(SelectionFilter.ofUser(userId, null), 3, MESSAGE_LIST_CHUNK);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(2, messages.size());
+        assertEquals(3, messages.get(0).embeds().size());
+        assertEquals(1, messages.get(1).embeds().size());
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + TEST_SERVER_ID));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertEquals("(4/7)", embed.getFooter().getText());
+        assertEquals("(5/7)", messages.get(0).embeds().get(1).build().getFooter().getText());
+        assertEquals("(6/7)", messages.get(0).embeds().get(2).build().getFooter().getText());
+        assertTrue(messages.get(1).embeds().get(0).build().getDescription().contains("More results found"));
+        assertNull(messages.get(0).component());
 
-    }
+        // all, with type, private channel, editable
+        when(messageReceivedEvent.getMember()).thenReturn(null);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "all remainder 3"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.countAlerts(SelectionFilter.ofUser(userId, remainder))).thenReturn(6L);
+        alert = createTestAlertWithUserId(userId);
+        when(alertsDao.getAlertsOrderByPairUserIdId(SelectionFilter.ofUser(userId, remainder), 3, MESSAGE_LIST_CHUNK)).thenReturn(List.of(alert, alert, alert));
+        command.onCommand(commandContext);
+        verify(alertsDao).countAlerts(SelectionFilter.ofUser(userId, remainder));
+        verify(alertsDao).getAlertsOrderByPairUserIdId(SelectionFilter.ofUser(userId, remainder), 3, MESSAGE_LIST_CHUNK);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(3, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + TEST_SERVER_ID));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertEquals("(4/6)", embed.getFooter().getText());
+        assertEquals("(5/6)", messages.get(1).embeds().get(0).build().getFooter().getText());
+        assertEquals("(6/6)", messages.get(2).embeds().get(0).build().getFooter().getText());
+        assertNotNull(messages.get(0).component());
+        assertEquals(1, messages.get(0).component().size());
+        assertNotNull(messages.get(0).component().get(0));
 
-    @Test
-    void toMessageWithEdit() {
-    }
+        // all, public channel, not editable
+        when(messageReceivedEvent.getMember()).thenReturn(member);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " all  3"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.countAlerts(SelectionFilter.ofServer(serverId, null))).thenReturn(7L);
+        alert = createTestAlertWithUserId(userId).withServerId(serverId);
+        when(alertsDao.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(serverId, null), 3, MESSAGE_LIST_CHUNK)).thenReturn(List.of(alert, alert, alert));
+        command.onCommand(commandContext);
+        verify(alertsDao).countAlerts(SelectionFilter.ofServer(serverId, null));
+        verify(alertsDao).getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(serverId, null), 3, MESSAGE_LIST_CHUNK);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(2, messages.size());
+        assertEquals(3, messages.get(0).embeds().size());
+        assertEquals(1, messages.get(1).embeds().size());
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + serverId));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertEquals("(4/7)", embed.getFooter().getText());
+        assertEquals("(5/7)", messages.get(0).embeds().get(1).build().getFooter().getText());
+        assertEquals("(6/7)", messages.get(0).embeds().get(2).build().getFooter().getText());
+        assertTrue(messages.get(1).embeds().get(0).build().getDescription().contains("More results found"));
+        assertNull(messages.get(0).component());
 
-    @Test
-    void listAlert() {
+        // all, with type, public channel, editable
+        when(messageReceivedEvent.getMember()).thenReturn(member);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " all range "));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.countAlerts(SelectionFilter.ofServer(serverId, range))).thenReturn(4L);
+        alert = createTestAlertWithUserId(userId).withServerId(serverId);
+        var alert2 = createTestAlertWithUserId(userId).withServerId(serverId);
+        var alert3 = createTestAlertWithUserId(userId+1).withServerId(serverId);
+        var alert4 = createTestAlertWithUserId(userId+1).withServerId(serverId);
+        when(alertsDao.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(serverId, range), 0, MESSAGE_LIST_CHUNK)).thenReturn(List.of(alert, alert2, alert3, alert4));
+        command.onCommand(commandContext);
+        verify(alertsDao).countAlerts(SelectionFilter.ofServer(serverId, range));
+        verify(alertsDao).getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(serverId, range), 0, MESSAGE_LIST_CHUNK);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(3, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertEquals(1, messages.get(1).embeds().size());
+        assertEquals(2, messages.get(2).embeds().size());
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + serverId));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertEquals("(1/4)", embed.getFooter().getText());
+        assertEquals("(2/4)", messages.get(1).embeds().get(0).build().getFooter().getText());
+        assertEquals("(3/4)", messages.get(2).embeds().get(0).build().getFooter().getText());
+        assertEquals("(4/4)", messages.get(2).embeds().get(1).build().getFooter().getText());
+        assertNotNull(messages.get(0).component());
+        assertEquals(1, messages.get(0).component().size());
+        assertNotNull(messages.get(0).component().get(0));
+        assertNotNull(messages.get(1).component());
+        assertEquals(1, messages.get(1).component().size());
+        assertNotNull(messages.get(1).component().get(0));
+        assertNull(messages.get(2).component()); // only 2 first alerts editables
+
+        // all, with type, public channel, admin, not all editable
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
+        when(messageReceivedEvent.getMember()).thenReturn(member);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " all remainder "));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.countAlerts(SelectionFilter.ofServer(serverId, remainder))).thenReturn(4L);
+        when(alertsDao.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(serverId, remainder), 0, MESSAGE_LIST_CHUNK)).thenReturn(List.of(alert, alert2, alert3, alert4));
+        command.onCommand(commandContext);
+        verify(alertsDao).countAlerts(SelectionFilter.ofServer(serverId, remainder));
+        verify(alertsDao).getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(serverId, remainder), 0, MESSAGE_LIST_CHUNK);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(3, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertEquals(1, messages.get(1).embeds().size());
+        assertEquals(2, messages.get(2).embeds().size());
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + serverId));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertEquals("(1/4)", embed.getFooter().getText());
+        assertEquals("(2/4)", messages.get(1).embeds().get(0).build().getFooter().getText());
+        assertEquals("(3/4)", messages.get(2).embeds().get(0).build().getFooter().getText());
+        assertEquals("(4/4)", messages.get(2).embeds().get(1).build().getFooter().getText());
+        assertNotNull(messages.get(0).component());
+        assertEquals(1, messages.get(0).component().size());
+        assertNotNull(messages.get(0).component().get(0));
+        assertNotNull(messages.get(1).component());
+        assertEquals(1, messages.get(1).component().size());
+        assertNotNull(messages.get(1).component().get(0));
+        assertNull(messages.get(2).component()); // only 2 first alerts editables
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(false);
+
+        // user, same user, with type, private channel, found, editable
+        when(messageReceivedEvent.getMember()).thenReturn(null);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " <@" + userId + "> " + " range "));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.countAlerts(SelectionFilter.ofUser(userId, range))).thenReturn(2L);
+        alert = createTestAlertWithUserId(userId).withServerId(serverId);
+        alert2 = createTestAlertWithUserId(userId).withServerId(serverId);
+        when(alertsDao.getAlertsOrderByPairUserIdId(SelectionFilter.ofUser(userId, range), 0, MESSAGE_LIST_CHUNK)).thenReturn(List.of(alert, alert2));
+        command.onCommand(commandContext);
+        verify(alertsDao).countAlerts(SelectionFilter.ofUser(userId, range));
+        verify(alertsDao).getAlertsOrderByPairUserIdId(SelectionFilter.ofUser(userId, range), 0, MESSAGE_LIST_CHUNK);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(2, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertEquals(1, messages.get(1).embeds().size());
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + serverId));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertEquals("(1/2)", embed.getFooter().getText());
+        assertEquals("(2/2)", messages.get(1).embeds().get(0).build().getFooter().getText());
+        assertNotNull(messages.get(0).component());
+        assertEquals(1, messages.get(0).component().size());
+        assertNotNull(messages.get(0).component().get(0));
+        assertNotNull(messages.get(1).component());
+        assertEquals(1, messages.get(1).component().size());
+        assertNotNull(messages.get(1).component().get(0));
+
+        // user, not same user, private channel, denied
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " <@" + userId+1 + "> " + " range "));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        verify(alertsDao, never()).countAlerts(SelectionFilter.ofUser(userId+1, range));
+        verify(alertsDao, never()).getAlertsOrderByPairUserIdId(SelectionFilter.ofUser(userId+1, range), 0, MESSAGE_LIST_CHUNK);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("not allowed"));
+
+
+        // user all, same user, public channel, not editable
+        when(messageReceivedEvent.getMember()).thenReturn(member);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " <@" + userId + ">  "));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.countAlerts(SelectionFilter.of(serverId, userId, null))).thenReturn(2L);
+        when(alertsDao.getAlertsOrderByPairUserIdId(SelectionFilter.of(serverId, userId, null), 0, MESSAGE_LIST_CHUNK)).thenReturn(List.of(alert, alert2));
+
+        command.onCommand(commandContext);
+        verify(alertsDao).countAlerts(SelectionFilter.of(serverId, userId, null));
+        verify(alertsDao).getAlertsOrderByPairUserIdId(SelectionFilter.of(serverId, userId, null), 0, MESSAGE_LIST_CHUNK);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(2, messages.get(0).embeds().size());
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + serverId));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertEquals("(1/2)", embed.getFooter().getText());
+        assertEquals("(2/2)", messages.get(0).embeds().get(1).build().getFooter().getText());
+        assertNull(messages.get(0).component());
+
+        // user all, same user, with type, public channel, editable
+        when(messageReceivedEvent.getMember()).thenReturn(member);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " <@" + userId + "> remainder "));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.countAlerts(SelectionFilter.of(serverId, userId, remainder))).thenReturn(2L);
+        when(alertsDao.getAlertsOrderByPairUserIdId(SelectionFilter.of(serverId, userId, remainder), 0, MESSAGE_LIST_CHUNK)).thenReturn(List.of(alert, alert2));
+
+        command.onCommand(commandContext);
+        verify(alertsDao).countAlerts(SelectionFilter.of(serverId, userId, remainder));
+        verify(alertsDao).getAlertsOrderByPairUserIdId(SelectionFilter.of(serverId, userId, remainder), 0, MESSAGE_LIST_CHUNK);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(2, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertEquals(1, messages.get(1).embeds().size());
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + serverId));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertEquals("(1/2)", embed.getFooter().getText());
+        assertEquals("(2/2)", messages.get(1).embeds().get(0).build().getFooter().getText());
+        assertNotNull(messages.get(0).component());
+        assertEquals(1, messages.get(0).component().size());
+        assertNotNull(messages.get(0).component().get(0));
+        assertNotNull(messages.get(1).component());
+        assertEquals(1, messages.get(1).component().size());
+        assertNotNull(messages.get(1).component().get(0));
+
+        // user all, public channel, admin, all editable
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
+        when(messageReceivedEvent.getMember()).thenReturn(member);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " <@345>  "));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.countAlerts(SelectionFilter.of(serverId, 345L, null))).thenReturn(5L);
+        when(alertsDao.getAlertsOrderByPairUserIdId(SelectionFilter.of(serverId, 345L, null), 0, MESSAGE_LIST_CHUNK)).thenReturn(List.of(alert, alert2, alert3, alert4));
+
+        command.onCommand(commandContext);
+        verify(alertsDao).countAlerts(SelectionFilter.of(serverId, 345L, null));
+        verify(alertsDao).getAlertsOrderByPairUserIdId(SelectionFilter.of(serverId, 345L, null), 0, MESSAGE_LIST_CHUNK);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(5, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertEquals(1, messages.get(1).embeds().size());
+        assertEquals(1, messages.get(2).embeds().size());
+        assertEquals(1, messages.get(3).embeds().size());
+        assertEquals(1, messages.get(4).embeds().size());
+        assertTrue(messages.get(4).embeds().get(0).build().getDescription().contains("More results found"));
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + serverId));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertEquals("(1/5)", embed.getFooter().getText());
+        assertEquals("(2/5)", messages.get(1).embeds().get(0).build().getFooter().getText());
+        assertEquals("(3/5)", messages.get(2).embeds().get(0).build().getFooter().getText());
+        assertEquals("(4/5)", messages.get(3).embeds().get(0).build().getFooter().getText());
+        assertNotNull(messages.get(0).component());
+        assertEquals(1, messages.get(0).component().size());
+        assertNotNull(messages.get(0).component().get(0));
+        assertNotNull(messages.get(1).component());
+        assertEquals(1, messages.get(1).component().size());
+        assertNotNull(messages.get(1).component().get(0));
+        assertNotNull(messages.get(2).component());
+        assertEquals(1, messages.get(2).component().size());
+        assertNotNull(messages.get(2).component().get(0));
+        assertNotNull(messages.get(3).component());
+        assertEquals(1, messages.get(3).component().size());
+        assertNotNull(messages.get(3).component().get(0));
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(false);
+
+        // user, not same user, public channel, not admin, not editable
+        when(messageReceivedEvent.getMember()).thenReturn(member);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " <@543>  "));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.countAlerts(SelectionFilter.of(serverId, 543, null))).thenReturn(2L);
+        when(alertsDao.getAlertsOrderByPairUserIdId(SelectionFilter.of(serverId, 543, null), 0, MESSAGE_LIST_CHUNK)).thenReturn(List.of(alert, alert2));
+
+        command.onCommand(commandContext);
+        verify(alertsDao).countAlerts(SelectionFilter.of(serverId, 543, null));
+        verify(alertsDao).getAlertsOrderByPairUserIdId(SelectionFilter.of(serverId, 543, null), 0, MESSAGE_LIST_CHUNK);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(2, messages.get(0).embeds().size());
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + serverId));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertEquals("(1/2)", embed.getFooter().getText());
+        assertEquals("(2/2)", messages.get(0).embeds().get(1).build().getFooter().getText());
+        assertNull(messages.get(0).component());
+
+        // user, not same user, public channel, admin, all editable
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
+        when(messageReceivedEvent.getMember()).thenReturn(member);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " <@9989>  "));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.countAlerts(SelectionFilter.of(serverId, 9989, null))).thenReturn(2L);
+        when(alertsDao.getAlertsOrderByPairUserIdId(SelectionFilter.of(serverId, 9989, null), 0, MESSAGE_LIST_CHUNK)).thenReturn(List.of(alert, alert4));
+
+        command.onCommand(commandContext);
+        verify(alertsDao).countAlerts(SelectionFilter.of(serverId, 9989, null));
+        verify(alertsDao).getAlertsOrderByPairUserIdId(SelectionFilter.of(serverId, 9989, null), 0, MESSAGE_LIST_CHUNK);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(2, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertEquals(1, messages.get(1).embeds().size());
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + serverId));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertEquals("(1/2)", embed.getFooter().getText());
+        assertEquals("(2/2)", messages.get(1).embeds().get(0).build().getFooter().getText());
+        assertNotNull(messages.get(0).component());
+        assertEquals(1, messages.get(0).component().size());
+        assertNotNull(messages.get(0).component().get(0));
+        assertNotNull(messages.get(1).component());
+        assertEquals(1, messages.get(1).component().size());
+        assertNotNull(messages.get(1).component().get(0));
+        when(member.hasPermission(ADMINISTRATOR)).thenReturn(false);
+
+        // ticker or pair, private channel, editable
+        when(messageReceivedEvent.getMember()).thenReturn(null);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " eth/usd  "));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.countAlerts(SelectionFilter.ofUser(userId, null).withTickerOrPair("ETH/USD"))).thenReturn(2L);
+        when(alertsDao.getAlertsOrderByPairUserIdId(SelectionFilter.ofUser(userId, null).withTickerOrPair("ETH/USD"), 0, MESSAGE_LIST_CHUNK)).thenReturn(List.of(alert, alert2));
+
+        command.onCommand(commandContext);
+        verify(alertsDao).countAlerts(SelectionFilter.ofUser(userId, null).withTickerOrPair("ETH/USD"));
+        verify(alertsDao).getAlertsOrderByPairUserIdId(SelectionFilter.ofUser(userId, null).withTickerOrPair("ETH/USD"), 0, MESSAGE_LIST_CHUNK);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(2, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertEquals(1, messages.get(1).embeds().size());
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + serverId));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertEquals("(1/2)", embed.getFooter().getText());
+        assertEquals("(2/2)", messages.get(1).embeds().get(0).build().getFooter().getText());
+        assertNotNull(messages.get(0).component());
+        assertEquals(1, messages.get(0).component().size());
+        assertNotNull(messages.get(0).component().get(0));
+        assertNotNull(messages.get(1).component());
+        assertEquals(1, messages.get(1).component().size());
+        assertNotNull(messages.get(1).component().get(0));
+
+        // ticker or pair, with type, private channel, editable
+        when(messageReceivedEvent.getMember()).thenReturn(null);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " range eth/usd  "));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.countAlerts(SelectionFilter.ofUser(userId, range).withTickerOrPair("ETH/USD"))).thenReturn(2L);
+        when(alertsDao.getAlertsOrderByPairUserIdId(SelectionFilter.ofUser(userId, range).withTickerOrPair("ETH/USD"), 0, MESSAGE_LIST_CHUNK)).thenReturn(List.of(alert, alert2));
+
+        command.onCommand(commandContext);
+        verify(alertsDao).countAlerts(SelectionFilter.ofUser(userId, range).withTickerOrPair("ETH/USD"));
+        verify(alertsDao).getAlertsOrderByPairUserIdId(SelectionFilter.ofUser(userId, range).withTickerOrPair("ETH/USD"), 0, MESSAGE_LIST_CHUNK);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(2, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertEquals(1, messages.get(1).embeds().size());
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + serverId));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertEquals("(1/2)", embed.getFooter().getText());
+        assertEquals("(2/2)", messages.get(1).embeds().get(0).build().getFooter().getText());
+        assertNotNull(messages.get(0).component());
+        assertEquals(1, messages.get(0).component().size());
+        assertNotNull(messages.get(0).component().get(0));
+        assertNotNull(messages.get(1).component());
+        assertEquals(1, messages.get(1).component().size());
+        assertNotNull(messages.get(1).component().get(0));
+
+        // ticker or pair, public channel, editable
+        when(messageReceivedEvent.getMember()).thenReturn(member);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " dot/usd  "));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.countAlerts(SelectionFilter.ofServer(serverId, null).withTickerOrPair("DOT/USD"))).thenReturn(4L);
+        when(alertsDao.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(serverId, null).withTickerOrPair("DOT/USD"), 0, MESSAGE_LIST_CHUNK)).thenReturn(List.of(alert3, alert4, alert, alert2));
+
+        command.onCommand(commandContext);
+        verify(alertsDao).countAlerts(SelectionFilter.ofServer(serverId, null).withTickerOrPair("DOT/USD"));
+        verify(alertsDao).getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(serverId, null).withTickerOrPair("DOT/USD"), 0, MESSAGE_LIST_CHUNK);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(3, messages.size());
+        assertEquals(2, messages.get(0).embeds().size());
+        assertEquals(1, messages.get(1).embeds().size());
+        assertEquals(1, messages.get(2).embeds().size());
+        assertNotNull(messages.get(1).embeds().get(0));
+        embed = messages.get(1).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + serverId));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertEquals("(1/4)", messages.get(0).embeds().get(0).build().getFooter().getText());
+        assertEquals("(2/4)", messages.get(0).embeds().get(1).build().getFooter().getText());
+        assertEquals("(3/4)", embed.getFooter().getText());
+        assertEquals("(4/4)", messages.get(2).embeds().get(0).build().getFooter().getText());
+        assertNotNull(messages.get(1).component());
+        assertEquals(1, messages.get(1).component().size());
+        assertNotNull(messages.get(1).component().get(0));
+        assertNotNull(messages.get(2).component());
+        assertEquals(1, messages.get(2).component().size());
+        assertNotNull(messages.get(2).component().get(0));
+
+        // ticker or pair, with type, public channel, editable
+        when(messageReceivedEvent.getMember()).thenReturn(member);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " dot/usd  trend 4"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.countAlerts(SelectionFilter.ofServer(serverId, trend).withTickerOrPair("DOT/USD"))).thenReturn(8L);
+        when(alertsDao.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(serverId, trend).withTickerOrPair("DOT/USD"), 4, MESSAGE_LIST_CHUNK)).thenReturn(List.of(alert, alert4, alert3, alert2));
+
+        command.onCommand(commandContext);
+        verify(alertsDao).countAlerts(SelectionFilter.ofServer(serverId, trend).withTickerOrPair("DOT/USD"));
+        verify(alertsDao).getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(serverId, trend).withTickerOrPair("DOT/USD"), 4, MESSAGE_LIST_CHUNK);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(3, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertEquals(2, messages.get(1).embeds().size());
+        assertEquals(1, messages.get(2).embeds().size());
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + serverId));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertEquals("(5/8)", embed.getFooter().getText());
+        assertEquals("(6/8)", messages.get(1).embeds().get(0).build().getFooter().getText());
+        assertEquals("(7/8)", messages.get(1).embeds().get(1).build().getFooter().getText());
+        assertEquals("(8/8)", messages.get(2).embeds().get(0).build().getFooter().getText());
+        assertNull(messages.get(1).component());
+        assertNotNull(messages.get(0).component());
+        assertEquals(1, messages.get(0).component().size());
+        assertNotNull(messages.get(0).component().get(0));
+        assertNotNull(messages.get(2).component());
+        assertEquals(1, messages.get(2).component().size());
+        assertNotNull(messages.get(2).component().get(0));
+
+        // different alerts order
+        when(messageReceivedEvent.getMember()).thenReturn(member);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " dot/usd  remainder 4"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        when(alertsDao.countAlerts(SelectionFilter.ofServer(serverId, remainder).withTickerOrPair("DOT/USD"))).thenReturn(8L);
+        when(alertsDao.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(serverId, remainder).withTickerOrPair("DOT/USD"), 4, MESSAGE_LIST_CHUNK)).thenReturn(List.of(alert4, alert, alert2, alert3));
+
+        command.onCommand(commandContext);
+        verify(alertsDao).countAlerts(SelectionFilter.ofServer(serverId, remainder).withTickerOrPair("DOT/USD"));
+        verify(alertsDao).getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(serverId, remainder).withTickerOrPair("DOT/USD"), 4, MESSAGE_LIST_CHUNK);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(4, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertEquals(1, messages.get(1).embeds().size());
+        assertEquals(1, messages.get(2).embeds().size());
+        assertEquals(1, messages.get(3).embeds().size());
+        assertNotNull(messages.get(0).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=" + serverId));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertEquals("(5/8)", embed.getFooter().getText());
+        assertEquals("(6/8)", messages.get(1).embeds().get(0).build().getFooter().getText());
+        assertEquals("(7/8)", messages.get(2).embeds().get(0).build().getFooter().getText());
+        assertEquals("(8/8)", messages.get(3).embeds().get(0).build().getFooter().getText());
+        assertNull(messages.get(0).component());
+        assertNotNull(messages.get(1).component());
+        assertEquals(1, messages.get(1).component().size());
+        assertNotNull(messages.get(1).component().get(0));
+        assertNotNull(messages.get(2).component());
+        assertEquals(1, messages.get(2).component().size());
+        assertNotNull(messages.get(2).component().get(0));
+        assertNull(messages.get(3).component());
     }
 }

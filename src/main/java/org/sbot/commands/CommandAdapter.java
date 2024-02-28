@@ -115,7 +115,7 @@ public abstract class CommandAdapter implements CommandListener {
     protected Message securedAlertAccess(long alertId, @NotNull CommandContext context, @NotNull BiFunction<Alert, AlertsDao, Message> updateHandler) {
         return context.transactional(txCtx -> {
             var dao = txCtx.alertsDao();
-            Alert alert = dao.getAlertWithoutMessage(alertId).orElse(null);
+            Alert alert = dao.getAlert(alertId).orElse(null);
             if(SecurityAccess.notFound(context, alert)) {
                 return Message.of(embedBuilder(":ghost: " + context.user.getEffectiveName(), NOT_FOUND_COLOR, "Alert " + alertId + " not found"));
             }

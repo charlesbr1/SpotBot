@@ -43,7 +43,7 @@ public final class ListCommand extends CommandAdapter {
     static final String DESCRIPTION = "list the settings, exchanges and pairs, alerts (optionally filtered by user, type, pair or ticker)";
     private static final int RESPONSE_TTL_SECONDS = 300;
 
-    private static final int MESSAGE_LIST_CHUNK = 100;
+    static final int MESSAGE_LIST_CHUNK = 100;
     static final String LIST_SETTINGS = "settings";
     static final String LIST_LOCALES = "locales";
     static final String LIST_TIMEZONES = "timezones";
@@ -63,11 +63,11 @@ public final class ListCommand extends CommandAdapter {
                             .setMinValue(0));
 
     record Arguments(Long alertId, Type type, String selection, Long ownerId, String tickerOrPair, Long offset) {
-        String asNextCommand() {
+        String asNextCommand(int delta) {
             return (null != ownerId ? "list <@" + ownerId + ">" : "list") +
                     (null != tickerOrPair ? " " + tickerOrPair : (null != ownerId ? "" : " all")) +
                     (null != type ? " " + type : "") +
-                   " " + (Optional.ofNullable(offset).orElse(0L) + MESSAGE_LIST_CHUNK - 1);
+                   " " + (Optional.ofNullable(offset).orElse(0L) + delta);
         }
 
         String asDescription() {
@@ -177,11 +177,22 @@ public final class ListCommand extends CommandAdapter {
         var alertsTotal = context.transactional(txCtx -> {
             var dao = txCtx.alertsDao();
             long total = dao.countAlerts(filter);
-            var alerts = dao.getAlertsOrderByPairUserIdId(filter, arguments.offset, MESSAGE_LIST_CHUNK + 1L);
+            var alerts = dao.getAlertsOrderByPairUserIdId(filter, arguments.offset, MESSAGE_LIST_CHUNK);
             return new AlertsTotal(alerts, total);
         });
         var messages = toEditableMessages(context, now, arguments, alertsTotal.alerts, alertsTotal.total);
-        return paginatedAlerts(messages, arguments);
+        return paginatedAlerts(messages, arguments, alertsTotal.alerts.size(), alertsTotal.total);
+    }
+
+    private static List<Message> paginatedAlerts(@NotNull ArrayList<Message> messages, @NotNull Arguments arguments, int nbAlerts, long total) {
+        if (messages.isEmpty()) {
+            return List.of(Message.of(embedBuilder("Alerts search", OK_COLOR,
+                    "No alert found " + arguments.asDescription())));
+        } else if(arguments.offset + nbAlerts < total) {
+            messages.add(Message.of(embedBuilder("...", OK_COLOR, "More results found, to get them use command with offset " +
+                    (arguments.offset + nbAlerts) + " : " + arguments.asNextCommand(messages.size()))));
+        }
+        return messages;
     }
 
     private static ArrayList<Message> toEditableMessages(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Arguments arguments, @NotNull List<Alert> alerts, long total) {
@@ -190,17 +201,18 @@ public final class ListCommand extends CommandAdapter {
         // return list of message containing all the embeds (alerts) between each editable message that can contains only one embed
         long userId = context.user.getIdLong();
         var messages = new ArrayList<Message>();
-        for(int i = 0; i < alerts.size(); i++) {
+        int i = 0;
+        while (i < alerts.size()) {
             int nextEditableIndex = i;
             while (!adminEditable && nextEditableIndex < alerts.size() && (!editable || alerts.get(nextEditableIndex).userId != userId)) {
                 nextEditableIndex++;
             }
             if(i == nextEditableIndex) {
-                messages.add(toMessageWithEdit(context, now, alerts.get(i), arguments.offset + i + 1, total));
+                messages.add(toMessageWithEdit(context, now, alerts.get(i), arguments.offset + ++i, total));
             } else {
                 var embedBuilders = new ArrayList<EmbedBuilder>(nextEditableIndex - i);
-                for(; i < nextEditableIndex; i++) {
-                    embedBuilders.add(toMessage(context, now, alerts.get(i), arguments.offset + i + 1, total));
+                while (i < nextEditableIndex) {
+                    embedBuilders.add(toMessage(context, now, alerts.get(i), arguments.offset + ++i, total));
                 }
                 messages.add(Message.of(embedBuilders));
             }
@@ -216,32 +228,12 @@ public final class ListCommand extends CommandAdapter {
     private static EmbedBuilder toMessage(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert, long offset, long total) {
         return listAlert(context, now, alert)
                 .setTitle('[' + alert.pair + ALERT_TITLE_PAIR_FOOTER + alert.message)
-                .setFooter(total > 0 ? "(" + offset + "/" + total + ")" : "");
+                .setFooter(total > 0 ? "(" + offset + "/" + total + ")" : null);
     }
 
     static EmbedBuilder listAlert(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert) {
         return alert.descriptionMessage(now, isPrivateChannel(context) && !isPrivate(alert.serverId) ?
                 context.discord().getGuildServer(alert.serverId).map(Discord::guildName).orElse("unknown") : null);
-    }
-
-    private static List<Message> paginatedAlerts(@NotNull ArrayList<Message> messages, @NotNull Arguments arguments) {
-        if (messages.isEmpty()) {
-            return List.of(Message.of(embedBuilder("Alerts search", OK_COLOR,
-                    "No alert found " + arguments.asDescription())));
-        } else {
-            return shrinkToPageSize(messages, arguments);
-        }
-    }
-
-    private static List<Message> shrinkToPageSize(@NotNull ArrayList<Message> messages, @NotNull Arguments arguments) {
-        if(messages.size() > MESSAGE_LIST_CHUNK) {
-            while(messages.size() >= MESSAGE_LIST_CHUNK) {
-                messages.remove(messages.size() - 1);
-            }
-            messages.add(Message.of(embedBuilder("...", OK_COLOR, "More results found, to get them use command with offset " +
-                    (arguments.offset + MESSAGE_LIST_CHUNK - 1) + " : " + arguments.asNextCommand())));
-        }
-        return messages;
     }
 
     private static Message settings(@NotNull Locale locale, @Nullable ZoneId timezone) {
