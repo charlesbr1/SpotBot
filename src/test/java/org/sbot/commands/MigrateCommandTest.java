@@ -813,12 +813,19 @@ class MigrateCommandTest {
     }
 
     @Test
-    void notGuildMemberException() {
-        assertInstanceOf(IllegalArgumentException.class, MigrateCommand.notGuildMemberException(0, mock()));
-    }
+    void requireGuildMember() {
+        assertDoesNotThrow(() -> MigrateCommand.requireGuildMember(null, 0L));
+        assertDoesNotThrow(() -> MigrateCommand.requireGuildMember(null, 123L));
+        CacheRestAction<Member> restAction = mock();
+        Guild guild = mock();
+        when(guild.retrieveMemberById(123L)).thenReturn(restAction);
+        when(restAction.complete()).thenReturn(mock());
+        assertDoesNotThrow(() -> MigrateCommand.requireGuildMember(guild, 123L));
+        verify(guild).retrieveMemberById(123L);
 
-    @Test
-    void alertAlreadyInGuildException() {
-        assertInstanceOf(IllegalArgumentException.class, MigrateCommand.alertAlreadyInGuildException(0, mock()));
+        when(guild.retrieveMemberById(456L)).thenReturn(restAction);
+        when(restAction.complete()).thenReturn(null);
+        assertThrows(IllegalArgumentException.class, () -> MigrateCommand.requireGuildMember(guild, 456L));
+        verify(guild).retrieveMemberById(456L);
     }
 }

@@ -117,7 +117,7 @@ public final class TrendCommand extends CommandAdapter {
     }
 
     private Message trendPrice(@NotNull CommandContext context, @NotNull ZonedDateTime date, long alertId) {
-        return context.transactional(txCtx -> securedAlertAccess(alertId, context, (alert, alertsDao) -> {
+        return securedAlertAccess(alertId, context, (alert, alertsDao) -> {
             if(trend == alert.type) {
                 return Message.of(embedBuilder("[" + alert.pair + "] at " + Dates.formatDiscord(date) + " : " + MarkdownUtil.bold(
                         formatPrice(currentTrendPrice(date, alert.fromPrice, alert.toPrice, alert.fromDate, alert.toDate), alert.getTicker2())))
@@ -130,6 +130,6 @@ public final class TrendCommand extends CommandAdapter {
                         .addField(DISPLAY_CURRENT_TREND_PRICE, formatPrice(currentTrendPrice(Dates.nowUtc(context.clock()), alert.fromPrice, alert.toPrice, alert.fromDate, alert.toDate), alert.getTicker2()), true));
             }
             throw new IllegalArgumentException("Alert " + alertId + " is not a trend alert");
-        }));
+        });
     }
 }

@@ -145,13 +145,13 @@ public final class ListCommand extends CommandAdapter {
     }
 
     private Message listOneAlert(@NotNull CommandContext context, @NotNull ZonedDateTime now, long alertId) {
-        return context.transactional(txCtx -> securedAlertAccess(alertId, context, (alert, alertsDao) -> {
+        return securedAlertAccess(alertId, context, (alert, alertsDao) -> {
             if(sameUserOrAdmin(context, alert.userId)) {
                 return toMessageWithEdit(context, now, alert, 0L, 0L);
             } else {
                 return Message.of(toMessage(context, now, alert, 0L, 0L));
             }
-        }));
+        });
     }
 
 
