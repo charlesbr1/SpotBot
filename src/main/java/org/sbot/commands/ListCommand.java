@@ -23,6 +23,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static java.time.ZoneId.SHORT_IDS;
@@ -38,17 +39,17 @@ import static org.sbot.utils.ArgumentValidator.*;
 
 public final class ListCommand extends CommandAdapter {
 
-    private static final String NAME = "list";
+    static final String NAME = "list";
     static final String DESCRIPTION = "list the settings, exchanges and pairs, alerts (optionally filtered by user, type, pair or ticker)";
     private static final int RESPONSE_TTL_SECONDS = 300;
 
     private static final int MESSAGE_LIST_CHUNK = 100;
-    private static final String LIST_SETTINGS = "settings";
-    private static final String LIST_LOCALES = "locales";
-    private static final String LIST_TIMEZONES = "timezones";
-    private static final String LIST_EXCHANGES = "exchanges";
-    private static final String LIST_USER = "user";
-    private static final String LIST_ALL = "all";
+    static final String LIST_SETTINGS = "settings";
+    static final String LIST_LOCALES = "locales";
+    static final String LIST_TIMEZONES = "timezones";
+    static final String LIST_EXCHANGES = "exchanges";
+    static final String LIST_USER = "user";
+    static final String LIST_ALL = "all";
 
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(
@@ -61,19 +62,19 @@ public final class ListCommand extends CommandAdapter {
                     option(INTEGER, OFFSET_ARGUMENT, "an offset from where to start the search (results are limited to " + MESSAGE_LIST_CHUNK + " alerts)", false)
                             .setMinValue(0));
 
-    private record Arguments(Long alertId, Type type, String selection, Long ownerId, String tickerOrPair, Long offset) {
+    record Arguments(Long alertId, Type type, String selection, Long ownerId, String tickerOrPair, Long offset) {
         String asNextCommand() {
-            return (null != ownerId ? "list <@" + ownerId + "> " : "list ") +
-                    (null != tickerOrPair ? tickerOrPair : "all") +
+            return (null != ownerId ? "list <@" + ownerId + ">" : "list") +
+                    (null != tickerOrPair ? " " + tickerOrPair : (null != ownerId ? "" : " all")) +
                     (null != type ? " " + type : "") +
-                   " " + (offset + MESSAGE_LIST_CHUNK - 1);
+                   " " + (Optional.ofNullable(offset).orElse(0L) + MESSAGE_LIST_CHUNK - 1);
         }
 
         String asDescription() {
-            return (null != ownerId ? " for user <@" + ownerId + "> " : " for ") +
-                    (null != tickerOrPair ? "ticker or pair '" + tickerOrPair + "'" : "all") +
+            return (null != ownerId ? "for user <@" + ownerId + ">" : "for") +
+                    (null != tickerOrPair ? " ticker or pair '" + tickerOrPair + "'" : (null != ownerId ? "" : " all")) +
                     (null != type ? " with type " + type : "") +
-                    (offset > 0 ? ", and offset : " + offset : "");
+                    (Optional.ofNullable(offset).orElse(0L) > 0 ? ", and offset : " + offset : "");
 
         }
     }
@@ -106,7 +107,7 @@ public final class ListCommand extends CommandAdapter {
     }
 
     static Arguments arguments(@NotNull CommandContext context) {
-        Long alertId = context.args.getLong(SELECTION_ARGUMENT).orElse(null);
+        Long alertId = context.args.getLong(SELECTION_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
         if (null != alertId) {
             context.noMoreArgs();
             return new Arguments(alertId, null, null, null, null, null);
@@ -130,7 +131,7 @@ public final class ListCommand extends CommandAdapter {
                     type = null != type ? type : context.args.getType(TYPE_ARGUMENT).orElse(null); // re-read if needed for string command
                     tickerOrPair = context.args.getString(TICKER_PAIR_ARGUMENT).map(ArgumentValidator::requireTickerPairLength).map(String::toUpperCase).orElse(null);
                 } else {
-                    tickerOrPair = LIST_ALL.equals(selection) ? null : selection;
+                    tickerOrPair = LIST_ALL.equals(selection) ? null : requireTickerPairLength(selection).toUpperCase();
                 }
             }
         } else {
@@ -144,18 +145,13 @@ public final class ListCommand extends CommandAdapter {
     }
 
     private Message listOneAlert(@NotNull CommandContext context, @NotNull ZonedDateTime now, long alertId) {
-        return context.transactional(txCtx -> {
-            Message[] message = new Message[1];
-            var answer = securedAlertAccess(alertId, context, (alert, alertsDao) -> {
-                if(sameUserOrAdmin(context, alert.userId)) {
-                    message[0] = toMessageWithEdit(context, now, alert, 0L, 0L);
-                } else {
-                    message[0] = Message.of(toMessage(context, now, alert, 0L, 0L));
-                }
-                return embedBuilder(""); // ignored
-            });
-            return null != message[0] ? message[0] : Message.of(answer);
-        });
+        return context.transactional(txCtx -> securedAlertAccess(alertId, context, (alert, alertsDao) -> {
+            if(sameUserOrAdmin(context, alert.userId)) {
+                return toMessageWithEdit(context, now, alert, 0L, 0L);
+            } else {
+                return Message.of(toMessage(context, now, alert, 0L, 0L));
+            }
+        }));
     }
 
 
@@ -176,7 +172,7 @@ public final class ListCommand extends CommandAdapter {
         return listAlerts(context, now, filter, arguments);
     }
 
-    private List<Message> listAlerts(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull SelectionFilter filter, @NotNull Arguments arguments) {
+    private static List<Message> listAlerts(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull SelectionFilter filter, @NotNull Arguments arguments) {
         record AlertsTotal(@NotNull List<Alert> alerts, long total) {}
         var alertsTotal = context.transactional(txCtx -> {
             var dao = txCtx.alertsDao();
@@ -184,11 +180,11 @@ public final class ListCommand extends CommandAdapter {
             var alerts = dao.getAlertsOrderByPairUserIdId(filter, arguments.offset, MESSAGE_LIST_CHUNK + 1L);
             return new AlertsTotal(alerts, total);
         });
-        var messages = toEditableMessages(context, alertsTotal.alerts, now, arguments, alertsTotal.total);
+        var messages = toEditableMessages(context, now, arguments, alertsTotal.alerts, alertsTotal.total);
         return paginatedAlerts(messages, arguments);
     }
 
-    private static ArrayList<Message> toEditableMessages(@NotNull CommandContext context, @NotNull List<Alert> alerts, @NotNull ZonedDateTime now, @NotNull Arguments arguments, long total) {
+    private static ArrayList<Message> toEditableMessages(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Arguments arguments, @NotNull List<Alert> alerts, long total) {
         boolean adminEditable = null != arguments.ownerId && isAdminMember(context.member);
         boolean editable = null != arguments.tickerOrPair || null != arguments.type;
         // return list of message containing all the embeds (alerts) between each editable message that can contains only one embed
@@ -212,12 +208,12 @@ public final class ListCommand extends CommandAdapter {
         return messages;
     }
 
-    public static Message toMessageWithEdit(@NotNull CommandContext context, ZonedDateTime now, @NotNull Alert alert, long offset, long total) {
+    static Message toMessageWithEdit(@NotNull CommandContext context, ZonedDateTime now, @NotNull Alert alert, long offset, long total) {
         return Message.of(toMessage(context, now, alert, offset, total), ActionRow.of(updateMenuOf(alert)));
     }
 
     public static final String ALERT_TITLE_PAIR_FOOTER = "] ";
-    public static EmbedBuilder toMessage(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert, long offset, long total) {
+    private static EmbedBuilder toMessage(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert, long offset, long total) {
         return listAlert(context, now, alert)
                 .setTitle('[' + alert.pair + ALERT_TITLE_PAIR_FOOTER + alert.message)
                 .setFooter(total > 0 ? "(" + offset + "/" + total + ")" : "");
@@ -231,7 +227,7 @@ public final class ListCommand extends CommandAdapter {
     private static List<Message> paginatedAlerts(@NotNull ArrayList<Message> messages, @NotNull Arguments arguments) {
         if (messages.isEmpty()) {
             return List.of(Message.of(embedBuilder("Alerts search", OK_COLOR,
-                    "No alert found" + arguments.asDescription())));
+                    "No alert found " + arguments.asDescription())));
         } else {
             return shrinkToPageSize(messages, arguments);
         }
@@ -248,37 +244,37 @@ public final class ListCommand extends CommandAdapter {
         return messages;
     }
 
-    private Message settings(@NotNull Locale locale, @Nullable ZoneId timezone) {
+    private static Message settings(@NotNull Locale locale, @Nullable ZoneId timezone) {
         return Message.of(embedBuilder(LIST_SETTINGS, OK_COLOR, "Your current settings :")
                 .addField("locale", locale.toLanguageTag(), true)
                 .addField("timezone", null != timezone ? timezone.getId() : "UTC", true));
     }
 
-    private Message locales() {
-        return Message.of(embedBuilder(" ", OK_COLOR, "Available locales :\n\n```" +
-                Stream.of(DiscordLocale.values())
+    private static Message locales() {
+        return Message.of(embedBuilder(" ", OK_COLOR, "Available locales :\n\n" +
+                MarkdownUtil.codeblock(Stream.of(DiscordLocale.values())
                         .filter(not(DiscordLocale.UNKNOWN::equals))
                         .map(locale -> {
                             String desc = locale.toLocale().toLanguageTag();
                             return desc + " ".repeat(10 - desc.length()) +"(" + locale.getNativeName() + ')';
                         })
-                        .collect(joining("\n")) + "```"));
+                        .collect(joining("\n")))));
     }
 
-    private List<Message> timezones() {
+    private static List<Message> timezones() {
         var zoneIds = ZoneId.getAvailableZoneIds();
         zoneIds.addAll(SHORT_IDS.keySet());
         var zones = zoneIds.stream().sorted().toList();
         int splitIndex = zones.size() / 3;
 
-        return List.of(Message.of(embedBuilder(" ", OK_COLOR, "Available time zones :\n\n>>> " +
-                        "by offset : +HH:mm, -HH:mm,\n" + String.join(", ", zones.subList(0, splitIndex)))),
-                Message.of(embedBuilder(" ", OK_COLOR, ">>> " + String.join(", ", zones.subList(splitIndex, 2 * splitIndex)))),
-                Message.of(embedBuilder(" ", OK_COLOR, ">>> " + String.join(", ", zones.subList(2 * splitIndex, zones.size())))));
+        return List.of(Message.of(embedBuilder(" ", OK_COLOR, "Available timezones :\n\n" +
+                        MarkdownUtil.quoteBlock("by offset : +HH:mm, -HH:mm,\n" + String.join(", ", zones.subList(0, splitIndex))))),
+                Message.of(embedBuilder(" ", OK_COLOR, MarkdownUtil.quoteBlock(String.join(", ", zones.subList(splitIndex, 2 * splitIndex))))),
+                Message.of(embedBuilder(" ", OK_COLOR, MarkdownUtil.quoteBlock(String.join(", ", zones.subList(2 * splitIndex, zones.size()))))));
     }
 
-    private Message exchanges() {
-        return Message.of(embedBuilder(LIST_EXCHANGES, OK_COLOR, //TODO add pairs
+    private static Message exchanges() {
+        return Message.of(embedBuilder(LIST_EXCHANGES, OK_COLOR, "Available exchanges :\n\n" +//TODO add pairs
                 MarkdownUtil.quoteBlock("* " + String.join("\n* ", SUPPORTED_EXCHANGES))));
     }
 }

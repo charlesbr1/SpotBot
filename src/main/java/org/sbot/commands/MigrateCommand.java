@@ -114,7 +114,7 @@ public final class MigrateCommand extends CommandAdapter {
             return migrateByIdToPrivate(context, alertId);
         }
         long[] userId = new long[1]; // retrieve alertId first to avoid performing blocking call isGuildMember in a transaction
-        EmbedBuilder answer = context.transactional(txCtx -> securedAlertAccess(alertId, context, (alert, alertsDao) -> {
+        EmbedBuilder answer = context.transactional(txCtx -> securedAlertUpdate(alertId, context, (alert, alertsDao) -> {
             if(sameId(guild, alert.serverId)) {
                 throw alertAlreadyInGuildException(alertId, guild);
             }
@@ -126,7 +126,7 @@ public final class MigrateCommand extends CommandAdapter {
             if(notGuildMember(guild, userId[0])) { // blocking call
                 throw notGuildMemberException(userId[0], guild);
             }
-            answer = context.transactional(txCtx -> securedAlertAccess(alertId, context, (alert, alertsDao) -> {
+            answer = context.transactional(txCtx -> securedAlertUpdate(alertId, context, (alert, alertsDao) -> {
                 if(sameId(guild, alert.serverId)) { // this can have changed, unlikely but possible
                     throw alertAlreadyInGuildException(alertId, guild);
                 }
@@ -144,7 +144,7 @@ public final class MigrateCommand extends CommandAdapter {
 
     private Message migrateByIdToPrivate(@NotNull CommandContext context, long alertId) {
         Runnable[] outNotificationCallBack = new Runnable[1];
-        EmbedBuilder answer = context.transactional(txCtx -> securedAlertAccess(alertId, context, (alert, alertsDao) -> {
+        EmbedBuilder answer = context.transactional(txCtx -> securedAlertUpdate(alertId, context, (alert, alertsDao) -> {
             if (PRIVATE_MESSAGES == alert.serverId) {
                 throw new IllegalArgumentException("Alert " + alertId + " is already in this private channel");
             }

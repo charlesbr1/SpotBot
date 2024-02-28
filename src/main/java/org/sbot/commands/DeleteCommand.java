@@ -86,7 +86,7 @@ public final class DeleteCommand extends CommandAdapter {
 
     private Message deleteById(@NotNull CommandContext context, long alertId) {
         Runnable[] outNotificationCallBack = new Runnable[1];
-        var answer = context.transactional(txCtx -> securedAlertAccess(alertId, context, (alert, alertsDao) -> {
+        var answer = context.transactional(txCtx -> securedAlertUpdate(alertId, context, (alert, alertsDao) -> {
             alertsDao.deleteAlert(alertId);
             if(!sameUser(context.user, alert.userId)) { // send notification once transaction is successful
                 outNotificationCallBack[0] = () -> sendUpdateNotification(context, alert.userId, ownerDeleteNotification(alertId, requireNonNull(context.member)));

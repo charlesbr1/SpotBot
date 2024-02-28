@@ -98,7 +98,7 @@ public abstract class CommandAdapter implements CommandListener {
         return new OptionData(type, name, description, isRequired);
     }
 
-    protected EmbedBuilder securedAlertAccess(long alertId, @NotNull CommandContext context, @NotNull BiFunction<Alert, AlertsDao, EmbedBuilder> updateHandler) {
+    protected EmbedBuilder securedAlertUpdate(long alertId, @NotNull CommandContext context, @NotNull BiFunction<Alert, AlertsDao, EmbedBuilder> updateHandler) {
         return context.transactional(txCtx -> {
             var dao = txCtx.alertsDao();
             Alert alert = dao.getAlertWithoutMessage(alertId).orElse(null);
@@ -109,6 +109,21 @@ public abstract class CommandAdapter implements CommandListener {
             }
             var embedBuilder = updateHandler.apply(alert, dao).setTitle(":+1: " + context.user.getEffectiveName());
             return embedBuilder.setColor(Optional.ofNullable(embedBuilder.build().getColor()).orElse(OK_COLOR));
+        });
+    }
+
+    protected Message securedAlertAccess(long alertId, @NotNull CommandContext context, @NotNull BiFunction<Alert, AlertsDao, Message> updateHandler) {
+        return context.transactional(txCtx -> {
+            var dao = txCtx.alertsDao();
+            Alert alert = dao.getAlertWithoutMessage(alertId).orElse(null);
+            if(SecurityAccess.notFound(context, alert)) {
+                return Message.of(embedBuilder(":ghost: " + context.user.getEffectiveName(), NOT_FOUND_COLOR, "Alert " + alertId + " not found"));
+            }
+            var message = updateHandler.apply(alert, dao);
+            var embed = requireOneItem(message.embeds()).build();
+            requireOneItem(message.embeds()).setTitle(null == embed.getTitle() ?":face_with_monocle: " + alert.type.titleName + " alert " + alertId : embed.getTitle());
+            requireOneItem(message.embeds()).setColor(null == embed.getColor() ? OK_COLOR : embed.getColor());
+            return message;
         });
     }
 

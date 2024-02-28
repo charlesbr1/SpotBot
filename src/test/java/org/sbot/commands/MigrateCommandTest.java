@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.sbot.commands.CommandAdapter.PAIR_ARGUMENT;
 import static org.sbot.commands.CommandAdapter.TICKER_PAIR_ARGUMENT;
 import static org.sbot.commands.CommandAdapterTest.assertExceptionContains;
 import static org.sbot.commands.MigrateCommand.GUILD_ARGUMENT;
@@ -646,11 +647,11 @@ class MigrateCommandTest {
                 () -> MigrateCommand.arguments(commandContext[0]));
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  azefefefel/lklk");
-        assertExceptionContains(IllegalArgumentException.class, "pair",
+        assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
                 () -> MigrateCommand.arguments(commandContext[0]));
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  btc/lk");
-        assertExceptionContains(IllegalArgumentException.class, "pair",
+        assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
                 () -> MigrateCommand.arguments(commandContext[0]));
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  ETH/USD badType");
