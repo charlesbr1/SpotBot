@@ -26,10 +26,10 @@ import static org.mockito.Mockito.*;
 import static org.sbot.commands.CommandAdapter.*;
 import static org.sbot.commands.CommandAdapterTest.assertExceptionContains;
 import static org.sbot.entities.User.DEFAULT_LOCALE;
+import static org.sbot.entities.alerts.Alert.DEFAULT_SNOOZE_HOURS;
 import static org.sbot.entities.alerts.Alert.MARGIN_DISABLED;
 import static org.sbot.entities.alerts.Alert.Type.remainder;
 import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
-import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_DEFAULT_SNOOZE;
 import static org.sbot.utils.ArgumentValidator.ALERT_MESSAGE_ARG_MAX_LENGTH;
 import static org.sbot.utils.Dates.UTC;
 
@@ -102,7 +102,7 @@ class RemainderCommandTest {
         assertNull(alert.toPrice);
         assertEquals(MARGIN_DISABLED, alert.margin);
         assertEquals(REMAINDER_DEFAULT_REPEAT, alert.repeat);
-        assertEquals(REMAINDER_DEFAULT_SNOOZE, alert.snooze);
+        assertEquals(DEFAULT_SNOOZE_HOURS, alert.snooze);
 
         messagesReply = ArgumentCaptor.forClass(List.class);
         verify(commandContext).reply(messagesReply.capture(), eq(command.responseTtlSeconds));

@@ -240,12 +240,11 @@ public final class UpdateCommand extends CommandAdapter {
     }
 
     private BiFunction<Alert, AlertsDao, EmbedBuilder> snooze(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
-        short snooze = requirePositiveShort(context.args.getMandatoryLong(VALUE_ARGUMENT));
+        short snooze = requireStrictlyPositiveShort(context.args.getMandatoryLong(VALUE_ARGUMENT));
         return update(context, now, (alert, alertsDao) -> {
             alert = alert.withSnooze(0 != snooze ? snooze : DEFAULT_SNOOZE_HOURS);
             alertsDao.update(alert, Set.of(SNOOZE));
-            return updateNotifyMessage(context, now, alert, CHOICE_SNOOZE,
-                    (0 != snooze ? String.valueOf(snooze) : "(default) " + DEFAULT_SNOOZE_HOURS) + (snooze > 1 ? " hours" : " hour"), outNotificationCallBack);
+            return updateNotifyMessage(context, now, alert, CHOICE_SNOOZE, String.valueOf(snooze) + (snooze > 1 ? " hours" : " hour"), outNotificationCallBack);
         }, alert -> snooze != alert.snooze);
     }
 

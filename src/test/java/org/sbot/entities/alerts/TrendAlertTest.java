@@ -479,9 +479,9 @@ class TrendAlertTest {
         assertFalse(message.contains("DISABLED"));
         assertFalse(message.contains("QUIET"));
         assertFalse(message.contains(Dates.formatDiscordRelative(alert.lastTrigger)));
-        assertFalse(alert.withListeningDateRepeat(null, (short) 0)
+        assertFalse(alert.withListeningDateRepeat(null, (short) -1)
                 .asMessage(MATCHED, candlestick, now).getDescriptionBuilder().toString().contains("DISABLED"));
-        assertFalse(alert.withListeningDateRepeat(null, (short) 0)
+        assertFalse(alert.withListeningDateRepeat(null, (short) -1)
                 .asMessage(MATCHED, candlestick, now).getDescriptionBuilder().toString().contains("quiet for"));
 
         // MARGIN

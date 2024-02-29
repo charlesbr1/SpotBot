@@ -111,7 +111,7 @@ public abstract class Alert {
         this.toDate = toDate;
         this.margin = requirePositive(margin);
         this.repeat = repeat;
-        this.snooze = requirePositiveShort(snooze);
+        this.snooze = requireStrictlyPositiveShort(snooze);
     }
 
     @NotNull
@@ -310,15 +310,16 @@ public abstract class Alert {
     //TODO test
     private static String raiseTitle(@NotNull Alert alert, @NotNull MatchingStatus matchingStatus) {
         String title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + alert.type.titleName + (alert.type != remainder ? " ALERT !!!" : "") + " - [" + alert.pair + "] ";
-        if(TITLE_MAX_LENGTH - alert.message.length() < title.length()) {
+        String footer = alert.type != remainder ? alert.message : "";
+        if(TITLE_MAX_LENGTH - footer.length() < title.length()) {
             LOGGER.warn("Alert name '{}' will be truncated from the title because it is too long : {}", alert.type.titleName, title);
             title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + "ALERT !!! - [" + alert.pair + "] ";
-            if(TITLE_MAX_LENGTH - alert.message.length() < title.length()) {
+            if(TITLE_MAX_LENGTH - footer.length() < title.length()) {
                 LOGGER.warn("Pair '{}' will be truncated from the title because it is too long : {}", alert.pair, title);
                 title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + " ALERT !!! - ";
             }
         }
-        return title + (alert.type != remainder ? alert.message : "");
+        return title + footer;
     }
 
     @Override

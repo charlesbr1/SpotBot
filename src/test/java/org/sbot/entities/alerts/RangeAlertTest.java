@@ -560,7 +560,7 @@ public class RangeAlertTest {
         // disabled
         assertFalse(message.contains("DISABLED"));
         assertFalse(message.contains(Dates.formatDiscordRelative(alert.lastTrigger)));
-        assertFalse(alert.withListeningDateRepeat(null, (short) 0)
+        assertFalse(alert.withListeningDateRepeat(null, (short) -1)
                 .asMessage(MARGIN, candlestick, now).getDescriptionBuilder().toString().contains("DISABLED"));
         assertFalse(message.contains("quiet for"));
         assertFalse(alert.withListeningDateRepeat(now(), (short) 2).asMessage(MARGIN, candlestick, now).getDescriptionBuilder().toString().contains("DISABLED"));

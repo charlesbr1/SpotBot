@@ -151,18 +151,18 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
             String pair = rs.getString(PAIR);
             String message = rs.getString(MESSAGE);
             ZonedDateTime fromDate = parseUtcDateTimeOrNull(rs.getTimestamp(FROM_DATE));
+            ZonedDateTime lastTrigger = parseUtcDateTimeOrNull(rs.getTimestamp(LAST_TRIGGER));
+            short repeat = rs.getShort(REPEAT);
+            short snooze = rs.getShort(SNOOZE);
 
             if(remainder == type) {
-                return new RemainderAlert(id, userId, serverId, creationDate, listeningDate, pair, message, requireNonNull(fromDate, "missing from_date on a remainder alert " + id));
+                return new RemainderAlert(id, userId, serverId, creationDate, listeningDate, pair, message, requireNonNull(fromDate, "missing from_date on a remainder alert " + id), lastTrigger, repeat, snooze);
             }
             BigDecimal fromPrice = rs.getBigDecimal(FROM_PRICE);
             BigDecimal toPrice = rs.getBigDecimal(TO_PRICE);
             ZonedDateTime toDate = parseUtcDateTimeOrNull(rs.getTimestamp(TO_DATE));
 
-            ZonedDateTime lastTrigger = parseUtcDateTimeOrNull(rs.getTimestamp(LAST_TRIGGER));
             BigDecimal margin = rs.getBigDecimal(MARGIN);
-            short repeat = rs.getShort(REPEAT);
-            short snooze = rs.getShort(SNOOZE);
 
             return range == type ?
                     new RangeAlert(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze) :

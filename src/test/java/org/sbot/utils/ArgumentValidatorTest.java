@@ -120,6 +120,15 @@ class ArgumentValidatorTest {
     }
 
     @Test
+    void requireStrictlyPositiveShort() {
+        assertEquals(1, ArgumentValidator.requireStrictlyPositiveShort((short) 1));
+        assertEquals(300, ArgumentValidator.requireStrictlyPositiveShort((short) 300));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireStrictlyPositiveShort((short) 0));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireStrictlyPositiveShort((short) -1));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireStrictlyPositiveShort((short) -300));
+    }
+
+    @Test
     void requireNotBlank() {
         assertThrows(NullPointerException.class, () -> ArgumentValidator.requireNotBlank(null, "field"));
         assertEquals("a", ArgumentValidator.requireNotBlank("a", "field"));

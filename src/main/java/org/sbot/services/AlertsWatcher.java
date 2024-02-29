@@ -22,9 +22,7 @@ import org.sbot.services.dao.BatchEntry;
 import org.sbot.services.dao.UsersDao;
 import org.sbot.utils.Dates;
 
-import java.awt.*;
 import java.time.ZonedDateTime;
-import java.util.List;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
@@ -89,7 +87,7 @@ public final class AlertsWatcher {
                 } else { // one task by exchange
                     tasks.add(() -> { pairs.forEach(pair -> getPricesAndRaiseAlerts(now, exchange, pair)); return null; });
                 }
-            }, () -> LOGGER.warn("Unknown exchange : " + xchange)));
+            }, () -> LOGGER.warn("Unknown exchange : {}", xchange)));
             try(var executor = Executors.newVirtualThreadPerTaskExecutor()) {
                 executor.invokeAll(tasks);
                 LOGGER.info("Alerts check done, {}ms.", System.currentTimeMillis() - start);
@@ -113,7 +111,8 @@ public final class AlertsWatcher {
                         .forEach(matchingAlert -> deleter.batchId(matchingAlert.alert().id)));
 
         ZonedDateTime expirationDate = now.minusWeeks(DONE_DELAY_WEEKS);
-        long deleted = alertsDao.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(expirationDate, alertsDeleter);
+        // filter by repeat < 0 and not listeningDate null to distinguish case where user disabled the alert but want to keep it
+        long deleted = alertsDao.fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(expirationDate, alertsDeleter);
         LOGGER.debug("Deleted {} alerts with repeat = 0 and lastTrigger or creation date < {}", deleted, expirationDate);
         expirationDate = now.minusWeeks(EXPIRED_DELAY_WEEKS);
         deleted = alertsDao.fetchAlertsByTypeHavingToDateBefore(trend, expirationDate, alertsDeleter);
@@ -140,8 +139,10 @@ public final class AlertsWatcher {
     }
 
     private void raiseAlerts(@NotNull ZonedDateTime now, @NotNull Exchange virtualExchange, @NotNull String pair) {
-        LOGGER.debug("Processing pair [{}] on virtual exchange {}{}...", pair,
-                virtualExchange.name(), REMAINDER_VIRTUAL_EXCHANGE.equals(virtualExchange.name()) ? " (Remainder Alerts)" : "");
+        if(LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Processing pair [{}] on virtual exchange {}{}...", pair,
+                    virtualExchange.name(), REMAINDER_VIRTUAL_EXCHANGE.equals(virtualExchange.name()) ? " (Remainder Alerts)" : "");
+        }
         context.transaction(ctx -> processMatchingAlerts(ctx, now, virtualExchange, pair, emptyList(), null));
     }
 
@@ -227,15 +228,14 @@ public final class AlertsWatcher {
     private void batchAlertsUpdates(@NotNull AlertsDao alertsDao, @NotNull ZonedDateTime now, @NotNull Stream<MatchingAlert> matchingAlerts) {
         alertsDao.matchedAlertBatchUpdates(now, matchedUpdater ->
                 alertsDao.marginAlertBatchUpdates(now, marginUpdater ->
-                        alertsDao.alertBatchDeletes(remainderDeleter ->
-                            matchingAlerts.forEach(matchingAlert -> {
-                                Alert alert = matchingAlert.alert();
-                                (switch (matchingAlert.status()) {
-                                    case MATCHED -> (alert.type == remainder ? remainderDeleter : matchedUpdater);
-                                    case MARGIN -> marginUpdater;
-                                    case NOT_MATCHING -> (BatchEntry) Function.identity();
-                                }).batchId(alert.id);
-                        }))));
+                        matchingAlerts.forEach(matchingAlert -> {
+                            Alert alert = matchingAlert.alert();
+                            (switch (matchingAlert.status()) {
+                                case MATCHED -> matchedUpdater;
+                                case MARGIN -> marginUpdater;
+                                case NOT_MATCHING -> (BatchEntry) Function.identity();
+                            }).batchId(alert.id);
+                        })));
     }
 
     private List<MatchingAlert> fetchAlertsMessage(@NotNull AlertsDao alertsDao, @NotNull List<MatchingAlert> matchingAlerts) {

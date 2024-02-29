@@ -13,7 +13,9 @@ import java.time.ZonedDateTime;
 import java.util.List;
 
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
+import static org.sbot.entities.alerts.Alert.DEFAULT_SNOOZE_HOURS;
 import static org.sbot.entities.alerts.Alert.NEW_ALERT_ID;
+import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.DATE_TIME_FORMAT;
 
@@ -60,7 +62,7 @@ public final class RemainderCommand extends CommandAdapter {
         RemainderAlert remainderAlert = new RemainderAlert(NEW_ALERT_ID, context.user.getIdLong(),
                 context.serverId(), now, // creation date
                 fromDate, // listening date
-                pair, message, fromDate);
+                pair, message, fromDate, null, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
         return createdAlertMessage(context, now, saveAlert(context, remainderAlert));
     }
 }
