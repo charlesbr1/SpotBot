@@ -77,11 +77,11 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public long fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
-        LOGGER.debug("fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore {}", expirationDate);
+    public long fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore {}", expirationDate);
         requireNonNull(expirationDate);
         long[] read = new long[] {0L};
-        Predicate<Alert> predicate = alert -> alert.repeat <= 0 &&
+        Predicate<Alert> predicate = alert -> alert.repeat < 0 &&
                     ((null != alert.lastTrigger && alert.lastTrigger.isBefore(expirationDate)) ||
                     (null == alert.lastTrigger && alert.creationDate.isBefore(expirationDate))) &&
                 ++read[0] != 0;
@@ -210,9 +210,9 @@ public final class AlertsMemory implements AlertsDao {
         requireNonNull(now);
         updater.accept(ids -> alerts.computeIfPresent(longId(ids),
                 (id, alert) -> alert.withListeningDateLastTriggerMarginRepeat(
-                        hasRepeat(alert.repeat - 1L) ? now.plusHours(alert.snooze) : null, // listening date
+                        alert.repeat >= 0 ? now.plusHours(alert.snooze) : null, // listening date
                         now, // last trigger
-                        MARGIN_DISABLED, (short) (hasRepeat(alert.repeat) ? alert.repeat - 1 : 0))));
+                        MARGIN_DISABLED, (short) (alert.repeat - 1))));
     }
 
     @Override

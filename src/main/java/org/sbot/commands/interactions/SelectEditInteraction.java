@@ -48,11 +48,7 @@ public class SelectEditInteraction implements InteractionListener {
             menu.addOption(CHOICE_DATE, CHOICE_DATE, "a future date when to trigger the remainder, UTC expected format : " + DATE_TIME_FORMAT, Emoji.fromUnicode("U+1F550"));
             menu.addOption(CHOICE_MESSAGE, CHOICE_MESSAGE, "a message for this remainder (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", Emoji.fromUnicode("U+1F5D2"));
         } else {
-            if(alert.isEnabled()) {
-                menu.addOptions(disableOption());
-            } else {
-                menu.addOptions(enableOption(alert.repeat > 0));
-            }
+            menu.addOptions(alert.isEnabled() ? disableOption() : enableOption(alert.repeat < 0));
             menu.addOption(CHOICE_MESSAGE, CHOICE_MESSAGE, "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", Emoji.fromUnicode("U+1F5D2"));
             if(range == alert.type) {
                 menu.addOption(DISPLAY_FROM_DATE, CHOICE_FROM_DATE, "a date to start the box, UTC expected format : " + DATE_TIME_FORMAT, Emoji.fromUnicode("U+27A1"));
@@ -74,8 +70,8 @@ public class SelectEditInteraction implements InteractionListener {
         return menu.build();
     }
 
-    static SelectOption enableOption(boolean hasRepeat) {
-        return SelectOption.of(CHOICE_ENABLE, CHOICE_ENABLE).withDescription("enable this alert" + (hasRepeat ? "" : " (this will set repeat to " + DEFAULT_REPEAT + ")")).withEmoji(Emoji.fromUnicode("U+1F7E2"));
+    static SelectOption enableOption(boolean noRepeat) {
+        return SelectOption.of(CHOICE_ENABLE, CHOICE_ENABLE).withDescription("enable this alert" + (noRepeat ? " (this will set repeat to " + DEFAULT_REPEAT + ")" : "")).withEmoji(Emoji.fromUnicode("U+1F7E2"));
     }
 
     static SelectOption disableOption() {

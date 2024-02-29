@@ -233,11 +233,9 @@ public final class UpdateCommand extends CommandAdapter {
     private BiFunction<Alert, AlertsDao, EmbedBuilder> repeat(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
         short repeat = requirePositiveShort(context.args.getMandatoryLong(VALUE_ARGUMENT));
         return update(context, now, (alert, alertsDao) -> {
-            var listeningDate = listeningDate(now, alert);
-            alert = alert.withListeningDateRepeat(repeat > 0 ? listeningDate : null, repeat);
-            alertsDao.update(alert, Set.of(REPEAT, LISTENING_DATE));
-            return updateNotifyMessage(context, now, alert, CHOICE_REPEAT, repeat + (!hasRepeat(repeat) ? " (disabled)" : ""), outNotificationCallBack)
-                    .appendDescription(hasRepeat(repeat) ? "\n\nThis alert is enable" : ""); //TODO clean from modal
+            alert = alert.withRepeat(repeat);
+            alertsDao.update(alert, Set.of(REPEAT));
+            return updateNotifyMessage(context, now, alert, CHOICE_REPEAT, String.valueOf(repeat), outNotificationCallBack);
         }, alert -> repeat != alert.repeat);
     }
 
@@ -260,8 +258,8 @@ public final class UpdateCommand extends CommandAdapter {
             if(remainder == alert.type) {
                 throw new IllegalArgumentException("Remainder alert can't be disabled, drop it instead");
             }
-            var repeat = alert.repeat <= 0 ? DEFAULT_REPEAT : alert.repeat;
-            alert = alert.withListeningDateRepeat(enable ? listeningDate(now, alert) : null, enable ? repeat : (short) 0);
+            var repeat = alert.repeat < 0 ? DEFAULT_REPEAT : alert.repeat;
+            alert = alert.withListeningDateRepeat(enable ? listeningDate(now, alert) : null, enable ? repeat : alert.repeat);
             alertsDao.update(alert, Set.of(REPEAT, LISTENING_DATE));
             return updateNotifyMessage(context, now, alert, enable ? UPDATE_ENABLED_HEADER : UPDATE_DISABLED_HEADER, Boolean.toString(enable), CHOICE_ENABLE, outNotificationCallBack);
         }, alert -> enable != alert.isEnabled());

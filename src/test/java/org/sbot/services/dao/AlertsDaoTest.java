@@ -357,62 +357,62 @@ public abstract class AlertsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(AlertsDao alerts, UsersDao users) {
+    void fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(AlertsDao alerts, UsersDao users) {
         setUser(users, TEST_USER_ID);
-        assertThrows(NullPointerException.class, () -> alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(null, mock()));
-        assertThrows(NullPointerException.class, () -> alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(DatesTest.nowUtc(), null));
+        assertThrows(NullPointerException.class, () -> alerts.fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(null, mock()));
+        assertThrows(NullPointerException.class, () -> alerts.fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(DatesTest.nowUtc(), null));
 
         ZonedDateTime creationDate = TEST_FROM_DATE.minusMinutes(1L);
         ZonedDateTime lastTrigger = creationDate.plusDays(1L);
-        Alert alert1 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.minusMinutes(40L), MARGIN_DISABLED, (short) 0);
+        Alert alert1 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.minusMinutes(40L), MARGIN_DISABLED, (short) -1);
         long alertId1 = alerts.addAlert(alert1);
-        Alert alert2 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.minusHours(3L), MARGIN_DISABLED, (short) 0);
+        Alert alert2 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.minusHours(3L), MARGIN_DISABLED, (short) -1);
         long alertId2 = alerts.addAlert(alert2);
-        Alert alert3 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger, MARGIN_DISABLED, (short) 0);
+        Alert alert3 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger, MARGIN_DISABLED, (short) -1);
         long alertId3 = alerts.addAlert(alert3);
-        Alert alert4 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.plusSeconds(1L), MARGIN_DISABLED, (short) 0);
+        Alert alert4 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.plusSeconds(1L), MARGIN_DISABLED, (short) -1);
         long alertId4 = alerts.addAlert(alert4);
-        Alert alert5 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.plusMinutes(31L), MARGIN_DISABLED, (short) 0);
+        Alert alert5 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.plusMinutes(31L), MARGIN_DISABLED, (short) -1);
         long alertId5 = alerts.addAlert(alert5);
 
-        alerts.addAlert(createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.minusMinutes(40L), MARGIN_DISABLED, (short) 1));
-        alerts.addAlert(createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.minusHours(3L), MARGIN_DISABLED, (short) 2));
+        alerts.addAlert(createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.minusMinutes(40L), MARGIN_DISABLED, (short) 0));
+        alerts.addAlert(createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.minusHours(3L), MARGIN_DISABLED, (short) 1));
         alerts.addAlert(createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger, MARGIN_DISABLED, (short) 3));
         alerts.addAlert(createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.plusSeconds(1L), MARGIN_DISABLED, (short) 2));
         alerts.addAlert(createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger.plusMinutes(31L), MARGIN_DISABLED, (short) 1));
 
-        Alert alert6 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, null, MARGIN_DISABLED, (short) 0);
+        Alert alert6 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, null, MARGIN_DISABLED, (short) -1);
         long alertId6 = alerts.addAlert(alert6);
-        alerts.addAlert(createTestAlert().withListeningDateLastTriggerMarginRepeat(null, null, MARGIN_DISABLED, (short) 2));
-        Alert alert7 = createTestAlertWithCreationDate(lastTrigger.plusDays(1L)).withListeningDateLastTriggerMarginRepeat(null, null, MARGIN_DISABLED, (short) 0);
+        alerts.addAlert(createTestAlert().withListeningDateLastTriggerMarginRepeat(null, null, MARGIN_DISABLED, (short) 1));
+        Alert alert7 = createTestAlertWithCreationDate(lastTrigger.plusDays(1L)).withListeningDateLastTriggerMarginRepeat(null, null, MARGIN_DISABLED, (short) -1);
         long alertId7 = alerts.addAlert(alert7);
         alerts.addAlert(createTestAlertWithCreationDate(lastTrigger.plusDays(1L)).withListeningDateLastTriggerMarginRepeat(null, null, MARGIN_DISABLED, (short) 1));
 
         assertEquals(14, alerts.countAlerts(SelectionFilter.ofUser(TEST_USER_ID, null)));
-        assertEquals(0, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusDays(2L),
+        assertEquals(0, alerts.fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusDays(2L),
                 stream -> assertEquals(0, stream.count())));
-        assertEquals(0, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusDays(1L),
+        assertEquals(0, alerts.fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusDays(1L),
                 stream -> assertEquals(0, stream.count())));
-        assertEquals(1, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusDays(1L).plusSeconds(1L),
+        assertEquals(1, alerts.fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusDays(1L).plusSeconds(1L),
                 stream -> assertTrue(stream.allMatch(a -> alertId6 == a.id))));
-        assertEquals(1, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusDays(1L).plusMinutes(1L),
+        assertEquals(1, alerts.fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusDays(1L).plusMinutes(1L),
                 stream -> assertTrue(stream.allMatch(a -> alertId6 == a.id))));
-        assertEquals(1, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusDays(1L).plusHours(3L),
+        assertEquals(1, alerts.fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusDays(1L).plusHours(3L),
                 stream -> assertTrue(stream.allMatch(a -> alertId6 == a.id))));
 
-        assertEquals(3, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusSeconds(1L),
+        assertEquals(3, alerts.fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusSeconds(1L),
                 stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId6).contains(a.id)))));
-        assertEquals(3, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger,
+        assertEquals(3, alerts.fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger,
                 stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId6).contains(a.id)))));
-        assertEquals(4, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.plusSeconds(1L),
+        assertEquals(4, alerts.fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.plusSeconds(1L),
                 stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId3, alertId6).contains(a.id)))));
-        assertEquals(5, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.plusSeconds(2L),
+        assertEquals(5, alerts.fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.plusSeconds(2L),
                 stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId3, alertId4, alertId6).contains(a.id)))));
-        assertEquals(6, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.plusMinutes(32L),
+        assertEquals(6, alerts.fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.plusMinutes(32L),
                 stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId3, alertId4, alertId5, alertId6).contains(a.id)))));
-        assertEquals(6, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.plusDays(1L),
+        assertEquals(6, alerts.fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.plusDays(1L),
                 stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId3, alertId4, alertId5, alertId6).contains(a.id)))));
-        assertEquals(7, alerts.fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.plusDays(1L).plusMinutes(1L),
+        assertEquals(7, alerts.fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.plusDays(1L).plusMinutes(1L),
                 stream -> assertTrue(stream.allMatch(a -> Set.of(alertId1, alertId2, alertId3, alertId4, alertId5, alertId6, alertId7).contains(a.id)))));
     }
 
@@ -2134,7 +2134,7 @@ public abstract class AlertsDaoTest {
         alert1 = setId(alert1, alerts.addAlert(alert1));
         Alert alert2 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger, TEN, (short) 19);
         alert2 = setId(alert2, alerts.addAlert(alert2));
-        Alert alert3 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger, TWO, (short) 0);
+        Alert alert3 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger, TWO, (short) -1);
         alert3 = setId(alert3, alerts.addAlert(alert3));
         Alert alert4 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger, TEN, (short) 21);
         alert4 = setId(alert4, alerts.addAlert(alert4));
@@ -2153,7 +2153,7 @@ public abstract class AlertsDaoTest {
         assertNull(alerts.getAlert(alert3.id).get().listeningDate);
         assertEquals(lastTrigger, alerts.getAlert(alert3.id).get().lastTrigger);
         assertEquals(TWO, alerts.getAlert(alert3.id).get().margin);
-        assertEquals(0, alerts.getAlert(alert3.id).get().repeat);
+        assertEquals(-1, alerts.getAlert(alert3.id).get().repeat);
         assertTrue(alerts.getAlert(alert4.id).isPresent());
         assertNull(alerts.getAlert(alert4.id).get().listeningDate);
         assertEquals(lastTrigger, alerts.getAlert(alert4.id).get().lastTrigger);
@@ -2176,7 +2176,7 @@ public abstract class AlertsDaoTest {
         assertNull(alerts.getAlert(alert3.id).get().listeningDate);
         assertEquals(now, alerts.getAlert(alert3.id).get().lastTrigger);
         assertEquals(MARGIN_DISABLED, alerts.getAlert(alert3.id).get().margin);
-        assertEquals(0, alerts.getAlert(alert3.id).get().repeat);
+        assertEquals(-2, alerts.getAlert(alert3.id).get().repeat);
 
         assertEquals(now.plusHours(DEFAULT_SNOOZE_HOURS), alerts.getAlert(alert4.id).get().listeningDate);
         assertEquals(now, alerts.getAlert(alert4.id).get().lastTrigger);
@@ -2204,7 +2204,7 @@ public abstract class AlertsDaoTest {
         assertNull(alerts.getAlert(alert3.id).get().listeningDate);
         assertEquals(now, alerts.getAlert(alert3.id).get().lastTrigger);
         assertEquals(MARGIN_DISABLED, alerts.getAlert(alert3.id).get().margin);
-        assertEquals(0, alerts.getAlert(alert3.id).get().repeat);
+        assertEquals(-2, alerts.getAlert(alert3.id).get().repeat);
 
         assertEquals(now.plusHours(DEFAULT_SNOOZE_HOURS), alerts.getAlert(alert4.id).get().listeningDate);
         assertEquals(now, alerts.getAlert(alert4.id).get().lastTrigger);

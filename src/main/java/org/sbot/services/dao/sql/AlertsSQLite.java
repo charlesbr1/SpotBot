@@ -117,7 +117,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
                 "SELECT id,type,user_id,server_id,creation_date,listening_date,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts " +
                 "WHERE exchange=:exchange AND pair=:pair AND " + PAST_LISTENING_DATE_WITH_ACTIVE_RANGE;
 
-        String SELECT_HAVING_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE_OR_NULL_AND_CREATION_BEFORE = "SELECT * FROM alerts WHERE repeat<=0 AND ((last_trigger IS NOT NULL AND last_trigger<:expirationDate) OR (last_trigger IS NULL AND creation_date<:expirationDate))";
+        String SELECT_HAVING_REPEAT_NEGATIVE_AND_LAST_TRIGGER_BEFORE_OR_NULL_AND_CREATION_BEFORE = "SELECT * FROM alerts WHERE repeat<0 AND ((last_trigger IS NOT NULL AND last_trigger<:expirationDate) OR (last_trigger IS NULL AND creation_date<:expirationDate))";
         String SELECT_BY_TYPE_HAVING_TO_DATE_BEFORE = "SELECT * FROM alerts WHERE type LIKE :type AND to_date IS NOT NULL AND to_date<:expirationDate";
         String SELECT_PAIRS_EXCHANGES_HAVING_PAST_LISTENING_DATE_WITH_ACTIVE_RANGE =
                 "SELECT DISTINCT exchange,pair FROM alerts WHERE " + PAST_LISTENING_DATE_WITH_ACTIVE_RANGE;
@@ -133,7 +133,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String UPDATE_ALERT_FIELDS_BY_ID = "UPDATE alerts SET {} WHERE id=:id";
         String UPDATE_ALERTS_SERVER_ID_OF_SELECTION = "UPDATE alerts SET server_id=:newServerId WHERE ";
         String UPDATE_ALERT_SET_LAST_TRIGGER_MARGIN_ZERO = "UPDATE alerts SET last_trigger=:last_trigger,margin=0 WHERE id=:id";
-        String UPDATE_ALERT_SET_MARGIN_ZERO_DECREMENT_REPEAT_LISTENING_DATE_LAST_TRIGGER_NOW = "UPDATE alerts SET margin=0,last_trigger=:nowMs,listening_date=CASE WHEN repeat>1 THEN (3600000*snooze)+:nowMs ELSE null END,repeat=MAX(0,repeat-1) WHERE id=:id";
+        String UPDATE_ALERT_SET_LISTENING_DATE_LAST_TRIGGER_NOW_MARGIN_ZERO_DECREMENT_REPEAT = "UPDATE alerts SET margin=0,last_trigger=:nowMs,listening_date=CASE WHEN repeat>=0 THEN (3600000*snooze)+:nowMs ELSE null END,repeat=repeat-1 WHERE id=:id";
     }
 
     // from jdbi SQL to Alert
@@ -273,9 +273,9 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     }
 
     @Override
-    public long fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
-        LOGGER.debug("fetchAlertsHavingRepeatZeroAndLastTriggerBeforeOrNullAndCreationBefore {}", expirationDate);
-        return fetch(SQL.SELECT_HAVING_REPEAT_ZERO_AND_LAST_TRIGGER_BEFORE_OR_NULL_AND_CREATION_BEFORE, Alert.class,
+    public long fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore {}", expirationDate);
+        return fetch(SQL.SELECT_HAVING_REPEAT_NEGATIVE_AND_LAST_TRIGGER_BEFORE_OR_NULL_AND_CREATION_BEFORE, Alert.class,
                 Map.of(EXPIRATION_DATE_ARGUMENT, expirationDate.toInstant().toEpochMilli()), alertsConsumer);
     }
 
@@ -390,7 +390,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     public void matchedAlertBatchUpdates(@NotNull ZonedDateTime now, @NotNull Consumer<BatchEntry> updater) {
         LOGGER.debug("matchedAlertBatchUpdates");
         Long nowMs = now.toInstant().toEpochMilli();
-        batchUpdates(updater, SQL.UPDATE_ALERT_SET_MARGIN_ZERO_DECREMENT_REPEAT_LISTENING_DATE_LAST_TRIGGER_NOW, Map.of(NOW_MS_ARGUMENT, nowMs));
+        batchUpdates(updater, SQL.UPDATE_ALERT_SET_LISTENING_DATE_LAST_TRIGGER_NOW_MARGIN_ZERO_DECREMENT_REPEAT, Map.of(NOW_MS_ARGUMENT, nowMs));
     }
 
     @Override

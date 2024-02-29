@@ -193,10 +193,6 @@ public class AlertTest {
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 BigDecimal.valueOf(-1L), DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
-        // repeat positive
-        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
-                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
-                TEST_MARGIN, (short) -1, DEFAULT_SNOOZE_HOURS));
         // snooze positive
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
@@ -207,14 +203,6 @@ public class AlertTest {
     void isPrivate() {
         assertTrue(Alert.isPrivate(Alert.PRIVATE_MESSAGES));
         assertFalse(Alert.isPrivate(1234L));
-    }
-
-    @Test
-    void hasRepeat() {
-        assertTrue(Alert.hasRepeat(10L));
-        assertTrue(Alert.hasRepeat(1L));
-        assertFalse(Alert.hasRepeat(0L));
-        assertFalse(Alert.hasRepeat(-1L));
     }
 
     @Test
@@ -380,23 +368,22 @@ public class AlertTest {
     }
 
     @Test
-    void withListeningDateFromDate() {
-        Alert alert = createTestAlert();
-        assertNull(alert.withListeningDateFromDate(null, null).listeningDate);
-        assertNull(alert.withListeningDateFromDate(null, null).fromDate);
-
-        ZonedDateTime date = nowUtc();
-        assertEquals(date, alert.withListeningDateFromDate(date, null).listeningDate);
-        assertEquals(date, alert.withListeningDateFromDate(null, date).fromDate);
-    }
-
-    @Test
     void withSnooze() {
         Alert alert = createTestAlert();
         assertEquals(0, alert.withSnooze((short) 0).snooze);
         short snooze = 2;
         assertEquals(snooze, alert.withSnooze(snooze).snooze);
         assertThrows(IllegalArgumentException.class, () -> alert.withSnooze((short) -1));
+    }
+
+    @Test
+    void withRepeat() {
+        Alert alert = createTestAlert();
+        assertEquals(0, alert.withRepeat((short) 0).repeat);
+        short repeat = 3;
+        assertEquals(repeat, alert.withRepeat(repeat).repeat);
+        repeat = -1;
+        assertEquals(repeat, alert.withRepeat(repeat).repeat);
     }
 
     @Test
@@ -409,7 +396,17 @@ public class AlertTest {
         short repeat = 1;
         assertEquals(listeningDate, alert.withListeningDateRepeat(listeningDate, repeat).listeningDate);
         assertEquals(repeat, alert.withListeningDateRepeat(listeningDate, repeat).repeat);
-        assertThrows(IllegalArgumentException.class, () -> alert.withListeningDateRepeat(listeningDate, (short) -1));
+    }
+
+    @Test
+    void withListeningDateFromDate() {
+        Alert alert = createTestAlert();
+        assertNull(alert.withListeningDateFromDate(null, null).listeningDate);
+        assertNull(alert.withListeningDateFromDate(null, null).fromDate);
+
+        ZonedDateTime date = nowUtc();
+        assertEquals(date, alert.withListeningDateFromDate(date, null).listeningDate);
+        assertEquals(date, alert.withListeningDateFromDate(null, date).fromDate);
     }
 
     @Test
@@ -430,7 +427,6 @@ public class AlertTest {
         assertEquals(repeat, alert.withListeningDateLastTriggerMarginRepeat(now, lastTrigger, margin, repeat).repeat);
         assertThrows(IllegalArgumentException.class, () -> alert.withListeningDateLastTriggerMarginRepeat(now, alert.creationDate.minusSeconds(1L), margin, repeat));
         assertThrows(IllegalArgumentException.class, () -> alert.withListeningDateLastTriggerMarginRepeat(now, lastTrigger, BigDecimal.valueOf(-1L), repeat));
-        assertThrows(IllegalArgumentException.class, () -> alert.withListeningDateLastTriggerMarginRepeat(now, lastTrigger, margin, (short) -1));
     }
 
     @Test

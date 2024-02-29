@@ -110,7 +110,7 @@ public abstract class Alert {
         this.fromDate = fromDate;
         this.toDate = toDate;
         this.margin = requirePositive(margin);
-        this.repeat = requirePositiveShort(repeat);
+        this.repeat = repeat;
         this.snooze = requirePositiveShort(snooze);
     }
 
@@ -127,10 +127,6 @@ public abstract class Alert {
 
     public static boolean isPrivate(long serverId) {
         return PRIVATE_MESSAGES == serverId;
-    }
-
-    public static boolean hasRepeat(long repeat) {
-        return repeat > 0;
     }
 
     public static boolean hasMargin(@NotNull BigDecimal margin) {
@@ -214,17 +210,22 @@ public abstract class Alert {
         return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
-    @NotNull
-    public final Alert withListeningDateFromDate(@Nullable ZonedDateTime listeningDate, @Nullable ZonedDateTime fromDate) {
-        return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
-    }
-
     public final Alert withSnooze(short snooze) {
         return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull
+    public final Alert withRepeat(short repeat) {
+        return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+    }
+
+    @NotNull
     public final Alert withListeningDateRepeat(@Nullable ZonedDateTime listeningDate, short repeat) {
+        return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+    }
+
+    @NotNull
+    public final Alert withListeningDateFromDate(@Nullable ZonedDateTime listeningDate, @Nullable ZonedDateTime fromDate) {
         return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
@@ -289,10 +290,10 @@ public abstract class Alert {
 
     @NotNull
     protected final String footer(@NotNull MatchingStatus matchingStatus) {
-        int nextRepeat = matchingStatus.notMatching() ? repeat : Math.max(0, repeat - 1);
+        int nextRepeat = matchingStatus.notMatching() ? repeat : repeat - 1;
         return "\n* margin / repeat / snooze :\t" +
                 (matchingStatus.notMatching() && hasMargin(margin) ? margin.toPlainString() + ' ' + getSymbol(getTicker2()) : "disabled") +
-                " / " + (!hasRepeat(nextRepeat) ? "disabled" : nextRepeat) +
+                " / " + (nextRepeat < 0 ? "disabled" : nextRepeat) +
                 " / " + snooze + (snooze > 1 ? " hours" : " hour");
     }
 
