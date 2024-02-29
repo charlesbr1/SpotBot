@@ -98,10 +98,10 @@ public class SpotBot {
                     schedulingPlan(nowUtc(clock), parameters.checkPeriodMin(), parameters.hourlySyncDeltaMin()));
 
             while(!Thread.interrupted()) {
-                LOGGER.info("Thread [" + Thread.currentThread().getName() + "] now checking prices...");
+                LOGGER.info("Thread [{}] now checking prices...", Thread.currentThread().getName());
                 context.alertsWatcher().checkAlerts();
                 long sleepingMinutes = minutesUntilNextCheck(nowUtc(clock), parameters.checkPeriodMin(), parameters.hourlySyncDeltaMin());
-                LOGGER.info("Thread [" + Thread.currentThread().getName() + "] now sleeping for {} minutes...", sleepingMinutes);
+                LOGGER.info("Thread [{}] now sleeping for {} minutes...", Thread.currentThread().getName(), sleepingMinutes);
                 LockSupport.parkNanos(Duration.ofMinutes(sleepingMinutes).toNanos());
             }
             Thread.currentThread().interrupt();
@@ -113,7 +113,7 @@ public class SpotBot {
         try {
             boolean memoryDao = params.stream().anyMatch("-memory"::equals);
             String databaseUrl = memoryDao ? null : getParameter(params, DATABASE_URL_PROPERTY, DATABASE_URL, identity());
-            String discordTokenFile = getParameter(params, DISCORD_BOT_TOKEN_FILE_PROPERTY, DISCORD_BOT_TOKEN_FILE, identity());
+            String discordTokenFile = requireNonNull(getParameter(params, DISCORD_BOT_TOKEN_FILE_PROPERTY, DISCORD_BOT_TOKEN_FILE, identity()));
             int checkPeriodMin = getParameter(params, ALERTS_CHECK_PERIOD_MIN_PROPERTY, ALERTS_CHECK_PERIOD_MIN, v -> Math.max(1, Integer.parseInt(v)));
             int hourlySyncDeltaMin = getParameter(params, ALERTS_HOURLY_SYNC_DELTA_MIN_PROPERTY, ALERTS_HOURLY_SYNC_DELTA_MIN, v -> Math.max(0, Integer.parseInt(v)));
             return Parameters.of(databaseUrl, discordTokenFile, checkPeriodMin, hourlySyncDeltaMin);

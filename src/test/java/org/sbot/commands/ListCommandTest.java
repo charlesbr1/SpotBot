@@ -49,7 +49,7 @@ class ListCommandTest {
         Arguments arguments = new Arguments(null, null, null, null, null, null);
         assertEquals("for all", arguments.asDescription());
         arguments = new Arguments(null, range, "selection", 123L, "eth", 12L);
-        assertEquals("for user <@123> ticker or pair 'eth' with type range, and offset : 12", arguments.asDescription());
+        assertEquals("for user <@123> ticker or pair eth with type range, and offset : 12", arguments.asDescription());
         arguments = new Arguments(null, trend, "selection", 123L, null, 12L);
         assertEquals("for user <@123> with type trend, and offset : 12", arguments.asDescription());
         arguments = new Arguments(null, remainder, "selection", null, null, 12L);

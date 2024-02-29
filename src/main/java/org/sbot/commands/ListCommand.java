@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 import static java.time.ZoneId.SHORT_IDS;
@@ -65,14 +66,14 @@ public final class ListCommand extends CommandAdapter {
     record Arguments(Long alertId, Type type, String selection, Long ownerId, String tickerOrPair, Long offset) {
         String asNextCommand(int delta) {
             return (null != ownerId ? "list <@" + ownerId + ">" : "list") +
-                    (null != tickerOrPair ? " " + tickerOrPair : (null != ownerId ? "" : " all")) +
+                    Optional.ofNullable(tickerOrPair).map(" "::concat).orElse(null != ownerId ? "" : " all") +
                     (null != type ? " " + type : "") +
-                   " " + (Optional.ofNullable(offset).orElse(0L) + delta);
+                   " " + ((null != offset ? offset : 0L) + delta);
         }
 
         String asDescription() {
             return (null != ownerId ? "for user <@" + ownerId + ">" : "for") +
-                    (null != tickerOrPair ? " ticker or pair '" + tickerOrPair + "'" : (null != ownerId ? "" : " all")) +
+                    Optional.ofNullable(tickerOrPair).map(" ticker or pair "::concat).orElse(null != ownerId ? "" : " all") +
                     (null != type ? " with type " + type : "") +
                     (Optional.ofNullable(offset).orElse(0L) > 0 ? ", and offset : " + offset : "");
 
@@ -112,36 +113,38 @@ public final class ListCommand extends CommandAdapter {
             context.noMoreArgs();
             return new Arguments(alertId, null, null, null, null, null);
         }
-        Long owner = null;
-        Long offset = null;
+        UnaryOperator<Optional<Type>> readType = type -> type.or(() -> context.args.getType(TYPE_ARGUMENT));
+
+        Optional<Long> owner = Optional.empty();
+        Optional<Type> type = Optional.empty();
+        Optional<Long> offset = Optional.empty();
         String tickerOrPair = null;
-        Type type = null;
         var selection = context.args.getString(SELECTION_ARGUMENT).map(String::toLowerCase).orElse(null);
         if(null != selection) {
             if(List.of(LIST_SETTINGS, LIST_LOCALES, LIST_TIMEZONES, LIST_EXCHANGES).contains(selection)) {
                 context.noMoreArgs();
                 return new Arguments(null, null, selection, null, null, null);
             } else {
-                owner = asUser(selection).orElse(null);
-                type = asType(selection).orElse(null);
-                if (null != owner || null != type) {
-                    selection = null != owner ? LIST_USER : selection;
-                    type = null != type ? type : context.args.getType(TYPE_ARGUMENT).orElse(null);
-                    offset = context.args.getLong(TYPE_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
-                    type = null != type ? type : context.args.getType(TYPE_ARGUMENT).orElse(null); // re-read if needed for string command
+                owner = asUser(selection);
+                type = asType(selection);
+                if (owner.isPresent() || type.isPresent()) {
+                    selection = owner.isPresent() ? LIST_USER : selection;
+                    type = readType.apply(type);
+                    offset = context.args.getLong(TYPE_ARGUMENT).map(ArgumentValidator::requirePositive);
+                    type = readType.apply(type); // re-read if needed for string command
                     tickerOrPair = context.args.getString(TICKER_PAIR_ARGUMENT).map(ArgumentValidator::requireTickerPairLength).map(String::toUpperCase).orElse(null);
-                } else {
-                    tickerOrPair = LIST_ALL.equals(selection) ? null : requireTickerPairLength(selection).toUpperCase();
+                } else if(!LIST_ALL.equals(selection)) {
+                    tickerOrPair = requireTickerPairLength(selection).toUpperCase();
                 }
             }
         } else {
             selection = LIST_ALL;
         }
-        type = null != type ? type : context.args.getType(TYPE_ARGUMENT).orElse(null);
-        offset = null != offset ? offset : context.args.getLong(OFFSET_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(0L);
-        type = null != type ? type : context.args.getType(TYPE_ARGUMENT).orElse(null); // string command do not enforce argument order
+        type = readType.apply(type);
+        offset = offset.or(() -> context.args.getLong(OFFSET_ARGUMENT).map(ArgumentValidator::requirePositive));
+        type = readType.apply(type); // string command do not enforce argument order
         context.noMoreArgs();
-        return new Arguments(null, type, selection, owner, tickerOrPair, offset);
+        return new Arguments(null, type.orElse(null), selection, owner.orElse(null), tickerOrPair, offset.orElse(0L));
     }
 
     private Message listOneAlert(@NotNull CommandContext context, @NotNull ZonedDateTime now, long alertId) {

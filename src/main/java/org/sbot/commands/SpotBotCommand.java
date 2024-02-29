@@ -18,7 +18,6 @@ import org.sbot.entities.Message.File;
 import org.sbot.services.discord.Discord;
 import org.sbot.utils.Dates;
 
-import java.awt.*;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
