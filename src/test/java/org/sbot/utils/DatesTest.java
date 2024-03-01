@@ -57,6 +57,8 @@ public class DatesTest {
 
         assertThrows(DateTimeException.class, () -> Dates.parse(Locale.US, Dates.UTC, Clock.systemUTC(), "now-"));
         assertThrows(DateTimeException.class, () -> Dates.parse(Locale.US, Dates.UTC, Clock.systemUTC(), "now+"));
+        assertThrows(DateTimeException.class, () -> Dates.parse(Locale.US, Dates.UTC, Clock.systemUTC(), "now1"));
+        assertThrows(DateTimeException.class, () -> Dates.parse(Locale.US, Dates.UTC, Clock.systemUTC(), "now 1"));
         assertThrows(DateTimeException.class, () -> Dates.parse(Locale.US, Dates.UTC, Clock.systemUTC(), "now--"));
         assertThrows(DateTimeException.class, () -> Dates.parse(Locale.US, Dates.UTC, Clock.systemUTC(), "nowUTC-"));
         assertDoesNotThrow(() -> Dates.parse(Locale.US, Dates.UTC, Clock.systemUTC(), "01/21/2000-10:00-Asia/Tokyo"));
@@ -101,11 +103,20 @@ public class DatesTest {
         // test now with delta
         date = now.atZone(UTC);
         assertEquals(date.plusHours(1L), Dates.parse(Locale.US, null, clock, "now+1"));
+        assertEquals(date.plusHours(1L), Dates.parse(Locale.US, null, clock, "now +1"));
+        assertEquals(date.plusHours(1L), Dates.parse(Locale.US, null, clock, "now\t+1"));
+        assertEquals(date.plusHours(1L), Dates.parse(Locale.US, null, clock, "now\t   +1"  ));
         assertEquals(date.minusHours(1L), Dates.parse(Locale.US, null, clock, "now-1"));
+        assertEquals(date.minusHours(1L), Dates.parse(Locale.US, null, clock, "now -1"));
+        assertEquals(date.minusHours(1L), Dates.parse(Locale.US, null, clock, "now   \t\t-1"));
         assertEquals(date.withZoneSameInstant(ZoneId.of("Asia/Tokyo")).plusMinutes(30L), Dates.parse(Locale.US, ZoneId.of("Asia/Tokyo"), clock, "now+0.5"));
         assertEquals(date.minusMinutes(15L), Dates.parse(Locale.US, null, clock, "now-0,25"));
-        assertEquals(date.minusMinutes((1234*60) + 45), Dates.parse(Locale.US, null, clock, "now-1234.75"));
+        assertEquals(date.minusMinutes((1234*60) + 45), Dates.parse(Locale.US, null, clock, "now -1234.75"));
         assertEquals(date.minusMinutes((1234*60) + 45), Dates.parse(Locale.US, null, clock, "now-1234,75"));
+        assertEquals(date.plusMinutes(52560000L), Dates.parse(Locale.US, null, clock, "now +876000"));
+        assertEquals(date.minusMinutes(52560000L), Dates.parse(Locale.US, null, clock, "now -876000"));
+        assertThrows(DateTimeException.class, () -> Dates.parse(Locale.US, null, clock, "now +876001"));
+        assertThrows(DateTimeException.class, () -> Dates.parse(Locale.US, null, clock, "now -876001"));
 
         // test no timezone
         date = LocalDateTime.parse("21/05/1999 19:13", DATE_TIME_FORMATTER).atZone(ZoneId.of("Asia/Tokyo"));

@@ -10,13 +10,13 @@ import java.sql.Timestamp;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import static java.math.BigDecimal.ZERO;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
@@ -71,14 +71,23 @@ public interface Dates {
     }
 
     private static ZonedDateTime parseNow(@NotNull ZoneId timezone, @NotNull Clock clock, @NotNull String nowTime) {
-        try {
-            BigDecimal offset = nowTime.length() <= NOW_ARGUMENT.length() ? ZERO :
-                    new BigDecimal(nowTime.substring(NOW_ARGUMENT.length()).replaceFirst(",", "."))
-                            .multiply(new BigDecimal(60));
-            return clock.instant().atZone(UTC).withZoneSameInstant(timezone).plusMinutes(offset.longValue());
-        } catch (NumberFormatException e) {
-            throw new DateTimeParseException("Malformed now offset", nowTime, 3, e);
+        long offset = 0L;
+        if(nowTime.length() > NOW_ARGUMENT.length()) { // parse offset part
+            String offsetHours = nowTime.substring(NOW_ARGUMENT.length()).strip();
+            if('-' != offsetHours.charAt(0) && '+' != offsetHours.charAt(0)) {
+                throw new DateTimeParseException("Malformed now offset", nowTime, nowTime.length() - offsetHours.length());
+            }
+            try {
+                offset = new BigDecimal(offsetHours.replaceFirst(",", ".")).multiply(new BigDecimal(60)).longValue();
+            } catch (NumberFormatException e) {
+                throw new DateTimeParseException("Malformed now offset", nowTime, nowTime.length() - offsetHours.length(), e);
+            }
+            long oneCenturyMinutes = Duration.of(36500L, ChronoUnit.DAYS).toMinutes();
+            if(Math.abs(offset) > oneCenturyMinutes) {
+                throw new DateTimeParseException("Offset too far, can't be more than one century : " + oneCenturyMinutes / 60 + " hours", nowTime, nowTime.length() - offsetHours.length());
+            }
         }
+        return clock.instant().atZone(UTC).withZoneSameInstant(timezone).plusMinutes(offset);
     }
 
     // this extract the localized date part of a date time and rebuild it formatted as DATE_TIME_FORMAT

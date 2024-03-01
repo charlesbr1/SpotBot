@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
+import org.sbot.entities.alerts.Alert;
 import org.sbot.services.context.Context;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.AlertsDao.SelectionFilter;
@@ -35,6 +36,7 @@ import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
 import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.entities.alerts.AlertTest.createTestAlertWithUserId;
 import static org.sbot.services.dao.AlertsDao.UpdateField.SERVER_ID;
+import static org.sbot.services.dao.AlertsDaoTest.assertDeepEquals;
 
 class MigrateCommandTest {
 
@@ -107,7 +109,10 @@ class MigrateCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao).getAlertWithoutMessage(alertId);
-        verify(alertsDao).update(alert.withServerId(PRIVATE_MESSAGES), Set.of(SERVER_ID));
+        var alertCaptor = ArgumentCaptor.forClass(Alert.class);
+        verify(alertsDao).update(alertCaptor.capture(), eq(Set.of(SERVER_ID)));
+        var alertArg = alertCaptor.getValue();
+        assertDeepEquals(alert.withServerId(PRIVATE_MESSAGES), alertArg);
         verify(alertsDao, never()).updateServerIdOf(any(), anyLong());
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
@@ -161,7 +166,10 @@ class MigrateCommandTest {
 
         command.onCommand(commandContext);
         verify(alertsDao, times(3)).getAlertWithoutMessage(alertId);
-        verify(alertsDao).update(alert.withServerId(serverId + 1), Set.of(SERVER_ID));
+        verify(alertsDao, times(2)).update(alertCaptor.capture(), eq(Set.of(SERVER_ID)));
+        alertArg = alertCaptor.getValue();
+        assertDeepEquals(alert.withServerId(serverId + 1), alertArg);
+
         verify(alertsDao, never()).updateServerIdOf(any(), anyLong());
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
@@ -228,7 +236,9 @@ class MigrateCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao2).getAlertWithoutMessage(alertId);
-        verify(alertsDao2).update(eq(alert), eq(Set.of(SERVER_ID)));
+        verify(alertsDao2).update(alertCaptor.capture(), eq(Set.of(SERVER_ID)));
+        alertArg = alertCaptor.getValue();
+        assertDeepEquals(alert.withServerId(PRIVATE_MESSAGES), alertArg);
         verify(alertsDao2, never()).updateServerIdOf(any(), anyLong());
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(discord).sendPrivateMessage(eq(userId + 1), any(), eq(null));
@@ -252,7 +262,9 @@ class MigrateCommandTest {
 
         command.onCommand(commandContext);
         verify(alertsDao2, times(2)).getAlertWithoutMessage(alertId);
-        verify(alertsDao2).update(eq(alert), eq(Set.of(SERVER_ID)));
+        verify(alertsDao2, times(2)).update(alertCaptor.capture(), eq(Set.of(SERVER_ID)));
+        alertArg = alertCaptor.getValue();
+        assertDeepEquals(alert.withServerId(serverId + 1), alertArg);
         verify(alertsDao2, never()).updateServerIdOf(any(), anyLong());
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(discord, times(2)).sendPrivateMessage(eq(userId + 1), any(), eq(null));
@@ -271,7 +283,9 @@ class MigrateCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao2).getAlertWithoutMessage(alertId);
-        verify(alertsDao2).update(eq(alert), eq(Set.of(SERVER_ID)));
+        verify(alertsDao2, times(3)).update(alertCaptor.capture(), eq(Set.of(SERVER_ID)));
+        alertArg = alertCaptor.getValue();
+        assertDeepEquals(alert.withServerId(PRIVATE_MESSAGES), alertArg);
         verify(alertsDao2, never()).updateServerIdOf(any(), anyLong());
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(discord, never()).sendPrivateMessage(eq(userId), any(), eq(null));
@@ -294,7 +308,9 @@ class MigrateCommandTest {
 
         command.onCommand(commandContext);
         verify(alertsDao2, times(2)).getAlertWithoutMessage(alertId);
-        verify(alertsDao2).update(eq(alert), eq(Set.of(SERVER_ID)));
+        verify(alertsDao2, times(4)).update(alertCaptor.capture(), eq(Set.of(SERVER_ID)));
+        alertArg = alertCaptor.getValue();
+        assertDeepEquals(alert.withServerId(serverId + 2), alertArg);
         verify(alertsDao2, never()).updateServerIdOf(any(), anyLong());
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(discord, never()).sendPrivateMessage(eq(userId), any(), eq(null));

@@ -37,7 +37,7 @@ import static org.sbot.services.dao.AlertsDao.UpdateField.*;
 
 public abstract class AlertsDaoTest {
 
-    static void assertDeepEquals(@Nullable Alert alert, @Nullable Alert other) {
+    public static void assertDeepEquals(@Nullable Alert alert, @Nullable Alert other) {
         if (other == alert) return;
         assertTrue(null != alert && null != other);
         assertTrue(alert.id == other.id &&

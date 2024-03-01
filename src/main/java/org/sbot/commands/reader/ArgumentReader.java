@@ -22,16 +22,16 @@ public interface ArgumentReader {
 
     @NotNull
     default BigDecimal getMandatoryNumber(@NotNull String fieldName) {
-        return getNumber(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing number for argument '" + fieldName + '\''));
+        return getNumber(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing or malformed number for argument '" + fieldName + '\''));
     }
 
     default long getMandatoryLong(@NotNull String fieldName) {
-        return getLong(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing integer for argument '" + fieldName + '\''));
+        return getLong(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing value for argument '" + fieldName + '\''));
     }
 
     @NotNull
     default ZonedDateTime getMandatoryDateTime(@NotNull Locale locale, @Nullable ZoneId timezone, @NotNull Clock clock, @NotNull String fieldName) {
-        return getDateTime(locale, timezone, clock, fieldName).orElseThrow(() -> new IllegalArgumentException("Missing date time for argument '" + fieldName + "'\nexpected format : " + Dates.DATE_TIME_FORMAT + " UTC"));
+        return getDateTime(locale, timezone, clock, fieldName).orElseThrow(() -> new IllegalArgumentException("Missing or malformed date time for argument '" + fieldName + "'\nexpected format : " + Dates.DATE_TIME_FORMAT + " UTC"));
     }
 
     default long getMandatoryUserId(@NotNull String fieldName) {

@@ -306,15 +306,16 @@ public abstract class Alert {
     //TODO test
     private static String raiseTitle(@NotNull Alert alert, @NotNull MatchingStatus matchingStatus) {
         String title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + alert.type.titleName + (alert.type != remainder ? " ALERT !!!" : "") + " - [" + alert.pair + "] ";
-        if(TITLE_MAX_LENGTH - alert.message.length() < title.length()) {
+        String message = remainder == alert.type ? "" : alert.message;
+        if(TITLE_MAX_LENGTH - message.length() < title.length()) {
             LOGGER.warn("Alert name '{}' will be truncated from the title because it is too long : {}", alert.type.titleName, title);
             title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + "ALERT !!! - [" + alert.pair + "] ";
-            if(TITLE_MAX_LENGTH - alert.message.length() < title.length()) {
+            if(TITLE_MAX_LENGTH - message.length() < title.length()) {
                 LOGGER.warn("Pair '{}' will be truncated from the title because it is too long : {}", alert.pair, title);
                 title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + " ALERT !!! - ";
             }
         }
-        return title + alert.message;
+        return title + message;
     }
 
     @Override

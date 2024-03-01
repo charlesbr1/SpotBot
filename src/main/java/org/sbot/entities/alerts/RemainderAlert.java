@@ -65,7 +65,6 @@ public final class RemainderAlert extends Alert {
                 "\n* date :\t" + formatDiscord(fromDate) + '(' + formatDiscordRelative(fromDate) + ')' +
                 "\n* created :\t" + formatDiscordRelative(creationDate) +
                 "\n* repeat / snooze :\t" + (nextRepeat < 0 ? "disabled" : nextRepeat) + " / " + snooze + (snooze > 1 ? " hours" : " hour") +
-                (matchingStatus.notMatching() ? "\n* message :\t" + message : "") +
                 (matchingStatus.notMatching() ? Optional.ofNullable(lastTrigger)
                 .map(Dates::formatDiscordRelative)
                 .map("\n\nRaised "::concat)
