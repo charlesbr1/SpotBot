@@ -2130,9 +2130,9 @@ public abstract class AlertsDaoTest {
         ZonedDateTime lastTrigger = now.minusDays(3L);
         assertNotEquals(now, lastTrigger);
 
-        Alert alert1 = createTestAlert().withSnooze((short) 17).withListeningDateLastTriggerMarginRepeat(null, lastTrigger, ONE, (short) 18);
+        Alert alert1 = createTestAlert().withSnooze((short) 17).withListeningDateLastTriggerMarginRepeat(null, lastTrigger, ONE, (short) 0);
         alert1 = setId(alert1, alerts.addAlert(alert1));
-        Alert alert2 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger, TEN, (short) 19);
+        Alert alert2 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger, TEN, (short) 1);
         alert2 = setId(alert2, alerts.addAlert(alert2));
         Alert alert3 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger, TWO, (short) -1);
         alert3 = setId(alert3, alerts.addAlert(alert3));
@@ -2143,12 +2143,12 @@ public abstract class AlertsDaoTest {
         assertNull(alerts.getAlert(alert1.id).get().listeningDate);
         assertEquals(lastTrigger, alerts.getAlert(alert1.id).get().lastTrigger);
         assertEquals(ONE, alerts.getAlert(alert1.id).get().margin);
-        assertEquals(18, alerts.getAlert(alert1.id).get().repeat);
+        assertEquals(0, alerts.getAlert(alert1.id).get().repeat);
         assertTrue(alerts.getAlert(alert2.id).isPresent());
         assertNull(alerts.getAlert(alert2.id).get().listeningDate);
         assertEquals(lastTrigger, alerts.getAlert(alert2.id).get().lastTrigger);
         assertEquals(TEN, alerts.getAlert(alert2.id).get().margin);
-        assertEquals(19, alerts.getAlert(alert2.id).get().repeat);
+        assertEquals(1, alerts.getAlert(alert2.id).get().repeat);
         assertTrue(alerts.getAlert(alert3.id).isPresent());
         assertNull(alerts.getAlert(alert3.id).get().listeningDate);
         assertEquals(lastTrigger, alerts.getAlert(alert3.id).get().lastTrigger);
@@ -2166,12 +2166,12 @@ public abstract class AlertsDaoTest {
         assertNull(alerts.getAlert(alert1.id).get().listeningDate);
         assertEquals(lastTrigger, alerts.getAlert(alert1.id).get().lastTrigger);
         assertEquals(ONE, alerts.getAlert(alert1.id).get().margin);
-        assertEquals(18, alerts.getAlert(alert1.id).get().repeat);
+        assertEquals(0, alerts.getAlert(alert1.id).get().repeat);
 
         assertEquals(now.plusHours(DEFAULT_SNOOZE_HOURS), alerts.getAlert(alert2.id).get().listeningDate);
         assertEquals(now, alerts.getAlert(alert2.id).get().lastTrigger);
         assertEquals(MARGIN_DISABLED, alerts.getAlert(alert2.id).get().margin);
-        assertEquals(19-1, alerts.getAlert(alert2.id).get().repeat);
+        assertEquals(0, alerts.getAlert(alert2.id).get().repeat);
 
         assertNull(alerts.getAlert(alert3.id).get().listeningDate);
         assertEquals(now, alerts.getAlert(alert3.id).get().lastTrigger);
@@ -2191,15 +2191,15 @@ public abstract class AlertsDaoTest {
             updater.batchId(alertId2);
         });
 
-        assertEquals(now.plusMinutes(3L).plusHours(17L), alerts.getAlert(alert1.id).get().listeningDate);
+        assertNull(alerts.getAlert(alert1.id).get().listeningDate);
         assertEquals(now.plusMinutes(3L), alerts.getAlert(alert1.id).get().lastTrigger);
         assertEquals(MARGIN_DISABLED, alerts.getAlert(alert1.id).get().margin);
-        assertEquals(18-1, alerts.getAlert(alert1.id).get().repeat);
+        assertEquals(-1, alerts.getAlert(alert1.id).get().repeat);
 
-        assertEquals(now.plusMinutes(3L).plusHours(DEFAULT_SNOOZE_HOURS), alerts.getAlert(alert2.id).get().listeningDate);
+        assertNull(alerts.getAlert(alert2.id).get().listeningDate);
         assertEquals(now.plusMinutes(3L), alerts.getAlert(alert2.id).get().lastTrigger);
         assertEquals(MARGIN_DISABLED, alerts.getAlert(alert2.id).get().margin);
-        assertEquals(19-2, alerts.getAlert(alert2.id).get().repeat);
+        assertEquals(-1, alerts.getAlert(alert2.id).get().repeat);
 
         assertNull(alerts.getAlert(alert3.id).get().listeningDate);
         assertEquals(now, alerts.getAlert(alert3.id).get().lastTrigger);

@@ -34,7 +34,7 @@ import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.trend;
 import static org.sbot.entities.alerts.AlertTest.*;
-import static org.sbot.utils.ArgumentValidator.ALERT_MESSAGE_ARG_MAX_LENGTH;
+import static org.sbot.utils.ArgumentValidator.MESSAGE_MAX_LENGTH;
 import static org.sbot.utils.Dates.UTC;
 
 class TrendCommandTest {
@@ -331,12 +331,21 @@ class TrendCommandTest {
         assertExceptionContains(IllegalArgumentException.class, "Negative",
                 () -> TrendCommand.arguments(commandContext[0]));
 
+        // prices too long
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 123456789012345678901 " + dateTo);
+        assertExceptionContains(IllegalArgumentException.class, "too long",
+                () -> TrendCommand.arguments(commandContext[0]));
+
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 123456789012345678901 " + dateFrom + " 123 " + dateTo);
+        assertExceptionContains(IllegalArgumentException.class, "too long",
+                () -> TrendCommand.arguments(commandContext[0]));
+
         // dates in past OK
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 10/10/1010-20:01 23232.6 10/10/1810-20:01");
         assertDoesNotThrow(() -> TrendCommand.arguments(commandContext[0]));
 
         // message too long
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + "aa".repeat(ALERT_MESSAGE_ARG_MAX_LENGTH) + " 12,45 " + dateFrom + " 23232.6 " + dateTo);
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + "aa".repeat(MESSAGE_MAX_LENGTH) + " 12,45 " + dateFrom + " 23232.6 " + dateTo);
         assertExceptionContains(IllegalArgumentException.class, "too long",
                 () -> TrendCommand.arguments(commandContext[0]));
     }

@@ -210,7 +210,7 @@ public final class AlertsMemory implements AlertsDao {
         requireNonNull(now);
         updater.accept(ids -> alerts.computeIfPresent(longId(ids),
                 (id, alert) -> alert.withListeningDateLastTriggerMarginRepeat(
-                        alert.repeat >= 0 ? now.plusHours(alert.snooze) : null, // listening date
+                        alert.repeat > 0 ? now.plusHours(alert.snooze) : null, // listening date
                         now, // last trigger
                         MARGIN_DISABLED, (short) (alert.repeat - 1))));
     }

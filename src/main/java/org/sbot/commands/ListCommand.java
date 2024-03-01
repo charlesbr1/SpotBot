@@ -57,7 +57,7 @@ public final class ListCommand extends CommandAdapter {
                     option(STRING, SELECTION_ARGUMENT, "settings, exchanges, timezones, alert id, alert type, user, a ticker, a pair, 'all' if omitted", false)
                             .setMaxLength(20),
                     option(STRING, TICKER_PAIR_ARGUMENT, "an optional search filter on a ticker or a pair if selection is an user or a type", false)
-                            .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
+                            .setMinLength(TICKER_MIN_LENGTH).setMaxLength(PAIR_MAX_LENGTH),
                     option(STRING, TYPE_ARGUMENT, "type of alert to list (range, trend or remainder, ignored if selection is already a type)", false)
                             .addChoices(Stream.of(Type.values()).map(t -> new Choice(t.name(), t.name())).toList()),
                     option(INTEGER, OFFSET_ARGUMENT, "an offset from where to start the search (results are limited to " + MESSAGE_LIST_CHUNK + " alerts)", false)

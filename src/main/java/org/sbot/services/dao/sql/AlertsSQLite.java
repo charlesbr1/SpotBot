@@ -133,7 +133,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String UPDATE_ALERT_FIELDS_BY_ID = "UPDATE alerts SET {} WHERE id=:id";
         String UPDATE_ALERTS_SERVER_ID_OF_SELECTION = "UPDATE alerts SET server_id=:newServerId WHERE ";
         String UPDATE_ALERT_SET_LAST_TRIGGER_MARGIN_ZERO = "UPDATE alerts SET last_trigger=:last_trigger,margin=0 WHERE id=:id";
-        String UPDATE_ALERT_SET_LISTENING_DATE_LAST_TRIGGER_NOW_MARGIN_ZERO_DECREMENT_REPEAT = "UPDATE alerts SET margin=0,last_trigger=:nowMs,listening_date=CASE WHEN repeat>=0 THEN (3600000*snooze)+:nowMs ELSE null END,repeat=repeat-1 WHERE id=:id";
+        String UPDATE_ALERT_SET_LISTENING_DATE_LAST_TRIGGER_NOW_MARGIN_ZERO_DECREMENT_REPEAT = "UPDATE alerts SET margin=0,last_trigger=:nowMs,listening_date=CASE WHEN repeat>0 THEN (3600000*snooze)+:nowMs ELSE null END,repeat=repeat-1 WHERE id=:id";
     }
 
     // from jdbi SQL to Alert

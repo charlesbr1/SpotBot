@@ -173,9 +173,23 @@ public class AlertTest {
         assertThrows(NullPointerException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, null,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
-        // message not too long
+        // message too long
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, "null".repeat(10000),
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
+                TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // price too long
+        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+                new BigDecimal("123456789012345678901234567890"), TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
+                TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+                TEST_FROM_PRICE, new BigDecimal("123456789012345678901234567890"), TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
+                TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // negative prices
+        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+                new BigDecimal("-1"), TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
+                TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+                TEST_FROM_PRICE, new BigDecimal("-2"), TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // creation date not in the future
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, nowUtc().plusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
@@ -189,10 +203,16 @@ public class AlertTest {
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_FROM_DATE.minusMinutes(1L).minusSeconds(1L),
                 TEST_MARGIN, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
-        // margin positive
+        // negative margin
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 BigDecimal.valueOf(-1L), DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+
+        // margin too long
+        assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+                TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
+                new BigDecimal("123456789012345678901"), DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+
         // snooze strictly positive
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,

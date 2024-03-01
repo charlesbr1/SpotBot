@@ -172,7 +172,7 @@ public final class UpdateCommand extends CommandAdapter {
     }
 
     private BiFunction<Alert, AlertsDao, EmbedBuilder> fromPrice(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
-        BigDecimal fromPrice = requirePositive(context.args.getMandatoryNumber(VALUE_ARGUMENT));
+        BigDecimal fromPrice = requirePrice(context.args.getMandatoryNumber(VALUE_ARGUMENT));
         return update(context.noMoreArgs(), now, (alert, alertsDao) -> {
             alert = alert.withFromPrice(fromPrice);
             alertsDao.update(alert, Set.of(FROM_PRICE));
@@ -182,7 +182,7 @@ public final class UpdateCommand extends CommandAdapter {
     }
 
     private BiFunction<Alert, AlertsDao, EmbedBuilder> toPrice(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
-        BigDecimal toPrice = requirePositive(context.args.getMandatoryNumber(VALUE_ARGUMENT));
+        BigDecimal toPrice = requirePrice(context.args.getMandatoryNumber(VALUE_ARGUMENT));
         return update(context.noMoreArgs(), now, (alert, alertsDao) -> {
             alert = alert.withToPrice(toPrice);
             alertsDao.update(alert, Set.of(TO_PRICE));
@@ -221,7 +221,7 @@ public final class UpdateCommand extends CommandAdapter {
     }
 
     private BiFunction<Alert, AlertsDao, EmbedBuilder> margin(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
-        BigDecimal margin = requirePositive(context.args.getMandatoryNumber(VALUE_ARGUMENT));
+        BigDecimal margin = requirePrice(context.args.getMandatoryNumber(VALUE_ARGUMENT));
         return update(context.noMoreArgs(), now, (alert, alertsDao) -> {
             alert = alert.withMargin(margin);
             alertsDao.update(alert, Set.of(MARGIN));
@@ -230,7 +230,7 @@ public final class UpdateCommand extends CommandAdapter {
     }
 
     private BiFunction<Alert, AlertsDao, EmbedBuilder> repeat(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
-        short repeat = requirePositiveShort(context.args.getMandatoryLong(VALUE_ARGUMENT));
+        short repeat = requireRepeat(context.args.getMandatoryLong(VALUE_ARGUMENT));
         return update(context.noMoreArgs(), now, (alert, alertsDao) -> {
             alert = alert.withRepeat(repeat);
             alertsDao.update(alert, Set.of(REPEAT));
@@ -239,9 +239,9 @@ public final class UpdateCommand extends CommandAdapter {
     }
 
     private BiFunction<Alert, AlertsDao, EmbedBuilder> snooze(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
-        short snooze = requireStrictlyPositiveShort(context.args.getMandatoryLong(VALUE_ARGUMENT));
+        short snooze = requireSnooze(context.args.getMandatoryLong(VALUE_ARGUMENT));
         return update(context.noMoreArgs(), now, (alert, alertsDao) -> {
-            alert = alert.withSnooze(0 != snooze ? snooze : DEFAULT_SNOOZE_HOURS);
+            alert = alert.withSnooze(snooze);
             alertsDao.update(alert, Set.of(SNOOZE));
             return updateNotifyMessage(context, now, alert, CHOICE_SNOOZE, String.valueOf(snooze) + (snooze > 1 ? " hours" : " hour"), outNotificationCallBack);
         }, alert -> snooze != alert.snooze);

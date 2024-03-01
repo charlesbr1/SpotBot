@@ -14,11 +14,10 @@ import static org.sbot.commands.UpdateCommand.*;
 import static org.sbot.commands.interactions.ModalEditInteraction.*;
 import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.DEFAULT_REPEAT;
-import static org.sbot.entities.alerts.Alert.DEFAULT_SNOOZE_HOURS;
+import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
 import static org.sbot.entities.alerts.Alert.Type.range;
 import static org.sbot.entities.alerts.Alert.Type.remainder;
-import static org.sbot.utils.ArgumentValidator.ALERT_MESSAGE_ARG_MAX_LENGTH;
-import static org.sbot.utils.ArgumentValidator.requirePositive;
+import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.DATE_TIME_FORMAT;
 import static org.sbot.utils.Dates.LocalePatterns;
 
@@ -46,10 +45,10 @@ public class SelectEditInteraction implements InteractionListener {
         StringSelectMenu.Builder menu = selectMenu(menuId);
         if(remainder == alert.type) {
             menu.addOption(CHOICE_DATE, CHOICE_DATE, "a future date when to trigger the remainder, UTC expected format : " + DATE_TIME_FORMAT, Emoji.fromUnicode("U+1F550"));
-            menu.addOption(CHOICE_MESSAGE, CHOICE_MESSAGE, "a message for this remainder (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", Emoji.fromUnicode("U+1F5D2"));
+            menu.addOption(CHOICE_MESSAGE, CHOICE_MESSAGE, "a message for this remainder (" + MESSAGE_MAX_LENGTH + " chars max)", Emoji.fromUnicode("U+1F5D2"));
         } else {
             menu.addOptions(alert.isEnabled() ? disableOption() : enableOption(alert.repeat < 0));
-            menu.addOption(CHOICE_MESSAGE, CHOICE_MESSAGE, "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", Emoji.fromUnicode("U+1F5D2"));
+            menu.addOption(CHOICE_MESSAGE, CHOICE_MESSAGE, "a message to show when the alert is raised : add a link to your AT ! (" + MESSAGE_MAX_LENGTH + " chars max)", Emoji.fromUnicode("U+1F5D2"));
             if(range == alert.type) {
                 menu.addOption(DISPLAY_FROM_DATE, CHOICE_FROM_DATE, "a date to start the box, UTC expected format : " + DATE_TIME_FORMAT, Emoji.fromUnicode("U+27A1"));
                 menu.addOption(DISPLAY_TO_DATE, CHOICE_TO_DATE, "a future date to end the box, UTC expected format : " + DATE_TIME_FORMAT, Emoji.fromUnicode("U+2B05"));
@@ -93,7 +92,7 @@ public class SelectEditInteraction implements InteractionListener {
         context.noMoreArgs();
 
         int minLength = 1;
-        int maxLength = 20;
+        int maxLength = PRICE_MAX_LENGTH;
         String hint;
 
         switch (field) {
@@ -107,8 +106,8 @@ public class SelectEditInteraction implements InteractionListener {
                 new ModalEditInteraction().onInteraction(context.withArgumentsAndReplyMapper(alertId + " " + CHOICE_ENABLE + " " + (CHOICE_ENABLE.equals(field) ? "true" : "false"), identity()));
                 return;
             case CHOICE_MESSAGE:
-                maxLength = ALERT_MESSAGE_ARG_MAX_LENGTH;
-                hint = ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max";
+                maxLength = MESSAGE_MAX_LENGTH;
+                hint = MESSAGE_MAX_LENGTH + " chars max";
                 break;
             case CHOICE_DATE, CHOICE_FROM_DATE, CHOICE_TO_DATE:
                 minLength = 3; // 'now'
@@ -116,7 +115,8 @@ public class SelectEditInteraction implements InteractionListener {
                 hint = LocalePatterns.getOrDefault(context.locale, LocalePatterns.get(DEFAULT_LOCALE));
                 break;
             case CHOICE_MIGRATE:
-                hint = "guild id, 0 for private channel";
+                maxLength = 19;
+                hint = "guild id, " + PRIVATE_MESSAGES + " for private channel";
                 break;
             case CHOICE_MARGIN:
                 hint = "enter a price delta";
@@ -125,12 +125,12 @@ public class SelectEditInteraction implements InteractionListener {
                 hint = "enter a price";
                 break;
             case CHOICE_SNOOZE:
-                maxLength = 3;
-                hint = "time in hours to wait before this alert can be raise again";
+                maxLength = 4;
+                hint = "time in hours to wait before this alert can be raise again (" + SNOOZE_MIN + " .. " + SNOOZE_MAX + ")";
                 break;
             case CHOICE_REPEAT:
                 maxLength = 3;
-                hint = "number of times this alert will be raise";
+                hint = "number of times this alert will be raise (" + REPEAT_MIN + " .. " + REPEAT_MAX + ")";
                 break;
             default:
                 throw new IllegalArgumentException("Invalid field to edit : " + field);

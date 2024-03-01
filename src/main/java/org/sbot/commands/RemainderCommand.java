@@ -27,9 +27,9 @@ public final class RemainderCommand extends CommandAdapter {
 
     static final List<OptionData> optionList = List.of(
             option(STRING, PAIR_ARGUMENT, "the pair, like EUR/USDT", true)
-                    .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
-            option(STRING, MESSAGE_ARGUMENT, "a message for this remainder (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
-                    .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH),
+                    .setMinLength(PAIR_MIN_LENGTH).setMaxLength(PAIR_MAX_LENGTH),
+            option(STRING, MESSAGE_ARGUMENT, "a message for this remainder (" + MESSAGE_MAX_LENGTH + " chars max)", true)
+                    .setMaxLength(MESSAGE_MAX_LENGTH),
             option(STRING, DATE_ARGUMENT, "a future date when to trigger the remainder, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
                     .setMinLength(DATE_TIME_FORMAT.length()));
     record Arguments(String pair, String message, ZonedDateTime date) {}

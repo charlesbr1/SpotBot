@@ -105,13 +105,13 @@ public abstract class Alert {
         this.exchange = requireSupportedExchange(exchange.toLowerCase()).intern();
         this.pair = requirePairFormat(pair.toUpperCase()).intern();
         this.message = requireAlertMessageMaxLength(message);
-        this.fromPrice = fromPrice;
-        this.toPrice = toPrice;
+        this.fromPrice = requirePriceLength(fromPrice);
+        this.toPrice = requirePriceLength(toPrice);
         this.fromDate = fromDate;
         this.toDate = toDate;
-        this.margin = requirePositive(margin);
+        this.margin = requirePrice(margin);
         this.repeat = repeat;
-        this.snooze = requireStrictlyPositiveShort(snooze);
+        this.snooze = requireSnooze(snooze);
     }
 
     @NotNull

@@ -34,9 +34,9 @@ public final class RangeCommand extends CommandAdapter {
             option(STRING, EXCHANGE_ARGUMENT, "the exchange, like binance", true)
                     .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).toList()),
             option(STRING, PAIR_ARGUMENT, "the pair, like EUR/USDT", true)
-                    .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
-            option(STRING, MESSAGE_ARGUMENT, "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
-                    .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH),
+                    .setMinLength(PAIR_MIN_LENGTH).setMaxLength(PAIR_MAX_LENGTH),
+            option(STRING, MESSAGE_ARGUMENT, "a message to show when the alert is raised : add a link to your AT ! (" + MESSAGE_MAX_LENGTH + " chars max)", true)
+                    .setMaxLength(MESSAGE_MAX_LENGTH),
             option(NUMBER, LOW_ARGUMENT, "the low range price", true)
                     .setMinValue(0d),
             option(NUMBER, HIGH_ARGUMENT, "the high range price", false)
@@ -70,8 +70,8 @@ public final class RangeCommand extends CommandAdapter {
         boolean stringReader = context.args instanceof StringArgumentReader;
         ZonedDateTime toDate = reversed.getDateTime(context.locale, context.timezone, context.clock(), TO_DATE_ARGUMENT).orElse(null);
         ZonedDateTime fromDate = !stringReader || null != toDate ? reversed.getDateTime(context.locale, context.timezone, context.clock(), FROM_DATE_ARGUMENT).orElse(null) : null;
-        BigDecimal high = reversed.getNumber(HIGH_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
-        BigDecimal low = reversed.getNumber(LOW_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
+        BigDecimal high = reversed.getNumber(HIGH_ARGUMENT).map(ArgumentValidator::requirePrice).orElse(null);
+        BigDecimal low = reversed.getNumber(LOW_ARGUMENT).map(ArgumentValidator::requirePrice).orElse(null);
         String message = requireAlertMessageMaxLength(reversed.getLastArgs(MESSAGE_ARGUMENT)
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
 

@@ -3,6 +3,7 @@ package org.sbot.utils;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -111,21 +112,51 @@ class ArgumentValidatorTest {
     }
 
     @Test
-    void requirePositiveShort() {
-        assertEquals(0, ArgumentValidator.requirePositiveShort((short) 0));
-        assertEquals(1, ArgumentValidator.requirePositiveShort((short) 1));
-        assertEquals(300, ArgumentValidator.requirePositiveShort((short) 300));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositiveShort((short) -1));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositiveShort((short) -300));
+    void requireRepeat() {
+        assertEquals(REPEAT_MIN, ArgumentValidator.requireRepeat(REPEAT_MIN));
+        assertEquals(1, ArgumentValidator.requireRepeat(1));
+        assertEquals(30, ArgumentValidator.requireRepeat(30));
+        assertEquals(REPEAT_MAX, ArgumentValidator.requireRepeat(REPEAT_MAX));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireRepeat(REPEAT_MAX + 1));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireRepeat(REPEAT_MIN - 1));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireRepeat(-300));
     }
 
     @Test
-    void requireStrictlyPositiveShort() {
-        assertEquals(1, ArgumentValidator.requireStrictlyPositiveShort((short) 1));
-        assertEquals(300, ArgumentValidator.requireStrictlyPositiveShort((short) 300));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireStrictlyPositiveShort((short) 0));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireStrictlyPositiveShort((short) -1));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireStrictlyPositiveShort((short) -300));
+    void requireSnooze() {
+        assertEquals(SNOOZE_MIN, ArgumentValidator.requireSnooze(SNOOZE_MIN));
+        assertEquals(30, ArgumentValidator.requireSnooze(30));
+        assertEquals(SNOOZE_MAX, ArgumentValidator.requireSnooze(SNOOZE_MAX));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireSnooze(SNOOZE_MAX + 1));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireSnooze(0));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireSnooze(SNOOZE_MIN - 1));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireSnooze(-300));
+    }
+
+    @Test
+    void requirePrice() {
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requirePrice(null));
+        assertEquals(ONE, ArgumentValidator.requirePriceLength(ONE));
+        assertEquals(ZERO, ArgumentValidator.requirePrice(ZERO));
+        assertEquals(new BigDecimal("1234567890"), ArgumentValidator.requirePrice(new BigDecimal("1234567890")));
+        assertEquals(new BigDecimal("12345678901234567890"), ArgumentValidator.requirePrice(new BigDecimal("12345678901234567890")));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePrice(new BigDecimal("-1")));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePrice(new BigDecimal("123456789012345678901")));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePrice(new BigDecimal("-12345678901234567890")));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePrice(new BigDecimal("1.2345678901234567890")));
+    }
+
+    @Test
+    void requirePriceLength() {
+        assertEquals(null, ArgumentValidator.requirePriceLength(null));
+        assertEquals(ONE, ArgumentValidator.requirePriceLength(ONE));
+        assertEquals(ZERO, ArgumentValidator.requirePriceLength(ZERO));
+        assertEquals(new BigDecimal("1234567890"), ArgumentValidator.requirePriceLength(new BigDecimal("1234567890")));
+        assertEquals(new BigDecimal("12345678901234567890"), ArgumentValidator.requirePriceLength(new BigDecimal("12345678901234567890")));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePriceLength(new BigDecimal("-1")));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePriceLength(new BigDecimal("123456789012345678901")));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePriceLength(new BigDecimal("-12345678901234567890")));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePriceLength(new BigDecimal("1.2345678901234567890")));
     }
 
     @Test
@@ -195,8 +226,8 @@ class ArgumentValidatorTest {
     @Test
     void requireAlertMessageMaxLength() {
         assertEquals("message", ArgumentValidator.requireAlertMessageMaxLength("message"));
-        assertEquals("1".repeat(ALERT_MESSAGE_ARG_MAX_LENGTH), ArgumentValidator.requireAlertMessageMaxLength("1".repeat(ALERT_MESSAGE_ARG_MAX_LENGTH)));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireAlertMessageMaxLength("1".repeat(1 + ALERT_MESSAGE_ARG_MAX_LENGTH)));
+        assertEquals("1".repeat(MESSAGE_MAX_LENGTH), ArgumentValidator.requireAlertMessageMaxLength("1".repeat(MESSAGE_MAX_LENGTH)));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireAlertMessageMaxLength("1".repeat(1 + MESSAGE_MAX_LENGTH)));
     }
 
     @Test

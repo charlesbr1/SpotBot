@@ -13,10 +13,10 @@ import java.time.ZonedDateTime;
 import java.util.List;
 
 import static java.math.RoundingMode.HALF_UP;
+import static java.util.Objects.requireNonNull;
 import static org.sbot.entities.chart.Ticker.formatPrice;
 import static org.sbot.entities.chart.Ticker.getSymbol;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.*;
-import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.Dates.formatDiscord;
 import static org.sbot.utils.Dates.formatDiscordRelative;
 
@@ -29,7 +29,7 @@ public final class TrendAlert extends Alert {
                       @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate,
                       @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin,
                       short repeat, short snooze) {
-        super(id, Type.trend, userId, serverId, creationDate, listeningDate, exchange, pair, message, requirePositive(fromPrice), requirePositive(toPrice),
+        super(id, Type.trend, userId, serverId, creationDate, listeningDate, exchange, pair, message, requireNonNull(fromPrice), requireNonNull(toPrice),
                 fromDate, toDate, lastTrigger, margin, repeat, snooze);
         if(fromDate.isAfter(toDate)) {
             throw new IllegalArgumentException("from_date is after to_date");

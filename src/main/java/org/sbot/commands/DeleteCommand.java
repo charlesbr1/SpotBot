@@ -38,7 +38,7 @@ public final class DeleteCommand extends CommandAdapter {
                                     .setMinValue(0).setMaxValue((long) MAX_POSITIVE_NUMBER)),
                     new SubcommandData("filter", "delete all your alerts or filtered by pair or ticker or type").addOptions(
                             option(STRING, TICKER_PAIR_ARGUMENT, "a pair or a ticker to filter the alerts to delete (can be '" + DELETE_ALL + "')", true)
-                                    .setMinLength(ALERT_MIN_TICKER_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
+                                    .setMinLength(TICKER_MIN_LENGTH).setMaxLength(PAIR_MAX_LENGTH),
                             option(STRING, TYPE_ARGUMENT, "type of alert to delete (range, trend or remainder)", false)
                                     .addChoices(Stream.of(Type.values()).map(t -> new Choice(t.name(), t.name())).toList()),
                             option(USER, OWNER_ARGUMENT, "for admin only, an user whose alerts will be deleted", false)));

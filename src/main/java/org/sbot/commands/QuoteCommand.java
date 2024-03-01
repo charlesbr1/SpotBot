@@ -29,7 +29,7 @@ public final class QuoteCommand extends CommandAdapter {
                 option(STRING, EXCHANGE_ARGUMENT, "the exchange, like binance", true)
                         .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Command.Choice(e, e)).toList()),
                 option(STRING, PAIR_ARGUMENT, "the pair, like EUR/USDT", true)
-                        .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH));
+                        .setMinLength(PAIR_MIN_LENGTH).setMaxLength(PAIR_MAX_LENGTH));
 
     record Arguments(String exchange, String pair) {}
 

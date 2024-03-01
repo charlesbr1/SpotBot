@@ -2,6 +2,7 @@ package org.sbot.utils;
 
 import net.dv8tion.jda.api.interactions.DiscordLocale;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.alerts.Alert.Type;
 
 import java.math.BigDecimal;
@@ -13,6 +14,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static net.dv8tion.jda.api.entities.Message.MentionType.USER;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
@@ -23,15 +25,20 @@ public interface ArgumentValidator {
     Pattern BLANK_SPACES = Pattern.compile("\\s+");
 
 
-    int ALERT_MESSAGE_ARG_MAX_LENGTH = 210;
-    int ALERT_MIN_TICKER_LENGTH = 3;
-    int ALERT_MAX_TICKER_LENGTH = 5;
-    int ALERT_MIN_PAIR_LENGTH = 7;
-    int ALERT_MAX_PAIR_LENGTH = 11;
+    int MESSAGE_MAX_LENGTH = 210;
+    int TICKER_MIN_LENGTH = 3;
+    int TICKER_MAX_LENGTH = 5;
+    int PAIR_MIN_LENGTH = 7;
+    int PAIR_MAX_LENGTH = 11;
+    int PRICE_MAX_LENGTH = 20;
+    int REPEAT_MIN = 0;
+    int REPEAT_MAX = 100;
+    int SNOOZE_MIN = 1;
+    int SNOOZE_MAX = 1000;
 
 
-    Pattern PAIR_PATTERN = Pattern.compile("^[A-Z0-9]{" + ALERT_MIN_TICKER_LENGTH + ',' + ALERT_MAX_TICKER_LENGTH +
-            "}/[A-Z0-9]{" + ALERT_MIN_TICKER_LENGTH + ',' + ALERT_MAX_TICKER_LENGTH + "}$"); // TICKER/TICKER format
+    Pattern PAIR_PATTERN = Pattern.compile("^[A-Z0-9]{" + TICKER_MIN_LENGTH + ',' + TICKER_MAX_LENGTH +
+            "}/[A-Z0-9]{" + TICKER_MIN_LENGTH + ',' + TICKER_MAX_LENGTH + "}$"); // TICKER/TICKER format
 
     Pattern START_WITH_DISCORD_USER_ID_PATTERN = Pattern.compile("^<@!?(\\d+)>"); // matches id from discord user mention
 
@@ -53,20 +60,29 @@ public interface ArgumentValidator {
         return value;
     }
 
-    static short requirePositiveShort(long value) {
-        if (value < 0 || value > Short.MAX_VALUE) {
-            throw new IllegalArgumentException("Not a positive value : " + value);
+    static short requireRepeat(long repeat) {
+        if (repeat < REPEAT_MIN || repeat > REPEAT_MAX) {
+            throw new IllegalArgumentException("Provided repeat must be between " + REPEAT_MIN + " and " + REPEAT_MAX + ", provided value : " + repeat);
         }
-
-        return (short) value;
+        return (short) repeat;
     }
 
-    static short requireStrictlyPositiveShort(long value) {
-        if (value <= 0 || value > Short.MAX_VALUE) {
-            throw new IllegalArgumentException(value == 0 ? "Zero value" : "Negative value : " + value);
+    static short requireSnooze(long snooze) {
+        if (snooze < SNOOZE_MIN || snooze > SNOOZE_MAX) {
+            throw new IllegalArgumentException("Provided snooze must be between " + SNOOZE_MIN + " and " + SNOOZE_MAX + ", provided value : " + snooze);
         }
+        return (short) snooze;
+    }
 
-        return (short) value;
+    static BigDecimal requirePrice(@NotNull BigDecimal price) {
+        return requirePriceLength(requireNonNull(price));
+    }
+
+    static BigDecimal requirePriceLength(@Nullable BigDecimal price) {
+        if (null != price && requirePositive(price).toPlainString().length() > PRICE_MAX_LENGTH) {
+            throw new IllegalArgumentException("Provided price is too long (" + PRICE_MAX_LENGTH + " chars max) : " + price.toPlainString());
+        }
+        return price;
     }
 
     static String requireNotBlank(@NotNull String value, @NotNull String name) {
@@ -108,19 +124,19 @@ public interface ArgumentValidator {
     static String requireTickerPairLength(@NotNull String tickerPair) {
         int slashIndex = tickerPair.indexOf('/');
         if(slashIndex > 0) { // pair
-            boolean badTicker = slashIndex > ALERT_MAX_TICKER_LENGTH || slashIndex < ALERT_MIN_TICKER_LENGTH;
-            if (badTicker || tickerPair.length() > ALERT_MAX_PAIR_LENGTH || tickerPair.length() < ALERT_MIN_PAIR_LENGTH) {
-                throw new IllegalArgumentException("Provided  pair is invalid : " + tickerPair + " (expected " + ALERT_MIN_PAIR_LENGTH + " to " + ALERT_MAX_PAIR_LENGTH + " chars)");
+            boolean badTicker = slashIndex > TICKER_MAX_LENGTH || slashIndex < TICKER_MIN_LENGTH;
+            if (badTicker || tickerPair.length() > PAIR_MAX_LENGTH || tickerPair.length() < PAIR_MIN_LENGTH) {
+                throw new IllegalArgumentException("Provided  pair is invalid : " + tickerPair + " (expected " + PAIR_MIN_LENGTH + " to " + PAIR_MAX_LENGTH + " chars)");
             }
-        } else if (tickerPair.length() > ALERT_MAX_TICKER_LENGTH || tickerPair.length() < ALERT_MIN_TICKER_LENGTH) {
-                throw new IllegalArgumentException("Provided ticker is invalid : " + tickerPair + " (expected " + ALERT_MIN_TICKER_LENGTH + " to " + ALERT_MAX_TICKER_LENGTH + " chars)");
+        } else if (tickerPair.length() > TICKER_MAX_LENGTH || tickerPair.length() < TICKER_MIN_LENGTH) {
+                throw new IllegalArgumentException("Provided ticker is invalid : " + tickerPair + " (expected " + TICKER_MIN_LENGTH + " to " + TICKER_MAX_LENGTH + " chars)");
         }
         return tickerPair;
     }
 
     static String requireAlertMessageMaxLength(@NotNull String message) {
-        if (message.length() > ALERT_MESSAGE_ARG_MAX_LENGTH) {
-            throw new IllegalArgumentException("Provided message is too long (" + message.length() + " chars, max is " + ALERT_MESSAGE_ARG_MAX_LENGTH + ") : " + message);
+        if (message.length() > MESSAGE_MAX_LENGTH) {
+            throw new IllegalArgumentException("Provided message is too long (" + message.length() + " chars, max is " + MESSAGE_MAX_LENGTH + ") : " + message);
         }
         return message;
     }

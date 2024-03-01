@@ -31,7 +31,7 @@ import static org.sbot.entities.alerts.Alert.DEFAULT_SNOOZE_HOURS;
 import static org.sbot.entities.alerts.Alert.MARGIN_DISABLED;
 import static org.sbot.entities.alerts.Alert.Type.remainder;
 import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
-import static org.sbot.utils.ArgumentValidator.ALERT_MESSAGE_ARG_MAX_LENGTH;
+import static org.sbot.utils.ArgumentValidator.MESSAGE_MAX_LENGTH;
 import static org.sbot.utils.Dates.UTC;
 
 class RemainderCommandTest {
@@ -197,7 +197,7 @@ class RemainderCommandTest {
         assertDoesNotThrow(() -> RemainderCommand.arguments(commandContext[0], now));
 
         // message too long
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd " + "aa".repeat(ALERT_MESSAGE_ARG_MAX_LENGTH) + " 10/10/2210-20:01");
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd " + "aa".repeat(MESSAGE_MAX_LENGTH) + " 10/10/2210-20:01");
         assertExceptionContains(IllegalArgumentException.class, "too long",
                 () -> RemainderCommand.arguments(commandContext[0], now));
     }

@@ -37,9 +37,9 @@ public final class TrendCommand extends CommandAdapter {
             option(STRING, EXCHANGE_ARGUMENT, "the exchange, like binance", true)
                     .addChoices(SUPPORTED_EXCHANGES.stream().map(e -> new Choice(e, e)).toList()),
             option(STRING, PAIR_ARGUMENT, "the pair, like EUR/USDT", true)
-                    .setMinLength(ALERT_MIN_PAIR_LENGTH).setMaxLength(ALERT_MAX_PAIR_LENGTH),
-            option(STRING, MESSAGE_ARGUMENT, "a message to show when the alert is raised : add a link to your AT ! (" + ALERT_MESSAGE_ARG_MAX_LENGTH + " chars max)", true)
-                    .setMaxLength(ALERT_MESSAGE_ARG_MAX_LENGTH),
+                    .setMinLength(PAIR_MIN_LENGTH).setMaxLength(PAIR_MAX_LENGTH),
+            option(STRING, MESSAGE_ARGUMENT, "a message to show when the alert is raised : add a link to your AT ! (" + MESSAGE_MAX_LENGTH + " chars max)", true)
+                    .setMaxLength(MESSAGE_MAX_LENGTH),
             option(NUMBER, FROM_PRICE_ARGUMENT, "the first price", true)
                     .setMinValue(0d),
             option(STRING, FROM_DATE_ARGUMENT, "the date of first price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
@@ -87,9 +87,9 @@ public final class TrendCommand extends CommandAdapter {
         String pair = requirePairFormat(context.args.getMandatoryString(PAIR_ARGUMENT).toUpperCase());
         var reversed = context.args.reversed();
         ZonedDateTime toDate = reversed.getMandatoryDateTime(context.locale, context.timezone, context.clock(), TO_DATE_ARGUMENT);
-        BigDecimal toPrice = requirePositive(reversed.getMandatoryNumber(TO_PRICE_ARGUMENT));
+        BigDecimal toPrice = requirePrice(reversed.getMandatoryNumber(TO_PRICE_ARGUMENT));
         ZonedDateTime fromDate = reversed.getMandatoryDateTime(context.locale, context.timezone, context.clock(), FROM_DATE_ARGUMENT);
-        BigDecimal fromPrice = requirePositive(reversed.getMandatoryNumber(FROM_PRICE_ARGUMENT));
+        BigDecimal fromPrice = requirePrice(reversed.getMandatoryNumber(FROM_PRICE_ARGUMENT));
         String message = requireAlertMessageMaxLength(reversed.getLastArgs(MESSAGE_ARGUMENT)
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
         return new Arguments(null, exchange, pair, message, fromPrice, toPrice, fromDate, toDate);
