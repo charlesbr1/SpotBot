@@ -218,25 +218,6 @@ public class AlertTest {
     }
 
     @Test
-    void isQuietOrDisabled() {
-        var now = nowUtc();
-        Alert alert = createTestAlert();
-        assertFalse(alert.isQuietOrDisabled(now));
-        assertTrue(alert.withListeningDateRepeat(null, alert.repeat).isQuietOrDisabled(now));
-
-        assertFalse(alert.withListeningDateRepeat(now, alert.repeat).isQuietOrDisabled(now));
-        assertFalse(alert.withListeningDateRepeat(now.minusSeconds(1L), alert.repeat).isQuietOrDisabled(now));
-        assertFalse(alert.withListeningDateRepeat(now.minusMinutes(1L), alert.repeat).isQuietOrDisabled(now));
-        assertFalse(alert.withListeningDateRepeat(now.minusHours(1L), alert.repeat).isQuietOrDisabled(now));
-        assertFalse(alert.withListeningDateRepeat(now.minusDays(3L), alert.repeat).isQuietOrDisabled(now));
-
-        assertTrue(alert.withListeningDateRepeat(now.plusSeconds(1L), alert.repeat).isQuietOrDisabled(now));
-        assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L), alert.repeat).isQuietOrDisabled(now));
-        assertTrue(alert.withListeningDateRepeat(now.plusMinutes(31L), alert.repeat).isQuietOrDisabled(now));
-        assertTrue(alert.withListeningDateRepeat(now.plusDays(2L), alert.repeat).isQuietOrDisabled(now));
-    }
-
-    @Test
     void isEnabled() {
         var now = nowUtc();
         Alert alert = createTestAlert();

@@ -71,9 +71,9 @@ public final class AlertsMemory implements AlertsDao {
         ZonedDateTime nowPlusOneSecond = now.plusSeconds(1L);
         ZonedDateTime nowPlusDelta = now.plusMinutes(Math.ceilDiv(requirePositive(checkPeriodMin), 2));
         return alerts.filter(alert ->
-                (null != alert.listeningDate && alert.listeningDate.compareTo(nowPlusOneSecond) <= 0) &&
+                (null != alert.listeningDate && !alert.listeningDate.isAfter(nowPlusOneSecond)) &&
                 (alert.type != remainder || alert.fromDate.isBefore(nowPlusDelta)) &&
-                (alert.type != range || (null == alert.toDate || alert.toDate.compareTo(now) > 0)));
+                (alert.type != range || (null == alert.toDate || alert.toDate.isAfter(now))));
     }
 
     @Override

@@ -89,8 +89,11 @@ public final class RangeCommand extends CommandAdapter {
         if(null == low) {
             throw new IllegalArgumentException("Missing low price");
         }
+        if(null != fromDate) {
+            requireInFuture(now, fromDate);
+        }
         if(null != toDate) {
-            requireInFuture(now, toDate);
+            requireInFuture(now.plusHours(1L), toDate);
         }
         return new Arguments(exchange, pair, message, low, high, fromDate, toDate);
     }

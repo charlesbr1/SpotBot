@@ -56,6 +56,7 @@ public class DatesTest {
         assertThrows(NullPointerException.class, () -> Dates.parse(null, Dates.UTC, Clock.systemUTC(), "now"));
 
         assertThrows(DateTimeException.class, () -> Dates.parse(Locale.US, Dates.UTC, Clock.systemUTC(), "now-"));
+        assertThrows(DateTimeException.class, () -> Dates.parse(Locale.US, Dates.UTC, Clock.systemUTC(), "now+"));
         assertThrows(DateTimeException.class, () -> Dates.parse(Locale.US, Dates.UTC, Clock.systemUTC(), "now--"));
         assertThrows(DateTimeException.class, () -> Dates.parse(Locale.US, Dates.UTC, Clock.systemUTC(), "nowUTC-"));
         assertDoesNotThrow(() -> Dates.parse(Locale.US, Dates.UTC, Clock.systemUTC(), "01/21/2000-10:00-Asia/Tokyo"));
@@ -72,60 +73,42 @@ public class DatesTest {
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now"));
         assertEquals(date, Dates.parse(Locale.US, UTC, clock, "now"));
         assertNotEquals(date, Dates.parse(Locale.US, ZoneId.of("GMT"), clock, "now"));
-        assertEquals(now.atZone(ZoneId.of("GMT")), Dates.parse(Locale.US, ZoneId.of("GMT"), Clock.fixed(now.atZone(ZoneId.of("GMT")).toInstant(), ZoneId.of("GMT")), "now"));
-        assertEquals(now.atZone(ZoneId.of("Asia/Tokyo")), Dates.parse(Locale.US, ZoneId.of("Asia/Tokyo"), Clock.fixed(now.atZone(ZoneId.of("Asia/Tokyo")).toInstant(), ZoneId.of("Asia/Tokyo")), "now"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now-UTC"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now UTC"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now-UTC"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now UTC"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now    UTC"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now \t  UTC"));
-        assertNotEquals(now.atZone(ZoneId.of("GMT")), Dates.parse(Locale.US, ZoneId.of("GMT"), clock, "now-UTC"));
-        date = Instant.now().atZone(ZoneId.of("Asia/Tokyo"));
-        clock = Clock.fixed(date.toInstant(), ZoneId.of("Asia/Tokyo"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now-JST"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now-Asia/Tokyo"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now Asia/Tokyo"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now  Asia/Tokyo"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now  \tAsia/Tokyo"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now\nAsia/Tokyo"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now\n\tAsia/Tokyo"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now\n\t  Asia/Tokyo"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now-Asia/Tokyo"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, UTC, clock, "now-Asia/Tokyo"));
-        date = Instant.now().atZone(ZoneId.of("CET"));
-        clock = Clock.fixed(date.toInstant(), ZoneId.of("CET"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now-CET"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now-CET"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now CET"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now      CET"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now\tCET"));
-        date = Instant.now().atZone(ZoneId.of("Europe/Paris"));
-        clock = Clock.fixed(date.toInstant(), ZoneId.of("CET"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now-Europe/Paris"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now-Europe/Paris"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now Europe/Paris"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now\r Europe/Paris"));
-        date = Instant.now().atZone(ZoneId.of("+12:33"));
-        clock = Clock.fixed(date.toInstant(), ZoneId.of("+12:33"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now-+12:33"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now+12:33"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now+12:33"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now +12:33"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now   +12:33"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now\n  +12:33"));
-        date = Instant.now().atZone(ZoneId.of("-08:01"));
-        clock = Clock.fixed(date.toInstant(), ZoneId.of("-08:01"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now--08:01"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now-08:01"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now -08:01"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now    -08:01"));
-        assertEquals(date, Dates.parse(Locale.US, null, clock, "now    \t-08:01"));
-        assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "now-08:01"));
+        assertEquals(date.withZoneSameInstant(ZoneId.of("GMT")), Dates.parse(Locale.US, ZoneId.of("GMT"), clock, "now"));
+        assertEquals(date.withZoneSameInstant(ZoneId.of("Asia/Tokyo")), Dates.parse(Locale.US, ZoneId.of("Asia/Tokyo"), clock, "now"));
+        assertEquals(date, Dates.parse(Locale.US, UTC, clock, "NOW"));
+        assertEquals(date, Dates.parse(Locale.US, UTC, clock, "Now"));
+        assertEquals(date, Dates.parse(Locale.FRENCH, UTC, clock, "noW"));
+        assertEquals(date, Dates.parse(Locale.FRENCH, UTC, clock, "nOw"));
+        assertEquals(date, Dates.parse(Locale.FRENCH, UTC, clock, "nOW    "));
+        assertEquals(date, Dates.parse(Locale.FRENCH, UTC, clock, "NOw \t  "));
+        assertEquals(date.withZoneSameInstant(ZoneId.of("GMT")), Dates.parse(Locale.US, ZoneId.of("GMT"), clock, "now"));
+        date = date.withZoneSameInstant(ZoneId.of("Asia/Tokyo"));
+        assertEquals(date, Dates.parse(Locale.US, ZoneId.of("JST", ZoneId.SHORT_IDS), clock, "now"));
+        assertEquals(date, Dates.parse(Locale.US, ZoneId.of("Asia/Tokyo"), clock, "now"));
+        date = date.withZoneSameInstant(ZoneId.of("CET"));
+        assertEquals(date, Dates.parse(Locale.US, ZoneId.of("CET"), clock, "now"));
+        assertEquals(date, Dates.parse(Locale.FRENCH, ZoneId.of("CET"), clock, "now"));
+        date = date.withZoneSameInstant(ZoneId.of("Europe/Paris"));
+        assertEquals(date, Dates.parse(Locale.US, ZoneId.of("Europe/Paris"), clock, "now"));
+        assertEquals(date, Dates.parse(Locale.FRENCH, ZoneId.of("Europe/Paris"), clock, "now"));
+        date = date.withZoneSameInstant(ZoneId.of("+12:33"));
+        assertEquals(date, Dates.parse(Locale.US, ZoneId.of("+12:33"), clock, "  now"));
+        assertEquals(date, Dates.parse(Locale.FRENCH, ZoneId.of("+12:33"), clock, "now  "));
+        date = date.withZoneSameInstant(ZoneId.of("-08:01"));
+        assertEquals(date, Dates.parse(Locale.US, ZoneId.of("-08:01"), clock, " now "));
+        assertEquals(date, Dates.parse(Locale.US, ZoneId.of("-08:01"), clock, "\tnow\t"));
+
+        // test now with delta
+        date = now.atZone(UTC);
+        assertEquals(date.plusHours(1L), Dates.parse(Locale.US, null, clock, "now+1"));
+        assertEquals(date.minusHours(1L), Dates.parse(Locale.US, null, clock, "now-1"));
+        assertEquals(date.withZoneSameInstant(ZoneId.of("Asia/Tokyo")).plusMinutes(30L), Dates.parse(Locale.US, ZoneId.of("Asia/Tokyo"), clock, "now+0.5"));
+        assertEquals(date.minusMinutes(15L), Dates.parse(Locale.US, null, clock, "now-0,25"));
+        assertEquals(date.minusMinutes((1234*60) + 45), Dates.parse(Locale.US, null, clock, "now-1234.75"));
+        assertEquals(date.minusMinutes((1234*60) + 45), Dates.parse(Locale.US, null, clock, "now-1234,75"));
 
         // test no timezone
         date = LocalDateTime.parse("21/05/1999 19:13", DATE_TIME_FORMATTER).atZone(ZoneId.of("Asia/Tokyo"));
-        clock = Clock.fixed(date.toInstant(), ZoneId.of("Asia/Tokyo"));
         assertNotEquals(date, Dates.parse(Locale.UK, UTC, clock, "21/05/1999-19:13"));
         assertNotEquals(date, Dates.parse(Locale.UK, null, clock, "21/05/1999-19:13"));
         assertEquals(date, Dates.parse(Locale.UK, ZoneId.of("Asia/Tokyo"), clock, "21/05/1999-19:13"));
@@ -149,16 +132,14 @@ public class DatesTest {
 
         // test dates time with timezone
         date = LocalDateTime.parse("21/01/2000 10:00", DATE_TIME_FORMATTER).atZone(ZoneId.of("Asia/Tokyo"));
-        clock = Clock.fixed(date.toInstant(), ZoneId.of("Asia/Tokyo"));
-        Clock[] finalClock = {clock};
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/21/2000-10:00-JT"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/21/2000-10:00 JT"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/21/2000 10:00 JT"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/21/2000 10:00   JT"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/21/2000 10:00-JT"));
-        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.US, null, finalClock[0], "01-21-2000-10:00-JT"));
-        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.US, null, finalClock[0], "01 21 2000-10:00-JT"));
-        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.US, null, finalClock[0], "01.21.2000-10:00-JT"));
+        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.US, null, clock, "01-21-2000-10:00-JT"));
+        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.US, null, clock, "01 21 2000-10:00-JT"));
+        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.US, null, clock, "01.21.2000-10:00-JT"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "1/21/2000-10:00-JT"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "1/21/2000 10:00 JT"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "1/21/2000 10:00   \t JT"));
@@ -168,10 +149,9 @@ public class DatesTest {
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/21/2000 10:00\n Asia/Tokyo"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "1/21/2000-10:00-Asia/Tokyo"));
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "21/01/2000-10:00-Asia/Tokyo"));
-        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, finalClock[0], "21/1/2000-10:00-Asia/Tokyo"));
+        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, clock, "21/1/2000-10:00-Asia/Tokyo"));
 
         date = LocalDateTime.parse("01/11/2000 00:00", DATE_TIME_FORMATTER).atZone(ZoneId.of("Europe/Paris"));
-        finalClock[0] = clock = Clock.fixed(date.toInstant(), ZoneId.of("Europe/Paris"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "11/01/2000-00:00-CET"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "11/01/2000-00:00 CET"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "11/01/2000 00:00 CET"));
@@ -182,7 +162,7 @@ public class DatesTest {
         assertEquals(date, Dates.parse(Locale.US, null, clock, "11/1/2000 00:00-CET"));
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "01/11/2000-00:00-CET"));
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "01/11/2000 00:00 CET"));
-        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, finalClock[0], "1/11/2000-00:00-CET"));
+        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, clock, "1/11/2000-00:00-CET"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "11/01/2000-00:00-Europe/Paris"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "11/01/2000-00:00\nEurope/Paris"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "11/1/2000-00:00-Europe/Paris"));
@@ -190,10 +170,9 @@ public class DatesTest {
         assertEquals(date, Dates.parse(Locale.US, null, clock, "11/1/2000\t  00:00-Europe/Paris"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "11/1/2000 00:00  Europe/Paris"));
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "01/11/2000-00:00-Europe/Paris"));
-        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, finalClock[0], "1/11/2000-00:00-Europe/Paris"));
+        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, clock, "1/11/2000-00:00-Europe/Paris"));
 
         date = LocalDateTime.parse("21/07/2034 07:38", DATE_TIME_FORMATTER).atZone(Dates.UTC);
-        finalClock[0] = clock = Clock.fixed(date.toInstant(), UTC);
         assertEquals(date, Dates.parse(Locale.US, null, clock, "07/21/2034-07:38-UTC"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "07/21/2034 07:38-UTC"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "07/21/2034  07:38-UTC"));
@@ -201,7 +180,7 @@ public class DatesTest {
         assertEquals(date, Dates.parse(Locale.US, null, clock, "07/21/2034  07:38  UTC"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "7/21/2034-07:38-UTC"));
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "21/07/2034-07:38-UTC"));
-        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, finalClock[0], "21/7/2034-07:38-UTC"));
+        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, clock, "21/7/2034-07:38-UTC"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "07/21/2034-07:38"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "07/21/2034 07:38"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "07/21/2034\r07:38"));
@@ -211,10 +190,9 @@ public class DatesTest {
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "21/07/2034-07:38"));
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "21/07/2034 07:38"));
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "21/07/2034   07:38"));
-        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, finalClock[0], "21/7/2034-07:38"));
+        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, clock, "21/7/2034-07:38"));
 
         date = LocalDateTime.parse("01/01/1801 00:00", DATE_TIME_FORMATTER).atZone(ZoneOffset.ofHours(2));
-        finalClock[0] = clock = Clock.fixed(date.toInstant(), ZoneOffset.ofHours(2));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/01/1801-00:00+02:00"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/01/1801 00:00+02:00"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/01/1801-00:00 +02:00"));
@@ -233,10 +211,9 @@ public class DatesTest {
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "01/01/1801 00:00 +02:00"));
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "01/01/1801\t00:00 +02:00"));
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "01/01/1801\t00:00\t\t\t+02:00"));
-        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, finalClock[0], "1/01/1801-00:00+02:00"));
+        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, clock, "1/01/1801-00:00+02:00"));
 
         date = LocalDateTime.parse("01/01/0073 00:00", DATE_TIME_FORMATTER).atZone(ZoneId.of("Z"));
-        finalClock[0] = clock = Clock.fixed(date.toInstant(), ZoneOffset.ofHours(2));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/01/0073-00:00Z"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/01/0073-00:00 Z"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/01/0073 00:00 Z"));
@@ -260,10 +237,9 @@ public class DatesTest {
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "01/01/73 00:00 Z"));
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "01/01/73   00:00 Z"));
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "01/01/73   00:00  \n Z"));
-        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, finalClock[0], "1/01/0073-00:00Z"));
+        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, clock, "1/01/0073-00:00Z"));
 
         date = LocalDateTime.parse("13/01/0003 00:00", DATE_TIME_FORMATTER).atZone(ZoneId.of("Z"));
-        finalClock[0] = clock = Clock.fixed(date.toInstant(), ZoneOffset.ofHours(2));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/13/0003-00:00-Z"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/13/0003 00:00-Z"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/13/03-00:00-Z"));
@@ -290,10 +266,9 @@ public class DatesTest {
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "13/01/3-00:00\nZ"));
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "13/01/3-00:00  \nZ"));
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "13/01/3-00:00\n  Z"));
-        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, finalClock[0], "13/1/0003-00:00-Z"));
+        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, clock, "13/1/0003-00:00-Z"));
 
         date = LocalDateTime.parse("17/01/2000 00:00", DATE_TIME_FORMATTER).atZone(ZoneOffset.ofHoursMinutes(-2, -10));
-        finalClock[0] = clock = Clock.fixed(date.toInstant(), ZoneOffset.ofHoursMinutes(-2, -10));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/17/2000-00:00-02:10"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/17/2000 00:00 -02:10"));
         assertEquals(date, Dates.parse(Locale.US, null, clock, "01/17/2000 00:00  -02:10"));
@@ -308,12 +283,11 @@ public class DatesTest {
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "17/01/2000 00:00 -02:10"));
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "17/01/2000 00:00\t-02:10"));
         assertEquals(date, Dates.parse(Locale.FRENCH, null, clock, "17/01/2000\t00:00\t-02:10"));
-        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, finalClock[0], "17/1/2000-00:00-02:10"));
+        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, clock, "17/1/2000-00:00-02:10"));
 
         // test other locales formatting
         date = LocalDateTime.parse("17/01/2011 00:00", DATE_TIME_FORMATTER).atZone(UTC);
-        finalClock[0] = clock = Clock.fixed(date.toInstant(), UTC);
-        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, finalClock[0], "2011-01-17-00:00"));
+        assertThrows(DateTimeParseException.class, () -> Dates.parse(Locale.FRENCH, null, clock, "2011-01-17-00:00"));
         assertEquals(date, Dates.parse(Locale.forLanguageTag("Finnish"), null, clock, "2011-01-17-00:00"));
         assertEquals(date, Dates.parse(Locale.forLanguageTag("Finnish"), null, clock, "2011-01-17 00:00"));
         assertEquals(date, Dates.parse(Locale.forLanguageTag("Finnish"), null, clock, "2011-01-17   00:00"));

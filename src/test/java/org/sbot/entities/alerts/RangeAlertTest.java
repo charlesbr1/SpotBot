@@ -603,10 +603,10 @@ public class RangeAlertTest {
                 .asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("DISABLED"));
         assertFalse(message.contains("QUIET"));
 
-        assertFalse(alert.withListeningDateRepeat(now, (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("DISABLED"));
-        assertTrue(alert.withListeningDateRepeat(now.plusSeconds(1L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("QUIET"));
-        assertTrue(alert.withListeningDateRepeat(now.plusSeconds(1L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("" + now.plusSeconds(1L).plusNanos(1000000L).toEpochSecond()));
-        assertTrue(alert.withListeningDateRepeat(now.plusSeconds(3L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("" + now.plusSeconds(3L).plusNanos(1000000L).toEpochSecond()));
+        assertFalse(alert.withListeningDateRepeat(now.plusMinutes(1L), (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("DISABLED"));
+        assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L).plusSeconds(1L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("QUIET"));
+        assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L).plusSeconds(1L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("" + now.plusMinutes(1L).plusSeconds(1L).plusNanos(1000000L).toEpochSecond()));
+        assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L).plusSeconds(3L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("" + now.plusMinutes(1L).plusSeconds(3L).plusNanos(1000000L).toEpochSecond()));
         assertTrue(alert.withListeningDateRepeat(now.plusMinutes(25L).plusSeconds(1L), (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("" + now.plusMinutes(25L).plusSeconds(1L).toEpochSecond()));
         assertTrue(alert.withListeningDateRepeat(now.plusHours(1L).plusSeconds(1L), (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("" + now.plusHours(1L).plusSeconds(1L).toEpochSecond()));
         assertTrue(alert.withListeningDateRepeat(now.plusHours(1L).plusMinutes(1L).plusSeconds(1L), (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("" + now.plusHours(1L).plusMinutes(1L).plusSeconds(1L).toEpochSecond()));

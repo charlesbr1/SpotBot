@@ -20,6 +20,7 @@ import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -179,8 +180,21 @@ class RemainderCommandTest {
 
         // test date in past
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message 10/10/1010-20:01");
-        assertExceptionContains(IllegalArgumentException.class, "after",
+        assertExceptionContains(IllegalArgumentException.class, "date",
                 () -> RemainderCommand.arguments(commandContext[0], now));
+
+        // test date now ko
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message " + Dates.formatUTC(Locale.UK, now));
+        assertExceptionContains(IllegalArgumentException.class, "date",
+                () -> RemainderCommand.arguments(commandContext[0], now));
+
+        // test date now + 1h ok
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message " + Dates.formatUTC(Locale.UK, now.plusHours(1L).minusSeconds(1L)));
+        assertExceptionContains(IllegalArgumentException.class, "date",
+                () -> RemainderCommand.arguments(commandContext[0], now));
+
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message " + Dates.formatUTC(Locale.UK, now.plusHours(1L)));
+        assertDoesNotThrow(() -> RemainderCommand.arguments(commandContext[0], now));
 
         // message too long
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd " + "aa".repeat(ALERT_MESSAGE_ARG_MAX_LENGTH) + " 10/10/2210-20:01");

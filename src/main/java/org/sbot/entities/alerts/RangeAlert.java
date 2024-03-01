@@ -34,7 +34,7 @@ public final class RangeAlert extends Alert {
         if(null != fromDate && null != toDate) {
             if(fromDate.isAfter(toDate)) {
                 throw new IllegalArgumentException("from_date is after to_date");
-            } else if(fromDate.compareTo(toDate) == 0) {
+            } else if(fromDate.isEqual(toDate)) {
                 throw new IllegalArgumentException("from_date and to_date can not be the same");
             }
         }
@@ -70,8 +70,8 @@ public final class RangeAlert extends Alert {
     }
 
     static boolean datesInLimits(@NotNull Candlestick candlestick, @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate) {
-        return (null == fromDate || fromDate.compareTo(candlestick.closeTime()) <= 0) &&
-                (null == toDate || toDate.compareTo(candlestick.closeTime()) > 0);
+        return (null == fromDate || !fromDate.isAfter(candlestick.closeTime())) &&
+                (null == toDate || toDate.isAfter(candlestick.closeTime()));
     }
 
     static boolean priceInRange(@NotNull Candlestick candlestick, @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice, @NotNull BigDecimal margin) {

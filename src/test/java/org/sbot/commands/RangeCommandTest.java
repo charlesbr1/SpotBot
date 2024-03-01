@@ -21,6 +21,7 @@ import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -193,32 +194,19 @@ class RangeCommandTest {
         assertEquals(DEFAULT_SNOOZE_HOURS, alert.snooze);
 
 
-        // check from date in past
+        // check from dates in past
 
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc this is the message !!  12,45 " + Dates.formatUTC(DEFAULT_LOCALE, now.minusYears(13L))));
-        doNothing().when(commandContext).reply(anyList(), eq(command.responseTtlSeconds));
-        when(usersDao.userExists(userId)).thenReturn(true);
-        command.onCommand(commandContext);
+        var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc this is the message !!  12,45 12/12/1012-21:00 12/12/1111-20:00"));
+        doNothing().when(fc1).reply(anyList(), eq(command.responseTtlSeconds));
+        assertThrows(IllegalArgumentException.class, () -> command.onCommand(fc1));
 
-        verify(usersDao, times(6)).userExists(userId);
-        alertReply = ArgumentCaptor.forClass(Alert.class);
-        verify(alertsDao, times(5)).addAlert(alertReply.capture());
-        alert = alertReply.getValue();
-        assertEquals(range, alert.type);
-        assertEquals(userId, alert.userId);
-        assertEquals(serverId, alert.serverId);
-        assertNull(alert.lastTrigger);
-        assertEquals(now, alert.listeningDate);
-        assertEquals(now, alert.creationDate);
-        assertEquals("ADA/BTC", alert.pair);
-        assertEquals(now.minusYears(13L), alert.fromDate);
-        assertNull(alert.toDate);
-        assertEquals(new BigDecimal("12.45"), alert.fromPrice);
-        assertEquals(new BigDecimal("12.45"), alert.toPrice);
-        assertEquals("this is the message !!", alert.message);
-        assertEquals(MARGIN_DISABLED, alert.margin);
-        assertEquals(DEFAULT_REPEAT, alert.repeat);
-        assertEquals(DEFAULT_SNOOZE_HOURS, alert.snooze);
+        var fc2 = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc this is the message !!  12,45 12/12/1012-21:00 12/12/3111-20:00"));
+        doNothing().when(fc2).reply(anyList(), eq(command.responseTtlSeconds));
+        assertThrows(IllegalArgumentException.class, () -> command.onCommand(fc2));
+
+        var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc this is the message !!  12,45 12/12/3012-21:00 12/12/1111-20:00"));
+        doNothing().when(fc3).reply(anyList(), eq(command.responseTtlSeconds));
+        assertThrows(IllegalArgumentException.class, () -> command.onCommand(fc3));
     }
 
     @Test
@@ -379,15 +367,39 @@ class RangeCommandTest {
                 () -> RangeCommand.arguments(commandContext[0], now));
 
         // test dates in past
-        // from date in past ok
+        // from date in past ko
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45  23232.6 11/11/1011-11:11  ");
-        assertDoesNotThrow(() -> RangeCommand.arguments(commandContext[0], now));
+        assertExceptionContains(IllegalArgumentException.class, "date",
+                () -> RangeCommand.arguments(commandContext[0], now));
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45  23232.6 11/11/1011-11:11  " + dateTo);
+        assertExceptionContains(IllegalArgumentException.class, "date",
+                () -> RangeCommand.arguments(commandContext[0], now));
+
+        // from date now ok
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45  23232.6 " + Dates.formatUTC(Locale.UK, now.minusSeconds(1L)));
+        assertExceptionContains(IllegalArgumentException.class, "date",
+                () -> RangeCommand.arguments(commandContext[0], now));
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45  23232.6 " + Dates.formatUTC(Locale.UK, now));
         assertDoesNotThrow(() -> RangeCommand.arguments(commandContext[0], now));
+
         // to date in past ko
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45  23232.6 11/11/1011-11:11  11/11/1111-11:11 ");
-        assertExceptionContains(IllegalArgumentException.class, "after",
+        assertExceptionContains(IllegalArgumentException.class, "date",
                 () -> RangeCommand.arguments(commandContext[0], now));
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45  23232.6 11/11/3011-11:11  11/11/1111-11:11 ");
+        assertExceptionContains(IllegalArgumentException.class, "date",
+                () -> RangeCommand.arguments(commandContext[0], now));
+
+        // to date now ko
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45  23232.6  " + Dates.formatUTC(Locale.UK, now) + " " + Dates.formatUTC(Locale.UK, now));
+        assertExceptionContains(IllegalArgumentException.class, "date",
+                () -> RangeCommand.arguments(commandContext[0], now));
+        // to date now + 1h ok
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45  23232.6  " + Dates.formatUTC(Locale.UK, now) + " " + Dates.formatUTC(Locale.UK, now.plusHours(1L).minusSeconds(1L)));
+        assertExceptionContains(IllegalArgumentException.class, "date",
+                () -> RangeCommand.arguments(commandContext[0], now));
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45  23232.6  " + Dates.formatUTC(Locale.UK, now) + " " + Dates.formatUTC(Locale.UK, now.plusHours(1L)));
+        assertDoesNotThrow(() -> RangeCommand.arguments(commandContext[0], now));
 
         // message too long
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + "aa".repeat(ALERT_MESSAGE_ARG_MAX_LENGTH) + " 12,45  23232.6 " + dateFrom + "  " + dateTo);

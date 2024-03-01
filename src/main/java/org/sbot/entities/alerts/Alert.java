@@ -238,12 +238,8 @@ public abstract class Alert {
         return null != listeningDate;
     }
 
-    boolean isQuietOrDisabled(@NotNull ZonedDateTime now) {
-        return null == listeningDate || listeningDate.compareTo(now) > 0;
-    }
-
     protected boolean isListenableCandleStick(@NotNull Candlestick candlestick) {
-        return null != listeningDate && listeningDate.compareTo(candlestick.openTime()) <= 0;
+        return null != listeningDate && (!listeningDate.isAfter(candlestick.openTime()));
     }
 
     protected static boolean isNewerCandleStick(@NotNull Candlestick candlestick, @Nullable Candlestick previousCandlestick) {
@@ -278,7 +274,7 @@ public abstract class Alert {
                 (matchingStatus.notMatching() ? "" : (matchingStatus.isMargin() ? " reached **margin** threshold. Set a new one using :\n\n" +
                         MarkdownUtil.quote("*update margin " + id + " 'amount in " + getSymbol(getTicker2()) + "'*") :
                         " was **tested !**") +  "\n\n:rocket: Check out the price !!") +
-                (matchingStatus.notMatching() && isQuietOrDisabled(now) ? "\n\n** " + withQuietTime(now) + "**" : "") +
+                (matchingStatus.notMatching() ? withQuietTime(now) : "") +
                 (matchingStatus.notMatching() ? Optional.ofNullable(lastTrigger)
                         .map(Dates::formatDiscordRelative)
                         .map("\n\nRaised "::concat)
@@ -300,26 +296,25 @@ public abstract class Alert {
     public static final String DISABLED = "DISABLED";
 
     private String withQuietTime(@NotNull ZonedDateTime now) {
-        if(!isEnabled()) {
-            return DISABLED;
+        if(null == listeningDate) {
+            return "\n\n" + MarkdownUtil.bold(DISABLED);
         }
-        return !isQuietOrDisabled(now) ? "" :
-                "QUIET for " + Dates.formatDiscordRelative(listeningDate);
+        return !listeningDate.isAfter(now.plusMinutes(1L)) ? "" :
+                "\n\n" + MarkdownUtil.bold("QUIET for " + Dates.formatDiscordRelative(listeningDate));
     }
 
     //TODO test
     private static String raiseTitle(@NotNull Alert alert, @NotNull MatchingStatus matchingStatus) {
         String title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + alert.type.titleName + (alert.type != remainder ? " ALERT !!!" : "") + " - [" + alert.pair + "] ";
-        String footer = alert.type != remainder ? alert.message : "";
-        if(TITLE_MAX_LENGTH - footer.length() < title.length()) {
+        if(TITLE_MAX_LENGTH - alert.message.length() < title.length()) {
             LOGGER.warn("Alert name '{}' will be truncated from the title because it is too long : {}", alert.type.titleName, title);
             title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + "ALERT !!! - [" + alert.pair + "] ";
-            if(TITLE_MAX_LENGTH - footer.length() < title.length()) {
+            if(TITLE_MAX_LENGTH - alert.message.length() < title.length()) {
                 LOGGER.warn("Pair '{}' will be truncated from the title because it is too long : {}", alert.pair, title);
                 title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + " ALERT !!! - ";
             }
         }
-        return title + footer;
+        return title + alert.message;
     }
 
     @Override

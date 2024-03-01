@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.utils.TimeFormat;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -15,6 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static java.math.BigDecimal.ZERO;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
@@ -48,15 +50,17 @@ public interface Dates {
         return LocalDateTime.parse(asDateTimeFormat(locale, dateTime), DATE_TIME_FORMATTER);
     }
 
-    static ZonedDateTime parse(@NotNull Locale locale, @Nullable ZoneId defaultTimezone, @NotNull Clock clock, @NotNull String dateTime) {
+    static ZonedDateTime parse(@NotNull Locale locale, @Nullable ZoneId timezone, @NotNull Clock clock, @NotNull String dateTime) {
         requireNonNull(locale);
         requireNonNull(clock);
-        if(dateTime.startsWith(NOW_ARGUMENT)) {
-            return parseNow(defaultTimezone, clock, dateTime.replaceFirst(NOW_ARGUMENT, "").strip());
+        dateTime = dateTime.strip();
+        timezone = null != timezone ? timezone : UTC;
+        if(dateTime.toLowerCase().startsWith(NOW_ARGUMENT)) {
+            return parseNow(timezone, clock, dateTime);
         }
         dateTime = asDateTimeFormat(locale, dateTime);
         try { // try to parse at default zone
-            return LocalDateTime.parse(dateTime, DATE_TIME_FORMATTER).atZone(defaultTimezone(defaultTimezone));
+            return LocalDateTime.parse(dateTime, DATE_TIME_FORMATTER).atZone(timezone);
         } catch (DateTimeException e) {
             try { // try to parse at provided zone
                 return ZonedDateTime.parse(dateTime, DASH_ZONED_DATE_TIME_FORMATTER);
@@ -66,21 +70,15 @@ public interface Dates {
         }
     }
 
-    private static ZonedDateTime parseNow(@Nullable ZoneId defaultTimezone, @NotNull Clock clock, @NotNull String zoneId) {
-        ZoneId zone;
+    private static ZonedDateTime parseNow(@NotNull ZoneId timezone, @NotNull Clock clock, @NotNull String nowTime) {
         try {
-            zone = zoneId.isEmpty() ? defaultTimezone(defaultTimezone) : ZoneId.of(zoneId, ZoneId.SHORT_IDS);
-        } catch (DateTimeException e) {
-            if(!zoneId.startsWith("-")) {
-                throw e;
-            }
-            zone = ZoneId.of(zoneId.replaceFirst("-", ""), ZoneId.SHORT_IDS);
+            BigDecimal offset = nowTime.length() <= NOW_ARGUMENT.length() ? ZERO :
+                    new BigDecimal(nowTime.substring(NOW_ARGUMENT.length()).replaceFirst(",", "."))
+                            .multiply(new BigDecimal(60));
+            return clock.instant().atZone(UTC).withZoneSameInstant(timezone).plusMinutes(offset.longValue());
+        } catch (NumberFormatException e) {
+            throw new DateTimeParseException("Malformed now offset", nowTime, 3, e);
         }
-        return clock.instant().atZone(zone);
-    }
-
-    private static ZoneId defaultTimezone(@Nullable ZoneId defaultTimezone) {
-        return null != defaultTimezone ? defaultTimezone : UTC;
     }
 
     // this extract the localized date part of a date time and rebuild it formatted as DATE_TIME_FORMAT

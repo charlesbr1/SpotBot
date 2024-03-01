@@ -17,7 +17,6 @@ import static java.util.function.Predicate.not;
 import static net.dv8tion.jda.api.entities.Message.MentionType.USER;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
-import static org.sbot.utils.Dates.formatDiscord;
 
 public interface ArgumentValidator {
 
@@ -128,8 +127,7 @@ public interface ArgumentValidator {
 
     static ZonedDateTime requireInFuture(@NotNull ZonedDateTime now, @NotNull ZonedDateTime zonedDateTime) {
         if (zonedDateTime.isBefore(now)) {
-            throw new IllegalArgumentException("Provided date : " + formatDiscord(zonedDateTime) +
-                    ", should be after time : " + formatDiscord(now));
+            throw new IllegalArgumentException("Provided date must be in the future");
         }
         return zonedDateTime;
     }

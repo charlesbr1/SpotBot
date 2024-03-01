@@ -69,7 +69,7 @@ public final class ModalEditInteraction implements InteractionListener {
 
     @Override
     public void onInteraction(@NotNull CommandContext context) {
-        String field = null;
+        String field = "?";
         String value = null;
         Long alertId = null;
         try {
@@ -77,29 +77,24 @@ public final class ModalEditInteraction implements InteractionListener {
             field = context.args.getMandatoryString(SELECTION_ARGUMENT);
             CommandListener command;
             CommandContext commandContext;
-            boolean isMessage = CHOICE_MESSAGE.equals(field);
             if(CHOICE_DELETE.equals(field)) {
                 if("ok".equalsIgnoreCase(context.args.getMandatoryString(VALUE_ARGUMENT))) {
                     command = new DeleteCommand();
-                    commandContext = context.withArgumentsAndReplyMapper(String.valueOf(alertId), replaceMapper());
+                    commandContext = context.noMoreArgs().withArgumentsAndReplyMapper(String.valueOf(alertId), replaceMapper());
                 } else {
                     context.noMoreArgs().reply(replyOriginal(null), 0);
                     return;
                 }
             } else {
-                value = isMessage ? context.args.getLastArgs(MESSAGE_ARGUMENT).orElseThrow(() -> new IllegalArgumentException("Missing message value")) :
-                        context.args.getMandatoryString(VALUE_ARGUMENT);
+                value =  context.args.getLastArgs(VALUE_ARGUMENT).orElseThrow(() -> new IllegalArgumentException("Missing update value"));
                 if(CHOICE_MIGRATE.equals(field)) {
                     command = new MigrateCommand();
                     commandContext = context.withArgumentsAndReplyMapper(alertId + " " + value, replaceMapper());
                 } else {
                     command = new UpdateCommand();
                     commandContext = context.withArgumentsAndReplyMapper(field + " " + alertId + " " + value,
-                            fromUpdateMapper(isMessage ? value : null, alertId));
+                            fromUpdateMapper(CHOICE_MESSAGE.equals(field) ? value : null, alertId));
                 }
-            }
-            if(!isMessage) {
-                context.noMoreArgs();
             }
             command.onCommand(commandContext);
         } catch (RuntimeException e) { // always reply with an edited message

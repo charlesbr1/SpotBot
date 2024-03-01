@@ -139,13 +139,13 @@ class StringArgumentReaderTest {
         assertTrue(reader.getDateTime(Locale.US, null, mock(), "").isEmpty());
         assertTrue(reader.getLastArgs("").isEmpty());
 
-        reader = new StringArgumentReader("now-Z");
-        assertEquals(now.withZoneSameInstant(ZoneId.of("Z")), reader.getDateTime(Locale.US, null, Clock.fixed(now.toInstant(), ZoneId.of("Z")), "").get());
+        reader = new StringArgumentReader("NOW");
+        assertEquals(now.withZoneSameInstant(ZoneId.of("Z")), reader.getDateTime(Locale.US, ZoneId.of("Z"), Clock.fixed(now.toInstant(), UTC), "").get());
         assertTrue(reader.getDateTime(Locale.US, null, mock(), "").isEmpty());
         assertTrue(reader.getLastArgs("").isEmpty());
 
-        reader = new StringArgumentReader("now-Europe/Paris");
-        assertEquals(now.withZoneSameInstant(ZoneId.of("Europe/Paris")), reader.getDateTime(Locale.US, null, Clock.fixed(now.toInstant(), ZoneId.of("Europe/Paris")), "").get());
+        reader = new StringArgumentReader("nOw");
+        assertEquals(now.withZoneSameInstant(ZoneId.of("Europe/Paris")), reader.getDateTime(Locale.US, ZoneId.of("Europe/Paris"), Clock.fixed(now.toInstant(), UTC), "").get());
         assertTrue(reader.getDateTime(Locale.US, null, mock(), "").isEmpty());
         assertTrue(reader.getLastArgs("").isEmpty());
     }

@@ -154,7 +154,7 @@ class RemainderAlertTest {
         assertTrue(message.contains(Dates.formatDiscordRelative(alert.fromDate)));
         assertTrue(message.contains(Dates.formatDiscordRelative(alert.creationDate)));
         assertTrue(message.contains("created"));
-        assertTrue(message.contains(alert.message));
+        assertFalse(message.contains(alert.message));
         assertEquals(message, alert.asMessage(MatchingService.MatchingAlert.MatchingStatus.NOT_MATCHING, candlestick, null).getDescriptionBuilder().toString());
     }
 }

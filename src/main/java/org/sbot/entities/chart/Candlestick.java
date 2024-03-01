@@ -17,7 +17,7 @@ public record Candlestick(@NotNull ZonedDateTime openTime, @NotNull ZonedDateTim
     public Candlestick {
         requireNonNull(openTime, "missing Candlestick openTime");
         requireNonNull(closeTime, "missing Candlestick closeTime");
-        if(openTime.compareTo(closeTime) > 0) {
+        if(openTime.isAfter(closeTime)) {
             throw new IllegalArgumentException("openTime is after closeTime");
         }
         requireNonNull(open, "missing Candlestick open");

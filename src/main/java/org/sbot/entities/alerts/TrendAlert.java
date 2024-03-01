@@ -33,7 +33,7 @@ public final class TrendAlert extends Alert {
                 fromDate, toDate, lastTrigger, margin, repeat, snooze);
         if(fromDate.isAfter(toDate)) {
             throw new IllegalArgumentException("from_date is after to_date");
-        } else if(fromDate.compareTo(toDate) == 0) {
+        } else if(fromDate.isEqual(toDate)) {
             throw new IllegalArgumentException("from_date and to_date can not be the same");
         }
     }
