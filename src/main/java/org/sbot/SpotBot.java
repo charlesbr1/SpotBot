@@ -55,6 +55,22 @@ public class SpotBot {
     private static final int EXIT_APP_ERROR = 2;
 
 
+    @NotNull
+    private static Parameters appParameters(String[] args) {
+        var params = Stream.ofNullable(args).flatMap(Stream::of).toList();
+        if(params.size() == 1 && requireOneItem(params).equals("-help")) {
+            System.out.println(help(true));
+            System.exit(0);
+        }
+        try {
+            return getParameters(params);
+        } catch (IllegalArgumentException e) {
+            LOGGER.error("Invalid parameters, aborting...", e);
+            System.exit(EXIT_BAD_PARAMETERS);
+            throw e;
+        }
+    }
+
     public static void main(String[] args) {
 
         var parameters = appParameters(args);
@@ -101,22 +117,6 @@ public class SpotBot {
         return minutesUntilNextCheck(nowUtc(context.clock()),
                 context.parameters().checkPeriodMin(),
                 context.parameters().hourlySyncDeltaMin());
-    }
-
-    @NotNull
-    private static Parameters appParameters(String[] args) {
-        var params = Stream.ofNullable(args).flatMap(Stream::of).toList();
-        if(params.size() == 1 && requireOneItem(params).equals("-help")) {
-            System.out.println(help(true));
-            System.exit(0);
-        }
-        try {
-            return getParameters(params);
-        } catch (IllegalArgumentException e) {
-            LOGGER.error("Invalid parameters, aborting...", e);
-            System.exit(EXIT_BAD_PARAMETERS);
-            throw e;
-        }
     }
 
     @NotNull

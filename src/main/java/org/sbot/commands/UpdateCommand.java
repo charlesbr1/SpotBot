@@ -243,7 +243,8 @@ public final class UpdateCommand extends CommandAdapter {
         return update(context.noMoreArgs(), now, (alert, alertsDao) -> {
             var fields = Set.of(SNOOZE);
             if(alert.inSnooze(now)) {
-                alert = alert.withListeningDateSnooze(alert.listeningDate.minusHours(alert.snooze).plusHours(snooze), snooze);
+                alert = alert.withListeningDateSnooze(requireNonNull(alert.listeningDate)
+                        .minusHours(alert.snooze).plusHours(snooze), snooze);
                 fields = Set.of(LISTENING_DATE, SNOOZE);
             } else {
                 alert = alert.withSnooze(snooze);
@@ -279,7 +280,7 @@ public final class UpdateCommand extends CommandAdapter {
         };
     }
 
-    private static boolean notEquals(@Nullable ZonedDateTime inputDate, @Nullable ZonedDateTime alertDate) {
+    static boolean notEquals(@Nullable ZonedDateTime inputDate, @Nullable ZonedDateTime alertDate) {
         return (null != inputDate && null == alertDate) || (null == inputDate && null != alertDate) ||
                 (null != inputDate && !inputDate.isEqual(alertDate));
     }
@@ -291,7 +292,7 @@ public final class UpdateCommand extends CommandAdapter {
                 parse(context.locale, context.timezone, context.clock(), date);
     }
 
-    private static void validateDateArgument(@NotNull ZonedDateTime now, @NotNull Type type, @Nullable ZonedDateTime date, @NotNull String displayName) {
+    static void validateDateArgument(@NotNull ZonedDateTime now, @NotNull Type type, @Nullable ZonedDateTime date, @NotNull String displayName) {
         if(null == date) {
             if(range != type) { // null value allowed for range type only
                 throw new IllegalArgumentException("Missing " + displayName + " value, expected format : " + Dates.DATE_TIME_FORMAT + " UTC");
