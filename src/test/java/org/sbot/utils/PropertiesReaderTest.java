@@ -7,14 +7,31 @@ import static org.junit.jupiter.api.Assertions.*;
 class PropertiesReaderTest {
 
     @Test
-    void loadProperties() {
-        PropertiesReader propertiesReader;
-        assertThrows(IllegalArgumentException.class, () -> PropertiesReader.loadProperties("src/test/resources/badpath"));
-        assertNotNull(propertiesReader = PropertiesReader.loadProperties("src/test/resources/test.properties"));
-        assertThrows(IllegalArgumentException.class, () -> propertiesReader.get("badValue"));
+    void getOr() {
+        PropertiesReader propertiesReader = PropertiesReader.loadProperties("src/test/resources/test.properties");
+        assertNotNull(propertiesReader);
         assertEquals("abc", propertiesReader.get("string.property"));
+        assertEquals("other", propertiesReader.getOr("missing", "other"));
+        assertNull(propertiesReader.getOr("missing", null));
+    }
+
+    @Test
+    void getIntOr() {
+        PropertiesReader propertiesReader = PropertiesReader.loadProperties("src/test/resources/test.properties");
+        assertNotNull(propertiesReader);
         assertEquals(3, propertiesReader.getIntOr("int.property", 3));
         assertEquals(7, propertiesReader.getIntOr("badValue", 7));
+    }
+
+    @Test
+    void loadProperties() {
+        assertThrows(NullPointerException.class, () -> PropertiesReader.loadProperties(null));
+        assertThrows(IllegalArgumentException.class, () -> PropertiesReader.loadProperties("src/test/resources/badpath"));
+        PropertiesReader propertiesReader = PropertiesReader.loadProperties("src/test/resources/test.properties");
+        assertNotNull(propertiesReader);
+        assertThrows(NullPointerException.class, () -> propertiesReader.get(null));
+        assertThrows(IllegalArgumentException.class, () -> propertiesReader.get("badValue"));
+        assertEquals("abc", propertiesReader.get("string.property"));
     }
 
     @Test

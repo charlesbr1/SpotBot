@@ -30,7 +30,7 @@ public interface ArgumentValidator {
     int TICKER_MAX_LENGTH = 5;
     int PAIR_MIN_LENGTH = 7;
     int PAIR_MAX_LENGTH = 11;
-    int PRICE_MAX_LENGTH = 20;
+    int PRICE_MAX_LENGTH = String.valueOf(Long.MAX_VALUE).length() + 1;
     int REPEAT_MIN = 0;
     int REPEAT_MAX = 100;
     int SNOOZE_MIN = 1;
@@ -44,6 +44,13 @@ public interface ArgumentValidator {
 
     static int requirePositive(int value) {
         return (int) requirePositive((long) value);
+    }
+
+    static int requireStrictlyPositive(int value) {
+        if(value <= 0) {
+            throw new IllegalArgumentException("Zero or negative value : " + value);
+        }
+        return value;
     }
 
     static long requirePositive(long value) {
@@ -79,7 +86,7 @@ public interface ArgumentValidator {
     }
 
     static BigDecimal requirePriceLength(@Nullable BigDecimal price) {
-        if (null != price && requirePositive(price).toPlainString().length() > PRICE_MAX_LENGTH) {
+        if (null != price && requirePositive(price).stripTrailingZeros().toPlainString().length() > PRICE_MAX_LENGTH) {
             throw new IllegalArgumentException("Provided price is too long (" + PRICE_MAX_LENGTH + " chars max) : " + price.toPlainString());
         }
         return price;

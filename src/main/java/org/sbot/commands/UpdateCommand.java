@@ -241,8 +241,14 @@ public final class UpdateCommand extends CommandAdapter {
     private BiFunction<Alert, AlertsDao, EmbedBuilder> snooze(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
         short snooze = requireSnooze(context.args.getMandatoryLong(VALUE_ARGUMENT));
         return update(context.noMoreArgs(), now, (alert, alertsDao) -> {
-            alert = alert.withSnooze(snooze);
-            alertsDao.update(alert, Set.of(SNOOZE));
+            var fields = Set.of(SNOOZE);
+            if(alert.inSnooze(now)) {
+                alert = alert.withListeningDateSnooze(alert.listeningDate.minusHours(alert.snooze).plusHours(snooze), snooze);
+                fields = Set.of(LISTENING_DATE, SNOOZE);
+            } else {
+                alert = alert.withSnooze(snooze);
+            }
+            alertsDao.update(alert, fields);
             return updateNotifyMessage(context, now, alert, CHOICE_SNOOZE, String.valueOf(snooze) + (snooze > 1 ? " hours" : " hour"), outNotificationCallBack);
         }, alert -> snooze != alert.snooze);
     }
@@ -295,12 +301,11 @@ public final class UpdateCommand extends CommandAdapter {
         }
     }
 
-
-    static ZonedDateTime listeningDate(@Nullable ZonedDateTime now, @NotNull Alert alert) {
+    static ZonedDateTime listeningDate(@NotNull ZonedDateTime now, @NotNull Alert alert) {
         return listeningDate(now, alert.fromDate, alert);
     }
 
-    static ZonedDateTime listeningDate(@Nullable ZonedDateTime now, @Nullable ZonedDateTime fromDate, @NotNull Alert alert) {
+    static ZonedDateTime listeningDate(@NotNull ZonedDateTime now, @Nullable ZonedDateTime fromDate, @NotNull Alert alert) {
         if(alert.type == trend) {
             return Optional.ofNullable(alert.listeningDate).orElse(now);
         }

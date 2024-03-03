@@ -25,7 +25,11 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
+import static org.sbot.SpotBot.ALERTS_CHECK_PERIOD_MINUTES_PROPERTY;
+import static org.sbot.SpotBot.ALERTS_HOURLY_SYNC_DELTA_MINUTES_PROPERTY;
 import static org.sbot.services.context.TransactionalContext.DEFAULT_ISOLATION_LEVEL;
+import static org.sbot.utils.ArgumentValidator.requirePositive;
+import static org.sbot.utils.ArgumentValidator.requireStrictlyPositive;
 
 public interface Context {
 
@@ -63,8 +67,26 @@ public interface Context {
     }
 
     record Parameters(@Nullable String databaseUrl, @NotNull String discordTokenFile, int checkPeriodMin, int hourlySyncDeltaMin) {
+
+        public static final int MAX_CHECK_PERIOD = 60;
+        public static final int MAX_HOURLY_SYNC_DELTA = 15;
+
+        public Parameters {
+            if (requireStrictlyPositive(checkPeriodMin) < requirePositive(hourlySyncDeltaMin)) { // values from properties file may be negative
+                throw new IllegalArgumentException(ALERTS_CHECK_PERIOD_MINUTES_PROPERTY + " (" + checkPeriodMin + ") must be >= " + ALERTS_HOURLY_SYNC_DELTA_MINUTES_PROPERTY + " (" + hourlySyncDeltaMin + ")");
+            } else if (checkPeriodMin > MAX_CHECK_PERIOD) {
+                throw new IllegalArgumentException(ALERTS_CHECK_PERIOD_MINUTES_PROPERTY + " (" + checkPeriodMin + ") is too high : " + MAX_CHECK_PERIOD + " max");
+            } else if (hourlySyncDeltaMin > MAX_HOURLY_SYNC_DELTA) {
+                throw new IllegalArgumentException(ALERTS_HOURLY_SYNC_DELTA_MINUTES_PROPERTY + " (" + hourlySyncDeltaMin + ") is too high : " + MAX_HOURLY_SYNC_DELTA + " max");
+            } else if (null != databaseUrl && databaseUrl.isEmpty()) {
+                throw new IllegalArgumentException("Missing database url");
+            } else if (discordTokenFile.isEmpty()) {
+                throw new IllegalArgumentException("Missing discord token file path");
+            }
+        }
+
         public static Parameters of(@Nullable String databaseUrl, @NotNull String discordTokenFile, int checkPeriodMin, int hourlySyncDeltaMin) {
-            return new Parameters(databaseUrl, requireNonNull(discordTokenFile), checkPeriodMin, hourlySyncDeltaMin);
+            return new Parameters(databaseUrl, discordTokenFile, checkPeriodMin, hourlySyncDeltaMin);
         }
     }
 

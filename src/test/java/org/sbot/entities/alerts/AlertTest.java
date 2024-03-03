@@ -11,6 +11,7 @@ import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -19,6 +20,7 @@ import static java.math.BigDecimal.ONE;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.sbot.entities.alerts.Alert.*;
+import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.*;
 import static org.sbot.utils.DatesTest.nowUtc;
@@ -250,6 +252,49 @@ public class AlertTest {
     }
 
     @Test
+    void inSnooze() {
+        assertThrows(NullPointerException.class, () -> createTestAlert().inSnooze(null));
+
+        var now = nowUtc();
+        Alert alert = createTestAlertWithType(trend);
+        assertFalse(alert.withListeningDateRepeat(null, alert.repeat).inSnooze(now));
+        assertFalse(alert.withListeningDateRepeat(now, alert.repeat).inSnooze(now));
+        assertFalse(alert.withListeningDateRepeat(now.minusMinutes(13L), alert.repeat).inSnooze(now));
+        assertTrue(alert.withListeningDateRepeat(now.plusSeconds(1L), alert.repeat).inSnooze(now));
+        assertTrue(alert.withListeningDateRepeat(now.plusMinutes(33L), alert.repeat).inSnooze(now));
+
+        for(var type : List.of(remainder, range)) {
+            alert = createTestAlertWithType(type).withFromDate(null);
+            assertFalse(alert.withListeningDateRepeat(null, alert.repeat).inSnooze(now));
+            assertFalse(alert.withListeningDateRepeat(now, alert.repeat).inSnooze(now));
+            assertFalse(alert.withListeningDateRepeat(now.minusMinutes(13L), alert.repeat).inSnooze(now));
+            assertFalse(alert.withListeningDateRepeat(now.plusSeconds(1L), alert.repeat).inSnooze(now));
+            assertFalse(alert.withListeningDateRepeat(now.plusMinutes(33L), alert.repeat).inSnooze(now));
+
+            alert = createTestAlertWithType(type).withFromDate(now.plusMinutes(44L));
+            assertFalse(alert.withListeningDateRepeat(null, alert.repeat).inSnooze(now));
+            assertFalse(alert.withListeningDateRepeat(now, alert.repeat).inSnooze(now));
+            assertFalse(alert.withListeningDateRepeat(now.minusMinutes(13L), alert.repeat).inSnooze(now));
+            assertFalse(alert.withListeningDateRepeat(now.plusSeconds(1L), alert.repeat).inSnooze(now));
+            assertFalse(alert.withListeningDateRepeat(now.plusMinutes(33L), alert.repeat).inSnooze(now));
+
+            alert = createTestAlertWithType(type).withFromDate(now);
+            assertFalse(alert.withListeningDateRepeat(null, alert.repeat).inSnooze(now));
+            assertFalse(alert.withListeningDateRepeat(now, alert.repeat).inSnooze(now));
+            assertFalse(alert.withListeningDateRepeat(now.minusMinutes(13L), alert.repeat).inSnooze(now));
+            assertTrue(alert.withListeningDateRepeat(now.plusSeconds(1L), alert.repeat).inSnooze(now));
+            assertTrue(alert.withListeningDateRepeat(now.plusMinutes(33L), alert.repeat).inSnooze(now));
+
+            alert = createTestAlertWithType(type).withFromDate(now.plusSeconds(1L));
+            assertFalse(alert.withListeningDateRepeat(null, alert.repeat).inSnooze(now));
+            assertFalse(alert.withListeningDateRepeat(now, alert.repeat).inSnooze(now));
+            assertFalse(alert.withListeningDateRepeat(now.minusMinutes(13L), alert.repeat).inSnooze(now));
+            assertFalse(alert.withListeningDateRepeat(now.plusSeconds(1L), alert.repeat).inSnooze(now));
+            assertTrue(alert.withListeningDateRepeat(now.plusMinutes(33L), alert.repeat).inSnooze(now));
+        }
+    }
+
+    @Test
     void isListenableCandleStick() {
         Alert alert = createTestAlert();
         Candlestick candlestick = new Candlestick(TEST_FROM_DATE, TEST_FROM_DATE.plusHours(1L),
@@ -389,6 +434,18 @@ public class AlertTest {
         assertEquals(repeat, alert.withRepeat(repeat).repeat);
         repeat = -1;
         assertEquals(repeat, alert.withRepeat(repeat).repeat);
+    }
+
+    @Test
+    void withListeningDateSnooze() {
+        Alert alert = createTestAlert();
+        assertNull(alert.withListeningDateSnooze(null, (short) 1).listeningDate);
+        assertEquals(1, alert.withListeningDateSnooze(null, (short) 1).snooze);
+
+        ZonedDateTime listeningDate = nowUtc();
+        short snooze = 17;
+        assertEquals(listeningDate, alert.withListeningDateSnooze(listeningDate, snooze).listeningDate);
+        assertEquals(snooze, alert.withListeningDateSnooze(listeningDate, snooze).snooze);
     }
 
     @Test

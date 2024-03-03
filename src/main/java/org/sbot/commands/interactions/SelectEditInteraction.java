@@ -63,7 +63,7 @@ public class SelectEditInteraction implements InteractionListener {
             menu.addOption(CHOICE_MARGIN, CHOICE_MARGIN, "a new margin for the alert, in ticker2 unit (like USD for pair BTC/USD), 0 to disable", Emoji.fromUnicode("U+2195"));
         }
         menu.addOption(CHOICE_REPEAT, CHOICE_REPEAT, "update the number of time the alert will be repeated", Emoji.fromUnicode("U+1F504"));
-        menu.addOption(CHOICE_SNOOZE, CHOICE_SNOOZE, "update the delay to wait between two raises of the alert, in hours, must be positive", Emoji.fromUnicode("U+1F910"));
+        menu.addOption(CHOICE_SNOOZE, CHOICE_SNOOZE, "update the delay to wait between two raises of the alert, in hours, must be positive", Emoji.fromUnicode("U+1F634"));
         menu.addOption(CHOICE_MIGRATE, CHOICE_MIGRATE, "migrate this alert to another guild or private messages", Emoji.fromUnicode("U+1F500"));
         menu.addOption(CHOICE_DELETE, CHOICE_DELETE, "delete this alert", Emoji.fromUnicode("U+1F5D1"));
         return menu.build();

@@ -74,15 +74,15 @@ public final class RangeAlert extends Alert {
                 (null == toDate || toDate.isAfter(candlestick.closeTime()));
     }
 
-    static boolean priceInRange(@NotNull Candlestick candlestick, @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice, @NotNull BigDecimal margin) {
-        return candlestick.low().compareTo(toPrice.add(margin)) <= 0 &&
-                candlestick.high().compareTo(fromPrice.subtract(margin)) >= 0;
+    static boolean priceInRange(@NotNull Candlestick candlestick, @NotNull BigDecimal low, @NotNull BigDecimal high, @NotNull BigDecimal margin) {
+        return candlestick.low().compareTo(high.add(margin)) <= 0 &&
+                candlestick.high().compareTo(low.subtract(margin)) >= 0;
     }
 
-    static boolean priceCrossedRange(@NotNull Candlestick candlestick, @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice, @Nullable Candlestick previousCandlestick) {
+    static boolean priceCrossedRange(@NotNull Candlestick candlestick, @NotNull BigDecimal low, @NotNull BigDecimal high, @Nullable Candlestick previousCandlestick) {
         return null != previousCandlestick &&
-                (previousCandlestick.low().compareTo(toPrice) < 0 || candlestick.low().compareTo(toPrice) <= 0) &&
-                (previousCandlestick.high().compareTo(fromPrice) > 0 || candlestick.high().compareTo(fromPrice) >= 0);
+                (previousCandlestick.low().compareTo(high) < 0 || candlestick.low().compareTo(high) <= 0) &&
+                (previousCandlestick.high().compareTo(low) > 0 || candlestick.high().compareTo(low) >= 0);
     }
 
     @Override

@@ -45,12 +45,6 @@ public final class Discord {
     public static final String DISCORD_BOT_CHANNEL = SpotBot.appProperties.get("discord.bot.channel");
     public static final String DISCORD_BOT_ROLE = SpotBot.appProperties.get("discord.bot.role");
 
-
-    @FunctionalInterface
-    public interface DiscordLoader {
-        Discord newInstance(@NotNull Context context, @NotNull List<CommandListener> commands, @NotNull List<InteractionListener> interactions);
-    }
-
     private final JDA jda;
     private final Map<String, CommandListener> commands = new ConcurrentHashMap<>();
     private final Map<String, InteractionListener> interactions = new ConcurrentHashMap<>();

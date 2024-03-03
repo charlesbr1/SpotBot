@@ -2,6 +2,7 @@ package org.sbot.utils;
 
 import org.apache.logging.log4j.LogManager;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -15,7 +16,17 @@ import static java.util.Objects.requireNonNull;
 
 public interface PropertiesReader {
 
+    @NotNull
     String get(@NotNull String name);
+
+    @Nullable
+    default String getOr(@NotNull String name, @Nullable String defaultValue) {
+        try {
+            return get(name);
+        } catch (RuntimeException e) {
+            return defaultValue;
+        }
+    }
 
     default int getIntOr(@NotNull String name, int defaultValue) {
         try {

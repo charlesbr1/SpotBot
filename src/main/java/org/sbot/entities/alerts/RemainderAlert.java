@@ -1,6 +1,7 @@
 package org.sbot.entities.alerts;
 
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.utils.MarkdownUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.chart.Candlestick;
@@ -61,6 +62,7 @@ public final class RemainderAlert extends Alert {
         int nextRepeat = matchingStatus.notMatching() ? repeat : repeat - 1;
         String description = (matchingStatus.notMatching() ? type.titleName + " set by <@" + userId + "> on " + pair :
                 "<@" + userId + ">\n\n**" + message + "**") +
+                (null == listeningDate ? "\n\n" + MarkdownUtil.bold(DISABLED)  : "") +
                 "\n\n* id :\t" + id +
                 "\n* date :\t" + formatDiscord(fromDate) + '(' + formatDiscordRelative(fromDate) + ')' +
                 "\n* created :\t" + formatDiscordRelative(creationDate) +

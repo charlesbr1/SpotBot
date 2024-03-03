@@ -98,9 +98,9 @@ class ArgumentValidatorTest {
         assertEquals(300, ArgumentValidator.requirePositive(300));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(-1));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(-300));
-        assertEquals(0, ArgumentValidator.requirePositive(0L));
-        assertEquals(1, ArgumentValidator.requirePositive(1L));
-        assertEquals(300, ArgumentValidator.requirePositive(300L));
+        assertEquals(0L, ArgumentValidator.requirePositive(0L));
+        assertEquals(1L, ArgumentValidator.requirePositive(1L));
+        assertEquals(300L, ArgumentValidator.requirePositive(300L));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(-1L));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(-300L));
         assertEquals(ZERO, ArgumentValidator.requirePositive(ZERO));
@@ -109,6 +109,15 @@ class ArgumentValidatorTest {
         assertEquals(TEN, ArgumentValidator.requirePositive(TEN));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(ONE.negate()));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(TEN.negate()));
+    }
+
+    @Test
+    void requireStrictlyPositive() {
+        assertEquals(1, ArgumentValidator.requireStrictlyPositive(1));
+        assertEquals(300, ArgumentValidator.requireStrictlyPositive(300));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireStrictlyPositive(0));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(-1));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(-300));
     }
 
     @Test
@@ -140,10 +149,12 @@ class ArgumentValidatorTest {
         assertEquals(ZERO, ArgumentValidator.requirePrice(ZERO));
         assertEquals(new BigDecimal("1234567890"), ArgumentValidator.requirePrice(new BigDecimal("1234567890")));
         assertEquals(new BigDecimal("12345678901234567890"), ArgumentValidator.requirePrice(new BigDecimal("12345678901234567890")));
+        assertEquals(new BigDecimal("1234567890123456789.00000000000000000000000000000000000000000000"), ArgumentValidator.requirePrice(new BigDecimal("1234567890123456789.00000000000000000000000000000000000000000000")));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePrice(new BigDecimal("-1")));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePrice(new BigDecimal("123456789012345678901")));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePrice(new BigDecimal("-12345678901234567890")));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePrice(new BigDecimal("1.2345678901234567890")));
+        assertDoesNotThrow(() -> ArgumentValidator.requirePrice(new BigDecimal("1.2345678901234567890")));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePrice(new BigDecimal("1.2345678901234567891")));
     }
 
     @Test
@@ -153,10 +164,13 @@ class ArgumentValidatorTest {
         assertEquals(ZERO, ArgumentValidator.requirePriceLength(ZERO));
         assertEquals(new BigDecimal("1234567890"), ArgumentValidator.requirePriceLength(new BigDecimal("1234567890")));
         assertEquals(new BigDecimal("12345678901234567890"), ArgumentValidator.requirePriceLength(new BigDecimal("12345678901234567890")));
+        assertEquals(new BigDecimal("1234567890123456789.00000000000000000000000000000000000000000000"), ArgumentValidator.requirePriceLength(new BigDecimal("1234567890123456789.00000000000000000000000000000000000000000000")));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePriceLength(new BigDecimal("-1")));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePriceLength(new BigDecimal("123456789012345678901")));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePriceLength(new BigDecimal("-12345678901234567890")));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePriceLength(new BigDecimal("1.2345678901234567890")));
+        assertDoesNotThrow(() -> ArgumentValidator.requirePriceLength(new BigDecimal("1.2345678901234567890")));
+        assertDoesNotThrow(() -> ArgumentValidator.requirePriceLength(new BigDecimal("1.23456789012345678900000000")));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePriceLength(new BigDecimal("1.2345678901234567891")));
     }
 
     @Test

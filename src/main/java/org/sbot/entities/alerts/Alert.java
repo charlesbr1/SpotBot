@@ -22,6 +22,7 @@ import java.util.function.LongSupplier;
 import static java.util.Objects.requireNonNull;
 import static net.dv8tion.jda.api.entities.MessageEmbed.TITLE_MAX_LENGTH;
 import static org.sbot.entities.alerts.Alert.Type.remainder;
+import static org.sbot.entities.alerts.Alert.Type.trend;
 import static org.sbot.entities.chart.Ticker.getSymbol;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.NOT_MATCHING;
 import static org.sbot.utils.ArgumentValidator.*;
@@ -129,10 +130,6 @@ public abstract class Alert {
         return PRIVATE_MESSAGES == serverId;
     }
 
-    public static boolean hasMargin(@NotNull BigDecimal margin) {
-        return MARGIN_DISABLED.compareTo(margin) < 0;
-    }
-
 
     public final long getId() {
         return id;
@@ -220,6 +217,11 @@ public abstract class Alert {
     }
 
     @NotNull
+    public final Alert withListeningDateSnooze(@Nullable ZonedDateTime listeningDate, short snooze) {
+        return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+    }
+
+    @NotNull
     public final Alert withListeningDateRepeat(@Nullable ZonedDateTime listeningDate, short repeat) {
         return build(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
@@ -238,6 +240,13 @@ public abstract class Alert {
         return null != listeningDate;
     }
 
+    public boolean inSnooze(@NotNull ZonedDateTime now) {
+        requireNonNull(now);
+        return null != listeningDate && listeningDate.isAfter(now) && // alert is in snooze
+                (trend == type || // trend alert always active
+                        null != fromDate && listeningDate.isAfter(fromDate)); // alert should be active
+    }
+
     protected boolean isListenableCandleStick(@NotNull Candlestick candlestick) {
         return null != listeningDate && (!listeningDate.isAfter(candlestick.openTime()));
     }
@@ -249,7 +258,7 @@ public abstract class Alert {
 
     @Nullable
     protected Candlestick filterListenableCandleStick(@Nullable Candlestick previousCandlestick) {
-        return null == previousCandlestick || (isListenableCandleStick(previousCandlestick)) ? previousCandlestick : null;
+        return null == previousCandlestick || isListenableCandleStick(previousCandlestick) ? previousCandlestick : null;
     }
 
     @NotNull
@@ -274,7 +283,7 @@ public abstract class Alert {
                 (matchingStatus.notMatching() ? "" : (matchingStatus.isMargin() ? " reached **margin** threshold. Set a new one using :\n\n" +
                         MarkdownUtil.quote("*update margin " + id + " 'amount in " + getSymbol(getTicker2()) + "'*") :
                         " was **tested !**") +  "\n\n:rocket: Check out the price !!") +
-                (matchingStatus.notMatching() ? withQuietTime(now) : "") +
+                (matchingStatus.notMatching() ? withSnoozeTime(now) : "") +
                 (matchingStatus.notMatching() ? Optional.ofNullable(lastTrigger)
                         .map(Dates::formatDiscordRelative)
                         .map("\n\nRaised "::concat)
@@ -293,14 +302,18 @@ public abstract class Alert {
                 " / " + snooze + (snooze > 1 ? " hours" : " hour");
     }
 
+    static boolean hasMargin(@NotNull BigDecimal margin) {
+        return MARGIN_DISABLED.compareTo(margin) < 0;
+    }
+
     public static final String DISABLED = "DISABLED";
 
-    private String withQuietTime(@NotNull ZonedDateTime now) {
+    private String withSnoozeTime(@NotNull ZonedDateTime now) {
         if(null == listeningDate) {
             return "\n\n" + MarkdownUtil.bold(DISABLED);
         }
         return !listeningDate.isAfter(now.plusMinutes(1L)) ? "" :
-                "\n\n" + MarkdownUtil.bold("QUIET for " + Dates.formatDiscordRelative(listeningDate));
+                "\n\n" + MarkdownUtil.bold("SNOOZE for " + Dates.formatDiscordRelative(listeningDate));
     }
 
     //TODO test
