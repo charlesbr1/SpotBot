@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.sbot.commands.CommandAdapter.*;
 import static org.sbot.commands.CommandAdapterTest.assertExceptionContains;
+import static org.sbot.commands.UpdateCommand.CHOICE_MESSAGE;
 import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.DEFAULT_SNOOZE_HOURS;
 import static org.sbot.entities.alerts.Alert.MARGIN_DISABLED;
@@ -199,6 +200,11 @@ class RemainderCommandTest {
         // message too long
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd " + "aa".repeat(MESSAGE_MAX_LENGTH) + " 10/10/2210-20:01");
         assertExceptionContains(IllegalArgumentException.class, "too long",
+                () -> RemainderCommand.arguments(commandContext[0], now));
+
+        // missing message
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd    10/10/2210-20:01");
+        assertExceptionContains(IllegalArgumentException.class, CHOICE_MESSAGE,
                 () -> RemainderCommand.arguments(commandContext[0], now));
     }
 }

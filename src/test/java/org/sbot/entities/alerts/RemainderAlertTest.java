@@ -14,6 +14,7 @@ import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.remainder;
 import static org.sbot.entities.alerts.AlertTest.*;
 import static org.sbot.entities.alerts.RemainderAlert.*;
+import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.*;
 import static org.sbot.utils.DatesTest.nowUtc;
 
 class RemainderAlertTest {
@@ -131,7 +132,7 @@ class RemainderAlertTest {
         Candlestick candlestick = new Candlestick(nowUtc(), nowUtc(), TWO, ONE, TEN, ONE);
 
         assertThrows(NullPointerException.class, () -> alert.asMessage(null, null, null));
-        String message = alert.asMessage(MatchingService.MatchingAlert.MatchingStatus.MATCHED, null, null).getDescriptionBuilder().toString();
+        String message = alert.asMessage(MATCHED, null, null).getDescriptionBuilder().toString();
         assertNotNull(message);
         assertTrue(message.startsWith("<@" + alert.userId + ">"));
         assertTrue(message.contains(String.valueOf(alert.id)));
@@ -140,12 +141,16 @@ class RemainderAlertTest {
         assertTrue(message.contains("created"));
         assertTrue(message.contains(Dates.formatDiscordRelative(alert.creationDate)));
         assertTrue(message.contains(alert.message));
+        assertFalse(message.contains(DISABLED));
+
         // no candlestick
-        assertEquals(message, alert.asMessage(MatchingService.MatchingAlert.MatchingStatus.MATCHED, candlestick, null).getDescriptionBuilder().toString());
+        assertEquals(message, alert.asMessage(MATCHED, candlestick, null).getDescriptionBuilder().toString());
+        assertEquals(message, alert.asMessage(MARGIN, null, null).getDescriptionBuilder().toString());
 
-        assertEquals(message, alert.asMessage(MatchingService.MatchingAlert.MatchingStatus.MARGIN, null, null).getDescriptionBuilder().toString());
+        message = alert.withListeningDateRepeat(null, alert.repeat).asMessage(MATCHED, null, null).getDescriptionBuilder().toString();
+        assertTrue(message.contains(DISABLED));
 
-        message = alert.asMessage(MatchingService.MatchingAlert.MatchingStatus.NOT_MATCHING, null, null).getDescriptionBuilder().toString();
+        message = alert.asMessage(NOT_MATCHING, null, null).getDescriptionBuilder().toString();
         assertNotNull(message);
         assertFalse(message.startsWith("<@" + alert.userId + ">"));
         assertTrue(message.contains("<@" + alert.userId + ">"));
@@ -155,6 +160,10 @@ class RemainderAlertTest {
         assertTrue(message.contains(Dates.formatDiscordRelative(alert.creationDate)));
         assertTrue(message.contains("created"));
         assertFalse(message.contains(alert.message));
-        assertEquals(message, alert.asMessage(MatchingService.MatchingAlert.MatchingStatus.NOT_MATCHING, candlestick, null).getDescriptionBuilder().toString());
+        assertFalse(message.contains(DISABLED));
+        assertEquals(message, alert.asMessage(NOT_MATCHING, candlestick, null).getDescriptionBuilder().toString());
+
+        message = alert.withListeningDateRepeat(null, alert.repeat).asMessage(NOT_MATCHING, null, null).getDescriptionBuilder().toString();
+        assertTrue(message.contains(DISABLED));
     }
 }

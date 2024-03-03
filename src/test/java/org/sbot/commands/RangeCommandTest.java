@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.sbot.commands.CommandAdapter.*;
 import static org.sbot.commands.CommandAdapterTest.assertExceptionContains;
+import static org.sbot.commands.UpdateCommand.CHOICE_MESSAGE;
 import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.range;
@@ -207,6 +208,11 @@ class RangeCommandTest {
         var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc this is the message !!  12,45 12/12/3012-21:00 12/12/1111-20:00"));
         doNothing().when(fc3).reply(anyList(), eq(command.responseTtlSeconds));
         assertThrows(IllegalArgumentException.class, () -> command.onCommand(fc3));
+
+        // empty message
+        var fc4 = spy(CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " ada/btc 12,45 12/12/3012-21:00 12/12/3111-20:00"));
+        doNothing().when(fc3).reply(anyList(), eq(command.responseTtlSeconds));
+        assertThrows(IllegalArgumentException.class, () -> command.onCommand(fc4));
     }
 
     @Test
@@ -413,6 +419,11 @@ class RangeCommandTest {
         // message too long
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + "aa".repeat(MESSAGE_MAX_LENGTH) + " 12,45  23232.6 " + dateFrom + "  " + dateTo);
         assertExceptionContains(IllegalArgumentException.class, "too long",
+                () -> RangeCommand.arguments(commandContext[0], now));
+
+        // missing message
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RangeCommand.NAME + " " + BinanceClient.NAME + " dot/xrp    12,45  23232.6 " + dateFrom + "  " + dateTo);
+        assertExceptionContains(IllegalArgumentException.class, CHOICE_MESSAGE,
                 () -> RangeCommand.arguments(commandContext[0], now));
     }
 }

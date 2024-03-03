@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.sbot.commands.CommandAdapter.*;
 import static org.sbot.commands.CommandAdapterTest.assertExceptionContains;
+import static org.sbot.commands.UpdateCommand.CHOICE_MESSAGE;
 import static org.sbot.commands.context.CommandContext.TOO_MANY_ARGUMENTS;
 import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.*;
@@ -69,6 +70,10 @@ class TrendCommandTest {
         var command = new TrendCommand();
 
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
+
+        var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp    \t 12,45 " + dateFrom + " 23232.6 " + dateTo));
+        doNothing().when(fc1).reply(anyList(), anyInt());
+        assertExceptionContains(IllegalArgumentException.class, CHOICE_MESSAGE, () -> command.onCommand(fc1));
 
         var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo));
         doNothing().when(commandContext).reply(anyList(), anyInt());
@@ -347,6 +352,11 @@ class TrendCommandTest {
         // message too long
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + "aa".repeat(MESSAGE_MAX_LENGTH) + " 12,45 " + dateFrom + " 23232.6 " + dateTo);
         assertExceptionContains(IllegalArgumentException.class, "too long",
+                () -> TrendCommand.arguments(commandContext[0]));
+
+        // missing message
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp    \t 12,45 " + dateFrom + " 23232.6 " + dateTo);
+        assertExceptionContains(IllegalArgumentException.class, CHOICE_MESSAGE,
                 () -> TrendCommand.arguments(commandContext[0]));
     }
 }

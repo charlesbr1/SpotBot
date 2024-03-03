@@ -162,7 +162,8 @@ public final class UpdateCommand extends CommandAdapter {
     }
 
     private BiFunction<Alert, AlertsDao, EmbedBuilder> message(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
-        String message = requireAlertMessageMaxLength(context.args.getLastArgs(VALUE_ARGUMENT).orElse(""));
+        String message = requireAlertMessageMaxLength(context.args.getLastArgs(VALUE_ARGUMENT)
+                .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
         return (alert, alertsDao) -> { // message is not loaded into the provided alert, just update it everytime
             alert = alert.withMessage(message);
             alertsDao.update(alert, Set.of(MESSAGE));
@@ -196,9 +197,12 @@ public final class UpdateCommand extends CommandAdapter {
         return update(context, now, (alert, alertsDao) -> {
             validateDateArgument(now, alert.type, fromDate, displayName);
             var fields = Set.of(FROM_DATE);
-            if(alert.type == trend) {
+            if(trend == alert.type || !alert.isEnabled()) {
                 alert = alert.withFromDate(fromDate);
-            } else {
+            } else if (remainder == alert.type ) {
+                alert = alert.withListeningDateFromDate(fromDate, fromDate);
+                fields = Set.of(LISTENING_DATE, FROM_DATE);
+            } else { // for range alert, this will also remove snoozing state, if in
                 var listeningDate = listeningDate(now, fromDate, alert);
                 alert = alert.withListeningDateFromDate(listeningDate, fromDate);
                 fields = Set.of(LISTENING_DATE, FROM_DATE);
@@ -215,7 +219,7 @@ public final class UpdateCommand extends CommandAdapter {
             validateDateArgument(now, alert.type, toDate, DISPLAY_TO_DATE);
             alert = alert.withToDate(toDate);
             alertsDao.update(alert, Set.of(TO_DATE));
-            String date = null != toDate ? formatDiscord(toDate) : "null";
+            String date = null != toDate ? formatDiscord(toDate) : NULL_DATE_ARGUMENT;
             return updateNotifyMessage(context, now, alert, DISPLAY_TO_DATE, date, outNotificationCallBack);
         }, alert -> notEquals(toDate, alert.toDate));
     }
