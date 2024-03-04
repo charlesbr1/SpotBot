@@ -96,9 +96,11 @@ public final class RangeAlert extends Alert {
         embed.addField("high", toPrice.toPlainString() + ' ' + getSymbol(getTicker2()), true);
         embed.addField("created", formatDiscordRelative(creationDate), true);
         if(null != fromDate || null != toDate) {
-            Optional.ofNullable(fromDate).ifPresentOrElse(date -> embed.addField("from date", formatDiscord(date) + '\n' + formatDiscordRelative(date), true),
+            Optional.ofNullable(fromDate)
+                    .ifPresentOrElse(date -> embed.addField("from date", formatDiscord(date) + '\n' + formatDiscordRelative(date), true),
                     () -> embed.addBlankField(true));
-            Optional.ofNullable(toDate).ifPresentOrElse(date -> embed.addField("to date", formatDiscord(date) + '\n' + formatDiscordRelative(date), true),
+            Optional.ofNullable(toDate)
+                    .ifPresentOrElse(date -> embed.addField("to date", formatDiscord(date) + '\n' + formatDiscordRelative(date), true),
                     () -> embed.addBlankField(true));
             embed.addBlankField(true);
         }

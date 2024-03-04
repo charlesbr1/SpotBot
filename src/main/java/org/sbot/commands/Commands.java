@@ -6,6 +6,8 @@ import java.util.List;
 
 public interface Commands {
 
+    String INTERACTION_ID_SEPARATOR = "#";
+
     // Register new commands here
     List<CommandListener> SPOTBOT_COMMANDS = List.of(
             new SpotBotCommand(),

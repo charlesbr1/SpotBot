@@ -29,7 +29,7 @@ public class AlertCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         Type type = getType(context);
-        LOGGER.debug("alert command - user {}, server {}, type {}", context.user.getIdLong(), context.serverId(), type);
+        LOGGER.debug("{} command - user {}, server {}, type {}", NAME, context.user.getIdLong(), context.serverId(), type);
         (switch (type) {
             case range -> new RangeCommand();
             case trend -> new TrendCommand();

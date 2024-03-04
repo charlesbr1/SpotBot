@@ -54,7 +54,7 @@ public class MatchingService {
     public MatchingAlert match(@NotNull ZonedDateTime now, @NotNull Alert alert, @NotNull List<Candlestick> candlesticks, @Nullable Candlestick previousCandlestick) {
         return switch (alert) {
             case RangeAlert a -> a.match(candlesticks, previousCandlestick);
-            case TrendAlert a -> a.match(now, candlesticks, previousCandlestick);
+            case TrendAlert a -> a.match(candlesticks, previousCandlestick);
             case RemainderAlert a -> a.match(now, context.parameters().checkPeriodMin());
             default -> throw new IllegalArgumentException("Unexpected alert type : " + alert);
         };

@@ -31,6 +31,7 @@ import java.util.function.UnaryOperator;
 import static java.util.Objects.requireNonNull;
 import static org.sbot.commands.CommandAdapter.ALERT_TIPS;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
+import static org.sbot.commands.Commands.INTERACTION_ID_SEPARATOR;
 import static org.sbot.commands.ListCommand.ALERT_TITLE_PAIR_FOOTER;
 import static org.sbot.commands.UpdateCommand.*;
 import static org.sbot.commands.interactions.SelectEditInteraction.*;
@@ -48,7 +49,7 @@ public final class ModalEditInteraction implements InteractionListener {
     public static Modal deleteModalOf(long alertId) {
         TextInput input = TextInput.create(CHOICE_DELETE, "alert will be be deleted", TextInputStyle.SHORT)
                 .setPlaceholder("type 'ok' to delete").setRequiredRange(0, 2).build();
-        return Modal.create(NAME + "#" + alertId, "Delete Alert #" + alertId)
+        return Modal.create(NAME + INTERACTION_ID_SEPARATOR + alertId, "Delete Alert #" + alertId)
                 .addComponents(ActionRow.of(input)).build();
     }
 
@@ -57,7 +58,7 @@ public final class ModalEditInteraction implements InteractionListener {
                 .setPlaceholder(hint)
                 .setRequiredRange(minLength, maxLength)
                 .build();
-        return Modal.create(NAME + "#" + alertId, "Edit Alert #" + alertId)
+        return Modal.create(NAME + INTERACTION_ID_SEPARATOR + alertId, "Edit Alert #" + alertId)
                 .addComponents(ActionRow.of(input)).build();
     }
 
@@ -148,7 +149,7 @@ public final class ModalEditInteraction implements InteractionListener {
     private static void switchEnableItem(@NotNull MessageEditBuilder editBuilder, long alertId, boolean isDisabled) {
         StringSelectMenu select = (StringSelectMenu) requireOneItem(requireOneItem(editBuilder.getComponents()).getActionComponents());
         Optional.ofNullable(switchEnableItem(select.getOptions(), isDisabled)).ifPresent(options -> {
-            var selectComponent = StringSelectMenu.create(SelectEditInteraction.NAME + "#" + alertId)
+            var selectComponent = StringSelectMenu.create(SelectEditInteraction.NAME + INTERACTION_ID_SEPARATOR + alertId)
                     .addOptions(options);
             editBuilder.setComponents(List.of(ActionRow.of(selectComponent.build())));
         });

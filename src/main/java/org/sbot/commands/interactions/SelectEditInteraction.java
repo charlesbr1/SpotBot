@@ -3,6 +3,8 @@ package org.sbot.commands.interactions;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.interactions.components.selections.SelectOption;
 import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
@@ -10,6 +12,7 @@ import org.sbot.entities.alerts.Alert;
 import org.sbot.services.discord.InteractionListener;
 
 import static java.util.function.UnaryOperator.identity;
+import static org.sbot.commands.Commands.INTERACTION_ID_SEPARATOR;
 import static org.sbot.commands.UpdateCommand.*;
 import static org.sbot.commands.interactions.ModalEditInteraction.*;
 import static org.sbot.entities.User.DEFAULT_LOCALE;
@@ -23,14 +26,18 @@ import static org.sbot.utils.Dates.LocalePatterns;
 
 public class SelectEditInteraction implements InteractionListener {
 
+    private static final Logger LOGGER = LogManager.getLogger(SelectEditInteraction.class);
+
     static final String NAME = "edit-alert";
-    private static final String CHOICE_EDIT = "edit";
+    static final String CHOICE_EDIT = "edit";
     public static final String CHOICE_DISABLE = "disable";
     public static final String CHOICE_MIGRATE = "migrate";
     public static final String CHOICE_DELETE = "delete";
 
+    record Arguments(long alertId, String field) {}
+
     public static StringSelectMenu updateMenuOf(@NotNull Alert alert) {
-        return updateMenuOf(NAME + "#" + alert.id, alert);
+        return updateMenuOf(NAME + INTERACTION_ID_SEPARATOR + alert.id, alert);
     }
 
     public static StringSelectMenu.Builder selectMenu(@NotNull String menuId) {
@@ -69,8 +76,8 @@ public class SelectEditInteraction implements InteractionListener {
         return menu.build();
     }
 
-    static SelectOption enableOption(boolean noRepeat) {
-        return SelectOption.of(CHOICE_ENABLE, CHOICE_ENABLE).withDescription("enable this alert" + (noRepeat ? " (this will set repeat to " + DEFAULT_REPEAT + ")" : "")).withEmoji(Emoji.fromUnicode("U+1F7E2"));
+    static SelectOption enableOption(boolean resetRepeat) {
+        return SelectOption.of(CHOICE_ENABLE, CHOICE_ENABLE).withDescription("enable this alert" + (resetRepeat ? " (this will set repeat to " + DEFAULT_REPEAT + ")" : "")).withEmoji(Emoji.fromUnicode("U+1F7E2"));
     }
 
     static SelectOption disableOption() {
@@ -86,24 +93,22 @@ public class SelectEditInteraction implements InteractionListener {
     @Override
     public void onInteraction(@NotNull CommandContext context) {
         // this will open a Modal to get a new value from the user
-
-        long alertId = requirePositive(context.args.getMandatoryLong(ALERT_ID_ARGUMENT));
-        String field = context.args.getMandatoryString(SELECTION_ARGUMENT);
-        context.noMoreArgs();
+        var arguments = arguments(context);
+        LOGGER.debug("{} interaction - user {}, server {}, arguments {}", NAME, context.user.getIdLong(), context.serverId(), arguments);
 
         int minLength = 1;
         int maxLength = PRICE_MAX_LENGTH;
         String hint;
 
-        switch (field) {
+        switch (arguments.field) {
             case CHOICE_EDIT:  // send a response that restore previous alert message, if needed
                 context.reply(replyOriginal(null), 0);
                 return;
             case CHOICE_DELETE:
-                context.reply(Message.of(deleteModalOf(alertId)), 0); // confirmation modal
+                context.reply(Message.of(deleteModalOf(arguments.alertId)), 0); // confirmation modal
                 return;
             case CHOICE_ENABLE, CHOICE_DISABLE: // directly performs the update
-                new ModalEditInteraction().onInteraction(context.withArgumentsAndReplyMapper(alertId + " " + CHOICE_ENABLE + " " + (CHOICE_ENABLE.equals(field) ? "1" : "0"), identity()));
+                new ModalEditInteraction().onInteraction(context.withArgumentsAndReplyMapper(arguments.alertId + " " + CHOICE_ENABLE + " " + (CHOICE_ENABLE.equals(arguments.field) ? "1" : "0"), identity()));
                 return;
             case CHOICE_MESSAGE:
                 maxLength = MESSAGE_MAX_LENGTH;
@@ -133,9 +138,16 @@ public class SelectEditInteraction implements InteractionListener {
                 hint = "number of times this alert will be raise (" + REPEAT_MIN + " .. " + REPEAT_MAX + ")";
                 break;
             default:
-                throw new IllegalArgumentException("Invalid field to edit : " + field);
+                throw new IllegalArgumentException("Invalid field to edit : " + arguments.field);
         }
         // create a modal to get the value from the user
-        context.reply(Message.of(updateModalOf(alertId, field, hint, minLength, maxLength)), 0);
+        context.reply(Message.of(updateModalOf(arguments.alertId, arguments.field, hint, minLength, maxLength)), 0);
+    }
+
+    static Arguments arguments(@NotNull CommandContext context) {
+        long alertId = requirePositive(context.args.getMandatoryLong(ALERT_ID_ARGUMENT));
+        String field = context.args.getMandatoryString(SELECTION_ARGUMENT);
+        context.noMoreArgs();
+        return new Arguments(alertId, field);
     }
 }

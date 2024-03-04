@@ -66,7 +66,7 @@ public final class MigrateCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         var arguments = arguments(context);
-        LOGGER.debug("migrate command - user {}, server {}, arguments {}", context.user.getIdLong(), context.serverId(), arguments);
+        LOGGER.debug("{} command - user {}, server {}, arguments {}", NAME, context.user.getIdLong(), context.serverId(), arguments);
         context.reply(migrate(context, arguments), responseTtlSeconds);
     }
 

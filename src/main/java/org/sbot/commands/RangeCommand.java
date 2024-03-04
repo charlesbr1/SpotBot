@@ -59,7 +59,7 @@ public final class RangeCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         ZonedDateTime now = Dates.nowUtc(context.clock());
         var arguments = arguments(context, now);
-        LOGGER.debug("range command - user {}, server {}, arguments {}", context.user.getIdLong(), context.serverId(), arguments);
+        LOGGER.debug("{} command - user {}, server {}, arguments {}", NAME, context.user.getIdLong(), context.serverId(), arguments);
         context.reply(range(context, now, arguments), responseTtlSeconds);
     }
 

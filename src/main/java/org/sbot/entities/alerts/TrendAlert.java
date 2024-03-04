@@ -14,6 +14,8 @@ import java.util.List;
 
 import static java.math.RoundingMode.HALF_UP;
 import static java.util.Objects.requireNonNull;
+import static org.sbot.entities.alerts.RangeAlert.priceCrossedRange;
+import static org.sbot.entities.alerts.RangeAlert.priceInRange;
 import static org.sbot.entities.chart.Ticker.formatPrice;
 import static org.sbot.entities.chart.Ticker.getSymbol;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.*;
@@ -55,13 +57,15 @@ public final class TrendAlert extends Alert {
         BigDecimal deltaSeconds = secondsBetween(fromDate, toDate);
         for (Candlestick candlestick : candlesticks) {
             if (isListenableCandleStick(candlestick) && isNewerCandleStick(candlestick, previousCandlestick)) {
-                BigDecimal startPrice = trendPriceAt(candlestick.openTime(), fromPrice, fromDate, priceDelta, deltaSeconds);
-                BigDecimal endPrice = trendPriceAt(candlestick.closeTime(), fromPrice, fromDate, priceDelta, deltaSeconds);
-                boolean uptrend = startPrice.compareTo(endPrice) <= 0;
-                if (priceOnTrend(candlestick, startPrice, endPrice, MARGIN_DISABLED, uptrend) ||
-                        priceCrossedTrend(candlestick, startPrice, endPrice, filterListenableCandleStick(previousCandlestick), uptrend)) {
+                // precision is limited to the candlestick timeframe
+                var lowPrice = trendPriceAt(candlestick.openTime(), fromPrice, fromDate, priceDelta, deltaSeconds);
+                var swapPrice = trendPriceAt(candlestick.closeTime(), fromPrice, fromDate, priceDelta, deltaSeconds);
+                var highPrice = lowPrice.compareTo(swapPrice) > 0 ? lowPrice : swapPrice;
+                lowPrice = highPrice.equals(lowPrice) ? swapPrice : lowPrice;
+                if (priceInRange(candlestick, lowPrice, highPrice, MARGIN_DISABLED) ||
+                        priceCrossedRange(candlestick, lowPrice, highPrice, filterListenableCandleStick(previousCandlestick))) {
                     return new MatchingAlert(this, MATCHED, candlestick);
-                } else if (priceOnTrend(candlestick, startPrice, endPrice, margin, uptrend)) {
+                } else if (priceInRange(candlestick, lowPrice, highPrice, margin)) {
                     return new MatchingAlert(this, MARGIN, candlestick);
                 }
                 previousCandlestick = candlestick;
@@ -70,26 +74,20 @@ public final class TrendAlert extends Alert {
         return new MatchingAlert(this, NOT_MATCHING, null);
     }
 
-    private static boolean priceOnTrend(@NotNull Candlestick candlestick, @NotNull BigDecimal startPrice, @NotNull BigDecimal endPrice, @NotNull BigDecimal margin, boolean uptrend) {
-        return RangeAlert.priceInRange(candlestick, uptrend ? startPrice : endPrice, uptrend ? endPrice : startPrice, margin);
-    }
-
-    private static boolean priceCrossedTrend(@NotNull Candlestick candlestick, @NotNull BigDecimal startPrice, @NotNull BigDecimal endPrice, @Nullable Candlestick previousCandlestick, boolean uptrend) {
-        return RangeAlert.priceCrossedRange(candlestick, uptrend ? startPrice : endPrice, uptrend ? endPrice : startPrice, previousCandlestick);
-    }
-
     @NotNull
     public static BigDecimal trendPriceAt(@NotNull ZonedDateTime dateTime, @NotNull Alert alert) {
-        return trendPriceAt(dateTime, alert.fromPrice, alert.fromDate, alert.toPrice.subtract(alert.fromPrice), secondsBetween(alert.fromDate, alert.toDate));
+        return trendPriceAt(dateTime, alert.fromPrice, alert.fromDate,
+                alert.toPrice.subtract(alert.fromPrice),
+                secondsBetween(alert.fromDate, alert.toDate));
     }
 
-    private static BigDecimal trendPriceAt(@NotNull ZonedDateTime dateTime, @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate, @NotNull BigDecimal priceDelta, @NotNull BigDecimal deltaSeconds) {
+    static BigDecimal trendPriceAt(@NotNull ZonedDateTime dateTime, @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate, @NotNull BigDecimal priceDelta, @NotNull BigDecimal deltaSeconds) {
         return fromPrice.add(priceDelta(dateTime, fromDate, priceDelta, deltaSeconds)).max(BigDecimal.ZERO);
     }
 
-    private static BigDecimal priceDelta(@NotNull ZonedDateTime dateTime, @NotNull ZonedDateTime fromDate, @NotNull BigDecimal priceDelta, @NotNull BigDecimal deltaSeconds) {
+    static BigDecimal priceDelta(@NotNull ZonedDateTime dateTime, @NotNull ZonedDateTime fromDate, @NotNull BigDecimal priceDelta, @NotNull BigDecimal deltaSeconds) {
         BigDecimal delta = priceDelta.multiply(secondsBetween(fromDate, dateTime));
-        return BigDecimal.ZERO.equals(deltaSeconds) ? delta : delta.divide(deltaSeconds, 16, HALF_UP);
+        return deltaSeconds.equals(BigDecimal.ZERO) ? delta : delta.divide(deltaSeconds, 16, HALF_UP);
     }
 
     @NotNull
@@ -104,13 +102,12 @@ public final class TrendAlert extends Alert {
         String description = header(matchingStatus, previousCandlestick, now) +
                 "\n\n* id :\t" + id +
                 footer(matchingStatus);
-        var embed = new EmbedBuilder().setDescription(description);
-        embed.addField("from price", fromPrice.toPlainString() + ' ' + getSymbol(getTicker2()), true);
-        embed.addField("from date", formatDiscord(fromDate) + '\n' + formatDiscordRelative(fromDate), true);
-        embed.addField("created", formatDiscordRelative(creationDate), true);
-        embed.addField("to price", toPrice.toPlainString() + ' ' + getSymbol(getTicker2()), true);
-        embed.addField("to date", formatDiscord(toDate) + '\n' + formatDiscordRelative(toDate), true);
-        embed.addField("current trend price", formatPrice(trendPriceAt(now, this), getTicker2()), true);
-        return embed;
+        return new EmbedBuilder().setDescription(description)
+                .addField("from price", fromPrice.toPlainString() + ' ' + getSymbol(getTicker2()), true)
+                .addField("from date", formatDiscord(fromDate) + '\n' + formatDiscordRelative(fromDate), true)
+                .addField("created", formatDiscordRelative(creationDate), true)
+                .addField("to price", toPrice.toPlainString() + ' ' + getSymbol(getTicker2()), true)
+                .addField("to date", formatDiscord(toDate) + '\n' + formatDiscordRelative(toDate), true)
+                .addField("current trend price", formatPrice(trendPriceAt(now, this), getTicker2()), true);
     }
 }

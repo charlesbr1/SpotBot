@@ -36,6 +36,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static org.sbot.commands.CommandAdapter.isPrivateChannel;
+import static org.sbot.commands.Commands.INTERACTION_ID_SEPARATOR;
 import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
 import static org.sbot.utils.ArgumentValidator.requireNotBlank;
@@ -77,15 +78,15 @@ public abstract class CommandContext implements Context {
 
     private CommandContext(@NotNull Context context, @NotNull Locale locale, @Nullable ZoneId timezone, @NotNull GenericInteractionCreateEvent event, @NotNull String componentId, @NotNull String args) {
         this.context = requireNonNull(context);
-        String[] nameId = componentId.split("#");
+        String[] nameId = componentId.split(INTERACTION_ID_SEPARATOR);
         if(nameId.length != 2) {
             throw new IllegalArgumentException("Invalid componentId : " + componentId);
         }
-        this.name = requireNotBlank(nameId[0], "name");
+        this.name = requireNotBlank(nameId[0].strip(), "name");
         this.user = requireNonNull(event.getUser());
         this.locale = requireNonNull(locale);
         this.timezone = timezone;
-        String alertId = requireNotBlank(nameId[1], "alertId");
+        String alertId = requireNotBlank(nameId[1].strip(), "alertId");
         this.args = new StringArgumentReader(alertId + ' ' + requireNonNull(args));
         this.member = event.getMember();
     }

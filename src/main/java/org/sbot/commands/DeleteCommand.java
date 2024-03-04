@@ -52,7 +52,7 @@ public final class DeleteCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         var arguments = arguments(context);
-        LOGGER.debug("delete command - user {}, server {}, arguments {}", context.user.getIdLong(), context.serverId(), arguments);
+        LOGGER.debug("{} command - user {}, server {}, arguments {}", NAME, context.user.getIdLong(), context.serverId(), arguments);
         context.reply(delete(context, arguments), responseTtlSeconds);
     }
 

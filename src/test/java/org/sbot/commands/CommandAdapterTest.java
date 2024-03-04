@@ -32,9 +32,9 @@ import static org.sbot.entities.alerts.AlertTest.createTestAlert;
 import static org.sbot.entities.alerts.AlertTest.createTestAlertWithType;
 import static org.sbot.services.dao.AlertsDaoTest.assertDeepEquals;
 
-class CommandAdapterTest {
+public class CommandAdapterTest {
 
-    static void assertExceptionContains(@NotNull Class<? extends  Exception> type, @NotNull String message, @NotNull Runnable runnable) {
+    public static void assertExceptionContains(@NotNull Class<? extends  Exception> type, @NotNull String message, @NotNull Runnable runnable) {
         try {
             runnable.run();
             fail("Expected exception " + type.getName() + " to be thrown with message : " + message);
