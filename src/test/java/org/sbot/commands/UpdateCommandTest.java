@@ -2070,6 +2070,210 @@ class UpdateCommandTest {
 
     @Test
     void onCommandEnable() {
+        long userId = 87543L;
+        long alertId = 123L;
+        MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
+        when(messageReceivedEvent.getMessage()).thenReturn(mock());
+        User user = mock();
+        when(messageReceivedEvent.getAuthor()).thenReturn(user);
+        when(user.getIdLong()).thenReturn(userId);
+        Context context = mock(Context.class);
+        ZonedDateTime now = DatesTest.nowUtc().truncatedTo(ChronoUnit.MINUTES);
+        when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
+        AlertsDao alertsDao = mock();
+        Context.DataServices dataServices = mock();
+        when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(context.dataServices()).thenReturn(dataServices);
+
+        var command = new UpdateCommand();
+        assertThrows(NullPointerException.class, () -> command.onCommand(null));
+
+        var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " enable 123 invalid"));
+        assertExceptionContains(IllegalArgumentException.class, CHOICE_ENABLE, () -> command.onCommand(fc1));
+
+        var fc2 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " enable 123 -1"));
+        assertExceptionContains(IllegalArgumentException.class, CHOICE_ENABLE, () -> command.onCommand(fc2));
+
+        var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " enable 123 "));
+        assertExceptionContains(IllegalArgumentException.class, "Missing", () -> command.onCommand(fc3));
+
+        var fc4 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " enable 123 false too"));
+        assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onCommand(fc4));
+
+        var fc5 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " enable 123 true 23"));
+        assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onCommand(fc5));
+
+        // not found
+        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " enable 123 true"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+        ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(alertsDao).getAlertWithoutMessage(alertId);
+        verify(alertsDao, never()).update(any(), any());
+        var messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        var message = messages.get(0).embeds().get(0);
+        assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
+
+        // private channel, same user, any server, ok
+        Discord discord = mock();
+        Services services = mock();
+        when(services.discord()).thenReturn(discord);
+        when(context.services()).thenReturn(services);
+        Guild guild = mock();
+        when(discord.getGuildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
+        when(guild.getName()).thenReturn("test server");
+
+        when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId)));
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " enable 123 0"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(alertsDao, times(2)).getAlertWithoutMessage(alertId);
+        var alertCaptor = ArgumentCaptor.forClass(Alert.class);
+        verify(alertsDao).update(alertCaptor.capture(), eq(Set.of(LISTENING_DATE, REPEAT)));
+        var alertArg = alertCaptor.getValue();
+        assertDeepEquals(createTestAlertWithUserId(userId).withListeningDateRepeat(null, DEFAULT_REPEAT), alertArg);
+        verify(discord).getGuildServer(TEST_SERVER_ID);
+        verify(guild).getName();
+
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        message = messages.get(0).embeds().get(0);
+        assertTrue(message.getDescriptionBuilder().toString().contains(UPDATE_DISABLED_HEADER));
+        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+
+        // private channel, not same user, not found
+        when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " enable 123 false"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(alertsDao, times(3)).getAlertWithoutMessage(alertId);
+        verify(alertsDao).update(any(), any());
+        verify(discord).getGuildServer(anyLong());
+        verify(guild).getName();
+
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        message = messages.get(0).embeds().get(0);
+        assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
+        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+
+        // server channel, same user, not same server, not found
+        Member member = mock();
+        when(member.getGuild()).thenReturn(guild);
+        when(guild.getIdLong()).thenReturn(TEST_SERVER_ID);
+        when(messageReceivedEvent.getMember()).thenReturn(member);
+
+        when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID + 1)));
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " enable 123 no"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(alertsDao, times(4)).getAlertWithoutMessage(alertId);
+        verify(alertsDao).update(any(), any());
+        verify(discord).getGuildServer(anyLong());
+        verify(guild).getName();
+
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        message = messages.get(0).embeds().get(0);
+        assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
+        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+
+        // server channel, not same user, not same server, not found
+        when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " enable 123 No"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(alertsDao, times(5)).getAlertWithoutMessage(alertId);
+        verify(alertsDao).update(any(), any());
+        verify(discord).getGuildServer(anyLong());
+        verify(guild).getName();
+
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        message = messages.get(0).embeds().get(0);
+        assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
+        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+
+        // server channel, same user, same server  ok
+        var alert = createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID).withListeningDateRepeat(null, (short)-1);
+        when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(alert));
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " enable 123 true"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(alertsDao, times(6)).getAlertWithoutMessage(alertId);
+        verify(alertsDao, times(2)).update(alertCaptor.capture(), eq(Set.of(LISTENING_DATE, REPEAT)));
+        alertArg = alertCaptor.getValue();
+        assertDeepEquals(alert.withListeningDateRepeat(alert.fromDate, DEFAULT_REPEAT), alertArg);
+
+        verify(discord).getGuildServer(anyLong());
+        verify(guild).getName();
+
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        message = messages.get(0).embeds().get(0);
+        assertTrue(message.getDescriptionBuilder().toString().contains(UPDATE_ENABLED_HEADER));
+        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+
+        // server channel, not same user, same server,  denied
+        when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " enable 123 true"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(alertsDao, times(7)).getAlertWithoutMessage(alertId);
+        verify(alertsDao, times(2)).update(any(), any());
+        verify(discord).getGuildServer(anyLong());
+        verify(guild).getName();
+
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        message = messages.get(0).embeds().get(0);
+        assertTrue(message.getDescriptionBuilder().toString().contains("not allowed"));
+        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+
+        // server channel, not same user, same server, admin,  ok, notification sent
+        when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
+        alert = createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)
+                .withListeningDateRepeat(null, (short) 2).withFromDate(null);
+        when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(alert));
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " enable 123 1"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(alertsDao, times(8)).getAlertWithoutMessage(alertId);
+        verify(alertsDao, times(3)).update(alertCaptor.capture(), eq(Set.of(LISTENING_DATE, REPEAT)));
+        alertArg = alertCaptor.getValue();
+        assertDeepEquals(alert.withListeningDateRepeat(now, (short) 2), alertArg);
+        verify(discord).getGuildServer(anyLong());
+        verify(guild, times(2)).getName();
+
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        message = messages.get(0).embeds().get(0);
+        assertTrue(message.getDescriptionBuilder().toString().contains(UPDATE_ENABLED_HEADER));
+        verify(discord).sendPrivateMessage(eq(userId + 1), any(), any());
     }
 
     @Test
@@ -2100,34 +2304,18 @@ class UpdateCommandTest {
 
     @Test
     void listeningDate() {
+        assertThrows(NullPointerException.class, () -> UpdateCommand.listeningDate(null, mock()));
+        assertThrows(NullPointerException.class, () -> UpdateCommand.listeningDate(mock(), null));
+
         ZonedDateTime now = Dates.nowUtc(Clock.systemUTC());
         ZonedDateTime fromDate = now.minusMinutes(146L);
         var alert = createTestAlertWithType(trend).withListeningDateRepeat(null, DEFAULT_REPEAT);
-        assertEquals(now, UpdateCommand.listeningDate(now, fromDate, alert));
-        alert = createTestAlertWithType(trend).withListeningDateRepeat(fromDate.minusMinutes(45L), DEFAULT_REPEAT);
-        assertEquals(fromDate.minusMinutes(45L), UpdateCommand.listeningDate(now, fromDate, alert));
-
-        assertEquals(now, UpdateCommand.listeningDate(now, null, createTestAlertWithType(range)));
-        assertEquals(now, UpdateCommand.listeningDate(now, null, createTestAlertWithType(remainder)));
-        assertEquals(now, UpdateCommand.listeningDate(now, fromDate, createTestAlertWithType(range)));
-        assertEquals(now, UpdateCommand.listeningDate(now, fromDate, createTestAlertWithType(remainder)));
-        fromDate = now.plusMinutes(1L);
-        assertEquals(fromDate, UpdateCommand.listeningDate(now, fromDate, createTestAlertWithType(range)));
-        assertEquals(fromDate, UpdateCommand.listeningDate(now, fromDate, createTestAlertWithType(remainder)));
-
-        // test listeningDate(@NotNull ZonedDateTime now, @NotNull Alert alert)
-        fromDate = now.minusMinutes(146L);
         alert = createTestAlertWithType(trend).withFromDate(fromDate).withListeningDateRepeat(null, DEFAULT_REPEAT);
         assertEquals(now, UpdateCommand.listeningDate(now, alert));
         alert = createTestAlertWithType(trend).withFromDate(fromDate).withListeningDateRepeat(fromDate.minusMinutes(45L), DEFAULT_REPEAT);
         assertEquals(fromDate.minusMinutes(45L), UpdateCommand.listeningDate(now, alert));
 
-        assertEquals(now, UpdateCommand.listeningDate(now, createTestAlertWithType(range).withFromDate(fromDate)));
-        assertEquals(now, UpdateCommand.listeningDate(now, createTestAlertWithType(remainder).withFromDate(fromDate)));
-        assertEquals(now, UpdateCommand.listeningDate(now, createTestAlertWithType(range).withFromDate(fromDate)));
-        assertEquals(now, UpdateCommand.listeningDate(now, createTestAlertWithType(remainder).withFromDate(fromDate)));
-        fromDate = now.plusMinutes(1L);
-        assertEquals(fromDate, UpdateCommand.listeningDate(now, fromDate, createTestAlertWithType(range).withFromDate(fromDate)));
-        assertEquals(fromDate, UpdateCommand.listeningDate(now, fromDate, createTestAlertWithType(remainder).withFromDate(fromDate)));
+        assertEquals(fromDate, UpdateCommand.listeningDate(now, createTestAlertWithType(range).withFromDate(fromDate)));
+        assertEquals(fromDate, UpdateCommand.listeningDate(now, createTestAlertWithType(remainder).withFromDate(fromDate)));
     }
 }

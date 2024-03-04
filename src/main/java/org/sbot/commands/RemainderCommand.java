@@ -45,7 +45,7 @@ public final class RemainderCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         ZonedDateTime now = Dates.nowUtc(context.clock());
         var arguments = arguments(context, now);
-        LOGGER.debug("remainder command - {}", arguments);
+        LOGGER.debug("remainder command - user {}, server {}, arguments {}", context.user.getIdLong(), context.serverId(), arguments);
         context.reply(remainder(context, now, arguments.pair, arguments.date, arguments.message), responseTtlSeconds);
     }
 
@@ -63,6 +63,7 @@ public final class RemainderCommand extends CommandAdapter {
                 context.serverId(), now, // creation date
                 fromDate, // listening date
                 pair, message, fromDate, null, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
-        return createdAlertMessage(context, now, saveAlert(context, remainderAlert));
+        return saveAlert(context, remainderAlert).map(alert -> createdAlertMessage(context, now, alert))
+                .orElse(userSetupNeeded(context.name, "Unable to create a new alert :"));
     }
 }

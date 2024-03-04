@@ -66,7 +66,7 @@ public final class MigrateCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         var arguments = arguments(context);
-        LOGGER.debug("migrate command - {}", arguments);
+        LOGGER.debug("migrate command - user {}, server {}, arguments {}", context.user.getIdLong(), context.serverId(), arguments);
         context.reply(migrate(context, arguments), responseTtlSeconds);
     }
 
@@ -142,7 +142,7 @@ public final class MigrateCommand extends CommandAdapter {
             if (!sameUser(context.user, alert.userId)) { // send notification once transaction is successful
                 notificationCallBack[0] = () -> sendUpdateNotification(context, alert.userId, ownerMigrateNotification(alertId, requireNonNull(context.member), null));
             }
-            return embedBuilder("Alert migrated to user private channel");
+            return embedBuilder("Alert migrated to <@" + context.user.getIdLong() + "> private channel");
         });
         Optional.ofNullable(notificationCallBack[0]).ifPresent(Runnable::run);
         return Message.of(answer);

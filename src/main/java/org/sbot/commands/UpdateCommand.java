@@ -60,6 +60,11 @@ public final class UpdateCommand extends CommandAdapter {
 
     private static final String NULL_DATE_ARGUMENT = "null";
 
+
+    public static final String UPDATE_ENABLED_HEADER = "Status set to **enabled** !\n\n";
+    public static final String UPDATE_DISABLED_HEADER = "Status set to **disabled** !\n\n";
+
+
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addSubcommands(
                     new SubcommandData("settings", "update your settings (locale and timezone)").addOptions(
@@ -97,7 +102,7 @@ public final class UpdateCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         var arguments = arguments(context);
         if(LOGGER.isDebugEnabled()) {
-            LOGGER.debug("update command - {}, last args : {}", arguments, context.args.getLastArgs(VALUE_ARGUMENT).orElse(""));
+            LOGGER.debug("update command - user {}, server {}, arguments {}, last args : {}", context.user.getIdLong(), context.serverId(), arguments, context.args.getLastArgs(VALUE_ARGUMENT).orElse(""));
         }
         switch (arguments.selection) {
             case CHOICE_LOCALE -> context.reply(locale(context, arguments.value), responseTtlSeconds);
@@ -161,6 +166,16 @@ public final class UpdateCommand extends CommandAdapter {
         Optional.ofNullable(notificationCallBack[0]).ifPresent(Runnable::run);
     }
 
+    @NotNull
+    private static BiFunction<Alert, AlertsDao, EmbedBuilder> update(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull BiFunction<Alert, AlertsDao, EmbedBuilder> updater, @NotNull Predicate<Alert> tester) {
+        return (alert, alertsDao) -> {
+            if(tester.test(alert)) {
+                return updater.apply(alert, alertsDao);
+            }
+            return alertEmbed(context, now, alert);
+        };
+    }
+
     private BiFunction<Alert, AlertsDao, EmbedBuilder> message(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
         String message = requireAlertMessageMaxLength(context.args.getLastArgs(VALUE_ARGUMENT)
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
@@ -199,12 +214,8 @@ public final class UpdateCommand extends CommandAdapter {
             var fields = Set.of(FROM_DATE);
             if(trend == alert.type || !alert.isEnabled()) {
                 alert = alert.withFromDate(fromDate);
-            } else if (remainder == alert.type ) {
-                alert = alert.withListeningDateFromDate(fromDate, fromDate);
-                fields = Set.of(LISTENING_DATE, FROM_DATE);
-            } else { // for range alert, this will also remove snoozing state, if in
-                var listeningDate = listeningDate(now, fromDate, alert);
-                alert = alert.withListeningDateFromDate(listeningDate, fromDate);
+            } else { // for range alert, this will also remove snoozing state
+                alert = alert.withListeningDateFromDate(null != fromDate ? fromDate : now, fromDate);
                 fields = Set.of(LISTENING_DATE, FROM_DATE);
             }
             alertsDao.update(alert, fields);
@@ -258,30 +269,25 @@ public final class UpdateCommand extends CommandAdapter {
         }, alert -> snooze != alert.snooze);
     }
 
-    public static final String UPDATE_ENABLED_HEADER = "Status set to **enabled** !\n\n";
-    public static final String UPDATE_DISABLED_HEADER = "Status set to **disabled** !\n\n";
-
     private BiFunction<Alert, AlertsDao, EmbedBuilder> enable(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
-        boolean enable = Boolean.parseBoolean(context.args.getMandatoryString(VALUE_ARGUMENT));
+        boolean enable = requireBoolean(context.args.getMandatoryString(VALUE_ARGUMENT), CHOICE_ENABLE);
         return update(context.noMoreArgs(), now, (alert, alertsDao) -> {
             if(remainder == alert.type) {
                 throw new IllegalArgumentException("Remainder alert can't be disabled, drop it instead");
             }
-            var repeat = alert.repeat < 0 ? DEFAULT_REPEAT : alert.repeat;
-            alert = alert.withListeningDateRepeat(enable ? listeningDate(now, alert) : null, enable ? repeat : alert.repeat);
-            alertsDao.update(alert, Set.of(REPEAT, LISTENING_DATE));
+            var repeat = enable && alert.repeat < 0 ? DEFAULT_REPEAT : alert.repeat;
+            alert = alert.withListeningDateRepeat(enable ? listeningDate(now, alert) : null, repeat);
+            alertsDao.update(alert, Set.of(LISTENING_DATE, REPEAT));
             return updateNotifyMessage(context, now, alert, enable ? UPDATE_ENABLED_HEADER : UPDATE_DISABLED_HEADER, Boolean.toString(enable), CHOICE_ENABLE, outNotificationCallBack);
         }, alert -> enable != alert.isEnabled());
     }
 
-    @NotNull
-    private static BiFunction<Alert, AlertsDao, EmbedBuilder> update(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull BiFunction<Alert, AlertsDao, EmbedBuilder> updater, @NotNull Predicate<Alert> tester) {
-        return (alert, alertsDao) -> {
-            if(tester.test(alert)) {
-                return updater.apply(alert, alertsDao);
-            }
-            return ListCommand.listAlert(context, now, alert);
-        };
+    static ZonedDateTime listeningDate(@NotNull ZonedDateTime now, @NotNull Alert alert) {
+        requireNonNull(now);
+        if(alert.type == trend) {
+            return Optional.ofNullable(alert.listeningDate).orElse(now);
+        }
+        return null != alert.fromDate ? alert.fromDate : now;
     }
 
     static boolean notEquals(@Nullable ZonedDateTime inputDate, @Nullable ZonedDateTime alertDate) {
@@ -306,17 +312,6 @@ public final class UpdateCommand extends CommandAdapter {
         }
     }
 
-    static ZonedDateTime listeningDate(@NotNull ZonedDateTime now, @NotNull Alert alert) {
-        return listeningDate(now, alert.fromDate, alert);
-    }
-
-    static ZonedDateTime listeningDate(@NotNull ZonedDateTime now, @Nullable ZonedDateTime fromDate, @NotNull Alert alert) {
-        if(alert.type == trend) {
-            return Optional.ofNullable(alert.listeningDate).orElse(now);
-        }
-        return null != fromDate && fromDate.isAfter(now) ? fromDate : now;
-    }
-
     private EmbedBuilder updateNotifyMessage(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert, @NotNull String displayName, @NotNull String newValue, @NotNull Runnable[] outNotificationCallBack) {
         return updateNotifyMessage(context, now, alert, null, displayName, newValue, outNotificationCallBack);
     }
@@ -325,7 +320,7 @@ public final class UpdateCommand extends CommandAdapter {
 
     private EmbedBuilder updateNotifyMessage(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert, @Nullable String altFieldName, @NotNull String displayName, @NotNull String newValue, @NotNull Runnable[] outNotificationCallBack) {
         ownerUpdateNotification(context, alert, displayName, newValue, outNotificationCallBack);
-        var embed = ListCommand.listAlert(context, now, alert);
+        var embed = alertEmbed(context, now, alert);
         return embed.setDescription((null != altFieldName ? altFieldName : "Field **" + requireNonNull(displayName) + UPDATE_SUCCESS_FOOTER) + embed.getDescriptionBuilder());
     }
 

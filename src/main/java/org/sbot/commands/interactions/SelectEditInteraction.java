@@ -103,7 +103,7 @@ public class SelectEditInteraction implements InteractionListener {
                 context.reply(Message.of(deleteModalOf(alertId)), 0); // confirmation modal
                 return;
             case CHOICE_ENABLE, CHOICE_DISABLE: // directly performs the update
-                new ModalEditInteraction().onInteraction(context.withArgumentsAndReplyMapper(alertId + " " + CHOICE_ENABLE + " " + (CHOICE_ENABLE.equals(field) ? "true" : "false"), identity()));
+                new ModalEditInteraction().onInteraction(context.withArgumentsAndReplyMapper(alertId + " " + CHOICE_ENABLE + " " + (CHOICE_ENABLE.equals(field) ? "1" : "0"), identity()));
                 return;
             case CHOICE_MESSAGE:
                 maxLength = MESSAGE_MAX_LENGTH;

@@ -41,7 +41,7 @@ public final class QuoteCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         var arguments = arguments(context);
-        LOGGER.debug("quote command - {}", arguments);
+        LOGGER.debug("quote command - user {}, server {}, arguments {}", context.user.getIdLong(), context.serverId(), arguments);
         context.reply(quote(context, arguments.exchange, arguments.pair.toUpperCase()), responseTtlSeconds);
     }
 

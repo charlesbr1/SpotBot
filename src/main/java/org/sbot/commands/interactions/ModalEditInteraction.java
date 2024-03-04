@@ -129,6 +129,7 @@ public final class ModalEditInteraction implements InteractionListener {
 
     @NotNull
     private static UnaryOperator<List<Message>> fromUpdateMapper(@Nullable String newMessage, long alertId) {
+        // update listed alert content with new state and optional error message
         BiFunction<Message, MessageEditBuilder, MessageEditData> editMapper = (message, editBuilder) -> {
             var newEmbedBuilder = requireOneItem(message.embeds());
             var built = newEmbedBuilder.build();
@@ -172,6 +173,7 @@ public final class ModalEditInteraction implements InteractionListener {
 
     @NotNull
     static List<Message> replyOriginal(@Nullable String errorMessage) {
+        // update listed alert content with optional error message
         Function<MessageEditBuilder, MessageEditData> editMapper = editBuilder -> {
             var originalEmbed = requireOneItem(editBuilder.getEmbeds());
             var embedBuilder = null != errorMessage ? embedBuilder(errorMessage) : // this will prepend the provided errorMessage
@@ -202,8 +204,9 @@ public final class ModalEditInteraction implements InteractionListener {
                 .ifPresent(newEmbedBuilder.getDescriptionBuilder()::append);
     }
 
-    // remove messages append or prepended by update command to the original list description
     private static String originalDescription(@NotNull String originalDescription) {
+        // remove messages append or prepended by update command to the original list description
+        // another option would be to rebuild a new message from alert, here it avoid a database access
         for(String header : List.of(UPDATE_FAILED_FOOTER, UPDATE_SUCCESS_FOOTER, UPDATE_ENABLED_HEADER, UPDATE_DISABLED_HEADER)) {
             int index = originalDescription.indexOf(header); // prepended at the start
             if(index >= 0) {

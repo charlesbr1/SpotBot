@@ -35,7 +35,7 @@ import static org.sbot.utils.PartitionSpliterator.split;
 public final class SpotBotCommand extends CommandAdapter {
 
     private static final String NAME = "spotbot";
-    private static final String DESCRIPTION = "show the documentation, a description of each commands, or some examples of commands usage";
+    private static final String DESCRIPTION = "show the general documentation or a description of each commands";
     private static final int RESPONSE_TTL_SECONDS = 600;
 
     private static final String CHOICE_DOC = "doc";
@@ -138,7 +138,7 @@ public final class SpotBotCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         var arguments = arguments(context);
-        LOGGER.debug("spotBot command - {}", arguments);
+        LOGGER.debug("spotBot command - user {}, server {}, arguments {}", context.user.getIdLong(), context.serverId(), arguments);
         context.noMoreArgs().reply(spotBot(arguments.selection, context), responseTtlSeconds);
     }
 
