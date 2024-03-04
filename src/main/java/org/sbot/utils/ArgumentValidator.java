@@ -92,11 +92,21 @@ public interface ArgumentValidator {
         return price;
     }
 
-    static String requireNotBlank(@NotNull String value, @NotNull String name) {
+    static String requireNotBlank(@NotNull String value, @NotNull String fieldName) {
         if (value.isBlank()) {
-            throw new IllegalArgumentException("Missing value for " + name);
+            throw new IllegalArgumentException("Missing value for " + fieldName);
         }
         return value;
+    }
+
+    static boolean requireBoolean(@NotNull String value, @NotNull String fieldName) {
+        if (value.equalsIgnoreCase("true") || value.equalsIgnoreCase("yes") || value.equals("1")) {
+            return true;
+        }
+        if (value.equalsIgnoreCase("false") || value.equalsIgnoreCase("no") || value.equals("0")) {
+            return false;
+        }
+        throw new IllegalArgumentException("Missing value for " + fieldName);
     }
 
     @NotNull

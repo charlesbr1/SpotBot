@@ -78,8 +78,8 @@ public final class TransactionalContext implements Context {
     public Parameters parameters() { return context.parameters(); }
 
 
-    static <T> T run(@NotNull Context context, @NotNull Function<TransactionalContext, T> transactionalContextConsumer, @NotNull TransactionIsolationLevel transactionIsolationLevel) {
-        if(context instanceof TransactionalContext txCtx) {
+    static <T> T run(@NotNull Context context, @NotNull Function<TransactionalContext, T> transactionalContextConsumer, @NotNull TransactionIsolationLevel transactionIsolationLevel, boolean isolated) {
+        if(!isolated && context instanceof TransactionalContext txCtx) {
             if(transactionIsolationLevel.intValue() > txCtx.transactionHandler.transactionIsolationLevel.intValue()) {
                 throw new IllegalArgumentException("Cannot handle inner transaction with higher isolation level, actual : " + txCtx.transactionHandler.transactionIsolationLevel + ", required : " + transactionIsolationLevel);
             }

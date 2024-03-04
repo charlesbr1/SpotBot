@@ -1,5 +1,6 @@
 package org.sbot.commands;
 
+import net.dv8tion.jda.api.entities.User;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.sbot.commands.context.CommandContext;
@@ -31,6 +32,9 @@ class AlertCommandTest {
             var field = CommandContext.class.getField("args");
             field.setAccessible(true);
             field.set(context, argumentReader);
+            field = CommandContext.class.getField("user");
+            field.setAccessible(true);
+            field.set(context, mock(User.class));
             when(argumentReader.getMandatoryType(TYPE_ARGUMENT)).thenReturn(range);
             alertCommand.onCommand(context);
             Assertions.fail();

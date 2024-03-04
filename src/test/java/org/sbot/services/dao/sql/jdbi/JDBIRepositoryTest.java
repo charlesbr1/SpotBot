@@ -35,7 +35,7 @@ import java.util.stream.LongStream;
 
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.*;
-import static org.jdbi.v3.core.transaction.TransactionIsolationLevel.READ_COMMITTED;
+import static org.jdbi.v3.core.transaction.TransactionIsolationLevel.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -431,10 +431,15 @@ public class JDBIRepositoryTest {
     void transactional() {
         var context = spy(Context.class);
 
-        assertThrows(NullPointerException.class, () -> context.transactional(txCtx -> txCtx, null));
-        assertThrows(NullPointerException.class, () -> context.transactional(null, READ_COMMITTED));
-        assertThrows(NullPointerException.class, () -> context.transaction(txCtx -> {}, null));
-        assertThrows(NullPointerException.class, () -> context.transaction(null, READ_COMMITTED));
+        assertThrows(NullPointerException.class, () -> context.transactional(txCtx -> txCtx, null, false));
+        assertThrows(NullPointerException.class, () -> context.transactional(null, READ_COMMITTED, false));
+        assertThrows(NullPointerException.class, () -> context.transaction(txCtx -> {}, null, false));
+        assertThrows(NullPointerException.class, () -> context.transaction(null, READ_COMMITTED, false));
+
+        assertThrows(NullPointerException.class, () -> context.transactional(txCtx -> txCtx, null, true));
+        assertThrows(NullPointerException.class, () -> context.transactional(null, READ_COMMITTED, true));
+        assertThrows(NullPointerException.class, () -> context.transaction(txCtx -> {}, null, true));
+        assertThrows(NullPointerException.class, () -> context.transaction(null, READ_COMMITTED, true));
 
         repository = new JDBIRepository(SQLITE_MEMORY_PERSISTENT);
 
@@ -477,12 +482,22 @@ public class JDBIRepositoryTest {
                 var dao = loadDao(baseDao, sameTxCtx);
                 assertEquals(Optional.empty(), dao.findOne(SELECT_ID_BY_ID, Long.class, Map.of("id", TEST_ID)));
             }));
-            context.transaction(txCtx -> txCtx.transaction(sameTxCtx -> {
-                assertEquals(txCtx, sameTxCtx);
-                var dao = loadDao(baseDao, sameTxCtx);
-                dao.update(INSERT_TEST,
-                        Map.of("id", TEST_ID, "text", TEST_TEXT, "decimal", TEST_DECIMAL1, "locale", TEST_LOCALE2, "timezone", TEST_TIMEZONE2, "date", TEST_DATE_UTC));
-            }));
+            // nested isolated transactions
+            boolean exceptionThrown = false;
+            try {
+                context.transaction(txCtx -> {
+                    txCtx.transaction(newTxCtx -> {
+                        assertNotEquals(txCtx, newTxCtx);
+                        var dao = loadDao(baseDao, newTxCtx);
+                        dao.update(INSERT_TEST,
+                                Map.of("id", TEST_ID, "text", TEST_TEXT, "decimal", TEST_DECIMAL1, "locale", TEST_LOCALE2, "timezone", TEST_TIMEZONE2, "date", TEST_DATE_UTC));
+                    }, READ_COMMITTED, true);
+                    throw new RuntimeException(); // above isolated tx wont be rollback
+                });
+            } catch (RuntimeException e) {
+                exceptionThrown = true;
+            }
+            assertTrue(exceptionThrown);
             context.transaction(txCtx -> txCtx.transaction(sameTxCtx -> {
                 assertEquals(txCtx, sameTxCtx);
                 var dao = loadDao(baseDao, sameTxCtx);
@@ -490,16 +505,18 @@ public class JDBIRepositoryTest {
             }));
 
             // test delete is rollback
-            context.transaction(txCtx -> {
-                loadDao(baseDao, txCtx).batchUpdates(batchEntry -> batchEntry.batchId(TEST_ID), DELETE_BY_ID, emptyMap());
-                txCtx.rollback();
-            });
+            context.transaction(txCtx -> txCtx.transaction(newTxCtx -> {
+                assertNotEquals(txCtx, newTxCtx);
+                loadDao(baseDao, newTxCtx).batchUpdates(batchEntry -> batchEntry.batchId(TEST_ID), DELETE_BY_ID, emptyMap());
+                newTxCtx.rollback();
+            }, READ_UNCOMMITTED, true));
+
             context.transaction(txCtx -> {
                 var dao = loadDao(baseDao, txCtx);
                 assertEquals(Optional.of(TEST_ID), dao.findOne(SELECT_ID_BY_ID, Long.class, Map.of("id", TEST_ID)));
             });
 
-            boolean exceptionThrown = false;
+            exceptionThrown = false;
             try {
                 context.transaction(txCtx -> {
                     loadDao(baseDao, txCtx).batchUpdates(batchEntry -> batchEntry.batchId(TEST_ID), DELETE_BY_ID, emptyMap());

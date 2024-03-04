@@ -141,7 +141,7 @@ class ContextTest {
         Parameters parameters = Parameters.of(null, "discordTokenFile", 1, 1);
         var context = Context.of(Clock.systemUTC(), parameters, null, ctx -> mock(Discord.class));
         assertThrows(NullPointerException.class, () -> context.transaction(null));
-        assertThrows(NullPointerException.class, () -> context.transaction(null, DEFAULT_ISOLATION_LEVEL));
+        assertThrows(NullPointerException.class, () -> context.transaction(null, DEFAULT_ISOLATION_LEVEL, false));
 
         boolean[] run = new boolean[1];
         context.transaction(txCtx -> {
@@ -155,7 +155,7 @@ class ContextTest {
             assertInstanceOf(TransactionalContext.class, txCtx);
             assertEquals(SERIALIZABLE, txCtx.transactionIsolationLevel());
             run[0] = true;
-        }, SERIALIZABLE);
+        }, SERIALIZABLE, true);
         assertTrue(run[0]);
     }
 
@@ -164,7 +164,7 @@ class ContextTest {
         Parameters parameters = Parameters.of(null, "discordTokenFile", 1, 1);
         var context = Context.of(Clock.systemUTC(), parameters, null, ctx -> mock(Discord.class));
         assertThrows(NullPointerException.class, () -> context.transactional(null));
-        assertThrows(NullPointerException.class, () -> context.transactional(null, DEFAULT_ISOLATION_LEVEL));
+        assertThrows(NullPointerException.class, () -> context.transactional(null, DEFAULT_ISOLATION_LEVEL, false));
 
         boolean[] run = new boolean[1];
         assertEquals(123L, context.<Long>transactional(txCtx -> {
@@ -180,7 +180,7 @@ class ContextTest {
             assertEquals(SERIALIZABLE, txCtx.transactionIsolationLevel());
             run[0] = true;
             return 321L;
-        }, SERIALIZABLE));
+        }, SERIALIZABLE, true));
         assertTrue(run[0]);
     }
 }

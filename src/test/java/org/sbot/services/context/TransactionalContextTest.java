@@ -157,31 +157,33 @@ class TransactionalContextTest {
     @Test
     void run() {
         // test run(Context, Consumer, Isolation)
-        assertThrows(NullPointerException.class, () -> TransactionalContext.run(null, txCtx -> null, DEFAULT_ISOLATION_LEVEL));
-        assertThrows(NullPointerException.class, () -> TransactionalContext.run(mock(Context.class), null, DEFAULT_ISOLATION_LEVEL));
-        assertThrows(NullPointerException.class, () -> TransactionalContext.run(mock(Context.class), txCtx -> null, null));
+        assertThrows(NullPointerException.class, () -> TransactionalContext.run(null, txCtx -> null, DEFAULT_ISOLATION_LEVEL, false));
+        assertThrows(NullPointerException.class, () -> TransactionalContext.run(mock(Context.class), null, DEFAULT_ISOLATION_LEVEL, false));
+        assertThrows(NullPointerException.class, () -> TransactionalContext.run(mock(Context.class), txCtx -> null, null, false));
 
         var txContext = spy(new TransactionalContext(mock(Context.class), READ_COMMITTED));
         Function<TransactionalContext, Long> transactionalContextConsumer = mock(Function.class);
-        assertThrows(IllegalArgumentException.class, () -> TransactionalContext.run(txContext, transactionalContextConsumer, REPEATABLE_READ));
-        assertThrows(IllegalArgumentException.class, () -> TransactionalContext.run(txContext, transactionalContextConsumer, SERIALIZABLE));
+        assertThrows(IllegalArgumentException.class, () -> TransactionalContext.run(txContext, transactionalContextConsumer, REPEATABLE_READ, false));
+        assertThrows(IllegalArgumentException.class, () -> TransactionalContext.run(txContext, transactionalContextConsumer, SERIALIZABLE, false));
         verify(transactionalContextConsumer, never()).apply(any());
-        assertNull(TransactionalContext.<Long>run(txContext, transactionalContextConsumer, READ_COMMITTED));
+        assertNull(TransactionalContext.run(txContext, transactionalContextConsumer, SERIALIZABLE, true));
         verify(transactionalContextConsumer).apply(any());
+        assertNull(TransactionalContext.<Long>run(txContext, transactionalContextConsumer, READ_COMMITTED, false));
+        verify(transactionalContextConsumer, times(2)).apply(any());
 
-        assertEquals(123L, TransactionalContext.<Long>run(txContext, ctx -> 123L, READ_COMMITTED));
-        assertEquals(123L, TransactionalContext.<Long>run(txContext, ctx -> 123L, READ_UNCOMMITTED));
-        assertEquals(123L, TransactionalContext.<Long>run(txContext, ctx -> 123L, NONE));
-        assertEquals(123L, TransactionalContext.<Long>run(txContext, ctx -> 123L, UNKNOWN));
+        assertEquals(123L, TransactionalContext.<Long>run(txContext, ctx -> 123L, READ_COMMITTED, false));
+        assertEquals(123L, TransactionalContext.<Long>run(txContext, ctx -> 123L, READ_UNCOMMITTED, false));
+        assertEquals(123L, TransactionalContext.<Long>run(txContext, ctx -> 123L, NONE, false));
+        assertEquals(123L, TransactionalContext.<Long>run(txContext, ctx -> 123L, UNKNOWN, false));
         verify(txContext, never()).commit();
         verify(txContext, never()).rollback();
 
         var context = mock(Context.class);
-        assertEquals(123L, TransactionalContext.<Long>run(context, ctx -> 123L, UNKNOWN));
-        assertEquals(123L, TransactionalContext.<Long>run(context, ctx -> 123L, NONE));
-        assertEquals(123L, TransactionalContext.<Long>run(context, ctx -> 123L, READ_COMMITTED));
-        assertEquals(123L, TransactionalContext.<Long>run(context, ctx -> 123L, SERIALIZABLE));
-        assertNull(TransactionalContext.run(context, TransactionalContext::services, SERIALIZABLE));
+        assertEquals(123L, TransactionalContext.<Long>run(context, ctx -> 123L, UNKNOWN, false));
+        assertEquals(123L, TransactionalContext.<Long>run(context, ctx -> 123L, NONE, false));
+        assertEquals(123L, TransactionalContext.<Long>run(context, ctx -> 123L, READ_COMMITTED, false));
+        assertEquals(123L, TransactionalContext.<Long>run(context, ctx -> 123L, SERIALIZABLE, false));
+        assertNull(TransactionalContext.run(context, TransactionalContext::services, SERIALIZABLE, false));
         verify(context).services();
     }
 

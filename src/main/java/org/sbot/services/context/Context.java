@@ -117,20 +117,20 @@ public interface Context {
     }
 
     default void transaction(@NotNull Consumer<TransactionalContext> transactionalContextConsumer) {
-        transaction(transactionalContextConsumer, DEFAULT_ISOLATION_LEVEL);
+        transaction(transactionalContextConsumer, DEFAULT_ISOLATION_LEVEL, false);
     }
 
-    default void transaction(@NotNull Consumer<TransactionalContext> transactionalContextConsumer, @NotNull TransactionIsolationLevel transactionIsolationLevel) {
+    default void transaction(@NotNull Consumer<TransactionalContext> transactionalContextConsumer, @NotNull TransactionIsolationLevel transactionIsolationLevel, boolean isolated) {
         requireNonNull(transactionalContextConsumer);
-        transactional(v -> { transactionalContextConsumer.accept(v); return null; }, transactionIsolationLevel);
+        transactional(v -> { transactionalContextConsumer.accept(v); return null; }, transactionIsolationLevel, isolated);
     }
 
     default <T> T transactional(@NotNull Function<TransactionalContext, T> transactionalContextConsumer) {
-        return transactional(transactionalContextConsumer, DEFAULT_ISOLATION_LEVEL);
+        return transactional(transactionalContextConsumer, DEFAULT_ISOLATION_LEVEL, false);
     }
 
-    default <T> T transactional(@NotNull Function<TransactionalContext, T> transactionalContextConsumer, @NotNull TransactionIsolationLevel transactionIsolationLevel) {
-        return TransactionalContext.run(this, transactionalContextConsumer, transactionIsolationLevel);
+    default <T> T transactional(@NotNull Function<TransactionalContext, T> transactionalContextConsumer, @NotNull TransactionIsolationLevel transactionIsolationLevel, boolean isolated) {
+        return TransactionalContext.run(this, transactionalContextConsumer, transactionIsolationLevel, isolated);
     }
 
     @NotNull

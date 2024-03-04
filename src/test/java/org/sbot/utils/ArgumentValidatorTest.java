@@ -183,6 +183,31 @@ class ArgumentValidatorTest {
     }
 
     @Test
+    void requireBoolean() {
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireBoolean(null, "field"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireBoolean("null", "field"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireBoolean("a", "field"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireBoolean("a bf", "field"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireBoolean("2", "field"));
+
+        assertTrue(ArgumentValidator.requireBoolean("true", "field"));
+        assertTrue(ArgumentValidator.requireBoolean("trUe", "field"));
+        assertTrue(ArgumentValidator.requireBoolean("TRUE", "field"));
+        assertTrue(ArgumentValidator.requireBoolean("yes", "field"));
+        assertTrue(ArgumentValidator.requireBoolean("Yes", "field"));
+        assertTrue(ArgumentValidator.requireBoolean("YES", "field"));
+        assertTrue(ArgumentValidator.requireBoolean("1", "field"));
+
+        assertFalse(ArgumentValidator.requireBoolean("false", "field"));
+        assertFalse(ArgumentValidator.requireBoolean("faLse", "field"));
+        assertFalse(ArgumentValidator.requireBoolean("FALSE", "field"));
+        assertFalse(ArgumentValidator.requireBoolean("no", "field"));
+        assertFalse(ArgumentValidator.requireBoolean("No", "field"));
+        assertFalse(ArgumentValidator.requireBoolean("NO", "field"));
+        assertFalse(ArgumentValidator.requireBoolean("0", "field"));
+    }
+
+    @Test
     void requireSupportedLocale() {
         assertThrows(NullPointerException.class, () -> ArgumentValidator.requireSupportedLocale(null));
         for(var locale : DiscordLocale.values()) {
