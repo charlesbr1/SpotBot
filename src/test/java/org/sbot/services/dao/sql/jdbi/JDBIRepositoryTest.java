@@ -482,6 +482,7 @@ public class JDBIRepositoryTest {
                 var dao = loadDao(baseDao, sameTxCtx);
                 assertEquals(Optional.empty(), dao.findOne(SELECT_ID_BY_ID, Long.class, Map.of("id", TEST_ID)));
             }));
+
             // nested isolated transactions
             boolean exceptionThrown = false;
             try {

@@ -20,7 +20,7 @@ import java.util.List;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.trend;
-import static org.sbot.entities.alerts.TrendAlert.currentTrendPrice;
+import static org.sbot.entities.alerts.TrendAlert.trendPriceAt;
 import static org.sbot.entities.chart.Ticker.formatPrice;
 import static org.sbot.entities.chart.Ticker.getSymbol;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
@@ -68,7 +68,7 @@ public final class TrendCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         var arguments = arguments(context);
-        LOGGER.debug("trend command - {}", arguments);
+        LOGGER.debug("trend command - user {}, server {}, arguments {}", context.user.getIdLong(), context.serverId(), arguments);
         if(null != arguments.alertId) {
             context.noMoreArgs().reply(trendPrice(context, arguments.fromDate, arguments.alertId), responseTtlSeconds);
             return;
@@ -113,21 +113,22 @@ public final class TrendCommand extends CommandAdapter {
                 arguments.exchange, arguments.pair, arguments.message, fromPrice, toPrice, fromDate, toDate,
                 null, MARGIN_DISABLED, DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
 
-        return createdAlertMessage(context, now, saveAlert(context, trendAlert));
+        return saveAlert(context, trendAlert).map(alert -> createdAlertMessage(context, now, alert))
+                .orElse(userSetupNeeded(context.name, "Unable to create a new alert :"));
     }
 
     private Message trendPrice(@NotNull CommandContext context, @NotNull ZonedDateTime date, long alertId) {
         return securedAlertAccess(alertId, context, (alert, alertsDao) -> {
             if(trend == alert.type) {
                 return Message.of(embedBuilder("[" + alert.pair + "] at " + Dates.formatDiscord(date) + " : " + MarkdownUtil.bold(
-                        formatPrice(currentTrendPrice(date, alert.fromPrice, alert.toPrice, alert.fromDate, alert.toDate), alert.getTicker2())))
+                        formatPrice(trendPriceAt(date, alert), alert.getTicker2())))
                         .addField(DISPLAY_FROM_PRICE, alert.fromPrice.toPlainString() + ' ' + getSymbol(alert.getTicker2()), true)
                         .addField(DISPLAY_FROM_DATE, formatDiscord(alert.fromDate), true)
                         .addBlankField(true)
                         .addField(DISPLAY_TO_PRICE, alert.toPrice.toPlainString() + ' ' + getSymbol(alert.getTicker2()), true)
                         .addField(DISPLAY_TO_DATE, formatDiscord(alert.toDate), true)
                         .addBlankField(true)
-                        .addField(DISPLAY_CURRENT_TREND_PRICE, formatPrice(currentTrendPrice(Dates.nowUtc(context.clock()), alert.fromPrice, alert.toPrice, alert.fromDate, alert.toDate), alert.getTicker2()), true));
+                        .addField(DISPLAY_CURRENT_TREND_PRICE, formatPrice(trendPriceAt(Dates.nowUtc(context.clock()), alert), alert.getTicker2()), true));
             }
             throw new IllegalArgumentException("Alert " + alertId + " is not a trend alert");
         });

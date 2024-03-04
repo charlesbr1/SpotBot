@@ -5,7 +5,6 @@ import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.commands.Command.Choice;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
-import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.utils.MarkdownUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -14,7 +13,6 @@ import org.sbot.entities.Message;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.entities.alerts.Alert.Type;
 import org.sbot.services.dao.AlertsDao.SelectionFilter;
-import org.sbot.services.discord.Discord;
 import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
 
@@ -33,8 +31,6 @@ import static java.util.stream.Collectors.joining;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.commands.SecurityAccess.*;
-import static org.sbot.commands.interactions.SelectEditInteraction.updateMenuOf;
-import static org.sbot.entities.alerts.Alert.isPrivate;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
 
@@ -87,7 +83,7 @@ public final class ListCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         var arguments = arguments(context);
-        LOGGER.debug("list command - {}", arguments);
+        LOGGER.debug("list command - user {}, server {}, arguments {}", context.user.getIdLong(), context.serverId(), arguments);
         ZonedDateTime now = Dates.nowUtc(context.clock());
 
         if(null != arguments.alertId) {
@@ -150,13 +146,12 @@ public final class ListCommand extends CommandAdapter {
     private Message listOneAlert(@NotNull CommandContext context, @NotNull ZonedDateTime now, long alertId) {
         return securedAlertAccess(alertId, context, (alert, alertsDao) -> {
             if(sameUserOrAdmin(context, alert.userId)) {
-                return toMessageWithEdit(context, now, alert, 0L, 0L);
+                return editableAlertMessage(context, now, alert, 0L, 0L);
             } else {
-                return Message.of(toMessage(context, now, alert, 0L, 0L));
+                return Message.of(decoratedAlertEmbed(context, now, alert, 0L, 0L));
             }
         });
     }
-
 
     private List<Message> listByTickerOrPair(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Arguments arguments) {
         var filter = isPrivateChannel(context) ?
@@ -183,22 +178,11 @@ public final class ListCommand extends CommandAdapter {
             var alerts = dao.getAlertsOrderByPairUserIdId(filter, arguments.offset, MESSAGE_LIST_CHUNK);
             return new AlertsTotal(alerts, total);
         });
-        var messages = toEditableMessages(context, now, arguments, alertsTotal.alerts, alertsTotal.total);
-        return paginatedAlerts(messages, arguments, alertsTotal.alerts.size(), alertsTotal.total);
+        var messages = alertMessages(context, now, arguments, alertsTotal.alerts, alertsTotal.total);
+        return paginatedAnswer(messages, arguments, alertsTotal.alerts.size(), alertsTotal.total);
     }
 
-    private static List<Message> paginatedAlerts(@NotNull ArrayList<Message> messages, @NotNull Arguments arguments, int nbAlerts, long total) {
-        if (messages.isEmpty()) {
-            return List.of(Message.of(embedBuilder("Alerts search", OK_COLOR,
-                    "No alert found " + arguments.asDescription())));
-        } else if(arguments.offset + nbAlerts < total) {
-            messages.add(Message.of(embedBuilder("...", OK_COLOR, "More results found, to get them use command with offset " +
-                    (arguments.offset + nbAlerts) + " : " + arguments.asNextCommand(messages.size()))));
-        }
-        return messages;
-    }
-
-    private static ArrayList<Message> toEditableMessages(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Arguments arguments, @NotNull List<Alert> alerts, long total) {
+    private static ArrayList<Message> alertMessages(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Arguments arguments, @NotNull List<Alert> alerts, long total) {
         boolean adminEditable = null != arguments.ownerId && isAdminMember(context.member);
         boolean editable = null != arguments.tickerOrPair || null != arguments.type;
         // return list of message containing all the embeds (alerts) between each editable message that can contains only one embed
@@ -211,11 +195,11 @@ public final class ListCommand extends CommandAdapter {
                 nextEditableIndex++;
             }
             if(i == nextEditableIndex) {
-                messages.add(toMessageWithEdit(context, now, alerts.get(i), arguments.offset + ++i, total));
+                messages.add(editableAlertMessage(context, now, alerts.get(i), arguments.offset + ++i, total));
             } else {
                 var embedBuilders = new ArrayList<EmbedBuilder>(nextEditableIndex - i);
                 while (i < nextEditableIndex) {
-                    embedBuilders.add(toMessage(context, now, alerts.get(i), arguments.offset + ++i, total));
+                    embedBuilders.add(decoratedAlertEmbed(context, now, alerts.get(i), arguments.offset + ++i, total));
                 }
                 messages.add(Message.of(embedBuilders));
             }
@@ -223,20 +207,15 @@ public final class ListCommand extends CommandAdapter {
         return messages;
     }
 
-    static Message toMessageWithEdit(@NotNull CommandContext context, ZonedDateTime now, @NotNull Alert alert, long offset, long total) {
-        return Message.of(toMessage(context, now, alert, offset, total), ActionRow.of(updateMenuOf(alert)));
-    }
-
-    public static final String ALERT_TITLE_PAIR_FOOTER = "] ";
-    private static EmbedBuilder toMessage(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert, long offset, long total) {
-        return listAlert(context, now, alert)
-                .setTitle('[' + alert.pair + ALERT_TITLE_PAIR_FOOTER + alert.message)
-                .setFooter(total > 0 ? "(" + offset + "/" + total + ")" : null);
-    }
-
-    static EmbedBuilder listAlert(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert) {
-        return alert.descriptionMessage(now, isPrivateChannel(context) && !isPrivate(alert.serverId) ?
-                context.discord().getGuildServer(alert.serverId).map(Discord::guildName).orElse("unknown") : null);
+    private static List<Message> paginatedAnswer(@NotNull ArrayList<Message> messages, @NotNull Arguments arguments, int nbAlerts, long total) {
+        if (messages.isEmpty()) {
+            return List.of(Message.of(embedBuilder("Alerts search", OK_COLOR,
+                    "No alert found " + arguments.asDescription())));
+        } else if(arguments.offset + nbAlerts < total) {
+            messages.add(Message.of(embedBuilder("...", OK_COLOR, "More results found, to get them use command with offset " +
+                    (arguments.offset + nbAlerts) + " : " + arguments.asNextCommand(messages.size()))));
+        }
+        return messages;
     }
 
     private static Message settings(@NotNull Locale locale, @Nullable ZoneId timezone) {

@@ -1,9 +1,36 @@
 package org.sbot.commands;
 
+import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
+import org.sbot.commands.context.CommandContext;
+import org.sbot.entities.Message;
+import org.sbot.services.context.Context;
+import org.sbot.services.context.Context.DataServices;
+import org.sbot.services.dao.AlertsDao;
+import org.sbot.services.dao.UsersDao;
+import org.sbot.services.discord.Discord;
+import org.sbot.utils.DatesTest;
+
+import java.awt.*;
+import java.time.ZonedDateTime;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import static org.sbot.commands.CommandAdapter.*;
+import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
+import static org.sbot.entities.alerts.Alert.Type.remainder;
+import static org.sbot.entities.alerts.Alert.Type.trend;
+import static org.sbot.entities.alerts.AlertTest.createTestAlert;
+import static org.sbot.entities.alerts.AlertTest.createTestAlertWithType;
+import static org.sbot.services.dao.AlertsDaoTest.assertDeepEquals;
 
 class CommandAdapterTest {
 
@@ -21,50 +48,398 @@ class CommandAdapterTest {
     }
 
     @Test
-    void name() {
-    }
+    void constructor() {
+        var adapter = new CommandAdapter("name", "description", Commands.slash("name", "desc"), 3) {
+            @Override
+            public void onCommand(@NotNull CommandContext context) {
+            }
+        };
+        assertEquals("name", adapter.name());
+        assertEquals("description", adapter.description());
+        assertNotNull(adapter.options());
+        assertEquals(3, adapter.responseTtlSeconds);
 
-    @Test
-    void description() {
-    }
-
-    @Test
-    void options() {
-    }
-
-    @Test
-    void option() {
-    }
-
-    @Test
-    void securedAlertAccess() {
+        assertThrows(NullPointerException.class, () -> new CommandAdapter(null, "description", mock(), 3) {
+            @Override
+            public void onCommand(@NotNull CommandContext context) {
+            }
+        });
+        assertThrows(NullPointerException.class, () -> new CommandAdapter("name", null, mock(), 3) {
+            @Override
+            public void onCommand(@NotNull CommandContext context) {
+            }
+        });
+        assertThrows(NullPointerException.class, () -> new CommandAdapter("name", "description", null, 3) {
+            @Override
+            public void onCommand(@NotNull CommandContext context) {
+            }
+        });
+        assertThrows(IllegalArgumentException.class, () -> new CommandAdapter("name", "description", mock(), -1) {
+            @Override
+            public void onCommand(@NotNull CommandContext context) {
+            }
+        });
     }
 
     @Test
     void isPrivateChannel() {
+        var context = mock(CommandContext.class);
+        when(context.serverId()).thenReturn(123L);
+        assertFalse(CommandAdapter.isPrivateChannel(context));
+        when(context.serverId()).thenReturn(PRIVATE_MESSAGES);
+        assertTrue(CommandAdapter.isPrivateChannel(context));
     }
 
     @Test
     void embedBuilder() {
+        assertThrows(NullPointerException.class, () -> CommandAdapter.embedBuilder(null));
+        var embed = CommandAdapter.embedBuilder("text");
+        assertNotNull(embed);
+        assertNull(embed.build().getFooter());
+        assertNull(embed.build().getTitle());
+        assertNull(embed.build().getColor());
+        assertEquals("text", embed.build().getDescription());
+
+        embed = CommandAdapter.embedBuilder("title", Color.green, "text");
+        assertNotNull(embed);
+        assertNull(embed.build().getFooter());
+        assertEquals("title", embed.build().getTitle());
+        assertEquals(Color.green, embed.build().getColor());
+        assertEquals("text", embed.build().getDescription());
     }
 
     @Test
-    void testEmbedBuilder() {
+    void option() {
+        assertThrows(IllegalArgumentException.class, () -> CommandAdapter.option(null, "name", "description", false));
+        assertThrows(IllegalArgumentException.class, () -> CommandAdapter.option(OptionType.INTEGER, null, "description", false));
+        assertThrows(IllegalArgumentException.class, () -> CommandAdapter.option(OptionType.INTEGER, "name", null, false));
+
+        var option = CommandAdapter.option(OptionType.INTEGER, "name", "description", false);
+        assertNotNull(option);
+        assertEquals(OptionType.INTEGER, option.getType());
+        assertEquals("name", option.getName());
+        assertEquals("description", option.getDescription());
+        assertFalse(option.isRequired());
+        option = CommandAdapter.option(OptionType.INTEGER, "name", "description", true);
+        assertTrue(option.isRequired());
+    }
+
+    @Test
+    void securedAlertAccess() {
+        assertThrows(NullPointerException.class, () -> CommandAdapter.securedAlertAccess(123L, null, mock()));
+        assertThrows(NullPointerException.class, () -> CommandAdapter.securedAlertAccess(123L, mock(), null));
+
+        var alertId = 123L;
+        MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
+        when(messageReceivedEvent.getMessage()).thenReturn(mock());
+        var user = mock(User.class);
+        when(messageReceivedEvent.getAuthor()).thenReturn(user);
+        var member = mock(Member.class);
+        var guild = mock(Guild.class);
+        when(member.getGuild()).thenReturn(guild);
+        when(messageReceivedEvent.getMember()).thenReturn(member);
+        Context context = mock(Context.class);
+        var alertsDao = mock(AlertsDao.class);
+        var dataServices = mock(DataServices.class);
+        when(context.dataServices()).thenReturn(dataServices);
+        when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+
+        var alert = createTestAlertWithType(trend);
+
+        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, "name"));
+        when(alertsDao.getAlert(alertId)).thenReturn(Optional.empty());
+
+        var message = CommandAdapter.securedAlertAccess(alertId, commandContext, (a, dao) -> Message.of(CommandAdapter.embedBuilder("test")));
+        verify(alertsDao).getAlert(alertId);
+        assertNotNull(message);
+        assertNotNull(message.embeds());
+        assertEquals(1, message.embeds().size());
+        assertTrue(message.embeds().get(0).build().getDescription().contains("not found"));
+        assertEquals(NOT_FOUND_COLOR, message.embeds().get(0).build().getColor());
+
+        // private channel, same user -> found
+        when(alertsDao.getAlert(alertId)).thenReturn(Optional.of(alert));
+        when(commandContext.serverId()).thenReturn(PRIVATE_MESSAGES);
+        when(user.getIdLong()).thenReturn(alert.userId);
+        message = CommandAdapter.securedAlertAccess(alertId, commandContext, (a, dao) -> Message.of(CommandAdapter.embedBuilder("test")));
+        verify(alertsDao, times(2)).getAlert(alertId);
+        assertNotNull(message);
+        assertNotNull(message.embeds());
+        assertEquals(1, message.embeds().size());
+        assertTrue(message.embeds().get(0).build().getDescription().contains("test"));
+        assertEquals(OK_COLOR, message.embeds().get(0).build().getColor());
+
+        // private channel, not same user -> not found
+        when(user.getIdLong()).thenReturn(alert.userId + 3L);
+        message = CommandAdapter.securedAlertAccess(alertId, commandContext, (a, dao) -> Message.of(CommandAdapter.embedBuilder("test")));
+        verify(alertsDao, times(3)).getAlert(alertId);
+        assertNotNull(message);
+        assertNotNull(message.embeds());
+        assertEquals(1, message.embeds().size());
+        assertTrue(message.embeds().get(0).build().getDescription().contains("not found"));
+        assertEquals(NOT_FOUND_COLOR, message.embeds().get(0).build().getColor());
+
+        // public channel, same server -> found
+        assertNotEquals(PRIVATE_MESSAGES, alert.serverId);
+        when(guild.getIdLong()).thenReturn(alert.serverId);
+        when(commandContext.serverId()).thenReturn(alert.serverId);
+        message = CommandAdapter.securedAlertAccess(alertId, commandContext, (a, dao) -> Message.of(CommandAdapter.embedBuilder("test")));
+        verify(alertsDao, times(4)).getAlert(alertId);
+        assertNotNull(message);
+        assertNotNull(message.embeds());
+        assertEquals(1, message.embeds().size());
+        assertTrue(message.embeds().get(0).build().getDescription().contains("test"));
+        assertEquals(OK_COLOR, message.embeds().get(0).build().getColor());
+
+        // public channel, not same server -> not found
+        when(guild.getIdLong()).thenReturn(alert.serverId + 1L);
+        when(commandContext.serverId()).thenReturn(alert.serverId + 1L);
+        message = CommandAdapter.securedAlertAccess(alertId, commandContext, (a, dao) -> Message.of(CommandAdapter.embedBuilder("test")));
+        verify(alertsDao, times(5)).getAlert(alertId);
+        assertNotNull(message);
+        assertNotNull(message.embeds());
+        assertEquals(1, message.embeds().size());
+        assertTrue(message.embeds().get(0).build().getDescription().contains("not found"));
+        assertEquals(NOT_FOUND_COLOR, message.embeds().get(0).build().getColor());
+    }
+
+    @Test
+    void securedAlertUpdate() {
+        assertThrows(NullPointerException.class, () -> CommandAdapter.securedAlertUpdate(123L, null, mock()));
+        assertThrows(NullPointerException.class, () -> CommandAdapter.securedAlertUpdate(123L, mock(), null));
+
+        var alertId = 123L;
+        MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
+        when(messageReceivedEvent.getMessage()).thenReturn(mock());
+        var user = mock(User.class);
+        when(messageReceivedEvent.getAuthor()).thenReturn(user);
+        var member = mock(Member.class);
+        var guild = mock(Guild.class);
+        when(member.getGuild()).thenReturn(guild);
+        when(messageReceivedEvent.getMember()).thenReturn(member);
+        Context context = mock(Context.class);
+        var alertsDao = mock(AlertsDao.class);
+        var dataServices = mock(DataServices.class);
+        when(context.dataServices()).thenReturn(dataServices);
+        when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+
+        var alert = createTestAlertWithType(trend);
+
+        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, "name"));
+        when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.empty());
+
+        var message = CommandAdapter.securedAlertUpdate(alertId, commandContext, (a, dao) -> CommandAdapter.embedBuilder("test"));
+        verify(alertsDao).getAlertWithoutMessage(alertId);
+        assertNotNull(message);
+        assertTrue(message.build().getDescription().contains("not found"));
+        assertEquals(NOT_FOUND_COLOR, message.build().getColor());
+
+        // private channel, same user -> found
+        when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(alert));
+        when(commandContext.serverId()).thenReturn(PRIVATE_MESSAGES);
+        when(user.getIdLong()).thenReturn(alert.userId);
+        message = CommandAdapter.securedAlertUpdate(alertId, commandContext, (a, dao) -> CommandAdapter.embedBuilder("test"));
+        verify(alertsDao, times(2)).getAlertWithoutMessage(alertId);
+        assertNotNull(message);
+        assertTrue(message.build().getDescription().contains("test"));
+        assertEquals(OK_COLOR, message.build().getColor());
+
+        // private channel, not same user -> not found
+        when(user.getIdLong()).thenReturn(alert.userId + 3L);
+        message = CommandAdapter.securedAlertUpdate(alertId, commandContext, (a, dao) -> CommandAdapter.embedBuilder("test"));
+        verify(alertsDao, times(3)).getAlertWithoutMessage(alertId);
+        assertNotNull(message);
+        assertTrue(message.build().getDescription().contains("not found"));
+        assertEquals(NOT_FOUND_COLOR, message.build().getColor());
+
+        // public channel, same server, same user -> found
+        assertNotEquals(PRIVATE_MESSAGES, alert.serverId);
+        when(guild.getIdLong()).thenReturn(alert.serverId);
+        when(commandContext.serverId()).thenReturn(alert.serverId);
+        when(user.getIdLong()).thenReturn(alert.userId);
+
+        message = CommandAdapter.securedAlertUpdate(alertId, commandContext, (a, dao) -> CommandAdapter.embedBuilder("test"));
+        verify(alertsDao, times(4)).getAlertWithoutMessage(alertId);
+        assertNotNull(message);
+        assertTrue(message.build().getDescription().contains("test"));
+        assertEquals(OK_COLOR, message.build().getColor());
+
+        // public channel, same server, not same user -> denied
+        when(user.getIdLong()).thenReturn(alert.userId + 1);
+        message = CommandAdapter.securedAlertUpdate(alertId, commandContext, (a, dao) -> CommandAdapter.embedBuilder("test"));
+        verify(alertsDao, times(5)).getAlertWithoutMessage(alertId);
+        assertNotNull(message);
+        assertTrue(message.build().getDescription().contains("not allowed"));
+        assertEquals(DENIED_COLOR, message.build().getColor());
+
+        // public channel, same server, not same user, admin -> found
+        when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
+        message = CommandAdapter.securedAlertUpdate(alertId, commandContext, (a, dao) -> CommandAdapter.embedBuilder("test"));
+        verify(alertsDao, times(6)).getAlertWithoutMessage(alertId);
+        assertNotNull(message);
+        assertTrue(message.build().getDescription().contains("test"));
+        assertEquals(OK_COLOR, message.build().getColor());
+
+        // public channel, not same server -> not found
+        when(guild.getIdLong()).thenReturn(alert.serverId + 1L);
+        when(commandContext.serverId()).thenReturn(alert.serverId + 1L);
+        message = CommandAdapter.securedAlertUpdate(alertId, commandContext, (a, dao) -> CommandAdapter.embedBuilder("test"));
+        verify(alertsDao, times(7)).getAlertWithoutMessage(alertId);
+        assertNotNull(message);
+        assertTrue(message.build().getDescription().contains("not found"));
+        assertEquals(NOT_FOUND_COLOR, message.build().getColor());
+        verify(alertsDao, never()).getAlert(anyLong());
     }
 
     @Test
     void saveAlert() {
+        MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
+        when(messageReceivedEvent.getMessage()).thenReturn(mock());
+        when(messageReceivedEvent.getAuthor()).thenReturn(mock());
+        Context context = mock(Context.class);
+        var usersDao = mock(UsersDao.class);
+        var alertsDao = mock(AlertsDao.class);
+        var dataServices = mock(DataServices.class);
+        when(context.dataServices()).thenReturn(dataServices);
+        when(dataServices.usersDao()).thenReturn(v -> usersDao);
+        when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+
+        var commandContext = CommandContext.of(context, null, messageReceivedEvent, "name");
+        var alert = createTestAlert();
+        when(usersDao.userExists(alert.userId)).thenReturn(false);
+        assertEquals(Optional.empty(), CommandAdapter.saveAlert(commandContext, alert));
+        verify(usersDao).userExists(alert.userId);
+        verify(alertsDao, never()).addAlert(any());
+
+        when(usersDao.userExists(alert.userId)).thenReturn(true);
+        var newAlert = CommandAdapter.saveAlert(commandContext, alert);
+        verify(usersDao, times(2)).userExists(alert.userId);
+        verify(alertsDao).addAlert(any());
+        assertTrue(newAlert.isPresent());
+        assertDeepEquals(newAlert.get(), alert.withId(() -> newAlert.get().id));
+    }
+
+    @Test
+    void createdAlertMessage() {
+        ZonedDateTime now = DatesTest.nowUtc();
+        assertThrows(NullPointerException.class, () -> CommandAdapter.createdAlertMessage(null, now, mock()));
+        assertThrows(NullPointerException.class, () -> CommandAdapter.createdAlertMessage(mock(), null, mock()));
+        assertThrows(NullPointerException.class, () -> CommandAdapter.createdAlertMessage(mock(), now, null));
+
+        var context = mock(CommandContext.class);
+        when(context.serverId()).thenReturn(123L);
+        var message = CommandAdapter.createdAlertMessage(context, now, createTestAlertWithType(remainder));
+        assertNotNull(message);
+        assertNotNull(message.embeds());
+        assertEquals(1, message.embeds().size());
+        assertNull(message.embeds().get(0).build().getFooter());
+        assertNotNull(message.component());
+        assertEquals(1, message.component().size());
+        assertFalse(message.embeds().get(0).build().getDescription().contains("link"));
+
+        message = CommandAdapter.createdAlertMessage(context, now, createTestAlertWithType(trend));
+        assertNotNull(message);
+        assertNotNull(message.embeds());
+        assertEquals(1, message.embeds().size());
+        assertNull(message.embeds().get(0).build().getFooter());
+        assertNotNull(message.component());
+        assertEquals(1, message.component().size());
+        assertTrue(message.embeds().get(0).build().getDescription().contains("link"));
+    }
+
+    @Test
+    void editableAlertMessage() {
+        ZonedDateTime now = DatesTest.nowUtc();
+        assertThrows(NullPointerException.class, () -> CommandAdapter.editableAlertMessage(null, now, mock(), 0L, 0L));
+        assertThrows(NullPointerException.class, () -> CommandAdapter.editableAlertMessage(mock(), null, mock(), 0L, 0L));
+        assertThrows(NullPointerException.class, () -> CommandAdapter.editableAlertMessage(mock(), now, null, 0L, 0L));
+
+        var context = mock(CommandContext.class);
+        when(context.serverId()).thenReturn(123L);
+        var message = CommandAdapter.editableAlertMessage(context, now, createTestAlert(), 1L, 0L);
+        assertNotNull(message);
+        assertNotNull(message.embeds());
+        assertEquals(1, message.embeds().size());
+        assertNotNull(message.component());
+        assertEquals(1, message.component().size());
+    }
+
+    @Test
+    void decoratedAlertEmbed() {
+        ZonedDateTime now = DatesTest.nowUtc();
+        assertThrows(NullPointerException.class, () -> CommandAdapter.decoratedAlertEmbed(null, now, mock(), 0L, 0L));
+        assertThrows(NullPointerException.class, () -> CommandAdapter.decoratedAlertEmbed(mock(), null, mock(), 0L, 0L));
+        assertThrows(NullPointerException.class, () -> CommandAdapter.decoratedAlertEmbed(mock(), now, null, 0L, 0L));
+
+        var context = mock(CommandContext.class);
+        when(context.serverId()).thenReturn(123L);
+        var embed = CommandAdapter.decoratedAlertEmbed(context, now, createTestAlert(), 1L, 0L);
+        assertNotNull(embed);
+        assertTrue(embed.build().getTitle().contains(createTestAlert().pair));
+        assertNull(embed.build().getFooter());
+
+        embed = CommandAdapter.decoratedAlertEmbed(context, now, createTestAlert(), 1L, 3L);
+        assertNotNull(embed);
+        assertTrue(embed.build().getTitle().contains(createTestAlert().pair));
+        assertTrue(embed.build().getFooter().getText().contains("1/3"));
+    }
+
+    @Test
+    void alertEmbed() {
+        ZonedDateTime now = DatesTest.nowUtc();
+        assertThrows(NullPointerException.class, () -> CommandAdapter.alertEmbed(null, now, mock()));
+        assertThrows(NullPointerException.class, () -> CommandAdapter.alertEmbed(mock(), null, mock()));
+        assertThrows(NullPointerException.class, () -> CommandAdapter.alertEmbed(mock(), now, null));
+
+        var context = mock(CommandContext.class);
+        when(context.serverId()).thenReturn(123L);
+        var embed = CommandAdapter.alertEmbed(context, now, createTestAlert());
+        assertNotNull(embed);
+        verify(context, never()).discord();
+
+        when(context.serverId()).thenReturn(PRIVATE_MESSAGES);
+        when(context.discord()).thenReturn(mock());
+        embed = CommandAdapter.alertEmbed(context, now, createTestAlert());
+        assertNotNull(embed);
+        verify(context).discord();
     }
 
     @Test
     void userSetupNeeded() {
+        assertThrows(NullPointerException.class, () -> CommandAdapter.userSetupNeeded(null, "message"));
+        assertThrows(NullPointerException.class, () -> CommandAdapter.userSetupNeeded("title", null));
+        var message = CommandAdapter.userSetupNeeded("title", "message");
+        assertNotNull(message);
+        assertEquals(1, message.embeds().size());
+        assertEquals("title", message.embeds().get(0).build().getTitle());
+        assertTrue(message.embeds().get(0).build().getDescription().contains("message"));
+
     }
 
     @Test
     void alertMessageTips() {
+        assertThrows(NullPointerException.class, () -> CommandAdapter.alertMessageTips(null, 123L));
+        assertNotNull(CommandAdapter.alertMessageTips("message", 123L));
+        assertTrue(CommandAdapter.alertMessageTips("message", 123L).contains("link"));
+        assertFalse(CommandAdapter.alertMessageTips("http://", 123L).contains("link"));
+        assertFalse(CommandAdapter.alertMessageTips("https://", 123L).contains("link"));
     }
 
     @Test
     void sendUpdateNotification() {
+        var adapter = new CommandAdapter("name", "description", Commands.slash("name", "desc"), 3) {
+            @Override
+            public void onCommand(@NotNull CommandContext context) {
+            }
+        };
+        var context = mock(CommandContext.class);
+        var discord = mock(Discord.class);
+        when(context.discord()).thenReturn(discord);
+        when(context.serverId()).thenReturn(PRIVATE_MESSAGES);
+        adapter.sendUpdateNotification(context, 123L, mock());
+        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        when(context.serverId()).thenReturn(321L);
+        adapter.sendUpdateNotification(context, 123L, mock());
+        verify(discord).sendPrivateMessage(eq(123L), any(), any());
     }
 }

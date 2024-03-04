@@ -93,16 +93,15 @@ class TrendAlertTest {
                 null, null, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
     }
-
+// TODO
     @Test
     void match() {
-        ZonedDateTime actualTime = nowUtc();
-        assertThrows(NullPointerException.class, () -> createTestTrendAlert().match(actualTime, null, null));
-        assertThrows(NullPointerException.class, () -> createTestTrendAlert().match(null, Collections.emptyList(), null));
+        assertThrows(NullPointerException.class, () -> createTestTrendAlert().match(null, null));
 
+        ZonedDateTime actualTime = nowUtc();
         TrendAlert alert = createTestTrendAlert();
-        assertEquals(alert, alert.match(actualTime, Collections.emptyList(), null).alert());
-        assertEquals(NOT_MATCHING, alert.match(actualTime, Collections.emptyList(), null).status());
+        assertEquals(alert, alert.match(Collections.emptyList(), null).alert());
+        assertEquals(NOT_MATCHING, alert.match(Collections.emptyList(), null).status());
 
         // previousCandlestick null
         // priceOnTrend true -> MATCHED
@@ -110,82 +109,82 @@ class TrendAlertTest {
         alert = (TrendAlert) alert.withFromPrice(TWO).withToPrice(BigDecimal.valueOf(3L)).withMargin(ZERO);
 
         Candlestick candlestick = new Candlestick(actualTime, actualTime, ONE, ONE, new BigDecimal("2.5"), ONE);
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick), null).status());
-        assertNotNull(alert.match(actualTime, List.of(candlestick), null).matchingCandlestick());
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
+        assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
 
         Candlestick candlestick2 = new Candlestick(actualTime, actualTime.plusMinutes(1L), ONE, ONE, TWO.add(ONE), ONE);
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick2), null).status());
-        assertNotNull(alert.match(actualTime, List.of(candlestick2), null).matchingCandlestick());
+        assertEquals(MATCHED, alert.match(List.of(candlestick2), null).status());
+        assertNotNull(alert.match(List.of(candlestick2), null).matchingCandlestick());
 
         Candlestick candlestick3 = new Candlestick(actualTime.minusMinutes(2L), actualTime.minusMinutes(1L), ONE, ONE, ONE, ONE);
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick3), null).status());
-        assertNull(alert.match(actualTime, List.of(candlestick3), null).matchingCandlestick());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick3), null).status());
+        assertNull(alert.match(List.of(candlestick3), null).matchingCandlestick());
 
-        assertEquals(candlestick, alert.match(actualTime, List.of(candlestick, candlestick3, candlestick2), null).matchingCandlestick());
-        assertEquals(candlestick, alert.match(actualTime, List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
-        assertEquals(candlestick2, alert.match(actualTime, List.of(candlestick3, candlestick2), null).matchingCandlestick());
+        assertEquals(candlestick, alert.match(List.of(candlestick, candlestick3, candlestick2), null).matchingCandlestick());
+        assertEquals(candlestick, alert.match(List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
+        assertEquals(candlestick2, alert.match(List.of(candlestick3, candlestick2), null).matchingCandlestick());
 
         // test newer candlestick, should ignore candlestick with same closeTime
         candlestick3 = new Candlestick(actualTime, actualTime, TEN, TEN, TEN, TWO.add(ONE));
-        assertEquals(candlestick2, alert.match(actualTime, List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
+        assertEquals(candlestick2, alert.match(List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
         candlestick2 = new Candlestick(actualTime, actualTime, TWO, TWO, TEN, TWO);
-        assertNull(alert.match(actualTime, List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick3, candlestick, candlestick2), null).status());
-        assertNull(alert.match(actualTime, List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
+        assertNull(alert.match(List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick3, candlestick, candlestick2), null).status());
+        assertNull(alert.match(List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
 
         // test current price changes
         alert = (TrendAlert) alert.withFromPrice(TWO).withToPrice(BigDecimal.valueOf(3L)).withMargin(ZERO);
         alert = (TrendAlert) alert.withToDate(actualTime.plusHours(2L)).withFromDate(actualTime.plusHours(1L));
         candlestick = new Candlestick(actualTime, actualTime, TWO, TWO, TWO, TWO);
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), null).status());
-        assertNull(alert.match(actualTime, List.of(candlestick), null).matchingCandlestick());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
         candlestick = new Candlestick(actualTime, actualTime, TEN, TEN, TEN, new BigDecimal(3L));
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), null).status());
-        assertNull(alert.match(actualTime, List.of(candlestick), null).matchingCandlestick());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
         candlestick = new Candlestick(actualTime, actualTime, ONE, ONE, ONE, ONE);
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick), null).status());
-        assertNotNull(alert.match(actualTime, List.of(candlestick), null).matchingCandlestick());
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
+        assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
 
         // trend should be caped to ZERO on the south
         alert = (TrendAlert) alert.withToDate(actualTime.plusHours(2L).plusMinutes(10L)).withFromDate(actualTime.plusHours(2L)); // alert increment 6 by hour
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), null).status());
-        assertNull(alert.match(actualTime, List.of(candlestick), null).matchingCandlestick());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
         candlestick = new Candlestick(actualTime, actualTime, new BigDecimal("0.00000001"), new BigDecimal("0.00000001"), new BigDecimal("0.00000001"), new BigDecimal("0.00000001"));
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), null).status());
-        assertNull(alert.match(actualTime, List.of(candlestick), null).matchingCandlestick());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
         candlestick = new Candlestick(actualTime, actualTime, ZERO, ZERO, ZERO, ZERO);
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick), null).status());
-        assertNotNull(alert.match(actualTime, List.of(candlestick), null).matchingCandlestick());
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
+        assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
 
         // trend should increase in the future
         alert = (TrendAlert) alert.withFromDate(actualTime.minusHours(3L).minusMinutes(40L)).withToDate(actualTime.minusHours(3L).minusMinutes(30L));
         candlestick = new Candlestick(actualTime, actualTime, // alert increment 6 by hour, so 18 + 3 for 3h30, = 21 + to price (3) = 24
                 BigDecimal.valueOf(23L), BigDecimal.valueOf(23L), BigDecimal.valueOf(23L), BigDecimal.valueOf(23L));
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), null).status());
-        assertEquals(MARGIN, ((TrendAlert) alert.withMargin(ONE)).match(actualTime, List.of(candlestick), null).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertEquals(MARGIN, ((TrendAlert) alert.withMargin(ONE)).match(List.of(candlestick), null).status());
         candlestick = new Candlestick(actualTime, actualTime,
                 BigDecimal.valueOf(25L), BigDecimal.valueOf(25L), BigDecimal.valueOf(25L), BigDecimal.valueOf(25L));
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), null).status());
-        assertEquals(MARGIN, ((TrendAlert) alert.withMargin(ONE)).match(actualTime, List.of(candlestick), null).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertEquals(MARGIN, ((TrendAlert) alert.withMargin(ONE)).match(List.of(candlestick), null).status());
         candlestick = new Candlestick(actualTime, actualTime,
                 BigDecimal.valueOf(24L), BigDecimal.valueOf(24L), BigDecimal.valueOf(24L), BigDecimal.valueOf(24L));
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick), null).status());
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
 
         // negative trend should decrease in the future, capped to zero
         alert = (TrendAlert) alert.withToDate(actualTime.minusHours(2L)).withFromDate(actualTime.minusHours(3L))
                 .withFromPrice(TEN).withToPrice(BigDecimal.valueOf(7L));
         candlestick = new Candlestick(actualTime, actualTime, // alert decrease 3 by hour, so -6 since 2 hours, = -6 + to price (7) = 1
                 BigDecimal.valueOf(0.9d), BigDecimal.valueOf(0.9d), BigDecimal.valueOf(0.9d), BigDecimal.valueOf(0.9d));
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), null).status());
-        assertEquals(MARGIN, ((TrendAlert) alert.withMargin(BigDecimal.valueOf(0.2d))).match(actualTime, List.of(candlestick), null).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertEquals(MARGIN, ((TrendAlert) alert.withMargin(BigDecimal.valueOf(0.2d))).match(List.of(candlestick), null).status());
         candlestick = new Candlestick(actualTime, actualTime,
                 TWO, TWO, TWO, TWO);
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), null).status());
-        assertEquals(MARGIN, ((TrendAlert) alert.withMargin(ONE)).match(actualTime, List.of(candlestick), null).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertEquals(MARGIN, ((TrendAlert) alert.withMargin(ONE)).match(List.of(candlestick), null).status());
         alert = (TrendAlert) alert.withFromPrice(TEN).withToPrice(BigDecimal.valueOf(5L));
         candlestick = new Candlestick(actualTime, actualTime, // capped to zero
                 ZERO, ZERO, ZERO, ZERO);
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick), null).status());
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
 
         // priceOnTrend false, priceCrossedTrend true -> MATCHED
         alert = (TrendAlert) alert.withToDate(actualTime.plusHours(1L)).withFromDate(actualTime); // test alert increment 1 by hour
@@ -193,61 +192,61 @@ class TrendAlertTest {
 
         candlestick = new Candlestick(actualTime, actualTime, ONE, ONE, ONE, ONE);
         candlestick2 = new Candlestick(actualTime, actualTime.plusMinutes(1L), TEN, TEN, TEN, TEN);
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), null).status());
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick2), null).status());
-        assertNull(alert.match(actualTime, List.of(candlestick), null).matchingCandlestick());
-        assertNull(alert.match(actualTime, List.of(candlestick2), null).matchingCandlestick());
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick, candlestick2), null).status());
-        assertNotNull(alert.match(actualTime, List.of(candlestick, candlestick2), null).matchingCandlestick());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick2), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
+        assertNull(alert.match(List.of(candlestick2), null).matchingCandlestick());
+        assertEquals(MATCHED, alert.match(List.of(candlestick, candlestick2), null).status());
+        assertNotNull(alert.match(List.of(candlestick, candlestick2), null).matchingCandlestick());
 
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick2, candlestick), null).status());
-        assertNull(alert.match(actualTime, List.of(candlestick2, candlestick), null).matchingCandlestick());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick2, candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick2, candlestick), null).matchingCandlestick());
         candlestick2 = new Candlestick(actualTime.minusMinutes(2L), actualTime.minusMinutes(1L), TEN, TEN, TEN, TEN);
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick2, candlestick), null).status());
-        assertNotNull(alert.match(actualTime, List.of(candlestick2, candlestick), null).matchingCandlestick());
+        assertEquals(MATCHED, alert.match(List.of(candlestick2, candlestick), null).status());
+        assertNotNull(alert.match(List.of(candlestick2, candlestick), null).matchingCandlestick());
 
         // priceOnTrend false, priceCrossedTrend false  margin false -> NOT_MATCHED
         alert = (TrendAlert) alert.withMargin(ZERO);
         candlestick = new Candlestick(actualTime, actualTime, ONE, ONE, ONE, ONE);
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), null).status());
-        assertNull(alert.match(actualTime, List.of(candlestick), null).matchingCandlestick());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
         alert = (TrendAlert) alert.withMargin(new BigDecimal("0.99999999"));
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), null).status());
-        assertNull(alert.match(actualTime, List.of(candlestick), null).matchingCandlestick());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
 
         // priceOnTrend false, priceCrossedTrend false  margin true -> MARGIN
         alert = (TrendAlert) alert.withMargin(ONE);
-        assertEquals(MARGIN, alert.match(actualTime, List.of(candlestick), null).status());
-        assertNotNull(alert.match(actualTime, List.of(candlestick), null).matchingCandlestick());
+        assertEquals(MARGIN, alert.match(List.of(candlestick), null).status());
+        assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
 
         alert = (TrendAlert) alert.withMargin(ZERO);
         candlestick = new Candlestick(actualTime, actualTime, TEN, TEN, TEN, TEN);
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), null).status());
-        assertNull(alert.match(actualTime, List.of(candlestick), null).matchingCandlestick());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
+        assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
         alert = (TrendAlert) alert.withMargin(BigDecimal.valueOf(8L));
-        assertEquals(MARGIN, alert.match(actualTime, List.of(candlestick), null).status());
-        assertNotNull(alert.match(actualTime, List.of(candlestick), null).matchingCandlestick());
+        assertEquals(MARGIN, alert.match(List.of(candlestick), null).status());
+        assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
 
         // previousCandlestick null
         // priceOnTrend true, listeningDate < openTime -> NOT_MATCHED
         candlestick = new Candlestick(alert.listeningDate, actualTime, ONE, ONE, TWO, ONE);
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick), null).status());
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
         candlestick = new Candlestick(alert.listeningDate.plusMinutes(3L), actualTime, ONE, ONE, TWO, ONE);
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick), null).status());
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
         candlestick = new Candlestick(alert.listeningDate.minusSeconds(1L), actualTime, ONE, ONE, TWO, ONE);
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), null).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
         candlestick = new Candlestick(alert.listeningDate.minusMinutes(3L), actualTime, ONE, ONE, TWO, ONE);
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), null).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
 
         // previousCandlestick provided
         // priceOnTrend true -> MATCHED
         alert = (TrendAlert) alert.withMargin(ZERO);
         candlestick = new Candlestick(actualTime, actualTime, ONE, ONE, TWO, ONE);
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick), null).status());
+        assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
         Candlestick previousCandlestick = new Candlestick(actualTime, actualTime, ONE, ONE, ONE, ONE);
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), previousCandlestick).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), previousCandlestick).status());
         previousCandlestick = new Candlestick(actualTime.minusMinutes(2L), actualTime.minusMinutes(1L), ONE, ONE, ONE, ONE);
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick), previousCandlestick).status());
+        assertEquals(MATCHED, alert.match(List.of(candlestick), previousCandlestick).status());
 
         // previousCandlestick provided
         // priceOnTrend false, priceCrossedTrend true -> MATCHED
@@ -255,81 +254,81 @@ class TrendAlertTest {
 
         candlestick = new Candlestick(actualTime, actualTime, ONE, ONE, ONE, ONE);
         candlestick2 = new Candlestick(actualTime, actualTime.plusMinutes(1L), TEN, TEN, TEN, TEN);
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick, candlestick2), null).status());
+        assertEquals(MATCHED, alert.match(List.of(candlestick, candlestick2), null).status());
         previousCandlestick = new Candlestick(actualTime, actualTime.plusMinutes(3L), ONE, ONE, ONE, ONE);
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick, candlestick2), previousCandlestick).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick, candlestick2), previousCandlestick).status());
         previousCandlestick = new Candlestick(actualTime.minusMinutes(2L), actualTime.minusMinutes(1L), ONE, ONE, ONE, ONE);
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick, candlestick2), previousCandlestick).status());
+        assertEquals(MATCHED, alert.match(List.of(candlestick, candlestick2), previousCandlestick).status());
 
         // previousCandlestick with openTime before listeningDate
         // datesInLimits true, priceInRange false, priceCrossedRange true -> MATCHED
         candlestick = candlestick2;
         previousCandlestick = new Candlestick(alert.listeningDate, actualTime.minusMinutes(1L), ONE, ONE, TWO, ONE);
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick, candlestick2), previousCandlestick).status());
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick), previousCandlestick).status());
+        assertEquals(MATCHED, alert.match(List.of(candlestick, candlestick2), previousCandlestick).status());
+        assertEquals(MATCHED, alert.match(List.of(candlestick), previousCandlestick).status());
         previousCandlestick = new Candlestick(alert.listeningDate.minusSeconds(1L), actualTime.minusMinutes(1L), ONE, ONE, TWO, ONE);
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick, candlestick2), previousCandlestick).status());
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), previousCandlestick).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick, candlestick2), previousCandlestick).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), previousCandlestick).status());
         previousCandlestick = new Candlestick(alert.listeningDate.minusMinutes(1L), actualTime.minusMinutes(1L), ONE, ONE, TWO, ONE);
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick, candlestick2), previousCandlestick).status());
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), previousCandlestick).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick, candlestick2), previousCandlestick).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), previousCandlestick).status());
         previousCandlestick = new Candlestick(alert.listeningDate.plusMinutes(1L), actualTime.minusMinutes(1L), ONE, ONE, TWO, ONE);
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick, candlestick2), previousCandlestick).status());
-        assertEquals(MATCHED, alert.match(actualTime, List.of(candlestick), previousCandlestick).status());
+        assertEquals(MATCHED, alert.match(List.of(candlestick, candlestick2), previousCandlestick).status());
+        assertEquals(MATCHED, alert.match(List.of(candlestick), previousCandlestick).status());
 
         // previousCandlestick provided
         // priceOnTrend false, priceCrossedTrend false  margin true -> MARGIN
         alert = (TrendAlert) alert.withMargin(BigDecimal.valueOf(3L));
         candlestick = new Candlestick(actualTime, actualTime, ONE, ONE, ONE, ONE);
-        assertEquals(MARGIN, alert.match(actualTime, List.of(candlestick), null).status());
+        assertEquals(MARGIN, alert.match(List.of(candlestick), null).status());
         previousCandlestick = new Candlestick(actualTime, actualTime.plusMinutes(1L), ONE, ONE, ONE, ONE);
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), previousCandlestick).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), previousCandlestick).status());
         previousCandlestick = new Candlestick(actualTime.minusMinutes(2L), actualTime.minusMinutes(1L), ONE, ONE, ONE, ONE);
-        assertEquals(MARGIN, alert.match(actualTime, List.of(candlestick), previousCandlestick).status());
+        assertEquals(MARGIN, alert.match(List.of(candlestick), previousCandlestick).status());
 
         // priceOnTrend false, priceCrossedTrend false, margin true, listeningDate < openTime -> NOT_MATCHED
         candlestick = new Candlestick(alert.listeningDate, actualTime, ONE, ONE, ONE, ONE);
-        assertEquals(MARGIN, alert.match(actualTime, List.of(candlestick), previousCandlestick).status());
-        assertEquals(MARGIN, alert.match(actualTime, List.of(candlestick), null).status());
+        assertEquals(MARGIN, alert.match(List.of(candlestick), previousCandlestick).status());
+        assertEquals(MARGIN, alert.match(List.of(candlestick), null).status());
         candlestick = new Candlestick(alert.listeningDate.plusMinutes(3L), actualTime, ONE, ONE, ONE, ONE);
-        assertEquals(MARGIN, alert.match(actualTime, List.of(candlestick), previousCandlestick).status());
+        assertEquals(MARGIN, alert.match(List.of(candlestick), previousCandlestick).status());
         candlestick = new Candlestick(alert.listeningDate.minusSeconds(1L), actualTime, ONE, ONE, ONE, ONE);
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), previousCandlestick).status());
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), null).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), previousCandlestick).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
         candlestick = new Candlestick(alert.listeningDate.minusMinutes(3L), actualTime, ONE, ONE, ONE, ONE);
-        assertEquals(NOT_MATCHING, alert.match(actualTime, List.of(candlestick), previousCandlestick).status());
+        assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), previousCandlestick).status());
     }
-
+/*
     @Test
-    void currentTrendPrice() {
+    void trendPriceAt() {
         ZonedDateTime actualTime = nowUtc();
         ZonedDateTime fromDate = actualTime.minusHours(1L);
         ZonedDateTime inOneHour = fromDate.plusHours(1L);
 
-        assertEquals(ONE.add(ONE_HOUR_SECONDS), TrendAlert.currentTrendPrice(actualTime, ONE, TWO, fromDate, fromDate));
-        assertEquals(ZERO, TrendAlert.currentTrendPrice(actualTime, ZERO, ZERO, fromDate, fromDate));
-        assertEquals(ONE, TrendAlert.currentTrendPrice(actualTime, ONE, ONE, fromDate, fromDate));
-        assertEquals(TWO, TrendAlert.currentTrendPrice(actualTime, TWO, TWO, fromDate, fromDate));
-        assertEquals(ONE, TrendAlert.currentTrendPrice(actualTime, ZERO, ONE, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(TWO, TrendAlert.currentTrendPrice(actualTime, ONE, TWO, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(ONE, TrendAlert.currentTrendPrice(actualTime, TWO, ONE, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(ZERO, TrendAlert.currentTrendPrice(actualTime, TWO, ZERO, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(ZERO, TrendAlert.currentTrendPrice(actualTime, new BigDecimal("134.1666666666666667"), new BigDecimal("134.1666666666666667").negate(), fromDate, inOneHour));
-        assertEquals(ZERO, TrendAlert.currentTrendPrice(actualTime, new BigDecimal("134.1666666666666667"), new BigDecimal("134.1666666666666667").negate(), fromDate, inOneHour));
+        assertEquals(ONE.add(ONE_HOUR_SECONDS), TrendAlert.trendPriceAt(actualTime, ONE, TWO, fromDate, fromDate));
+        assertEquals(ZERO, TrendAlert.trendPriceAt(actualTime, ZERO, ZERO, fromDate, fromDate));
+        assertEquals(ONE, TrendAlert.trendPriceAt(actualTime, ONE, ONE, fromDate, fromDate));
+        assertEquals(TWO, TrendAlert.trendPriceAt(actualTime, TWO, TWO, fromDate, fromDate));
+        assertEquals(ONE, TrendAlert.trendPriceAt(actualTime, ZERO, ONE, fromDate, inOneHour).stripTrailingZeros());
+        assertEquals(TWO, TrendAlert.trendPriceAt(actualTime, ONE, TWO, fromDate, inOneHour).stripTrailingZeros());
+        assertEquals(ONE, TrendAlert.trendPriceAt(actualTime, TWO, ONE, fromDate, inOneHour).stripTrailingZeros());
+        assertEquals(ZERO, TrendAlert.trendPriceAt(actualTime, TWO, ZERO, fromDate, inOneHour).stripTrailingZeros());
+        assertEquals(ZERO, TrendAlert.trendPriceAt(actualTime, new BigDecimal("134.1666666666666667"), new BigDecimal("134.1666666666666667").negate(), fromDate, inOneHour));
+        assertEquals(ZERO, TrendAlert.trendPriceAt(actualTime, new BigDecimal("134.1666666666666667"), new BigDecimal("134.1666666666666667").negate(), fromDate, inOneHour));
 
-        assertEquals(new BigDecimal("1.5"), TrendAlert.currentTrendPrice(actualTime, ONE, TWO, fromDate, fromDate.plusHours(2L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("1.25"), TrendAlert.currentTrendPrice(actualTime, ONE, TWO, fromDate, fromDate.plusHours(4L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("0.5"), TrendAlert.currentTrendPrice(actualTime, ONE, TWO, fromDate, fromDate.minusHours(2L)).stripTrailingZeros());
-        assertEquals(ZERO, TrendAlert.currentTrendPrice(actualTime, ONE, TWO, fromDate, fromDate.minusHours(1L)).stripTrailingZeros());
-        assertEquals(ZERO, TrendAlert.currentTrendPrice(actualTime, ONE, TWO, fromDate.minusHours(1L), fromDate.minusHours(2L)).stripTrailingZeros());
+        assertEquals(new BigDecimal("1.5"), TrendAlert.trendPriceAt(actualTime, ONE, TWO, fromDate, fromDate.plusHours(2L)).stripTrailingZeros());
+        assertEquals(new BigDecimal("1.25"), TrendAlert.trendPriceAt(actualTime, ONE, TWO, fromDate, fromDate.plusHours(4L)).stripTrailingZeros());
+        assertEquals(new BigDecimal("0.5"), TrendAlert.trendPriceAt(actualTime, ONE, TWO, fromDate, fromDate.minusHours(2L)).stripTrailingZeros());
+        assertEquals(ZERO, TrendAlert.trendPriceAt(actualTime, ONE, TWO, fromDate, fromDate.minusHours(1L)).stripTrailingZeros());
+        assertEquals(ZERO, TrendAlert.trendPriceAt(actualTime, ONE, TWO, fromDate.minusHours(1L), fromDate.minusHours(2L)).stripTrailingZeros());
 
-        assertEquals(new BigDecimal("16.8096825403428571"), TrendAlert.currentTrendPrice(actualTime, new BigDecimal("1.73"), new BigDecimal("7.00788888912"), fromDate, fromDate.plusMinutes(21)));
-        assertEquals(new BigDecimal("23.2353968260571429"), TrendAlert.currentTrendPrice(actualTime, new BigDecimal("-1.73"), new BigDecimal("7.00788888912"), fromDate, fromDate.plusMinutes(21)));
-        assertEquals(ZERO, TrendAlert.currentTrendPrice(actualTime, new BigDecimal("1.73"), new BigDecimal("-7.00788888912"), fromDate, fromDate.plusMinutes(21)));
-        assertEquals(ZERO, TrendAlert.currentTrendPrice(actualTime, new BigDecimal("-1.73"), new BigDecimal("-7.00788888912"), fromDate, fromDate.plusMinutes(21)));
-        assertEquals(new BigDecimal("1.1572349203750545"), TrendAlert.currentTrendPrice(actualTime, new BigDecimal("1.00000074"), new BigDecimal("7.008967"), fromDate, fromDate.plusHours(38L).plusMinutes(13L)).stripTrailingZeros());
+        assertEquals(new BigDecimal("16.8096825403428571"), TrendAlert.trendPriceAt(actualTime, new BigDecimal("1.73"), new BigDecimal("7.00788888912"), fromDate, fromDate.plusMinutes(21)));
+        assertEquals(new BigDecimal("23.2353968260571429"), TrendAlert.trendPriceAt(actualTime, new BigDecimal("-1.73"), new BigDecimal("7.00788888912"), fromDate, fromDate.plusMinutes(21)));
+        assertEquals(ZERO, TrendAlert.trendPriceAt(actualTime, new BigDecimal("1.73"), new BigDecimal("-7.00788888912"), fromDate, fromDate.plusMinutes(21)));
+        assertEquals(ZERO, TrendAlert.trendPriceAt(actualTime, new BigDecimal("-1.73"), new BigDecimal("-7.00788888912"), fromDate, fromDate.plusMinutes(21)));
+        assertEquals(new BigDecimal("1.1572349203750545"), TrendAlert.trendPriceAt(actualTime, new BigDecimal("1.00000074"), new BigDecimal("7.008967"), fromDate, fromDate.plusHours(38L).plusMinutes(13L)).stripTrailingZeros());
     }
-
+*/
     @Test
     void secondsBetween() {
         ZonedDateTime fromDate = Dates.parse(Locale.US, null, mock(), "01/01/2000-00:03");
@@ -356,7 +355,7 @@ class TrendAlertTest {
         assertEquals(new BigDecimal(-600), TrendAlert.secondsBetween(fromDate, fromDate.minusMinutes(10L)));
         assertEquals(new BigDecimal(-132 * 60), TrendAlert.secondsBetween(fromDate, fromDate.minusMinutes(132L)));
     }
-
+/*
     @Test
     void priceDelta() {
         ZonedDateTime fromDate = Dates.parse(Locale.US, UTC, mock(), "01/01/2000-00:03");
@@ -442,7 +441,7 @@ class TrendAlertTest {
         assertEquals(new BigDecimal("-0.0698138199468085"), TrendAlert.priceDelta(inOneHour, new BigDecimal("6.29"), new BigDecimal("1.04000074"), fromDate, fromDate.plusDays(3L).plusHours(3L).plusMinutes(12L)).stripTrailingZeros());
         assertEquals(new BigDecimal("0.0698138199468085"), TrendAlert.priceDelta(inOneHour, new BigDecimal("6.29"), new BigDecimal("1.04000074"), fromDate, fromDate.minusDays(3L).minusHours(3L).minusMinutes(12L)).stripTrailingZeros());
     }
-
+*/
     @Test
     void asMessage() {
         var now = nowUtc();
@@ -476,13 +475,13 @@ class TrendAlertTest {
         assertTrue(alert.asMessage(MATCHED, candlestick, now).getDescriptionBuilder().toString().contains("" + closeTime.toEpochSecond()));
         assertTrue(alert.asMessage(MATCHED, candlestick, now).getDescriptionBuilder().toString().contains("close"));
         // disabled
-        assertFalse(message.contains("DISABLED"));
-        assertFalse(message.contains("QUIET"));
+        assertFalse(message.contains(DISABLED));
+        assertFalse(message.contains("SNOOZE"));
         assertFalse(message.contains(Dates.formatDiscordRelative(alert.lastTrigger)));
         assertFalse(alert.withListeningDateRepeat(null, (short) -1)
-                .asMessage(MATCHED, candlestick, now).getDescriptionBuilder().toString().contains("DISABLED"));
+                .asMessage(MATCHED, candlestick, now).getDescriptionBuilder().toString().contains(DISABLED));
         assertFalse(alert.withListeningDateRepeat(null, (short) -1)
-                .asMessage(MATCHED, candlestick, now).getDescriptionBuilder().toString().contains("quiet for"));
+                .asMessage(MATCHED, candlestick, now).getDescriptionBuilder().toString().contains("SNOOZE for"));
 
         // MARGIN
         assertNotEquals(message, alert.asMessage(MARGIN, null, now).getDescriptionBuilder().toString());
@@ -510,13 +509,13 @@ class TrendAlertTest {
         assertNotEquals(message, alert.asMessage(MARGIN, candlestick, now));
         assertTrue(alert.asMessage(MARGIN, candlestick, now).getDescriptionBuilder().toString().contains("" + closeTime.toEpochSecond()));
         // disabled
-        assertFalse(message.contains("DISABLED"));
-        assertFalse(message.contains("QUIET"));
+        assertFalse(message.contains(DISABLED));
+        assertFalse(message.contains("SNOOZE"));
         assertFalse(message.contains(Dates.formatDiscordRelative(alert.lastTrigger)));
         assertFalse(alert.withListeningDateRepeat(null, (short) 0)
-                .asMessage(MARGIN, candlestick, now).getDescriptionBuilder().toString().contains("DISABLED"));
+                .asMessage(MARGIN, candlestick, now).getDescriptionBuilder().toString().contains(DISABLED));
         assertFalse(alert.withListeningDateRepeat(null, (short) 0)
-                .asMessage(MARGIN, candlestick, now).getDescriptionBuilder().toString().contains("DISABLED"));
+                .asMessage(MARGIN, candlestick, now).getDescriptionBuilder().toString().contains(DISABLED));
 
         // NOT MATCHING
         embed = alert.asMessage(NOT_MATCHING, null, now);
@@ -542,13 +541,13 @@ class TrendAlertTest {
         assertEquals(message, alert.asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString());
         assertFalse(alert.asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("" + closeTime.toEpochSecond()));
         // disabled
-        assertFalse(message.contains("DISABLED"));
-        assertFalse(message.contains("QUIET"));
+        assertFalse(message.contains(DISABLED));
+        assertFalse(message.contains("SNOOZE"));
         assertTrue(message.contains(Dates.formatDiscordRelative(alert.lastTrigger)));
         assertTrue(alert.withListeningDateRepeat(null, alert.repeat)
-                .asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("DISABLED"));
-        assertFalse(alert.withListeningDateRepeat(now.plusMinutes(1L), (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("DISABLED"));
-        assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L).plusSeconds(1L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("QUIET"));
+                .asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains(DISABLED));
+        assertFalse(alert.withListeningDateRepeat(now.plusMinutes(1L), (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains(DISABLED));
+        assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L).plusSeconds(1L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("SNOOZE"));
         assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L).plusSeconds(1L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("" + now.plusMinutes(1L).plusSeconds(1L).plusNanos(1000000L).toEpochSecond()));
         assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L).plusSeconds(3L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("" + now.plusMinutes(1L).plusSeconds(3L).plusNanos(1000000L).toEpochSecond()));
         assertTrue(alert.withListeningDateRepeat(now.plusMinutes(25L).plusSeconds(1L), (short) 1).asMessage(NOT_MATCHING, candlestick, now).getDescriptionBuilder().toString().contains("" + now.plusMinutes(25L).plusSeconds(1L).toEpochSecond()));

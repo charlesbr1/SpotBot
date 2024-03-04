@@ -50,14 +50,18 @@ public final class TrendAlert extends Alert {
     }
 
     @NotNull
-    public MatchingAlert match(@NotNull ZonedDateTime actualTime, @NotNull List<Candlestick> candlesticks, @Nullable Candlestick previousCandlestick) {
-        BigDecimal currentTrendPrice = currentTrendPrice(actualTime, fromPrice, toPrice, fromDate, toDate);
+    public MatchingAlert match(@NotNull List<Candlestick> candlesticks, @Nullable Candlestick previousCandlestick) {
+        BigDecimal priceDelta = toPrice.subtract(fromPrice);
+        BigDecimal deltaSeconds = secondsBetween(fromDate, toDate);
         for (Candlestick candlestick : candlesticks) {
             if (isListenableCandleStick(candlestick) && isNewerCandleStick(candlestick, previousCandlestick)) {
-                if (priceOnTrend(candlestick, currentTrendPrice, MARGIN_DISABLED) ||
-                        priceCrossedTrend(candlestick, currentTrendPrice, filterListenableCandleStick(previousCandlestick))) {
+                BigDecimal startPrice = trendPriceAt(candlestick.openTime(), fromPrice, fromDate, priceDelta, deltaSeconds);
+                BigDecimal endPrice = trendPriceAt(candlestick.closeTime(), fromPrice, fromDate, priceDelta, deltaSeconds);
+                boolean uptrend = startPrice.compareTo(endPrice) <= 0;
+                if (priceOnTrend(candlestick, startPrice, endPrice, MARGIN_DISABLED, uptrend) ||
+                        priceCrossedTrend(candlestick, startPrice, endPrice, filterListenableCandleStick(previousCandlestick), uptrend)) {
                     return new MatchingAlert(this, MATCHED, candlestick);
-                } else if (priceOnTrend(candlestick, currentTrendPrice, margin)) {
+                } else if (priceOnTrend(candlestick, startPrice, endPrice, margin, uptrend)) {
                     return new MatchingAlert(this, MARGIN, candlestick);
                 }
                 previousCandlestick = candlestick;
@@ -66,22 +70,25 @@ public final class TrendAlert extends Alert {
         return new MatchingAlert(this, NOT_MATCHING, null);
     }
 
-    private static boolean priceOnTrend(@NotNull Candlestick candlestick, @NotNull BigDecimal currentTrendPrice, @NotNull BigDecimal margin) {
-        return RangeAlert.priceInRange(candlestick, currentTrendPrice, currentTrendPrice, margin);
+    private static boolean priceOnTrend(@NotNull Candlestick candlestick, @NotNull BigDecimal startPrice, @NotNull BigDecimal endPrice, @NotNull BigDecimal margin, boolean uptrend) {
+        return RangeAlert.priceInRange(candlestick, uptrend ? startPrice : endPrice, uptrend ? endPrice : startPrice, margin);
     }
 
-    private static boolean priceCrossedTrend(@NotNull Candlestick candlestick, @NotNull BigDecimal currentTrendPrice, @Nullable Candlestick previousCandlestick) {
-        return RangeAlert.priceCrossedRange(candlestick, currentTrendPrice, currentTrendPrice, previousCandlestick);
+    private static boolean priceCrossedTrend(@NotNull Candlestick candlestick, @NotNull BigDecimal startPrice, @NotNull BigDecimal endPrice, @Nullable Candlestick previousCandlestick, boolean uptrend) {
+        return RangeAlert.priceCrossedRange(candlestick, uptrend ? startPrice : endPrice, uptrend ? endPrice : startPrice, previousCandlestick);
     }
 
     @NotNull
-    public static BigDecimal currentTrendPrice(@NotNull ZonedDateTime actualTime, @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice, @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate) {
-        return fromPrice.add(priceDelta(actualTime, fromPrice, toPrice, fromDate, toDate)).max(BigDecimal.ZERO);
+    public static BigDecimal trendPriceAt(@NotNull ZonedDateTime dateTime, @NotNull Alert alert) {
+        return trendPriceAt(dateTime, alert.fromPrice, alert.fromDate, alert.toPrice.subtract(alert.fromPrice), secondsBetween(alert.fromDate, alert.toDate));
     }
 
-    static BigDecimal priceDelta(@NotNull ZonedDateTime atDate, @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice, @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate) {
-        BigDecimal delta = toPrice.subtract(fromPrice).multiply(secondsBetween(fromDate, atDate));
-        BigDecimal deltaSeconds = secondsBetween(fromDate, toDate);
+    private static BigDecimal trendPriceAt(@NotNull ZonedDateTime dateTime, @NotNull BigDecimal fromPrice, @NotNull ZonedDateTime fromDate, @NotNull BigDecimal priceDelta, @NotNull BigDecimal deltaSeconds) {
+        return fromPrice.add(priceDelta(dateTime, fromDate, priceDelta, deltaSeconds)).max(BigDecimal.ZERO);
+    }
+
+    private static BigDecimal priceDelta(@NotNull ZonedDateTime dateTime, @NotNull ZonedDateTime fromDate, @NotNull BigDecimal priceDelta, @NotNull BigDecimal deltaSeconds) {
+        BigDecimal delta = priceDelta.multiply(secondsBetween(fromDate, dateTime));
         return BigDecimal.ZERO.equals(deltaSeconds) ? delta : delta.divide(deltaSeconds, 16, HALF_UP);
     }
 
@@ -103,7 +110,7 @@ public final class TrendAlert extends Alert {
         embed.addField("created", formatDiscordRelative(creationDate), true);
         embed.addField("to price", toPrice.toPlainString() + ' ' + getSymbol(getTicker2()), true);
         embed.addField("to date", formatDiscord(toDate) + '\n' + formatDiscordRelative(toDate), true);
-        embed.addField("current trend price", formatPrice(currentTrendPrice(now, fromPrice, toPrice, fromDate, toDate), getTicker2()), true);
+        embed.addField("current trend price", formatPrice(trendPriceAt(now, this), getTicker2()), true);
         return embed;
     }
 }
