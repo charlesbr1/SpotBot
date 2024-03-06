@@ -9,6 +9,7 @@ import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.interactions.components.text.TextInput;
 import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
 import net.dv8tion.jda.api.interactions.modals.Modal;
+import net.dv8tion.jda.api.utils.MarkdownUtil;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 import org.apache.logging.log4j.LogManager;
@@ -99,11 +100,11 @@ public final class ModalEditInteraction implements InteractionListener {
             command.onCommand(commandContext);
         } catch (RuntimeException e) { // always reply with an edited message
             LOGGER.debug("Error while updating alert", e);
-            String failed = "```diff\n- failed to " + switch (arguments.field) {
-                case CHOICE_DELETE -> "delete alert " + arguments.alertId;
-                case CHOICE_MIGRATE -> "migrate alert " + arguments.alertId + " to guild " + arguments.value;
-                default -> "update " + arguments.field + " with value : " + arguments.value;
-            } + "\n" + e.getMessage() + UPDATE_FAILED_FOOTER;
+            String failed = MarkdownUtil.codeblock("diff", switch (arguments.field) {
+                case CHOICE_DELETE -> "\n- failed to delete alert " + arguments.alertId;
+                case CHOICE_MIGRATE -> "";
+                default -> "\n- failed to update " + arguments.field + " with value : " + arguments.value;
+            } + "\n" + e.getMessage()) + '\n';
             context.reply(replyOriginal(failed), 0);
         }
     }
@@ -192,6 +193,8 @@ public final class ModalEditInteraction implements InteractionListener {
         } else if(null != newMessageInTitle) { // update message in the title
             int index = requirePositive(requireNonNull(originalEmbed.getTitle()).indexOf(ALERT_TITLE_PAIR_FOOTER));
             newEmbedBuilder.setTitle(originalEmbed.getTitle().substring(0, index + ALERT_TITLE_PAIR_FOOTER.length()) + newMessageInTitle);
+        } else {
+            removeStatusMessage(newEmbedBuilder.getDescriptionBuilder());
         }
         newEmbedBuilder.setFooter(Optional.ofNullable(originalEmbed.getFooter()).map(Footer::getText).orElse(null));
         return List.of(newEmbedBuilder.build());
@@ -202,6 +205,16 @@ public final class ModalEditInteraction implements InteractionListener {
         originalEmbed.getFields().forEach(newEmbedBuilder::addField);
         Optional.ofNullable(originalEmbed.getDescription()).map(ModalEditInteraction::originalDescription)
                 .ifPresent(newEmbedBuilder.getDescriptionBuilder()::append);
+    }
+
+    static void removeStatusMessage(@NotNull StringBuilder originalDescription) {
+        // remove messages append by update enabled command to the original list description
+        for(String header : List.of(UPDATE_ENABLED_HEADER, UPDATE_DISABLED_HEADER)) {
+            int index = originalDescription.indexOf(header); // prepended at the start
+            if(index >= 0) {
+                originalDescription.delete(0, header.length() + index);
+            }
+        }
     }
 
     static String originalDescription(@NotNull String originalDescription) {

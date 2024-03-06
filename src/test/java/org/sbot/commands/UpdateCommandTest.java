@@ -45,6 +45,7 @@ import static org.sbot.entities.alerts.Alert.DEFAULT_REPEAT;
 import static org.sbot.entities.alerts.Alert.DEFAULT_SNOOZE_HOURS;
 import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.entities.alerts.AlertTest.*;
+import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
 import static org.sbot.services.dao.AlertsDao.UpdateField.*;
 import static org.sbot.services.dao.AlertsDaoTest.assertDeepEquals;
 import static org.sbot.utils.ArgumentValidator.*;
@@ -1156,6 +1157,20 @@ class UpdateCommandTest {
         verify(alertsDao, times(7)).update(any(), any());
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserIdAndPairType(userId, "ADA/USD", remainder).withServerId(TEST_SERVER_ID).withListeningDateFromDate(now.plusMinutes(90L), now.plusMinutes(90L)), alertArg);
+        verify(discord).sendPrivateMessage(anyLong(), any(), any());
+
+        // remainder, disabled, listening date = from_date
+        when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ADA/USD", remainder).withListeningDateRepeat(null, (short) -2).withServerId(TEST_SERVER_ID)));
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now +1.5"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onCommand(commandContext);
+
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        verify(alertsDao, times(15)).getAlertWithoutMessage(alertId);
+        verify(alertsDao, times(1)).update(alertCaptor.capture(), eq(Set.of(LISTENING_DATE, FROM_DATE, REPEAT)));
+        verify(alertsDao, times(8)).update(any(), any());
+        alertArg = alertCaptor.getValue();
+        assertDeepEquals(createTestAlertWithUserIdAndPairType(userId, "ADA/USD", remainder).withServerId(TEST_SERVER_ID).withListeningDateFromDate(now.plusMinutes(90L), now.plusMinutes(90L)).withRepeat(REMAINDER_DEFAULT_REPEAT), alertArg);
         verify(discord).sendPrivateMessage(anyLong(), any(), any());
 
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ETH/USD", remainder).withServerId(TEST_SERVER_ID)));

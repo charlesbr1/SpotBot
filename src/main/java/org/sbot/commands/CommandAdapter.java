@@ -5,7 +5,6 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
-import net.dv8tion.jda.api.utils.MarkdownUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -199,8 +198,7 @@ public abstract class CommandAdapter implements CommandListener {
     protected static String alertMessageTips(@NotNull String message, long alertId) {
         return "\n\n" + ALERT_TIPS +
                 (message.contains("http://") || message.contains("https://") ? "" :
-                ("\n\n**Please consider adding a link in your message to your AT !!**\nYou can update it using :\n" +
-                MarkdownUtil.quote("*update message " + alertId + " 'a message with a cool link to its AT'*")));
+                ("\n\n**Please consider adding a link to your AT in your message!!\n\n**"));
     }
 
     protected void sendUpdateNotification(@NotNull CommandContext context, long userId, @NotNull Message message) {

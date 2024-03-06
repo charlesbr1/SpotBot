@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.components.selections.SelectOption;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
+import net.dv8tion.jda.api.utils.MarkdownUtil;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -64,6 +65,10 @@ class ModalEditInteractionTest {
 
     @Test
     void onInteraction() {
+        // test UPDATE_FAILED_FOOTER
+        assertTrue(MarkdownUtil.codeblock("diff", "test").concat("\n")
+                .endsWith(UPDATE_FAILED_FOOTER));
+
         MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
         when(messageReceivedEvent.getMessage()).thenReturn(mock());
         when(messageReceivedEvent.getAuthor()).thenReturn(mock());
@@ -253,12 +258,23 @@ class ModalEditInteractionTest {
     }
 
     @Test
+    void removeStatusMessage() {
+        String originalDescription = "an alert description";
+        var description = new StringBuilder(UPDATE_ENABLED_HEADER + originalDescription);
+        ModalEditInteraction.removeStatusMessage(description);
+        assertEquals(originalDescription, description.toString());
+        description = new StringBuilder(UPDATE_DISABLED_HEADER + originalDescription);
+        ModalEditInteraction.removeStatusMessage(description);
+        assertEquals(originalDescription, description.toString());
+    }
+
+    @Test
     void originalDescription() {
         String originalDescription = "an alert description";
         var description = "update failed" + UPDATE_FAILED_FOOTER + originalDescription;
         description = "updated !" + UPDATE_SUCCESS_FOOTER + description;
-        description = "enabled" + UPDATE_ENABLED_HEADER + description;
-        description = "disabled" + UPDATE_DISABLED_HEADER + description;
+        description = UPDATE_ENABLED_HEADER + description;
+        description = " " + UPDATE_DISABLED_HEADER + description;
         description += ALERT_TIPS + "tips";
         assertEquals(originalDescription, ModalEditInteraction.originalDescription(description));
     }

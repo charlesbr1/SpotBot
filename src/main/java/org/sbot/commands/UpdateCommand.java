@@ -28,6 +28,7 @@ import static net.dv8tion.jda.api.interactions.commands.build.OptionData.MAX_POS
 import static org.sbot.commands.SecurityAccess.sameUser;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.*;
+import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
 import static org.sbot.services.dao.AlertsDao.UpdateField.*;
 import static org.sbot.services.discord.Discord.guildName;
 import static org.sbot.utils.ArgumentValidator.*;
@@ -212,11 +213,14 @@ public final class UpdateCommand extends CommandAdapter {
         return update(context, now, (alert, alertsDao) -> {
             validateDateArgument(now, alert.type, fromDate, displayName);
             var fields = Set.of(FROM_DATE);
-            if(trend == alert.type || !alert.isEnabled()) {
+            if(trend == alert.type || (range == alert.type && !alert.isEnabled())) {
                 alert = alert.withFromDate(fromDate);
-            } else { // for range alert, this will also remove snoozing state
+            } else if (range == alert.type || alert.repeat >= 0) { // for range alert, this will also remove snoozing state
                 alert = alert.withListeningDateFromDate(null != fromDate ? fromDate : now, fromDate);
                 fields = Set.of(LISTENING_DATE, FROM_DATE);
+            } else { // for disabled remainder alert, this will also reset repeat
+                alert = alert.withListeningDateFromDate(fromDate, fromDate).withRepeat(REMAINDER_DEFAULT_REPEAT);
+                fields = Set.of(LISTENING_DATE, FROM_DATE, REPEAT);
             }
             alertsDao.update(alert, fields);
             String date = null != fromDate ? formatDiscord(fromDate) : NULL_DATE_ARGUMENT;

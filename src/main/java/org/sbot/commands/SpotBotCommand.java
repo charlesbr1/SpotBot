@@ -20,6 +20,7 @@ import org.sbot.utils.Dates;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -30,7 +31,7 @@ import static org.sbot.entities.alerts.Alert.DEFAULT_REPEAT;
 import static org.sbot.entities.alerts.Alert.DEFAULT_SNOOZE_HOURS;
 import static org.sbot.services.AlertsWatcher.DONE_DELAY_WEEKS;
 import static org.sbot.services.discord.Discord.*;
-import static org.sbot.utils.Dates.nowUtc;
+import static org.sbot.utils.Dates.UTC;
 import static org.sbot.utils.PartitionSpliterator.split;
 
 public final class SpotBotCommand extends CommandAdapter {
@@ -83,10 +84,13 @@ public final class SpotBotCommand extends CommandAdapter {
             Any date time should be provided as UTC unless you specify or set your default timezone. Discord can't provide your timezone so you have to think about it !
 
             The expected date time format is :``` {date-format}```
-            You can optionally specify the timezone.
-            Using command line and not slash command you should use dash '-' instead of space between date and time : {cmd-line-date-format}
-
+            * You can optionally specify a timezone
+            * range alerts accepts 'null' as a date time, as their date are optionals
+            * You can also use 'now' shortcut to get actual date time, with + or - hours : now+1.5 means in 1h30
+            * Using command line and not slash command you should use dash '-' instead of space between date and time or zone : {cmd-line-date-format}
+            
             For instance now it's {date-now} UTC
+            and now+2 is {date-now+2} UTC
             
             You can list available timezone and locales using **list** command, then set your default timezone and locale (for day months order) using **update**.
 
@@ -179,7 +183,8 @@ public final class SpotBotCommand extends CommandAdapter {
         return DOC_CONTENT.replace("{check-period}", "" + context.parameters().checkPeriodMin())
                 .replace("{date-format}", Dates.LocalePatterns.getOrDefault(context.locale, Dates.DATE_TIME_FORMAT))
                 .replace("{cmd-line-date-format}", Dates.LocalePatterns.getOrDefault(context.locale, Dates.DATE_TIME_FORMAT).replaceFirst(" ", "-").replaceFirst(" ", "-"))
-                .replace("{date-now}", Dates.formatUTC(context.locale, nowUtc(context.clock())).replace('-', ' '))
+                .replace("{date-now}", Dates.formatUTC(context.locale, Dates.parse(Locale.UK, UTC, context.clock(), "now")).replace('-', ' '))
+                .replace("{date-now+2}", Dates.formatUTC(context.locale, Dates.parse(Locale.UK, UTC, context.clock(), "now+2")).replace('-', ' '))
                 .replace("{repeat}", "" + DEFAULT_REPEAT)
                 .replace("{snooze}", "" + DEFAULT_SNOOZE_HOURS)
                 .replace("{done-delay-weeks}", "" + DONE_DELAY_WEEKS)

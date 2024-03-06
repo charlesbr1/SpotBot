@@ -76,7 +76,7 @@ public interface ArgumentValidator {
 
     static short requireSnooze(long snooze) {
         if (snooze < SNOOZE_MIN || snooze > SNOOZE_MAX) {
-            throw new IllegalArgumentException("Provided snooze must be between " + SNOOZE_MIN + " and " + SNOOZE_MAX + ", provided value : " + snooze);
+            throw new IllegalArgumentException("Provided snooze must be between " + SNOOZE_MIN + " and " + SNOOZE_MAX + " : " + snooze);
         }
         return (short) snooze;
     }
