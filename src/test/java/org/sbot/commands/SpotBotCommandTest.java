@@ -7,6 +7,7 @@ import org.mockito.ArgumentCaptor;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
 import org.sbot.services.context.Context;
+import org.sbot.services.context.Context.Parameters;
 import org.sbot.services.context.Context.Services;
 import org.sbot.services.discord.Discord;
 import org.sbot.utils.DatesTest;
@@ -42,6 +43,8 @@ class SpotBotCommandTest {
         Discord discord = mock();
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
+        Parameters parameters = mock();
+        when(context.parameters()).thenReturn(parameters);
 
         var command = new SpotBotCommand();
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
