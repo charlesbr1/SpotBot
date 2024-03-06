@@ -48,7 +48,7 @@ public class SelectEditInteraction implements InteractionListener {
                         .withDefault(true));
     }
 
-    private static StringSelectMenu updateMenuOf(@NotNull String menuId, @NotNull Alert alert) {
+    static StringSelectMenu updateMenuOf(@NotNull String menuId, @NotNull Alert alert) {
         StringSelectMenu.Builder menu = selectMenu(menuId);
         if(remainder == alert.type) {
             menu.addOption(CHOICE_DATE, CHOICE_DATE, "a future date when to trigger the remainder, UTC expected format : " + DATE_TIME_FORMAT, Emoji.fromUnicode("U+1F550"));
@@ -94,7 +94,7 @@ public class SelectEditInteraction implements InteractionListener {
     public void onInteraction(@NotNull CommandContext context) {
         // this will open a Modal to get a new value from the user
         var arguments = arguments(context);
-        LOGGER.debug("{} interaction - user {}, server {}, arguments {}", NAME, context.user.getIdLong(), context.serverId(), arguments);
+        LOGGER.debug("select {} interaction - user {}, server {}, arguments {}", NAME, context.user.getIdLong(), context.serverId(), arguments);
 
         int minLength = 1;
         int maxLength = PRICE_MAX_LENGTH;

@@ -41,9 +41,9 @@ public final class RangeCommand extends CommandAdapter {
                     .setMinValue(0d),
             option(NUMBER, HIGH_ARGUMENT, "the high range price", false)
                     .setMinValue(0d),
-            option(STRING, FROM_DATE_ARGUMENT, "a date to start the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false)
+            option(STRING, FROM_DATE_ARGUMENT, "a date to start the box, expected format : " + Dates.DATE_TIME_FORMAT, false)
                     .setMinLength(NOW_ARGUMENT.length()),
-            option(STRING, TO_DATE_ARGUMENT, "a future date to end the box, UTC expected format : " + Dates.DATE_TIME_FORMAT, false)
+            option(STRING, TO_DATE_ARGUMENT, "a future date to end the box, expected format : " + Dates.DATE_TIME_FORMAT, false)
                     .setMinLength(DATE_TIME_FORMAT.length()));
 
     record Arguments(String exchange, String pair, String message, BigDecimal low, BigDecimal high, ZonedDateTime fromDate, ZonedDateTime toDate) {}

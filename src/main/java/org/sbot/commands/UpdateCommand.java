@@ -68,12 +68,12 @@ public final class UpdateCommand extends CommandAdapter {
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addSubcommands(
                     new SubcommandData("settings", "update your settings (locale and timezone)").addOptions(
-                            option(STRING, SELECTION_ARGUMENT, CHOICE_LOCALE + ", " + CHOICE_TIMEZONE, true)
+                            option(STRING, SELECTION_ARGUMENT, "which setting to set : " + CHOICE_LOCALE + " or " + CHOICE_TIMEZONE, true)
                                     .addChoice(CHOICE_LOCALE, CHOICE_LOCALE)
                                     .addChoice(CHOICE_TIMEZONE, CHOICE_TIMEZONE),
                             option(STRING, VALUE_ARGUMENT, "a new locale or timezone to use by default", true)
                                     .setMinLength(1)),
-                    new SubcommandData("alert", "update an alert field (only 'message' and 'from_date' fields can be updated on a remainder alert)").addOptions(
+                    new SubcommandData("alert", "update an alert field (only 'message' 'from_date' 'repeat' 'snooze' can be updated on a remainder)").addOptions(
                             option(STRING, SELECTION_ARGUMENT, CHOICE_MESSAGE + ", " + CHOICE_FROM_PRICE + ", " + CHOICE_LOW +
                             ", " + CHOICE_TO_PRICE + ", " + CHOICE_HIGH + ", " + CHOICE_FROM_DATE + ", " + CHOICE_DATE +
                             ", " + DISPLAY_TO_DATE + ", " + CHOICE_MARGIN + ", " + CHOICE_REPEAT + ", " + CHOICE_SNOOZE, true)
@@ -88,7 +88,7 @@ public final class UpdateCommand extends CommandAdapter {
                             .addChoice(CHOICE_ENABLE, CHOICE_ENABLE),
                     option(INTEGER, ALERT_ID_ARGUMENT, "id of the alert", true)
                             .setMinValue(0).setMaxValue((long) MAX_POSITIVE_NUMBER),
-                    option(STRING, VALUE_ARGUMENT, "a new value depending on the selected field : a price, a message, or an UTC date (" + Dates.DATE_TIME_FORMAT + ')', true)
+                    option(STRING, VALUE_ARGUMENT, "a new value depending on the selected field : a price, a message, or a date (" + Dates.DATE_TIME_FORMAT + ')', true)
                             .setMinLength(1)));
 
     record Arguments(String selection, String value, Long alertId) {}

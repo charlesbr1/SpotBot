@@ -43,8 +43,10 @@ public final class ModalEditInteraction implements InteractionListener {
 
     private static final Logger LOGGER = LogManager.getLogger(ModalEditInteraction.class);
 
-    private static final String NAME = "edit-field";
-    private static final String UPDATE_FAILED_FOOTER = "```\n";
+    static final String NAME = "edit-field";
+    static final String UPDATE_FAILED_FOOTER = "```\n";
+
+    record Arguments(long alertId, String field, String value) {}
 
     public static Modal deleteModalOf(long alertId) {
         TextInput input = TextInput.create(CHOICE_DELETE, "alert will be be deleted", TextInputStyle.SHORT)
@@ -70,40 +72,37 @@ public final class ModalEditInteraction implements InteractionListener {
 
     @Override
     public void onInteraction(@NotNull CommandContext context) {
-        String field = "?";
-        String value = null;
-        Long alertId = null;
+        var arguments = arguments(context);
+        LOGGER.debug("{} interaction - user {}, server {}, arguments {}", NAME, context.user.getIdLong(), context.serverId(), arguments);
         try {
-            alertId = requirePositive(context.args.getMandatoryLong(ALERT_ID_ARGUMENT));
-            field = context.args.getMandatoryString(SELECTION_ARGUMENT);
             CommandListener command;
             CommandContext commandContext;
-            if(CHOICE_DELETE.equals(field)) {
-                if("ok".equalsIgnoreCase(context.args.getMandatoryString(VALUE_ARGUMENT))) {
-                    command = new DeleteCommand();
-                    commandContext = context.noMoreArgs().withArgumentsAndReplyMapper(String.valueOf(alertId), replaceMapper());
-                } else {
-                    context.noMoreArgs().reply(replyOriginal(null), 0);
-                    return;
-                }
-            } else {
-                value =  context.args.getLastArgs(VALUE_ARGUMENT).orElseThrow(() -> new IllegalArgumentException("Missing update value"));
-                if(CHOICE_MIGRATE.equals(field)) {
+            switch(arguments.field) {
+                case CHOICE_DELETE:
+                    if("ok".equalsIgnoreCase(arguments.value)) {
+                        command = new DeleteCommand();
+                        commandContext = context.withArgumentsAndReplyMapper(String.valueOf(arguments.alertId), replaceMapper());
+                        break;
+                    } else { // close modal, do nothing
+                        context.reply(replyOriginal(null), 0);
+                        return;
+                    }
+                case CHOICE_MIGRATE:
                     command = new MigrateCommand();
-                    commandContext = context.withArgumentsAndReplyMapper(alertId + " " + value, replaceMapper());
-                } else {
+                    commandContext = context.withArgumentsAndReplyMapper(arguments.alertId + " " + arguments.value, replaceMapper());
+                    break;
+                default:
                     command = new UpdateCommand();
-                    commandContext = context.withArgumentsAndReplyMapper(field + " " + alertId + " " + value,
-                            fromUpdateMapper(CHOICE_MESSAGE.equals(field) ? value : null, alertId));
-                }
+                    commandContext = context.withArgumentsAndReplyMapper(arguments.field + " " + arguments.alertId + " " + arguments.value,
+                            fromUpdateMapper(CHOICE_MESSAGE.equals(arguments.field) ? arguments.value : null, arguments.alertId));
             }
             command.onCommand(commandContext);
         } catch (RuntimeException e) { // always reply with an edited message
             LOGGER.debug("Error while updating alert", e);
-            String failed = "```diff\n- failed to " + switch (field) {
-                case CHOICE_DELETE -> "delete alert " + alertId;
-                case CHOICE_MIGRATE -> "migrate alert " + alertId + " to guild " + value;
-                default -> "update " + field + " with value : " + value;
+            String failed = "```diff\n- failed to " + switch (arguments.field) {
+                case CHOICE_DELETE -> "delete alert " + arguments.alertId;
+                case CHOICE_MIGRATE -> "migrate alert " + arguments.alertId + " to guild " + arguments.value;
+                default -> "update " + arguments.field + " with value : " + arguments.value;
             } + "\n" + e.getMessage() + UPDATE_FAILED_FOOTER;
             context.reply(replyOriginal(failed), 0);
         }
@@ -139,16 +138,16 @@ public final class ModalEditInteraction implements InteractionListener {
             }
             var originalEmbed = requireOneItem(editBuilder.getEmbeds());
             // switch the enable / disable item in menu if enabled state changed
-            switchEnableItem(editBuilder, alertId, requireNonNull(built.getDescription()).contains(DISABLED));
+            switchEnableItem(editBuilder, alertId, !requireNonNull(built.getDescription()).contains(DISABLED));
             // update message reply with update command reply updated to be in same format as ones produced by list command
             return editBuilder.setEmbeds(updatedMessageEmbeds(originalEmbed, newEmbedBuilder, newMessage, false)).build();
         };
         return messages -> messages.stream().map(message -> Message.of(editBuilder -> editMapper.apply(message, editBuilder))).toList();
     }
 
-    private static void switchEnableItem(@NotNull MessageEditBuilder editBuilder, long alertId, boolean isDisabled) {
+    private static void switchEnableItem(@NotNull MessageEditBuilder editBuilder, long alertId, boolean isEnabled) {
         StringSelectMenu select = (StringSelectMenu) requireOneItem(requireOneItem(editBuilder.getComponents()).getActionComponents());
-        Optional.ofNullable(switchEnableItem(select.getOptions(), isDisabled)).ifPresent(options -> {
+        Optional.ofNullable(switchEnableItem(select.getOptions(), isEnabled)).ifPresent(options -> {
             var selectComponent = StringSelectMenu.create(interactionId(SelectEditInteraction.NAME, alertId))
                     .addOptions(options);
             editBuilder.setComponents(List.of(ActionRow.of(selectComponent.build())));
@@ -156,14 +155,14 @@ public final class ModalEditInteraction implements InteractionListener {
     }
 
     @Nullable
-    private static List<SelectOption> switchEnableItem(@NotNull List<SelectOption> selectOptions, boolean isDisabled) {
+    static List<SelectOption> switchEnableItem(@NotNull List<SelectOption> selectOptions, boolean isEnabled) {
         for(int i = 0; i < selectOptions.size(); i++) {
             var option = selectOptions.get(i);
-            if(!isDisabled && CHOICE_ENABLE.equals(option.getLabel())) {
+            if(isEnabled && CHOICE_ENABLE.equals(option.getLabel())) {
                 var options = new ArrayList<>(selectOptions);
                 options.set(i, disableOption()); // i should be 1 (remainder) or 3 (range / trend)
                 return options;
-            } else if (isDisabled && CHOICE_DISABLE.equals(option.getLabel())) {
+            } else if (!isEnabled && CHOICE_DISABLE.equals(option.getLabel())) {
                 var options = new ArrayList<>(selectOptions);
                 options.set(i, enableOption(false));
                 return options;
@@ -185,27 +184,27 @@ public final class ModalEditInteraction implements InteractionListener {
     }
 
     @NotNull
-    private static List<MessageEmbed> updatedMessageEmbeds(@NotNull MessageEmbed originalEmbed, @NotNull EmbedBuilder newEmbedBuilder, @Nullable String newMessage, boolean asOriginal) {
+    static List<MessageEmbed> updatedMessageEmbeds(@NotNull MessageEmbed originalEmbed, @NotNull EmbedBuilder newEmbedBuilder, @Nullable String newMessageInTitle, boolean asOriginal) {
         // newEmbedBuilder is coming from UpdateCommand reply and should contain properly updated embeds description, with some adds to clean up
         newEmbedBuilder.setTitle(originalEmbed.getTitle());
         if(asOriginal) { // restore message, prepend error message if any
             asOriginal(originalEmbed, newEmbedBuilder);
-        } else if(null != newMessage) { // update message in the title
+        } else if(null != newMessageInTitle) { // update message in the title
             int index = requirePositive(requireNonNull(originalEmbed.getTitle()).indexOf(ALERT_TITLE_PAIR_FOOTER));
-            newEmbedBuilder.setTitle(originalEmbed.getTitle().substring(0, index + ALERT_TITLE_PAIR_FOOTER.length()) + newMessage);
+            newEmbedBuilder.setTitle(originalEmbed.getTitle().substring(0, index + ALERT_TITLE_PAIR_FOOTER.length()) + newMessageInTitle);
         }
         newEmbedBuilder.setFooter(Optional.ofNullable(originalEmbed.getFooter()).map(Footer::getText).orElse(null));
         return List.of(newEmbedBuilder.build());
     }
 
-    private static void asOriginal(@NotNull MessageEmbed originalEmbed, @NotNull EmbedBuilder newEmbedBuilder) {
+    static void asOriginal(@NotNull MessageEmbed originalEmbed, @NotNull EmbedBuilder newEmbedBuilder) {
         newEmbedBuilder.setColor(originalEmbed.getColor());
         originalEmbed.getFields().forEach(newEmbedBuilder::addField);
         Optional.ofNullable(originalEmbed.getDescription()).map(ModalEditInteraction::originalDescription)
                 .ifPresent(newEmbedBuilder.getDescriptionBuilder()::append);
     }
 
-    private static String originalDescription(@NotNull String originalDescription) {
+    static String originalDescription(@NotNull String originalDescription) {
         // remove messages append or prepended by update command to the original list description
         // another option would be to rebuild a new message from alert, here it avoid a database access
         for(String header : List.of(UPDATE_FAILED_FOOTER, UPDATE_SUCCESS_FOOTER, UPDATE_ENABLED_HEADER, UPDATE_DISABLED_HEADER)) {
@@ -221,5 +220,19 @@ public final class ModalEditInteraction implements InteractionListener {
             }
         }
         return originalDescription;
+    }
+
+    static Arguments arguments(@NotNull CommandContext context) {
+        long alertId = requirePositive(context.args.getMandatoryLong(ALERT_ID_ARGUMENT));
+        String field = context.args.getMandatoryString(SELECTION_ARGUMENT);
+        String value;
+        if(CHOICE_DELETE.equals(field)) {
+            value = context.args.getMandatoryString(VALUE_ARGUMENT);
+            context.noMoreArgs();
+        } else {
+            value = context.args.getLastArgs(VALUE_ARGUMENT)
+                    .orElseThrow(() -> new IllegalArgumentException("Missing update value"));
+        }
+        return new Arguments(alertId, field, value);
     }
 }

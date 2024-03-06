@@ -20,6 +20,7 @@ import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
+import static java.util.function.Predicate.not;
 
 public final class SlashArgumentReader implements ArgumentReader {
 
@@ -83,6 +84,6 @@ public final class SlashArgumentReader implements ArgumentReader {
 
     @Override
     public Optional<String> getLastArgs(@NotNull String fieldName) {
-        return getString(fieldName);
+        return getString(fieldName).filter(not(String::isBlank));
     }
 }

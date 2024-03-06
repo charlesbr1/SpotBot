@@ -186,6 +186,6 @@ public interface ArgumentValidator {
         if(list.size() != 1) {
             throw new IllegalArgumentException("Unexpected list size (wanted 1) : " + list.size() + ", content : " + list);
         }
-        return list.get(0);
+        return list.getFirst();
     }
 }

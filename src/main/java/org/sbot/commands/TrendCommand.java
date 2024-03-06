@@ -42,11 +42,11 @@ public final class TrendCommand extends CommandAdapter {
                     .setMaxLength(MESSAGE_MAX_LENGTH),
             option(NUMBER, FROM_PRICE_ARGUMENT, "the first price", true)
                     .setMinValue(0d),
-            option(STRING, FROM_DATE_ARGUMENT, "the date of first price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
+            option(STRING, FROM_DATE_ARGUMENT, "the date of first price, expected format : " + Dates.DATE_TIME_FORMAT, true)
                     .setMinLength(NOW_ARGUMENT.length()),
             option(NUMBER, TO_PRICE_ARGUMENT, "the second price", true)
                     .setMinValue(0d),
-            option(STRING, TO_DATE_ARGUMENT, "the date of second price, UTC expected format : " + Dates.DATE_TIME_FORMAT, true)
+            option(STRING, TO_DATE_ARGUMENT, "the date of second price, expected format : " + Dates.DATE_TIME_FORMAT, true)
                     .setMinLength(NOW_ARGUMENT.length()));
 
     private static final SlashCommandData options =

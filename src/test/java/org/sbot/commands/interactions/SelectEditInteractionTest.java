@@ -183,12 +183,9 @@ class SelectEditInteractionTest {
 
     @Test
     void onInteraction() {
-        long userId = 87543L;
         MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
         when(messageReceivedEvent.getMessage()).thenReturn(mock());
-        net.dv8tion.jda.api.entities.User user = mock();
-        when(messageReceivedEvent.getAuthor()).thenReturn(user);
-        when(user.getIdLong()).thenReturn(userId);
+        when(messageReceivedEvent.getAuthor()).thenReturn(mock());
         Context context = mock(Context.class);
 
         var command = new SelectEditInteraction();

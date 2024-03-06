@@ -109,7 +109,6 @@ public final class DeleteCommand extends CommandAdapter {
         return Message.of(embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), OK_COLOR, deleted + (deleted > 1 ? " alerts" : " alert") + " deleted"));
     }
 
-
     private Message ownerDeleteNotification(long alertId, @NotNull Member member) {
         return Message.of(embedBuilder("Notice of alert deletion", NOTIFICATION_COLOR,
                 "Your alert " + alertId + " was deleted on guild " + guildName(member.getGuild())));
