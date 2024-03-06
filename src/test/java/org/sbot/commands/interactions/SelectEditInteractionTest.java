@@ -17,9 +17,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.sbot.commands.CommandAdapter.SELECTION_ARGUMENT;
 import static org.sbot.commands.CommandAdapterTest.assertExceptionContains;
-import static org.sbot.commands.Commands.INTERACTION_ID_SEPARATOR;
 import static org.sbot.commands.UpdateCommand.*;
 import static org.sbot.commands.context.CommandContext.TOO_MANY_ARGUMENTS;
+import static org.sbot.commands.interactions.Interactions.INTERACTION_ID_SEPARATOR;
+import static org.sbot.commands.interactions.Interactions.interactionId;
 import static org.sbot.commands.interactions.SelectEditInteraction.*;
 import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.entities.alerts.AlertTest.createTestAlertWithType;
@@ -33,7 +34,7 @@ class SelectEditInteractionTest {
         assertFalse(alert.isEnabled());
         var menu = SelectEditInteraction.updateMenuOf(alert);
         assertNotNull(menu);
-        assertEquals(NAME + INTERACTION_ID_SEPARATOR + alert.id, menu.getId());
+        assertEquals(interactionId(NAME, alert.id), menu.getId());
         assertEquals(7, menu.getOptions().size());
         assertEquals(CHOICE_EDIT, menu.getOptions().get(0).getLabel());
         assertTrue(menu.getOptions().get(0).isDefault());
@@ -49,15 +50,16 @@ class SelectEditInteractionTest {
         assertTrue(alert.isEnabled());
         menu = SelectEditInteraction.updateMenuOf(alert);
         assertNotNull(menu);
-        assertEquals(NAME + INTERACTION_ID_SEPARATOR + alert.id, menu.getId());
+        assertEquals(interactionId(NAME, alert.id), menu.getId());
         assertEquals(7, menu.getOptions().size());
 
         // range, disabled
         alert = createTestAlertWithType(range).withListeningDateRepeat(null, (short) 0);
+        alert = alert.withId(() ->  456L);
         assertFalse(alert.isEnabled());
         menu = SelectEditInteraction.updateMenuOf(alert);
         assertNotNull(menu);
-        assertEquals(NAME + INTERACTION_ID_SEPARATOR + alert.id, menu.getId());
+        assertEquals(interactionId(NAME, alert.id), menu.getId());
         assertEquals(12, menu.getOptions().size());
         assertEquals(CHOICE_EDIT, menu.getOptions().get(0).getLabel());
         assertTrue(menu.getOptions().get(0).isDefault());
@@ -78,7 +80,7 @@ class SelectEditInteractionTest {
         assertTrue(alert.isEnabled());
         menu = SelectEditInteraction.updateMenuOf(alert);
         assertNotNull(menu);
-        assertEquals(NAME + INTERACTION_ID_SEPARATOR + alert.id, menu.getId());
+        assertEquals(interactionId(NAME, alert.id), menu.getId());
         assertEquals(12, menu.getOptions().size());
         assertEquals(CHOICE_EDIT, menu.getOptions().get(0).getLabel());
         assertTrue(menu.getOptions().get(0).isDefault());
@@ -99,7 +101,7 @@ class SelectEditInteractionTest {
         assertFalse(alert.isEnabled());
         menu = SelectEditInteraction.updateMenuOf(alert);
         assertNotNull(menu);
-        assertEquals(NAME + INTERACTION_ID_SEPARATOR + alert.id, menu.getId());
+        assertEquals(interactionId(NAME, alert.id), menu.getId());
         assertEquals(12, menu.getOptions().size());
         assertEquals(CHOICE_EDIT, menu.getOptions().get(0).getLabel());
         assertTrue(menu.getOptions().get(0).isDefault());
@@ -120,7 +122,7 @@ class SelectEditInteractionTest {
         assertTrue(alert.isEnabled());
         menu = SelectEditInteraction.updateMenuOf(alert);
         assertNotNull(menu);
-        assertEquals(NAME + INTERACTION_ID_SEPARATOR + alert.id, menu.getId());
+        assertEquals(interactionId(NAME, alert.id), menu.getId());
         assertEquals(12, menu.getOptions().size());
         assertEquals(CHOICE_EDIT, menu.getOptions().get(0).getLabel());
         assertTrue(menu.getOptions().get(0).isDefault());
@@ -188,15 +190,15 @@ class SelectEditInteractionTest {
         User user = new User(123L, Locale.JAPAN, Dates.UTC, DatesTest.nowUtc());
 
         when(stringSelectInteractionEvent.getComponentId()).thenReturn("");
-        assertExceptionContains(IllegalArgumentException.class, "componentId",
+        assertExceptionContains(IllegalArgumentException.class, "interactionId",
                 () -> CommandContext.of(context, user, stringSelectInteractionEvent));
 
         when(stringSelectInteractionEvent.getComponentId()).thenReturn("123");
-        assertExceptionContains(IllegalArgumentException.class, "componentId",
+        assertExceptionContains(IllegalArgumentException.class, "interactionId",
                 () -> CommandContext.of(context, user, stringSelectInteractionEvent));
 
         when(stringSelectInteractionEvent.getComponentId()).thenReturn(" " + INTERACTION_ID_SEPARATOR + " ");
-        assertExceptionContains(IllegalArgumentException.class, "name",
+        assertExceptionContains(IllegalArgumentException.class, "alertId",
                 () -> CommandContext.of(context, user, stringSelectInteractionEvent));
 
         when(stringSelectInteractionEvent.getComponentId()).thenReturn("123" + INTERACTION_ID_SEPARATOR + " ");

@@ -12,8 +12,8 @@ import org.sbot.entities.alerts.Alert;
 import org.sbot.services.discord.InteractionListener;
 
 import static java.util.function.UnaryOperator.identity;
-import static org.sbot.commands.Commands.INTERACTION_ID_SEPARATOR;
 import static org.sbot.commands.UpdateCommand.*;
+import static org.sbot.commands.interactions.Interactions.interactionId;
 import static org.sbot.commands.interactions.ModalEditInteraction.*;
 import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.DEFAULT_REPEAT;
@@ -37,7 +37,7 @@ public class SelectEditInteraction implements InteractionListener {
     record Arguments(long alertId, String field) {}
 
     public static StringSelectMenu updateMenuOf(@NotNull Alert alert) {
-        return updateMenuOf(NAME + INTERACTION_ID_SEPARATOR + alert.id, alert);
+        return updateMenuOf(interactionId(NAME, alert.id), alert);
     }
 
     public static StringSelectMenu.Builder selectMenu(@NotNull String menuId) {

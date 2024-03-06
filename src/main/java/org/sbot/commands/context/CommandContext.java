@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static org.sbot.commands.CommandAdapter.isPrivateChannel;
-import static org.sbot.commands.Commands.INTERACTION_ID_SEPARATOR;
+import static org.sbot.commands.interactions.Interactions.*;
 import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
 import static org.sbot.utils.ArgumentValidator.requireNotBlank;
@@ -59,7 +59,7 @@ public abstract class CommandContext implements Context {
     private CommandContext(@NotNull Context context, @NotNull Locale locale, @Nullable ZoneId timezone, @NotNull MessageReceivedEvent event, @NotNull String command) {
         this.context = requireNonNull(context);
         this.args = new StringArgumentReader(command);
-        this.name = requireNotBlank(args.getString("").orElseThrow(() -> new IllegalArgumentException("Missing command")), "name");
+        this.name = args.getMandatoryString("command");
         this.user = requireNonNull(event.getAuthor());
         this.locale = requireNonNull(locale);
         this.timezone = timezone;
@@ -68,26 +68,21 @@ public abstract class CommandContext implements Context {
 
     private CommandContext(@NotNull Context context, @NotNull Locale locale, @Nullable ZoneId timezone, @NotNull SlashCommandInteractionEvent event) {
         this.context = requireNonNull(context);
-        this.name = requireNotBlank(event.getName(), "name");
+        this.args = new SlashArgumentReader(event);
+        this.name = requireNotBlank(event.getName(), "command");
         this.user = requireNonNull(event.getUser());
         this.locale = requireNonNull(locale);
         this.timezone = timezone;
-        this.args = new SlashArgumentReader(event);
         this.member = event.getMember();
     }
 
-    private CommandContext(@NotNull Context context, @NotNull Locale locale, @Nullable ZoneId timezone, @NotNull GenericInteractionCreateEvent event, @NotNull String componentId, @NotNull String args) {
+    private CommandContext(@NotNull Context context, @NotNull Locale locale, @Nullable ZoneId timezone, @NotNull GenericInteractionCreateEvent event, @NotNull String interactionId, @NotNull String args) {
         this.context = requireNonNull(context);
-        String[] nameId = componentId.split(INTERACTION_ID_SEPARATOR);
-        if(nameId.length != 2) {
-            throw new IllegalArgumentException("Invalid componentId : " + componentId);
-        }
-        this.name = requireNotBlank(nameId[0].strip(), "name");
+        this.args = new StringArgumentReader(alertIdOf(interactionId) + ' ' + requireNonNull(args));
+        this.name = componentIdOf(interactionId);
         this.user = requireNonNull(event.getUser());
         this.locale = requireNonNull(locale);
         this.timezone = timezone;
-        String alertId = requireNotBlank(nameId[1].strip(), "alertId");
-        this.args = new StringArgumentReader(alertId + ' ' + requireNonNull(args));
         this.member = event.getMember();
     }
 

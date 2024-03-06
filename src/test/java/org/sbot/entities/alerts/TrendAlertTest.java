@@ -108,7 +108,7 @@ class TrendAlertTest {
         alert = (TrendAlert) alert.withToDate(actualTime.plusHours(1L)).withFromDate(actualTime); // test alert increment 1 by hour
         alert = (TrendAlert) alert.withFromPrice(TWO).withToPrice(BigDecimal.valueOf(3L)).withMargin(ZERO);
 
-        Candlestick candlestick = new Candlestick(actualTime, actualTime, ONE, ONE, new BigDecimal("2.5"), ONE);
+        Candlestick candlestick = new Candlestick(actualTime, actualTime.plusMinutes(1L), ONE, ONE, new BigDecimal("2.5"), ONE);
         assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
         assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
 
@@ -125,6 +125,7 @@ class TrendAlertTest {
         assertEquals(candlestick2, alert.match(List.of(candlestick3, candlestick2), null).matchingCandlestick());
 
         // test newer candlestick, should ignore candlestick with same closeTime
+        candlestick = new Candlestick(actualTime, actualTime, ONE, ONE, new BigDecimal("2.5"), ONE);
         candlestick3 = new Candlestick(actualTime, actualTime, TEN, TEN, TEN, TWO.add(ONE));
         assertEquals(candlestick2, alert.match(List.of(candlestick3, candlestick, candlestick2), null).matchingCandlestick());
         candlestick2 = new Candlestick(actualTime, actualTime, TWO, TWO, TEN, TWO);
@@ -135,13 +136,13 @@ class TrendAlertTest {
         // test current price changes
         alert = (TrendAlert) alert.withFromPrice(TWO).withToPrice(BigDecimal.valueOf(3L)).withMargin(ZERO);
         alert = (TrendAlert) alert.withToDate(actualTime.plusHours(2L)).withFromDate(actualTime.plusHours(1L));
-        candlestick = new Candlestick(actualTime, actualTime, TWO, TWO, TWO, TWO);
+        candlestick = new Candlestick(actualTime, actualTime.plusMinutes(1L), TWO, TWO, TWO, TWO);
         assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
         assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
-        candlestick = new Candlestick(actualTime, actualTime, TEN, TEN, TEN, new BigDecimal(3L));
+        candlestick = new Candlestick(actualTime, actualTime.plusMinutes(1L), TEN, TEN, TEN, new BigDecimal(3L));
         assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
         assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
-        candlestick = new Candlestick(actualTime, actualTime, ONE, ONE, ONE, ONE);
+        candlestick = new Candlestick(actualTime, actualTime.plusMinutes(1L), ONE, ONE, ONE, ONE);
         assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
         assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
 
@@ -149,40 +150,40 @@ class TrendAlertTest {
         alert = (TrendAlert) alert.withToDate(actualTime.plusHours(2L).plusMinutes(10L)).withFromDate(actualTime.plusHours(2L)); // alert increment 6 by hour
         assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
         assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
-        candlestick = new Candlestick(actualTime, actualTime, new BigDecimal("0.00000001"), new BigDecimal("0.00000001"), new BigDecimal("0.00000001"), new BigDecimal("0.00000001"));
+        candlestick = new Candlestick(actualTime, actualTime.plusMinutes(1L), new BigDecimal("0.00000001"), new BigDecimal("0.00000001"), new BigDecimal("0.00000001"), new BigDecimal("0.00000001"));
         assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
         assertNull(alert.match(List.of(candlestick), null).matchingCandlestick());
-        candlestick = new Candlestick(actualTime, actualTime, ZERO, ZERO, ZERO, ZERO);
+        candlestick = new Candlestick(actualTime, actualTime.plusMinutes(1L), ZERO, ZERO, ZERO, ZERO);
         assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
         assertNotNull(alert.match(List.of(candlestick), null).matchingCandlestick());
 
         // trend should increase in the future
         alert = (TrendAlert) alert.withFromDate(actualTime.minusHours(3L).minusMinutes(40L)).withToDate(actualTime.minusHours(3L).minusMinutes(30L));
-        candlestick = new Candlestick(actualTime, actualTime, // alert increment 6 by hour, so 18 + 3 for 3h30, = 21 + to price (3) = 24
+        candlestick = new Candlestick(actualTime, actualTime.plusMinutes(1L), // alert increment 6 by hour, so 18 + 3 for 3h30, = 21 + to price (3) = 24
                 BigDecimal.valueOf(23L), BigDecimal.valueOf(23L), BigDecimal.valueOf(23L), BigDecimal.valueOf(23L));
         assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
         assertEquals(MARGIN, ((TrendAlert) alert.withMargin(ONE)).match(List.of(candlestick), null).status());
-        candlestick = new Candlestick(actualTime, actualTime,
+        candlestick = new Candlestick(actualTime, actualTime.plusMinutes(1L),
                 BigDecimal.valueOf(25L), BigDecimal.valueOf(25L), BigDecimal.valueOf(25L), BigDecimal.valueOf(25L));
         assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
         assertEquals(MARGIN, ((TrendAlert) alert.withMargin(ONE)).match(List.of(candlestick), null).status());
-        candlestick = new Candlestick(actualTime, actualTime,
+        candlestick = new Candlestick(actualTime, actualTime.plusMinutes(1L),
                 BigDecimal.valueOf(24L), BigDecimal.valueOf(24L), BigDecimal.valueOf(24L), BigDecimal.valueOf(24L));
         assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
 
         // negative trend should decrease in the future, capped to zero
         alert = (TrendAlert) alert.withToDate(actualTime.minusHours(2L)).withFromDate(actualTime.minusHours(3L))
-                .withFromPrice(TEN).withToPrice(BigDecimal.valueOf(7L));
-        candlestick = new Candlestick(actualTime, actualTime, // alert decrease 3 by hour, so -6 since 2 hours, = -6 + to price (7) = 1
+                .withFromPrice(TEN).withToPrice(BigDecimal.valueOf(7L)); // alert decrease 3 by hour, so -6 since 2 hours, = -6 + to price (7) = 1
+        candlestick = new Candlestick(actualTime, actualTime.plusMinutes(1L),
                 BigDecimal.valueOf(0.9d), BigDecimal.valueOf(0.9d), BigDecimal.valueOf(0.9d), BigDecimal.valueOf(0.9d));
         assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
         assertEquals(MARGIN, ((TrendAlert) alert.withMargin(BigDecimal.valueOf(0.2d))).match(List.of(candlestick), null).status());
-        candlestick = new Candlestick(actualTime, actualTime,
+        candlestick = new Candlestick(actualTime, actualTime.plusMinutes(1L),
                 TWO, TWO, TWO, TWO);
         assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
         assertEquals(MARGIN, ((TrendAlert) alert.withMargin(ONE)).match(List.of(candlestick), null).status());
         alert = (TrendAlert) alert.withFromPrice(TEN).withToPrice(BigDecimal.valueOf(5L));
-        candlestick = new Candlestick(actualTime, actualTime, // capped to zero
+        candlestick = new Candlestick(actualTime, actualTime.plusMinutes(1L), // capped to zero
                 ZERO, ZERO, ZERO, ZERO);
         assertEquals(MATCHED, alert.match(List.of(candlestick), null).status());
 
@@ -287,48 +288,91 @@ class TrendAlertTest {
         assertEquals(MARGIN, alert.match(List.of(candlestick), previousCandlestick).status());
 
         // priceOnTrend false, priceCrossedTrend false, margin true, listeningDate < openTime -> NOT_MATCHED
-        candlestick = new Candlestick(alert.listeningDate, actualTime, ONE, ONE, ONE, ONE);
+        previousCandlestick = new Candlestick(alert.listeningDate.plusMinutes(1L), alert.listeningDate.plusMinutes(2L), ONE, ONE, TWO, ONE);
+        candlestick = new Candlestick(alert.listeningDate, alert.listeningDate.plusMinutes(2L).plusSeconds(1L), ONE, ONE, ONE, ONE);
         assertEquals(MARGIN, alert.match(List.of(candlestick), previousCandlestick).status());
         assertEquals(MARGIN, alert.match(List.of(candlestick), null).status());
-        candlestick = new Candlestick(alert.listeningDate.plusMinutes(3L), actualTime, ONE, ONE, ONE, ONE);
+        candlestick = new Candlestick(alert.listeningDate.plusMinutes(3L), alert.listeningDate.plusMinutes(4L), ONE, ONE, ONE, ONE);
         assertEquals(MARGIN, alert.match(List.of(candlestick), previousCandlestick).status());
-        candlestick = new Candlestick(alert.listeningDate.minusSeconds(1L), actualTime, ONE, ONE, ONE, ONE);
+        candlestick = new Candlestick(alert.listeningDate.minusSeconds(1L), alert.listeningDate, ONE, ONE, ONE, ONE);
         assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), previousCandlestick).status());
         assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), null).status());
-        candlestick = new Candlestick(alert.listeningDate.minusMinutes(3L), actualTime, ONE, ONE, ONE, ONE);
+        candlestick = new Candlestick(alert.listeningDate.minusMinutes(3L), alert.listeningDate, ONE, ONE, ONE, ONE);
         assertEquals(NOT_MATCHING, alert.match(List.of(candlestick), previousCandlestick).status());
     }
-/*
+
     @Test
     void trendPriceAt() {
-        ZonedDateTime actualTime = nowUtc();
-        ZonedDateTime fromDate = actualTime.minusHours(1L);
+        ZonedDateTime fromDate = TEST_FROM_DATE;
+        var deltaMinutes = Duration.between(fromDate, TEST_TO_DATE).toMinutes();
         ZonedDateTime inOneHour = fromDate.plusHours(1L);
+        Alert alert = createTestTrendAlert();
+        assertEquals(TEST_FROM_PRICE.stripTrailingZeros(), TrendAlert.trendPriceAt(fromDate, alert).stripTrailingZeros());
+        assertEquals(TEST_TO_PRICE.stripTrailingZeros(), TrendAlert.trendPriceAt(TEST_TO_DATE, alert).stripTrailingZeros());
+        assertEquals(TEST_TO_PRICE.subtract(TEST_FROM_PRICE).multiply(TWO).add(TEST_FROM_PRICE).stripTrailingZeros(), TrendAlert.trendPriceAt(TEST_TO_DATE.plusMinutes(deltaMinutes), alert).stripTrailingZeros());
+        assertEquals(TEST_TO_PRICE.subtract(TEST_FROM_PRICE).multiply(TEN).add(TEST_FROM_PRICE).stripTrailingZeros(), TrendAlert.trendPriceAt(TEST_TO_DATE.plusMinutes(9L * deltaMinutes), alert).stripTrailingZeros());
+        assertEquals(TEST_TO_PRICE.add(TEST_TO_PRICE.subtract(TEST_FROM_PRICE).multiply(new BigDecimal("1.1"))).stripTrailingZeros(), TrendAlert.trendPriceAt(TEST_TO_DATE.plusMinutes((long) (((double) deltaMinutes) * 1.1d)), alert).stripTrailingZeros());
+        assertEquals(TEST_TO_PRICE.add(TEST_TO_PRICE.subtract(TEST_FROM_PRICE).multiply(new BigDecimal("-1.1"))).stripTrailingZeros(), TrendAlert.trendPriceAt(TEST_TO_DATE.plusMinutes((long) (((double) deltaMinutes) * -1.1d)), alert).stripTrailingZeros());
 
-        assertEquals(ONE.add(ONE_HOUR_SECONDS), TrendAlert.trendPriceAt(actualTime, ONE, TWO, fromDate, fromDate));
-        assertEquals(ZERO, TrendAlert.trendPriceAt(actualTime, ZERO, ZERO, fromDate, fromDate));
-        assertEquals(ONE, TrendAlert.trendPriceAt(actualTime, ONE, ONE, fromDate, fromDate));
-        assertEquals(TWO, TrendAlert.trendPriceAt(actualTime, TWO, TWO, fromDate, fromDate));
-        assertEquals(ONE, TrendAlert.trendPriceAt(actualTime, ZERO, ONE, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(TWO, TrendAlert.trendPriceAt(actualTime, ONE, TWO, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(ONE, TrendAlert.trendPriceAt(actualTime, TWO, ONE, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(ZERO, TrendAlert.trendPriceAt(actualTime, TWO, ZERO, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(ZERO, TrendAlert.trendPriceAt(actualTime, new BigDecimal("134.1666666666666667"), new BigDecimal("134.1666666666666667").negate(), fromDate, inOneHour));
-        assertEquals(ZERO, TrendAlert.trendPriceAt(actualTime, new BigDecimal("134.1666666666666667"), new BigDecimal("134.1666666666666667").negate(), fromDate, inOneHour));
+        assertEquals(ONE, TrendAlert.trendPriceAt(fromDate, ONE, fromDate, ONE.subtract(TWO), ZERO));
+        assertEquals(ONE.add(new BigDecimal(24L).multiply(ONE_HOUR_SECONDS)), TrendAlert.trendPriceAt(TEST_TO_DATE, ONE, fromDate, TWO.subtract(ONE), ZERO));
+        assertEquals(ZERO, TrendAlert.trendPriceAt(TEST_TO_DATE, ONE, fromDate, ONE.subtract(TWO), ZERO));
+        assertEquals(ONE, TrendAlert.trendPriceAt(fromDate, ONE, fromDate, ZERO, ZERO));
+        assertEquals(ZERO, TrendAlert.trendPriceAt(fromDate, ZERO, fromDate, ZERO, ZERO));
 
-        assertEquals(new BigDecimal("1.5"), TrendAlert.trendPriceAt(actualTime, ONE, TWO, fromDate, fromDate.plusHours(2L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("1.25"), TrendAlert.trendPriceAt(actualTime, ONE, TWO, fromDate, fromDate.plusHours(4L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("0.5"), TrendAlert.trendPriceAt(actualTime, ONE, TWO, fromDate, fromDate.minusHours(2L)).stripTrailingZeros());
-        assertEquals(ZERO, TrendAlert.trendPriceAt(actualTime, ONE, TWO, fromDate, fromDate.minusHours(1L)).stripTrailingZeros());
-        assertEquals(ZERO, TrendAlert.trendPriceAt(actualTime, ONE, TWO, fromDate.minusHours(1L), fromDate.minusHours(2L)).stripTrailingZeros());
+        var deltaSeconds = TrendAlert.secondsBetween(fromDate, inOneHour);
+        // test prices
+        assertEquals(ZERO, TrendAlert.trendPriceAt(inOneHour, ZERO, fromDate, ZERO, deltaSeconds).stripTrailingZeros());
+        assertEquals(TWO, TrendAlert.trendPriceAt(inOneHour, ONE, fromDate, ONE, deltaSeconds).stripTrailingZeros());
+        assertEquals(ZERO, TrendAlert.trendPriceAt(inOneHour, ONE.negate(), fromDate, ONE.negate(), deltaSeconds).stripTrailingZeros());
+        assertEquals(TWO.multiply(TEN.stripTrailingZeros()), TrendAlert.trendPriceAt(inOneHour, TEN, fromDate, TEN, deltaSeconds).stripTrailingZeros());
+        assertEquals(TWO.multiply(new BigDecimal("134.1666666666666667")), TrendAlert.trendPriceAt(inOneHour, new BigDecimal("134.1666666666666667"), fromDate, new BigDecimal("134.1666666666666667"), deltaSeconds).stripTrailingZeros());
+        assertEquals(ZERO, TrendAlert.trendPriceAt(inOneHour, new BigDecimal("-0.1666666666666667"), fromDate, new BigDecimal("-0.1666666666666667"), deltaSeconds).stripTrailingZeros());
 
-        assertEquals(new BigDecimal("16.8096825403428571"), TrendAlert.trendPriceAt(actualTime, new BigDecimal("1.73"), new BigDecimal("7.00788888912"), fromDate, fromDate.plusMinutes(21)));
-        assertEquals(new BigDecimal("23.2353968260571429"), TrendAlert.trendPriceAt(actualTime, new BigDecimal("-1.73"), new BigDecimal("7.00788888912"), fromDate, fromDate.plusMinutes(21)));
-        assertEquals(ZERO, TrendAlert.trendPriceAt(actualTime, new BigDecimal("1.73"), new BigDecimal("-7.00788888912"), fromDate, fromDate.plusMinutes(21)));
-        assertEquals(ZERO, TrendAlert.trendPriceAt(actualTime, new BigDecimal("-1.73"), new BigDecimal("-7.00788888912"), fromDate, fromDate.plusMinutes(21)));
-        assertEquals(new BigDecimal("1.1572349203750545"), TrendAlert.trendPriceAt(actualTime, new BigDecimal("1.00000074"), new BigDecimal("7.008967"), fromDate, fromDate.plusHours(38L).plusMinutes(13L)).stripTrailingZeros());
+        // test dates
+        assertEquals(ZERO, TrendAlert.trendPriceAt(inOneHour, ZERO, fromDate, ZERO, ZERO).stripTrailingZeros());
+        assertEquals(ZERO, TrendAlert.trendPriceAt(inOneHour.plusMinutes(123L), ZERO, fromDate, ZERO, deltaSeconds.multiply(TWO)).stripTrailingZeros());
+        assertEquals(ZERO, TrendAlert.trendPriceAt(inOneHour, ZERO, fromDate.plusMinutes(123L), ZERO, deltaSeconds.multiply(TEN)).stripTrailingZeros());
+        assertEquals(ONE.add(ONE_HOUR_SECONDS).stripTrailingZeros(), TrendAlert.trendPriceAt(inOneHour, ONE, fromDate, ONE, ZERO).stripTrailingZeros());
+        assertEquals(TWO.add(TWO.multiply(ONE_HOUR_SECONDS)).stripTrailingZeros(), TrendAlert.trendPriceAt(inOneHour, TWO, fromDate, TWO, ZERO).stripTrailingZeros());
+        assertEquals(ZERO, TrendAlert.trendPriceAt(fromDate, TWO, inOneHour, TWO, ZERO).stripTrailingZeros());
+   }
+
+    @Test
+    void priceDelta() {
+        ZonedDateTime dateTime = Dates.parse(Locale.FRANCE, UTC, mock(), "08/01/2000-00:03");
+        ZonedDateTime fromDate = Dates.parse(Locale.FRANCE, UTC, mock(), "01/01/2000-00:03");
+        ZonedDateTime inOneHour = fromDate.plusHours(1L);
+        assertThrows(NullPointerException.class, () -> TrendAlert.priceDelta(dateTime, fromDate, ONE, null));
+        assertThrows(NullPointerException.class, () -> TrendAlert.priceDelta(dateTime, fromDate, null, ONE));
+        assertThrows(NullPointerException.class, () -> TrendAlert.priceDelta(dateTime, null, ONE, ONE));
+        assertThrows(NullPointerException.class, () -> TrendAlert.priceDelta(null, fromDate, ONE, ONE));
+
+        var deltaSeconds = TrendAlert.secondsBetween(fromDate, inOneHour);
+        // test prices
+        assertEquals(ZERO, TrendAlert.priceDelta(inOneHour, fromDate, ZERO, deltaSeconds).stripTrailingZeros());
+        assertEquals(ONE, TrendAlert.priceDelta(inOneHour, fromDate, ONE, deltaSeconds).stripTrailingZeros());
+        assertEquals(ONE.negate(), TrendAlert.priceDelta(inOneHour, fromDate, ONE.negate(), deltaSeconds).stripTrailingZeros());
+        assertEquals(TEN.stripTrailingZeros(), TrendAlert.priceDelta(inOneHour, fromDate, TEN, deltaSeconds).stripTrailingZeros());
+        assertEquals(TEN.stripTrailingZeros().negate(), TrendAlert.priceDelta(inOneHour, fromDate, TEN.negate(), deltaSeconds).stripTrailingZeros());
+        assertEquals(new BigDecimal("134.1666666666666667"), TrendAlert.priceDelta(inOneHour, fromDate, new BigDecimal("134.1666666666666667"), deltaSeconds).stripTrailingZeros());
+        assertEquals(new BigDecimal("134.1666666666666667").negate(), TrendAlert.priceDelta(inOneHour, fromDate, new BigDecimal("134.1666666666666667").negate(), deltaSeconds).stripTrailingZeros());
+        assertEquals(new BigDecimal("-0.1666666666666667").negate(), TrendAlert.priceDelta(inOneHour, fromDate, new BigDecimal("-0.1666666666666667").negate(), deltaSeconds).stripTrailingZeros());
+
+        // test dates
+        assertEquals(ZERO, TrendAlert.priceDelta(inOneHour, fromDate, ZERO, ZERO).stripTrailingZeros());
+        assertEquals(ZERO, TrendAlert.priceDelta(inOneHour.plusMinutes(123L), fromDate, ZERO, deltaSeconds.multiply(TWO)).stripTrailingZeros());
+        assertEquals(ZERO, TrendAlert.priceDelta(inOneHour, fromDate.plusMinutes(123L), ZERO, deltaSeconds.multiply(TEN)).stripTrailingZeros());
+        assertEquals(ONE_HOUR_SECONDS.stripTrailingZeros(), TrendAlert.priceDelta(inOneHour, fromDate, ONE, ZERO).stripTrailingZeros());
+        assertEquals(TWO.multiply(ONE_HOUR_SECONDS).stripTrailingZeros().negate(), TrendAlert.priceDelta(fromDate, inOneHour, TWO, ZERO).stripTrailingZeros());
+
+        // test both
+        assertEquals(new BigDecimal("290.64"), TrendAlert.priceDelta(dateTime, fromDate, new BigDecimal("1.73"), deltaSeconds).stripTrailingZeros());
+        assertEquals(new BigDecimal("7.00788888912"), TrendAlert.priceDelta(inOneHour, fromDate, new BigDecimal("7.00788888912"), deltaSeconds).stripTrailingZeros());
+        assertEquals(TWO.multiply(new BigDecimal("7.00788888912")), TrendAlert.priceDelta(inOneHour, fromDate, new BigDecimal("7.00788888912"), deltaSeconds.divide(TWO)).stripTrailingZeros());
+        assertEquals(new BigDecimal("-0.03").multiply(new BigDecimal("1177.32533337216")), TrendAlert.priceDelta(dateTime, fromDate, new BigDecimal("-7.00788888912"), deltaSeconds.divide(new BigDecimal("0.03"))).stripTrailingZeros());
     }
-*/
+
     @Test
     void secondsBetween() {
         ZonedDateTime fromDate = Dates.parse(Locale.US, null, mock(), "01/01/2000-00:03");
@@ -355,93 +399,7 @@ class TrendAlertTest {
         assertEquals(new BigDecimal(-600), TrendAlert.secondsBetween(fromDate, fromDate.minusMinutes(10L)));
         assertEquals(new BigDecimal(-132 * 60), TrendAlert.secondsBetween(fromDate, fromDate.minusMinutes(132L)));
     }
-/*
-    @Test
-    void priceDelta() {
-        ZonedDateTime fromDate = Dates.parse(Locale.US, UTC, mock(), "01/01/2000-00:03");
-        ZonedDateTime inOneHour = fromDate.plusHours(1L);
 
-        assertEquals(ONE_HOUR_SECONDS.stripTrailingZeros(), TrendAlert.secondsBetween(fromDate, inOneHour).stripTrailingZeros());
-        assertThrows(NullPointerException.class, () -> TrendAlert.priceDelta(null, null, null, null, null));
-
-        // test prices
-        assertEquals(ZERO, TrendAlert.priceDelta(inOneHour, ZERO, ZERO, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(ZERO, TrendAlert.priceDelta(fromDate.plusMinutes(123L), ZERO, ZERO, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(ZERO, TrendAlert.priceDelta(inOneHour, ONE, ONE, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(ZERO, TrendAlert.priceDelta(inOneHour, ONE.negate(), ONE.negate(), fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(ZERO, TrendAlert.priceDelta(inOneHour, TEN, TEN, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(ZERO, TrendAlert.priceDelta(inOneHour, TEN.negate(), TEN.negate(), fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(ZERO, TrendAlert.priceDelta(inOneHour, new BigDecimal("134.1666666666666667").negate(), new BigDecimal("134.1666666666666667").negate(), fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(ZERO, TrendAlert.priceDelta(fromDate.plusMinutes(321L), new BigDecimal("134.1666666666666667").negate(), new BigDecimal("134.1666666666666667").negate(), fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(ZERO, TrendAlert.priceDelta(fromDate.minusMinutes(12L), new BigDecimal("-0.1666666666666667").negate(), new BigDecimal("-0.1666666666666667").negate(), fromDate, inOneHour).stripTrailingZeros());
-
-        assertEquals(ONE, TrendAlert.priceDelta(inOneHour, ZERO, ONE, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(TWO, TrendAlert.priceDelta(inOneHour.plusHours(1L), ZERO, ONE, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(ONE, TrendAlert.priceDelta(inOneHour, ONE, TWO, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(ONE.add(TWO), TrendAlert.priceDelta(inOneHour.plusHours(2L), ONE, TWO, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(ONE.negate(), TrendAlert.priceDelta(inOneHour, TWO, ONE, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(TWO.negate(), TrendAlert.priceDelta(inOneHour, TWO, ZERO, fromDate, inOneHour).stripTrailingZeros());
-        assertEquals(TWO.negate().multiply(new BigDecimal("134.1666666666666667")), TrendAlert.priceDelta(inOneHour, new BigDecimal("134.1666666666666667"), new BigDecimal("134.1666666666666667").negate(), fromDate, inOneHour));
-        assertEquals(TEN.negate().multiply(new BigDecimal("134.1666666666666667")), TrendAlert.priceDelta(inOneHour.plusHours(4L), new BigDecimal("134.1666666666666667"), new BigDecimal("134.1666666666666667").negate(), fromDate, inOneHour));
-
-        // test dates
-        assertEquals(ZERO, TrendAlert.priceDelta(inOneHour, ZERO, ZERO, fromDate, fromDate).stripTrailingZeros());
-        assertEquals(ONE_HOUR_SECONDS.stripTrailingZeros(), TrendAlert.priceDelta(inOneHour, ONE, TWO, fromDate, fromDate).stripTrailingZeros());
-        assertEquals(TWO.multiply(ONE_HOUR_SECONDS).stripTrailingZeros().negate(), TrendAlert.priceDelta(inOneHour, TWO, ZERO, fromDate, fromDate).stripTrailingZeros());
-
-        assertEquals(new BigDecimal(60).stripTrailingZeros(), TrendAlert.priceDelta(inOneHour, ONE, TWO, fromDate, fromDate.plusMinutes(1L)).stripTrailingZeros());
-        assertEquals(new BigDecimal(-60).stripTrailingZeros(), TrendAlert.priceDelta(inOneHour, ONE, TWO, fromDate, fromDate.minusMinutes(1L)).stripTrailingZeros());
-        assertEquals(new BigDecimal(-120).stripTrailingZeros(), TrendAlert.priceDelta(inOneHour.plusMinutes(60L), ONE, TWO, fromDate, fromDate.minusMinutes(1L)).stripTrailingZeros());
-        assertEquals(new BigDecimal(3), TrendAlert.priceDelta(inOneHour, ONE, TWO, fromDate, fromDate.plusMinutes(20L)).stripTrailingZeros());
-        assertEquals(new BigDecimal(9), TrendAlert.priceDelta(inOneHour.plusHours(2L), ONE, TWO, fromDate, fromDate.plusMinutes(20L)).stripTrailingZeros());
-        assertEquals(new BigDecimal(-3), TrendAlert.priceDelta(inOneHour, ONE, TWO, fromDate, fromDate.minusMinutes(20L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("0.5"), TrendAlert.priceDelta(inOneHour, ONE, TWO, fromDate, fromDate.plusHours(2L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("0.25"), TrendAlert.priceDelta(inOneHour.minusMinutes(30L), ONE, TWO, fromDate, fromDate.plusHours(2L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("-0.5"), TrendAlert.priceDelta(inOneHour, ONE, TWO, fromDate, fromDate.minusHours(2L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("-0.25"), TrendAlert.priceDelta(inOneHour.minusMinutes(30L), ONE, TWO, fromDate, fromDate.minusHours(2L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("0.3333333333333333"), TrendAlert.priceDelta(inOneHour, ONE, TWO, fromDate, fromDate.plusHours(3L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("-0.3333333333333333"), TrendAlert.priceDelta(inOneHour, ONE, TWO, fromDate, fromDate.minusHours(3L)).stripTrailingZeros());
-
-        // test both
-        assertEquals(new BigDecimal("15.0796825403428571"), TrendAlert.priceDelta(inOneHour, new BigDecimal("1.73"), new BigDecimal("7.00788888912"), fromDate, fromDate.plusMinutes(21)));
-        assertEquals(new BigDecimal("24.9653968260571429"), TrendAlert.priceDelta(inOneHour, new BigDecimal("-1.73"), new BigDecimal("7.00788888912"), fromDate, fromDate.plusMinutes(21)));
-        assertEquals(new BigDecimal("-24.9653968260571429"), TrendAlert.priceDelta(inOneHour, new BigDecimal("1.73"), new BigDecimal("-7.00788888912"), fromDate, fromDate.plusMinutes(21)));
-        assertEquals(new BigDecimal("-15.0796825403428571"), TrendAlert.priceDelta(inOneHour, new BigDecimal("-1.73"), new BigDecimal("-7.00788888912"), fromDate, fromDate.plusMinutes(21)));
-
-        assertEquals(new BigDecimal("-15.0796825403428571"), TrendAlert.priceDelta(inOneHour, new BigDecimal("1.73"), new BigDecimal("7.00788888912"), fromDate, fromDate.minusMinutes(21)));
-        assertEquals(new BigDecimal("-24.9653968260571429"), TrendAlert.priceDelta(inOneHour, new BigDecimal("-1.73"), new BigDecimal("7.00788888912"), fromDate, fromDate.minusMinutes(21)));
-        assertEquals(new BigDecimal("24.9653968260571429"), TrendAlert.priceDelta(inOneHour, new BigDecimal("1.73"), new BigDecimal("-7.00788888912"), fromDate, fromDate.minusMinutes(21)));
-        assertEquals(new BigDecimal("15.0796825403428571"), TrendAlert.priceDelta(inOneHour, new BigDecimal("-1.73"), new BigDecimal("-7.00788888912"), fromDate, fromDate.minusMinutes(21)));
-
-        assertEquals(new BigDecimal("-9.6253428571428571"), TrendAlert.priceDelta(inOneHour, new BigDecimal("6.00887"), new BigDecimal("2.64"), fromDate, fromDate.plusMinutes(21)).stripTrailingZeros());
-        assertEquals(new BigDecimal("-96.2534285714285714"), TrendAlert.priceDelta(inOneHour.plusHours(9L), new BigDecimal("6.00887"), new BigDecimal("2.64"), fromDate, fromDate.plusMinutes(21)).stripTrailingZeros());
-        assertEquals(new BigDecimal("9.6253428571428571"), TrendAlert.priceDelta(inOneHour, new BigDecimal("6.00887"), new BigDecimal("2.64"), fromDate, fromDate.minusMinutes(21)).stripTrailingZeros());
-        assertEquals(new BigDecimal("0.7237685950413223"), TrendAlert.priceDelta(inOneHour, new BigDecimal("3.55"), new BigDecimal("5.0096"), fromDate, fromDate.plusMinutes(121)).stripTrailingZeros());
-        assertEquals(new BigDecimal("-0.7237685950413223"), TrendAlert.priceDelta(inOneHour, new BigDecimal("3.55"), new BigDecimal("5.0096"), fromDate, fromDate.minusMinutes(121)).stripTrailingZeros());
-        assertEquals(new BigDecimal("-1.2195867768595041"), TrendAlert.priceDelta(inOneHour, new BigDecimal("4.46"), new BigDecimal("2.0005"), fromDate, fromDate.plusMinutes(121)).stripTrailingZeros());
-        assertEquals(new BigDecimal("1.2195867768595041"), TrendAlert.priceDelta(inOneHour, new BigDecimal("4.46"), new BigDecimal("2.0005"), fromDate, fromDate.minusMinutes(121)).stripTrailingZeros());
-        assertEquals(new BigDecimal("0.05020385703322"), TrendAlert.priceDelta(inOneHour, new BigDecimal("5.37"), new BigDecimal("13.001823"), fromDate, fromDate.plusMinutes(9121)).stripTrailingZeros());
-        assertEquals(new BigDecimal("-0.05020385703322"), TrendAlert.priceDelta(inOneHour, new BigDecimal("5.37"), new BigDecimal("13.001823"), fromDate, fromDate.minusMinutes(9121)).stripTrailingZeros());
-        assertEquals(new BigDecimal("-0.0281388882797939"), TrendAlert.priceDelta(inOneHour, new BigDecimal("6.28"), new BigDecimal("2.00242"), fromDate, fromDate.plusMinutes(9121)).stripTrailingZeros());
-        assertEquals(new BigDecimal("0.0281388882797939"), TrendAlert.priceDelta(inOneHour, new BigDecimal("6.28"), new BigDecimal("2.00242"), fromDate, fromDate.minusMinutes(9121)).stripTrailingZeros());
-        assertEquals(new BigDecimal("680.523287926877251"), TrendAlert.priceDelta(inOneHour, new BigDecimal("7.19"), new BigDecimal("1124243.00371"), fromDate, fromDate.plusMinutes(99121)).stripTrailingZeros());
-        assertEquals(new BigDecimal("-680.523287926877251"), TrendAlert.priceDelta(inOneHour, new BigDecimal("7.19"), new BigDecimal("1124243.00371"), fromDate, fromDate.minusMinutes(99121)).stripTrailingZeros());
-        assertEquals(new BigDecimal("-1361.0465758537545021"), TrendAlert.priceDelta(inOneHour.plusMinutes(60L), new BigDecimal("7.19"), new BigDecimal("1124243.00371"), fromDate, fromDate.minusMinutes(99121)).stripTrailingZeros());
-        assertEquals(new BigDecimal("-68.0523287926877251"), TrendAlert.priceDelta(inOneHour.minusMinutes(54L), new BigDecimal("7.19"), new BigDecimal("1124243.00371"), fromDate, fromDate.minusMinutes(99121)).stripTrailingZeros());
-        assertEquals(new BigDecimal("-0.0048431407269902"), TrendAlert.priceDelta(inOneHour, new BigDecimal("8.001"), new BigDecimal("0.0000508"), fromDate, fromDate.plusMinutes(99121)).stripTrailingZeros());
-        assertEquals(new BigDecimal("0.0048431407269902"), TrendAlert.priceDelta(inOneHour, new BigDecimal("8.001"), new BigDecimal("0.0000508"), fromDate, fromDate.minusMinutes(99121)).stripTrailingZeros());
-        assertEquals(new BigDecimal("3.0022999743066333"), TrendAlert.priceDelta(inOneHour, new BigDecimal("0.0000000770801"), new BigDecimal("9.0069"), fromDate, fromDate.plusHours(3L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("-3.0022999743066333"), TrendAlert.priceDelta(inOneHour, new BigDecimal("0.0000000770801"), new BigDecimal("9.0069"), fromDate, fromDate.minusHours(3L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("-3.1023766401168544"), TrendAlert.priceDelta(inOneHour.plusMinutes(2L), new BigDecimal("0.0000000770801"), new BigDecimal("9.0069"), fromDate, fromDate.minusHours(3L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("0.0000000258573633"), TrendAlert.priceDelta(inOneHour, new BigDecimal("0.00000000750801"), new BigDecimal("0.0000000850801"), fromDate, fromDate.plusHours(3L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("-0.0000000258573633"), TrendAlert.priceDelta(inOneHour, new BigDecimal("0.00000000750801"), new BigDecimal("0.0000000850801"), fromDate, fromDate.minusHours(3L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("0.1572341803750545"), TrendAlert.priceDelta(inOneHour, new BigDecimal("1.00000074"), new BigDecimal("7.008967"), fromDate, fromDate.plusHours(38L).plusMinutes(13L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("0.191301586122983"), TrendAlert.priceDelta(inOneHour.plusMinutes(13L), new BigDecimal("1.00000074"), new BigDecimal("7.008967"), fromDate, fromDate.plusHours(38L).plusMinutes(13L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("-0.1572341803750545"), TrendAlert.priceDelta(inOneHour, new BigDecimal("1.00000074"), new BigDecimal("7.008967"), fromDate, fromDate.minusHours(38L).minusMinutes(13L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("-0.0698138199468085"), TrendAlert.priceDelta(inOneHour, new BigDecimal("6.29"), new BigDecimal("1.04000074"), fromDate, fromDate.plusDays(3L).plusHours(3L).plusMinutes(12L)).stripTrailingZeros());
-        assertEquals(new BigDecimal("0.0698138199468085"), TrendAlert.priceDelta(inOneHour, new BigDecimal("6.29"), new BigDecimal("1.04000074"), fromDate, fromDate.minusDays(3L).minusHours(3L).minusMinutes(12L)).stripTrailingZeros());
-    }
-*/
     @Test
     void asMessage() {
         var now = nowUtc();

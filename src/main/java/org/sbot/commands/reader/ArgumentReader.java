@@ -13,11 +13,13 @@ import java.time.ZonedDateTime;
 import java.util.Locale;
 import java.util.Optional;
 
+import static java.util.function.Predicate.not;
+
 public interface ArgumentReader {
 
     @NotNull
     default String getMandatoryString(@NotNull String fieldName) {
-        return getString(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing text for argument '" + fieldName + '\''));
+        return getString(fieldName).filter(not(String::isBlank)).orElseThrow(() -> new IllegalArgumentException("Missing text for argument '" + fieldName + '\''));
     }
 
     @NotNull
