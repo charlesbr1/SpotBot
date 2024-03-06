@@ -1,8 +1,12 @@
 package org.sbot.commands.interactions;
 
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.sbot.commands.context.CommandContext;
+import org.sbot.entities.Message;
 import org.sbot.entities.User;
 import org.sbot.services.context.Context;
 import org.sbot.utils.Dates;
@@ -10,12 +14,15 @@ import org.sbot.utils.DatesTest;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.joining;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.sbot.commands.CommandAdapter.SELECTION_ARGUMENT;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.*;
+import static org.sbot.commands.CommandAdapter.*;
 import static org.sbot.commands.CommandAdapterTest.assertExceptionContains;
 import static org.sbot.commands.UpdateCommand.*;
 import static org.sbot.commands.context.CommandContext.TOO_MANY_ARGUMENTS;
@@ -176,6 +183,74 @@ class SelectEditInteractionTest {
 
     @Test
     void onInteraction() {
+        long userId = 87543L;
+        MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
+        when(messageReceivedEvent.getMessage()).thenReturn(mock());
+        net.dv8tion.jda.api.entities.User user = mock();
+        when(messageReceivedEvent.getAuthor()).thenReturn(user);
+        when(user.getIdLong()).thenReturn(userId);
+        Context context = mock(Context.class);
+
+        var command = new SelectEditInteraction();
+        assertThrows(NullPointerException.class, () -> command.onInteraction(null));
+
+        var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME +   " invalidarg"));
+        assertExceptionContains(IllegalArgumentException.class, ALERT_ID_ARGUMENT, () -> command.onInteraction(fc1));
+
+        var fc2 = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME +   " 123 too much"));
+        assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onInteraction(fc2));
+
+        var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME +   " 123 invalidField"));
+        assertExceptionContains(IllegalArgumentException.class, "Invalid field", () -> command.onInteraction(fc3));
+
+        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME + " 123 " + CHOICE_EDIT));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onInteraction(commandContext);
+
+        ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        var messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertTrue(messages.get(0).embeds().isEmpty());
+        assertNull(messages.get(0).modal());
+        assertNull(messages.get(0).component());
+        assertNotNull(messages.get(0).editMapper());
+
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME + " 123 " + CHOICE_DELETE));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onInteraction(commandContext);
+
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertTrue(messages.get(0).embeds().isEmpty());
+        assertNotNull(messages.get(0).modal());
+        assertNull(messages.get(0).component());
+        assertNull(messages.get(0).editMapper());
+
+        for(var field : List.of(CHOICE_ENABLE, CHOICE_DISABLE)) {
+            commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME + " 123 " + field));
+            try {
+                command.onInteraction(commandContext);
+                Assertions.fail();
+            } catch (NullPointerException e) {
+                assertTrue(Stream.of(e.getStackTrace()).map(Object::toString).collect(joining()).contains("ModalEditInteraction"));
+            }
+        }
+
+        for(var field : List.of(CHOICE_MESSAGE, CHOICE_DATE, CHOICE_FROM_DATE, CHOICE_TO_DATE, CHOICE_MIGRATE, CHOICE_MARGIN, CHOICE_LOW, CHOICE_HIGH, CHOICE_FROM_PRICE, CHOICE_TO_PRICE, CHOICE_SNOOZE, CHOICE_REPEAT)) {
+            commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME + " 123 " + field));
+            doNothing().when(commandContext).reply(anyList(), anyInt());
+            command.onInteraction(commandContext);
+
+            verify(commandContext).reply(messagesReply.capture(), anyInt());
+            messages = messagesReply.getValue();
+            assertEquals(1, messages.size());
+            assertTrue(messages.get(0).embeds().isEmpty());
+            assertNotNull(messages.get(0).modal());
+            assertNull(messages.get(0).component());
+            assertNull(messages.get(0).editMapper());
+        }
     }
 
     @Test
