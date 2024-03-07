@@ -84,10 +84,10 @@ public final class SpotBotCommand extends CommandAdapter {
             Any date time should be provided as UTC unless you specify or set your default timezone. Discord can't provide your timezone so you have to think about it !
 
             The expected date time format is :``` {date-format}```
-            * You can optionally specify a timezone
+            * you can optionally specify a timezone
             * range alerts accepts 'null' as a date time, as their date are optionals
-            * You can also use 'now' shortcut to get actual date time, with + or - hours : now+1.5 means in 1h30
-            * Using command line and not slash command you should use dash '-' instead of space between date and time or zone : {cmd-line-date-format}
+            * you can also use 'now' shortcut to get actual date time, with + or - hours : now+1.5 means in 1h30
+            * using command line and not slash command, you should use dash '-' instead of space between date and time or zone : {cmd-line-date-format}
             
             For instance now it's {date-now} UTC
             and now+2 is {date-now+2} UTC
@@ -111,7 +111,7 @@ public final class SpotBotCommand extends CommandAdapter {
             * **snooze** : the time in hours to wait before the alert can be raise again (default : {snooze} hours)
 
             Once an alert was raised, it decreases in number of *repeat* and becomes ignored during *snooze* hours.
-            If it's number of repeat was 0, the alert is disabled and will be deleted {done-delay-weeks} weeks later, this let you time to enable it again, if never.
+            If it's number of repeat was 0, the alert is disabled and will be deleted {done-delay-weeks} weeks later, this let you time to enable it again, if needed.
 
             
             For all theses alerts, including remainders, the accuracy of updates is {check-period} minutes, so do not expect a notification in the micro second after the event occurred.
