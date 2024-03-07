@@ -99,7 +99,7 @@ final class EventAdapter extends ListenerAdapter {
         } else {
             event.replyEmbeds(embedBuilder("Sorry !", Color.black,
                             "SpotBot disabled on this channel. Use it in private or on channel " +
-                                    Optional.ofNullable(event.getGuild()).flatMap(Discord::getSpotBotChannel)
+                                    Optional.ofNullable(event.getGuild()).flatMap(Discord::spotBotChannel)
                                             .map(Channel::getAsMention).orElse("**#" + Discord.DISCORD_BOT_CHANNEL + "**")).build())
                     .setEphemeral(true)
                     .queue(message -> message.deleteOriginal().queueAfter(5, TimeUnit.SECONDS));
@@ -136,7 +136,7 @@ final class EventAdapter extends ListenerAdapter {
 
     private void process(@NotNull CommandContext command) {
         try {
-            CommandListener listener = context.discord().getGetCommandListener(command.name);
+            CommandListener listener = context.discord().getCommandListener(command.name);
             if (null != listener) {
                 listener.onCommand(command);
             } else if (!command.name.isEmpty()) {
@@ -169,7 +169,7 @@ final class EventAdapter extends ListenerAdapter {
             var user = context.transactional(txCtx -> txCtx.usersDao().getUser(event.getUser().getIdLong()))
                     .orElseThrow(() -> new IllegalStateException("User is not configured"));
             var command = CommandContext.of(context, user, event);
-            context.discord().getGetInteractionListener(command.name).onInteraction(command);
+            context.discord().getInteractionListener(command.name).onInteraction(command);
         } catch (RuntimeException e) {
             LOGGER.warn("Internal error while processing discord select interaction : " + event, e);
             event.replyEmbeds(embedBuilder(":confused: Oops !", Color.red,
@@ -184,7 +184,7 @@ final class EventAdapter extends ListenerAdapter {
             var user = context.transactional(txCtx -> txCtx.usersDao().getUser(event.getUser().getIdLong()))
                     .orElseThrow(() -> new IllegalStateException("User is not configured"));
             var command = CommandContext.of(context, user, event);
-            context.discord().getGetInteractionListener(command.name).onInteraction(command);
+            context.discord().getInteractionListener(command.name).onInteraction(command);
         } catch (RuntimeException e) {
             LOGGER.warn("Internal error while processing discord modal interaction : " + event, e);
             event.replyEmbeds(embedBuilder(":confused: Oops !", Color.red,

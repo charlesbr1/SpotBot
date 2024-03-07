@@ -260,7 +260,7 @@ public final class AlertsWatcher {
             if(isPrivate(serverId)) {
                 sendPrivateAlerts(now, matchingAlerts, userLocales);
             } else {
-                sendServerAlerts(matchingAlerts, userLocales, context.discord().getGuildServer(serverId)
+                sendServerAlerts(matchingAlerts, userLocales, context.discord().guildServer(serverId)
                         .orElseThrow(() -> new IllegalStateException("Failed to get guild server " + serverId +
                                 " : should not be connected to this bot")), now);
             }

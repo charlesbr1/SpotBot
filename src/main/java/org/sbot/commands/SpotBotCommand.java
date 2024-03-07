@@ -176,7 +176,7 @@ public final class SpotBotCommand extends CommandAdapter {
     }
 
     private static String formattedContent(@NotNull CommandContext context, @Nullable Guild guild, @NotNull String selfMention) {
-        String channel = Optional.ofNullable(guild).flatMap(Discord::getSpotBotChannel)
+        String channel = Optional.ofNullable(guild).flatMap(Discord::spotBotChannel)
                 .map(Channel::getAsMention).orElse("**#" + DISCORD_BOT_CHANNEL + "** of your discord server");
         String role = Optional.ofNullable(guild).flatMap(Discord::spotBotRole)
                 .map(Role::getAsMention).orElse("**@" + DISCORD_BOT_ROLE + "**");

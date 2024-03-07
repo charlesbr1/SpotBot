@@ -185,7 +185,7 @@ public abstract class CommandAdapter implements CommandListener {
 
     protected static EmbedBuilder alertEmbed(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert) {
         return alert.descriptionMessage(requireNonNull(now), isPrivateChannel(context) && !isPrivate(alert.serverId) ?
-                context.discord().getGuildServer(alert.serverId).map(Discord::guildName).orElse("unknown") : null);
+                context.discord().guildServer(alert.serverId).map(Discord::guildName).orElse("unknown") : null);
     }
 
     protected static Message userSetupNeeded(@NotNull String title, @NotNull String message) {

@@ -174,7 +174,7 @@ public final class MigrateCommand extends CommandAdapter {
     @Nullable
     private static Guild getGuild(@NotNull CommandContext context, long serverId) {
         return isPrivate(serverId) ? null :
-                context.discord().getGuildServer(serverId)
+                context.discord().guildServer(serverId)
                         .orElseThrow(() -> new IllegalArgumentException("Bot is not supported on this guild : " + serverId));
     }
 

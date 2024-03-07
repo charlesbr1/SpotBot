@@ -57,24 +57,8 @@ public final class Discord {
         jda.addEventListener(new EventAdapter(context));
     }
 
-    @NotNull
-    public static String guildName(@NotNull Guild guild) {
-        return guild.getName() + " (" + guild.getIdLong() + ")";
-    }
-
-    @NotNull
-    public String spotBotUserMention() {
-        return jda.getSelfUser().getAsMention();
-    }
-
-    public static Optional<Role> spotBotRole(@NotNull Guild guild) {
-        return guild.getRolesByName(DISCORD_BOT_ROLE, true).stream()
-                .filter(not(Role::isManaged))
-                .max(comparing(Role::getPositionRaw));
-    }
-
     public void sendGuildMessage(@NotNull Guild guild, @NotNull Message message, @NotNull Runnable onSuccess) {
-        getSpotBotChannel(guild).ifPresent(channel -> sendMessages(List.of(message), channel::sendMessageEmbeds, onSuccess, 0));
+        spotBotChannel(guild).ifPresent(channel -> sendMessages(List.of(message), channel::sendMessageEmbeds, onSuccess, 0));
     }
 
     public void sendPrivateMessage(long userId, @NotNull Message message, @Nullable Runnable onSuccess) {
@@ -96,7 +80,7 @@ public final class Discord {
         submitWithTtl(messages.stream().flatMap(message -> asMessageRequests(message, interactionHook::sendMessageEmbeds)), null, ttlSeconds);
     }
 
-    private static <T extends MessageCreateRequest<?>> Stream<T> asMessageRequests(@NotNull Message message, @NotNull Function<List<MessageEmbed>, T> mapper) {
+    static <T extends MessageCreateRequest<?>> Stream<T> asMessageRequests(@NotNull Message message, @NotNull Function<List<MessageEmbed>, T> mapper) {
         return split(MAX_EMBED_COUNT, message.embeds().stream().map(EmbedBuilder::build)).map(mapper)
                 .map(request -> {
                     Optional.ofNullable(message.files()).map(files -> files.stream().map(file -> FileUpload.fromData(file.content(), file.name())).toList()).ifPresent(request::setFiles);
@@ -155,22 +139,38 @@ public final class Discord {
         }
     }
 
-    public Optional<Guild> getGuildServer(long guildServerId) {
+    public Optional<Guild> guildServer(long guildServerId) {
         LOGGER.debug("Retrieving discord server {}...", guildServerId);
         return Optional.ofNullable(jda.getGuildById(guildServerId));
     }
 
     @NotNull
-    public static Optional<TextChannel> getSpotBotChannel(@NotNull Guild guild) {
+    public static Optional<TextChannel> spotBotChannel(@NotNull Guild guild) {
         return guild.getTextChannelsByName(DISCORD_BOT_CHANNEL, true)
                 .stream().findFirst();
     }
 
-    public CommandListener getGetCommandListener(@NotNull String command) {
+    @NotNull
+    public static String guildName(@NotNull Guild guild) {
+        return guild.getName() + " (" + guild.getIdLong() + ")";
+    }
+
+    @NotNull
+    public String spotBotUserMention() {
+        return jda.getSelfUser().getAsMention();
+    }
+
+    public static Optional<Role> spotBotRole(@NotNull Guild guild) {
+        return guild.getRolesByName(DISCORD_BOT_ROLE, true).stream()
+                .filter(not(Role::isManaged))
+                .max(comparing(Role::getPositionRaw));
+    }
+
+    public CommandListener getCommandListener(@NotNull String command) {
         return commands.get(command);
     }
 
-    public InteractionListener getGetInteractionListener(@NotNull String interaction) {
+    public InteractionListener getInteractionListener(@NotNull String interaction) {
         return interactions.get(interaction);
     }
 
@@ -180,7 +180,7 @@ public final class Discord {
                 .map(CommandListener::options).toList()).queue();
     }
 
-    private boolean registerCommand(@NotNull CommandListener commandListener) {
+    boolean registerCommand(@NotNull CommandListener commandListener) {
         LOGGER.info("Registering discord command: {}", commandListener.name());
         if(null != commands.put(commandListener.name(), commandListener)) {
             LOGGER.warn("Discord command {} was already registered", commandListener.name());
@@ -189,7 +189,7 @@ public final class Discord {
         return commandListener.isSlashCommand();
     }
 
-    private void registerInteractions(@NotNull List<InteractionListener> interactionListeners) {
+    void registerInteractions(@NotNull List<InteractionListener> interactionListeners) {
         interactionListeners.forEach(interactionListener -> {
             LOGGER.info("Registering discord interaction: {}", interactionListener.name());
             if(null != interactions.put(interactionListener.name(), interactionListener)) {

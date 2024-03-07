@@ -137,7 +137,7 @@ class MigrateCommandTest {
         when(messageReceivedEvent.getMember()).thenReturn(null);
         var finalCommandContext2 = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " " + serverId));
         assertExceptionContains(IllegalArgumentException.class, "Bot is not supported on this guild", () -> command.onCommand(finalCommandContext2));
-        when(discord.getGuildServer(serverId)).thenReturn(Optional.of(guild));
+        when(discord.guildServer(serverId)).thenReturn(Optional.of(guild));
         var finalCommandContext3 = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " " + serverId));
         assertExceptionContains(IllegalArgumentException.class, "already in guild", () -> command.onCommand(finalCommandContext3));
         verify(alertsDao).update(alert.withServerId(serverId), Set.of(SERVER_ID));
@@ -151,7 +151,7 @@ class MigrateCommandTest {
         when(messageReceivedEvent.getMember()).thenReturn(null);
         Guild guild2 = mock();
         when(guild2.getIdLong()).thenReturn(serverId + 1);
-        when(discord.getGuildServer(serverId + 1)).thenReturn(Optional.of(guild2));
+        when(discord.guildServer(serverId + 1)).thenReturn(Optional.of(guild2));
         CacheRestAction<Member> restAction = mock();
         when(guild2.retrieveMemberById(userId)).thenReturn(restAction);
 
@@ -255,7 +255,7 @@ class MigrateCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         Guild guild3 = mock();
         when(guild3.getIdLong()).thenReturn(serverId + 1);
-        when(discord.getGuildServer(serverId + 1)).thenReturn(Optional.of(guild3));
+        when(discord.guildServer(serverId + 1)).thenReturn(Optional.of(guild3));
         restAction = mock();
         when(guild3.retrieveMemberById(userId + 1)).thenReturn(restAction);
         when(restAction.complete()).thenReturn(mock());
@@ -301,7 +301,7 @@ class MigrateCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " " + (serverId + 2)));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         when(guild3.getIdLong()).thenReturn(serverId + 2);
-        when(discord.getGuildServer(serverId + 2)).thenReturn(Optional.of(guild3));
+        when(discord.guildServer(serverId + 2)).thenReturn(Optional.of(guild3));
         restAction = mock();
         when(guild3.retrieveMemberById(userId)).thenReturn(restAction);
         when(restAction.complete()).thenReturn(mock());
@@ -357,7 +357,7 @@ class MigrateCommandTest {
         doNothing().when(fc2).reply(anyList(), anyInt());
         assertExceptionContains(IllegalArgumentException.class, "Bot is not supported on this guild", () -> command.onCommand(fc2));
 
-        when(discord.getGuildServer(serverId)).thenReturn(Optional.of(guild));
+        when(discord.guildServer(serverId)).thenReturn(Optional.of(guild));
         var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " all " + serverId));
         doNothing().when(fc3).reply(anyList(), anyInt());
         CacheRestAction<Member> restAction = mock();
@@ -448,7 +448,7 @@ class MigrateCommandTest {
         Guild guild2 = mock();
         when(guild2.getIdLong()).thenReturn(serverId);
         when(guild2.retrieveMemberById(userId)).thenReturn(restAction);
-        when(discord.getGuildServer(serverId)).thenReturn(Optional.of(guild2));
+        when(discord.guildServer(serverId)).thenReturn(Optional.of(guild2));
         when(messageReceivedEvent.getMember()).thenReturn(member);
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " all " + serverId));
         doNothing().when(commandContext).reply(anyList(), anyInt());

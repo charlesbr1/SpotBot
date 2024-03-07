@@ -319,7 +319,7 @@ class UpdateCommandTest {
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
         Guild guild = mock();
-        when(discord.getGuildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
+        when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
         var newMessage = "new message";
 
@@ -334,7 +334,7 @@ class UpdateCommandTest {
         verify(alertsDao).update(alertCaptor.capture(), eq(Set.of(MESSAGE)));
         var alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId).withMessage(newMessage), alertArg);
-        verify(discord).getGuildServer(TEST_SERVER_ID);
+        verify(discord).guildServer(TEST_SERVER_ID);
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -354,7 +354,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(3)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -378,7 +378,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(4)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -397,7 +397,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(5)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -419,7 +419,7 @@ class UpdateCommandTest {
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID).withMessage(newMessage), alertArg);
 
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -439,7 +439,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(7)).getAlertWithoutMessage(alertId);
         verify(alertsDao, times(2)).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -462,7 +462,7 @@ class UpdateCommandTest {
         verify(alertsDao, times(3)).update(alertCaptor.capture(), eq(Set.of(MESSAGE)));
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID).withMessage(newMessage), alertArg);
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -529,7 +529,7 @@ class UpdateCommandTest {
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
         Guild guild = mock();
-        when(discord.getGuildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
+        when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
 
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId)));
@@ -543,7 +543,7 @@ class UpdateCommandTest {
         verify(alertsDao).update(alertCaptor.capture(), eq(Set.of(FROM_PRICE)));
         var alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId).withFromPrice(ONE), alertArg);
-        verify(discord).getGuildServer(TEST_SERVER_ID);
+        verify(discord).guildServer(TEST_SERVER_ID);
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -563,7 +563,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(3)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -587,7 +587,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(4)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -606,7 +606,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(5)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -628,7 +628,7 @@ class UpdateCommandTest {
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID).withFromPrice(new BigDecimal("77.1234567")), alertArg);
 
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -648,7 +648,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(7)).getAlertWithoutMessage(alertId);
         verify(alertsDao, times(2)).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -670,7 +670,7 @@ class UpdateCommandTest {
         verify(alertsDao, times(3)).update(alertCaptor.capture(), eq(Set.of(FROM_PRICE)));
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID).withFromPrice(new BigDecimal("7")), alertArg);
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -737,7 +737,7 @@ class UpdateCommandTest {
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
         Guild guild = mock();
-        when(discord.getGuildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
+        when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
 
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId)));
@@ -751,7 +751,7 @@ class UpdateCommandTest {
         verify(alertsDao).update(alertCaptor.capture(), eq(Set.of(TO_PRICE)));
         var alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId).withToPrice(ONE), alertArg);
-        verify(discord).getGuildServer(TEST_SERVER_ID);
+        verify(discord).guildServer(TEST_SERVER_ID);
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -771,7 +771,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(3)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -795,7 +795,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(4)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -814,7 +814,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(5)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -836,7 +836,7 @@ class UpdateCommandTest {
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID).withToPrice(new BigDecimal("77.1234567")), alertArg);
 
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -856,7 +856,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(7)).getAlertWithoutMessage(alertId);
         verify(alertsDao, times(2)).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -878,7 +878,7 @@ class UpdateCommandTest {
         verify(alertsDao, times(3)).update(alertCaptor.capture(), eq(Set.of(TO_PRICE)));
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID).withToPrice(new BigDecimal("7")), alertArg);
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -948,7 +948,7 @@ class UpdateCommandTest {
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
         Guild guild = mock();
-        when(discord.getGuildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
+        when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ETH/BTC", remainder)));
 
@@ -975,7 +975,7 @@ class UpdateCommandTest {
 
         var alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserIdAndPairType(userId, "ETH/BTC", trend).withFromDate(now.plusHours(1L)), alertArg);
-        verify(discord, times(2)).getGuildServer(TEST_SERVER_ID);
+        verify(discord, times(2)).guildServer(TEST_SERVER_ID);
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -995,7 +995,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(6)).getAlertWithoutMessage(alertId);
         verify(alertsDao, times(2)).update(any(), any());
-        verify(discord, times(2)).getGuildServer(anyLong());
+        verify(discord, times(2)).guildServer(anyLong());
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -1019,7 +1019,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(7)).getAlertWithoutMessage(alertId);
         verify(alertsDao, times(2)).update(any(), any());
-        verify(discord, times(2)).getGuildServer(anyLong());
+        verify(discord, times(2)).guildServer(anyLong());
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -1038,7 +1038,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(8)).getAlertWithoutMessage(alertId);
         verify(alertsDao, times(2)).update(any(), any());
-        verify(discord, times(2)).getGuildServer(anyLong());
+        verify(discord, times(2)).guildServer(anyLong());
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -1061,7 +1061,7 @@ class UpdateCommandTest {
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserIdAndPairType(userId, "DOT/XRP", trend).withServerId(TEST_SERVER_ID).withFromDate(now.minusHours(3L)), alertArg);
 
-        verify(discord, times(2)).getGuildServer(anyLong());
+        verify(discord, times(2)).guildServer(anyLong());
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -1081,7 +1081,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(10)).getAlertWithoutMessage(alertId);
         verify(alertsDao, times(3)).update(any(), any());
-        verify(discord, times(2)).getGuildServer(anyLong());
+        verify(discord, times(2)).guildServer(anyLong());
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -1104,7 +1104,7 @@ class UpdateCommandTest {
         verify(alertsDao, times(4)).update(any(), any());
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserIdAndPairType(userId + 1, "ETH/BTC", trend).withServerId(TEST_SERVER_ID).withFromDate(Dates.parseLocalDateTime(Locale.UK, "12/12/2112-16:32").atZone(ZoneId.of("Europe/Paris"))), alertArg);
-        verify(discord, times(2)).getGuildServer(anyLong());
+        verify(discord, times(2)).guildServer(anyLong());
         verify(guild, times(3)).getName();
 
         messages = messagesReply.getValue();
@@ -1240,7 +1240,7 @@ class UpdateCommandTest {
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
         Guild guild = mock();
-        when(discord.getGuildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
+        when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId)));
 
@@ -1256,7 +1256,7 @@ class UpdateCommandTest {
         verify(alertsDao).update(alertCaptor.capture(), eq(Set.of(TO_DATE)));
         var alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId).withToDate(now.plusHours(1L)), alertArg);
-        verify(discord).getGuildServer(TEST_SERVER_ID);
+        verify(discord).guildServer(TEST_SERVER_ID);
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1276,7 +1276,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(4)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1300,7 +1300,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(5)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1319,7 +1319,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(6)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1341,7 +1341,7 @@ class UpdateCommandTest {
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID).withToDate(null), alertArg);
 
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1361,7 +1361,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(8)).getAlertWithoutMessage(alertId);
         verify(alertsDao, times(2)).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1383,7 +1383,7 @@ class UpdateCommandTest {
         verify(alertsDao, times(3)).update(alertCaptor.capture(), eq(Set.of(TO_DATE)));
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID).withToDate(Dates.parseLocalDateTime(Locale.UK, "12/12/2112-16:32").atZone(ZoneId.of("Europe/Paris"))), alertArg);
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -1482,7 +1482,7 @@ class UpdateCommandTest {
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
         Guild guild = mock();
-        when(discord.getGuildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
+        when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
 
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId)));
@@ -1496,7 +1496,7 @@ class UpdateCommandTest {
         verify(alertsDao).update(alertCaptor.capture(), eq(Set.of(MARGIN)));
         var alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId).withMargin(ONE), alertArg);
-        verify(discord).getGuildServer(TEST_SERVER_ID);
+        verify(discord).guildServer(TEST_SERVER_ID);
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1516,7 +1516,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(3)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1540,7 +1540,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(4)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1559,7 +1559,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(5)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1581,7 +1581,7 @@ class UpdateCommandTest {
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID).withMargin(new BigDecimal("77.1234567")), alertArg);
 
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1601,7 +1601,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(7)).getAlertWithoutMessage(alertId);
         verify(alertsDao, times(2)).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1623,7 +1623,7 @@ class UpdateCommandTest {
         verify(alertsDao, times(3)).update(alertCaptor.capture(), eq(Set.of(MARGIN)));
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID).withMargin(new BigDecimal("7")), alertArg);
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -1690,7 +1690,7 @@ class UpdateCommandTest {
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
         Guild guild = mock();
-        when(discord.getGuildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
+        when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
 
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId)));
@@ -1704,7 +1704,7 @@ class UpdateCommandTest {
         verify(alertsDao).update(alertCaptor.capture(), eq(Set.of(REPEAT)));
         var alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId).withRepeat((short) 0), alertArg);
-        verify(discord).getGuildServer(TEST_SERVER_ID);
+        verify(discord).guildServer(TEST_SERVER_ID);
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1724,7 +1724,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(3)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1748,7 +1748,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(4)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1767,7 +1767,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(5)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1789,7 +1789,7 @@ class UpdateCommandTest {
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID).withRepeat((short) 77), alertArg);
 
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1809,7 +1809,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(7)).getAlertWithoutMessage(alertId);
         verify(alertsDao, times(2)).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1831,7 +1831,7 @@ class UpdateCommandTest {
         verify(alertsDao, times(3)).update(alertCaptor.capture(), eq(Set.of(REPEAT)));
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID).withRepeat((short) 7), alertArg);
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -1898,7 +1898,7 @@ class UpdateCommandTest {
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
         Guild guild = mock();
-        when(discord.getGuildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
+        when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
 
         var alert = createTestAlertWithUserId(userId);
@@ -1913,7 +1913,7 @@ class UpdateCommandTest {
         verify(alertsDao).update(alertCaptor.capture(), eq(Set.of(SNOOZE)));
         var alertArg = alertCaptor.getValue();
         assertDeepEquals(alert.withSnooze((short) 1), alertArg);
-        verify(discord).getGuildServer(TEST_SERVER_ID);
+        verify(discord).guildServer(TEST_SERVER_ID);
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -1943,7 +1943,7 @@ class UpdateCommandTest {
         alertArg = alertCaptor.getValue();
         var newListeningDate = alert.listeningDate.minusHours(alert.snooze).plusHours(newSnooze);
         assertDeepEquals(alert.withListeningDateSnooze(newListeningDate, (short) newSnooze), alertArg);
-        verify(discord, times(2)).getGuildServer(TEST_SERVER_ID);
+        verify(discord, times(2)).guildServer(TEST_SERVER_ID);
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -1963,7 +1963,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(4)).getAlertWithoutMessage(alertId);
         verify(alertsDao, times(2)).update(any(), any());
-        verify(discord, times(2)).getGuildServer(anyLong());
+        verify(discord, times(2)).guildServer(anyLong());
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -1987,7 +1987,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(5)).getAlertWithoutMessage(alertId);
         verify(alertsDao, times(2)).update(any(), any());
-        verify(discord, times(2)).getGuildServer(anyLong());
+        verify(discord, times(2)).guildServer(anyLong());
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -2006,7 +2006,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(6)).getAlertWithoutMessage(alertId);
         verify(alertsDao, times(2)).update(any(), any());
-        verify(discord, times(2)).getGuildServer(anyLong());
+        verify(discord, times(2)).guildServer(anyLong());
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -2028,7 +2028,7 @@ class UpdateCommandTest {
         verify(alertsDao, times(3)).update(any(), any());
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID).withSnooze((short) 77), alertArg);
-        verify(discord, times(2)).getGuildServer(anyLong());
+        verify(discord, times(2)).guildServer(anyLong());
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -2048,7 +2048,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(8)).getAlertWithoutMessage(alertId);
         verify(alertsDao, times(3)).update(any(), any());
-        verify(discord, times(2)).getGuildServer(anyLong());
+        verify(discord, times(2)).guildServer(anyLong());
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
@@ -2071,7 +2071,7 @@ class UpdateCommandTest {
         verify(alertsDao, times(4)).update(any(), any());
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID).withSnooze((short) 7), alertArg);
-        verify(discord, times(2)).getGuildServer(anyLong());
+        verify(discord, times(2)).guildServer(anyLong());
         verify(guild, times(3)).getName();
 
         messages = messagesReply.getValue();
@@ -2138,7 +2138,7 @@ class UpdateCommandTest {
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
         Guild guild = mock();
-        when(discord.getGuildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
+        when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
 
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId)));
@@ -2152,7 +2152,7 @@ class UpdateCommandTest {
         verify(alertsDao).update(alertCaptor.capture(), eq(Set.of(LISTENING_DATE, REPEAT)));
         var alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserId(userId).withListeningDateRepeat(null, DEFAULT_REPEAT), alertArg);
-        verify(discord).getGuildServer(TEST_SERVER_ID);
+        verify(discord).guildServer(TEST_SERVER_ID);
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -2171,7 +2171,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(3)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -2195,7 +2195,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(4)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -2214,7 +2214,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(5)).getAlertWithoutMessage(alertId);
         verify(alertsDao).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -2237,7 +2237,7 @@ class UpdateCommandTest {
         alertArg = alertCaptor.getValue();
         assertDeepEquals(alert.withListeningDateRepeat(alert.fromDate, DEFAULT_REPEAT), alertArg);
 
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -2256,7 +2256,7 @@ class UpdateCommandTest {
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(alertsDao, times(7)).getAlertWithoutMessage(alertId);
         verify(alertsDao, times(2)).update(any(), any());
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild).getName();
 
         messages = messagesReply.getValue();
@@ -2280,7 +2280,7 @@ class UpdateCommandTest {
         verify(alertsDao, times(3)).update(alertCaptor.capture(), eq(Set.of(LISTENING_DATE, REPEAT)));
         alertArg = alertCaptor.getValue();
         assertDeepEquals(alert.withListeningDateRepeat(now, (short) 2), alertArg);
-        verify(discord).getGuildServer(anyLong());
+        verify(discord).guildServer(anyLong());
         verify(guild, times(2)).getName();
 
         messages = messagesReply.getValue();
