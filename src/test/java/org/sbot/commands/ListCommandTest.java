@@ -68,7 +68,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME);
         var arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertNull(arguments.type());
         assertEquals(LIST_ALL, arguments.selection());
         assertNull(arguments.ownerId());
@@ -79,7 +79,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  123 ");
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertEquals(123L, arguments.alertId());
+        assertEquals(List.of(123L), arguments.alertIds());
         assertNull(arguments.type());
         assertNull(arguments.selection());
         assertNull(arguments.ownerId());
@@ -87,19 +87,19 @@ class ListCommandTest {
         assertNull(arguments.offset());
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  123 az ");
-        assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS,
-                () -> ListCommand.arguments(commandContext[0]));
-
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  123 45 1");
-        assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS,
+        assertExceptionContains(IllegalArgumentException.class, ALERT_ID_ARGUMENT,
                 () -> ListCommand.arguments(commandContext[0]));
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  123 45 AE");
-        assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS,
+        assertExceptionContains(IllegalArgumentException.class, ALERT_ID_ARGUMENT,
                 () -> ListCommand.arguments(commandContext[0]));
 
         // alert id negative
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  -123");
+        assertExceptionContains(IllegalArgumentException.class, "Negative",
+                () -> ListCommand.arguments(commandContext[0]));
+
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  123 -4");
         assertExceptionContains(IllegalArgumentException.class, "Negative",
                 () -> ListCommand.arguments(commandContext[0]));
 
@@ -108,7 +108,7 @@ class ListCommandTest {
             commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  " + arg);
             arguments = ListCommand.arguments(commandContext[0]);
             assertNotNull(arguments);
-            assertNull(arguments.alertId());
+            assertNull(arguments.alertIds());
             assertNull(arguments.type());
             assertEquals(arg, arguments.selection());
             assertNull(arguments.ownerId());
@@ -238,7 +238,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " all  " );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertNull(arguments.type());
         assertEquals(LIST_ALL, arguments.selection());
         assertNull(arguments.ownerId());
@@ -248,7 +248,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " all range " );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertEquals(range, arguments.type());
         assertEquals(LIST_ALL, arguments.selection());
         assertNull(arguments.ownerId());
@@ -258,7 +258,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " all trend 12 " );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertEquals(trend, arguments.type());
         assertEquals(LIST_ALL, arguments.selection());
         assertNull(arguments.ownerId());
@@ -268,7 +268,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " all 33 trend  " );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertEquals(trend, arguments.type());
         assertEquals(LIST_ALL, arguments.selection());
         assertNull(arguments.ownerId());
@@ -279,7 +279,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  <@321>  " );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertNull(arguments.type());
         assertEquals(LIST_USER, arguments.selection());
         assertEquals(321L, arguments.ownerId());
@@ -289,7 +289,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  <@321> xrp " );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertNull(arguments.type());
         assertEquals(LIST_USER, arguments.selection());
         assertEquals(321L, arguments.ownerId());
@@ -299,7 +299,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  <@321> 44 " );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertNull(arguments.type());
         assertEquals(LIST_USER, arguments.selection());
         assertEquals(321L, arguments.ownerId());
@@ -309,7 +309,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  <@321> remainder " );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertEquals(remainder, arguments.type());
         assertEquals(LIST_USER, arguments.selection());
         assertEquals(321L, arguments.ownerId());
@@ -319,7 +319,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  <@987> remainder dot/usd " );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertEquals(remainder, arguments.type());
         assertEquals(LIST_USER, arguments.selection());
         assertEquals(987L, arguments.ownerId());
@@ -329,7 +329,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  <@987>  dot/usd  trend" );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertEquals(trend, arguments.type());
         assertEquals(LIST_USER, arguments.selection());
         assertEquals(987L, arguments.ownerId());
@@ -339,7 +339,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  <@987>  14 dot/usd  trend" );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertEquals(trend, arguments.type());
         assertEquals(LIST_USER, arguments.selection());
         assertEquals(987L, arguments.ownerId());
@@ -349,7 +349,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  <@987>  14  trend dot/usd" );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertEquals(trend, arguments.type());
         assertEquals(LIST_USER, arguments.selection());
         assertEquals(987L, arguments.ownerId());
@@ -359,7 +359,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  <@987>   dot/usd 14 trend" );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertEquals(trend, arguments.type());
         assertEquals(LIST_USER, arguments.selection());
         assertEquals(987L, arguments.ownerId());
@@ -369,7 +369,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  <@987>   eth/usd  range 19" );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertEquals(range, arguments.type());
         assertEquals(LIST_USER, arguments.selection());
         assertEquals(987L, arguments.ownerId());
@@ -379,7 +379,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  <@987> trend  eth/usd  19" );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertEquals(trend, arguments.type());
         assertEquals(LIST_USER, arguments.selection());
         assertEquals(987L, arguments.ownerId());
@@ -389,7 +389,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  <@97> trend  11 btc  " );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertEquals(trend, arguments.type());
         assertEquals(LIST_USER, arguments.selection());
         assertEquals(97L, arguments.ownerId());
@@ -400,7 +400,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  btc  " );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertNull(arguments.type());
         assertEquals("btc", arguments.selection());
         assertNull(arguments.ownerId());
@@ -410,7 +410,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  xrp   " );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertNull(arguments.type());
         assertEquals("xrp", arguments.selection());
         assertNull(arguments.ownerId());
@@ -420,7 +420,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " eth/btc 44 " );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertNull(arguments.type());
         assertEquals("eth/btc", arguments.selection());
         assertNull(arguments.ownerId());
@@ -430,7 +430,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  dot/usd remainder " );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertEquals(remainder, arguments.type());
         assertEquals("dot/usd", arguments.selection());
         assertNull(arguments.ownerId());
@@ -440,7 +440,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " usd  trend" );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertEquals(trend, arguments.type());
         assertEquals("usd", arguments.selection());
         assertNull(arguments.ownerId());
@@ -450,7 +450,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " dot/usd 14 trend" );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertEquals(trend, arguments.type());
         assertEquals("dot/usd", arguments.selection());
         assertNull(arguments.ownerId());
@@ -460,7 +460,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + " eth/usd  range 19" );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertEquals(range, arguments.type());
         assertEquals("eth/usd", arguments.selection());
         assertNull(arguments.ownerId());
@@ -470,7 +470,7 @@ class ListCommandTest {
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  eth/usd trend  139" );
         arguments = ListCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
-        assertNull(arguments.alertId());
+        assertNull(arguments.alertIds());
         assertEquals(trend, arguments.type());
         assertEquals("eth/usd", arguments.selection());
         assertNull(arguments.ownerId());
@@ -577,6 +577,39 @@ class ListCommandTest {
         assertEquals(1, messages.get(0).component().size());
         assertNotNull(messages.get(0).component().get(0)); // edit menu
 
+        // id command, many ids, public channel, same user, found, editable
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  321 333 44"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        alert = createTestAlertWithUserId(userId).withServerId(serverId);
+        when(alertsDao.getAlert(321L)).thenReturn(Optional.of(alert));
+        when(alertsDao.getAlert(333L)).thenReturn(Optional.of(alert));
+        when(alertsDao.getAlert(44L)).thenReturn(Optional.of(alert));
+        command.onCommand(commandContext);
+        verify(alertsDao, times(3)).getAlert(321L);
+        verify(alertsDao).getAlert(333L);
+        verify(alertsDao).getAlert(44L);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(3, messages.size());
+        assertEquals(1, messages.get(0).embeds().size());
+        assertEquals(1, messages.get(1).embeds().size());
+        assertEquals(1, messages.get(2).embeds().size());
+        assertNotNull(messages.get(0).embeds().get(0));
+        assertNotNull(messages.get(1).embeds().get(0));
+        assertNotNull(messages.get(2).embeds().get(0));
+        embed = messages.get(0).embeds().get(0).build();
+        assertTrue(embed.getDescription().contains("TestAlert"));
+        assertTrue(embed.getDescription().contains("serverId=123"));
+        assertTrue(embed.getTitle().contains(alert.pair));
+        assertTrue(embed.getTitle().contains(alert.message));
+        assertNull(embed.getFooter());
+        assertEquals(1, messages.get(0).component().size());
+        assertEquals(1, messages.get(1).component().size());
+        assertEquals(1, messages.get(2).component().size());
+        assertNotNull(messages.get(0).component().get(0)); // edit menu
+        assertNotNull(messages.get(1).component().get(0)); // edit menu
+        assertNotNull(messages.get(2).component().get(0)); // edit menu
+
         // id command, private channel, not same user, not found
         when(messageReceivedEvent.getMember()).thenReturn(null);
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  321"));
@@ -584,7 +617,7 @@ class ListCommandTest {
         alert = createTestAlertWithUserId(userId + 1);
         when(alertsDao.getAlert(321L)).thenReturn(Optional.of(alert));
         command.onCommand(commandContext);
-        verify(alertsDao, times(3)).getAlert(321L);
+        verify(alertsDao, times(4)).getAlert(321L);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
@@ -601,7 +634,7 @@ class ListCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         when(alertsDao.getAlert(321L)).thenReturn(Optional.of(createTestAlertWithUserId(userId)));
         command.onCommand(commandContext);
-        verify(alertsDao, times(4)).getAlert(321L);
+        verify(alertsDao, times(5)).getAlert(321L);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
@@ -624,7 +657,7 @@ class ListCommandTest {
         when(alertsDao.getAlert(321L)).thenReturn(Optional.of(createTestAlertWithUserId(userId+1).withServerId(serverId)));
         when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
         command.onCommand(commandContext);
-        verify(alertsDao, times(5)).getAlert(321L);
+        verify(alertsDao, times(6)).getAlert(321L);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());

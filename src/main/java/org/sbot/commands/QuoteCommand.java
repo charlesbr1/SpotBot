@@ -14,7 +14,7 @@ import java.util.List;
 
 import static java.util.Comparator.comparing;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
-import static org.sbot.entities.chart.Ticker.formatPrice;
+import static org.sbot.utils.Tickers.formatPrice;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
 

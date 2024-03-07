@@ -10,10 +10,9 @@ import org.sbot.services.MatchingService.MatchingAlert.MatchingStatus;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
-import static org.sbot.entities.chart.Ticker.getSymbol;
+import static org.sbot.utils.Tickers.getSymbol;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.*;
 import static org.sbot.utils.Dates.formatDiscord;
 import static org.sbot.utils.Dates.formatDiscordRelative;
@@ -96,13 +95,15 @@ public final class RangeAlert extends Alert {
         embed.addField("high", toPrice.toPlainString() + ' ' + getSymbol(getTicker2()), true);
         embed.addField("created", formatDiscordRelative(creationDate), true);
         if(null != fromDate || null != toDate) {
-            Optional.ofNullable(fromDate)
-                    .ifPresentOrElse(date -> embed.addField("from date", formatDiscord(date) + '\n' + formatDiscordRelative(date), true),
-                    () -> embed.addBlankField(true));
-            Optional.ofNullable(toDate)
-                    .ifPresentOrElse(date -> embed.addField("to date", formatDiscord(date) + '\n' + formatDiscordRelative(date), true),
-                    () -> embed.addBlankField(true));
-            embed.addBlankField(true);
+            if(null == fromDate) {
+                embed.addField("to date", formatDiscord(toDate) + '\n' + formatDiscordRelative(toDate), false);
+            } else if(null == toDate) {
+                embed.addField("from date", formatDiscord(fromDate) + '\n' + formatDiscordRelative(fromDate), false);
+            } else {
+                embed.addField("from date", formatDiscord(fromDate) + '\n' + formatDiscordRelative(fromDate), true);
+                embed.addField("to date", formatDiscord(toDate) + '\n' + formatDiscordRelative(toDate), true);
+                embed.addBlankField(true);
+            }
         }
         return embed;
     }

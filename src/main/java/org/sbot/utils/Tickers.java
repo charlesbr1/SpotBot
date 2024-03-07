@@ -1,4 +1,4 @@
-package org.sbot.entities.chart;
+package org.sbot.utils;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 
-public interface Ticker {
+public interface Tickers {
 
     @NotNull
     static String getSymbol(@NotNull String ticker) {

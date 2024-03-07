@@ -7,7 +7,7 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.chart.Candlestick;
-import org.sbot.entities.chart.Ticker;
+import org.sbot.utils.Tickers;
 import org.sbot.services.MatchingService.MatchingAlert;
 import org.sbot.services.MatchingService.MatchingAlert.MatchingStatus;
 import org.sbot.utils.Dates;
@@ -23,7 +23,7 @@ import static java.util.Objects.requireNonNull;
 import static net.dv8tion.jda.api.entities.MessageEmbed.TITLE_MAX_LENGTH;
 import static org.sbot.entities.alerts.Alert.Type.remainder;
 import static org.sbot.entities.alerts.Alert.Type.trend;
-import static org.sbot.entities.chart.Ticker.getSymbol;
+import static org.sbot.utils.Tickers.getSymbol;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.NOT_MATCHING;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.formatDiscordRelative;
@@ -289,7 +289,7 @@ public abstract class Alert {
                         .map("\n\nRaised "::concat)
                         .orElse("") :
                         Optional.ofNullable(previousCandlestick).map(Candlestick::close)
-                                .map(price -> Ticker.formatPrice(price, getTicker2()))
+                                .map(price -> Tickers.formatPrice(price, getTicker2()))
                                 .map(price -> "\n\nLast close : " + price + " at " + formatDiscordRelative(previousCandlestick.closeTime()))
                                 .orElse(""));    }
 

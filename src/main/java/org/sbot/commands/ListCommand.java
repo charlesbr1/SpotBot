@@ -9,6 +9,7 @@ import net.dv8tion.jda.api.utils.MarkdownUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
+import org.sbot.commands.reader.StringArgumentReader;
 import org.sbot.entities.Message;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.entities.alerts.Alert.Type;
@@ -50,8 +51,7 @@ public final class ListCommand extends CommandAdapter {
 
     private static final SlashCommandData options =
             Commands.slash(NAME, DESCRIPTION).addOptions(
-                    option(STRING, SELECTION_ARGUMENT, "settings, exchanges, timezones, alert id, alert type, user, a ticker, a pair, 'all' if omitted", false)
-                            .setMaxLength(20),
+                    option(STRING, SELECTION_ARGUMENT, "settings, exchanges, timezones, alert ids list, alert type, user, a ticker, a pair, 'all' if omitted", false),
                     option(STRING, TICKER_PAIR_ARGUMENT, "an optional search filter on a ticker or a pair if selection is an user or a type", false)
                             .setMinLength(TICKER_MIN_LENGTH).setMaxLength(PAIR_MAX_LENGTH),
                     option(STRING, TYPE_ARGUMENT, "type of alert to list (range, trend or remainder, ignored if selection is already a type)", false)
@@ -59,7 +59,7 @@ public final class ListCommand extends CommandAdapter {
                     option(INTEGER, OFFSET_ARGUMENT, "an offset from where to start the search (results are limited to " + MESSAGE_LIST_CHUNK + " alerts)", false)
                             .setMinValue(0));
 
-    record Arguments(Long alertId, Type type, String selection, Long ownerId, String tickerOrPair, Long offset) {
+    record Arguments(List<Long> alertIds, Type type, String selection, Long ownerId, String tickerOrPair, Long offset) {
         String asNextCommand(int delta) {
             return (null != ownerId ? "list <@" + ownerId + ">" : "list") +
                     Optional.ofNullable(tickerOrPair).map(" "::concat).orElse(null != ownerId ? "" : " all") +
@@ -86,8 +86,8 @@ public final class ListCommand extends CommandAdapter {
         LOGGER.debug("{} command - user {}, server {}, arguments {}", NAME, context.user.getIdLong(), context.serverId(), arguments);
         ZonedDateTime now = Dates.nowUtc(context.clock());
 
-        if(null != arguments.alertId) {
-            context.reply(List.of(listOneAlert(context.noMoreArgs(), now, arguments.alertId)), responseTtlSeconds);
+        if(null != arguments.alertIds) {
+            context.reply(arguments.alertIds.stream().map(alertId -> listOneAlert(context, now, alertId)).toList(), responseTtlSeconds);
         } else {
             if(null != arguments.ownerId) {
                 context.reply(listByOwnerAndPair(context, now, arguments), responseTtlSeconds);
@@ -104,10 +104,15 @@ public final class ListCommand extends CommandAdapter {
     }
 
     static Arguments arguments(@NotNull CommandContext context) {
-        Long alertId = context.args.getLong(SELECTION_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
+        var idsReader = new StringArgumentReader(context.args.getLastArgs(SELECTION_ARGUMENT).orElse(""));
+        Long alertId = idsReader.getLong(ALERT_ID_ARGUMENT).map(ArgumentValidator::requirePositive).orElse(null);
         if (null != alertId) {
-            context.noMoreArgs();
-            return new Arguments(alertId, null, null, null, null, null);
+            List<Long> alertIds = new ArrayList<>();
+            alertIds.add(alertId);
+            while(idsReader.getLastArgs("").isPresent()) {
+                alertIds.add(requirePositive(idsReader.getMandatoryLong(ALERT_ID_ARGUMENT)));
+            }
+            return new Arguments(alertIds, null, null, null, null, null);
         }
         UnaryOperator<Optional<Type>> readType = type -> type.or(() -> context.args.getType(TYPE_ARGUMENT));
 
