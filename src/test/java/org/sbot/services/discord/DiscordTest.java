@@ -62,6 +62,11 @@ class DiscordTest {
     }
 
     @Test
+    void errorHandler() {
+        //TODO
+    }
+
+    @Test
     void asMessageRequests() {
         MessageCreateRequest<?> request = mock();
         Function<List<MessageEmbed>, MessageCreateRequest<?>> mapper = m -> request;

@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.exceptions.ErrorHandler;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.requests.RestAction;
@@ -33,6 +34,7 @@ import static java.util.Comparator.comparing;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static net.dv8tion.jda.api.entities.Message.MAX_EMBED_COUNT;
+import static net.dv8tion.jda.api.requests.ErrorResponse.CANNOT_SEND_TO_USER;
 import static org.sbot.utils.PartitionSpliterator.split;
 import static org.sbot.utils.PropertiesReader.readFile;
 
@@ -57,17 +59,20 @@ public final class Discord {
         jda.addEventListener(new EventAdapter(context));
     }
 
+    // AlertsWatcher notifications
     public void sendGuildMessage(@NotNull Guild guild, @NotNull Message message, @NotNull Runnable onSuccess) {
         spotBotChannel(guild).ifPresent(channel -> sendMessages(List.of(message), channel::sendMessageEmbeds, onSuccess, 0));
     }
 
+    // AlertsWatcher & EventHandler notifications
     public void sendPrivateMessage(long userId, @NotNull Message message, @Nullable Runnable onSuccess) {
         jda.retrieveUserById(userId) // TODO check cache usage JDABuilder.createLight
                 .flatMap(User::openPrivateChannel)
                 .onSuccess(channel -> sendMessages(List.of(message), channel::sendMessageEmbeds, onSuccess, 0))
-                .queue();
+                .queue(null, err -> new ErrorHandler(ex -> LOGGER.error("Unable to retrieve private user channel " + userId, ex)));
     }
 
+    // CommandAdapter responses
     public static void sendMessages(@NotNull List<Message> messages, @NotNull Function<List<MessageEmbed>, MessageCreateAction> mapper, int ttlSeconds) {
         sendMessages(messages, mapper, null, ttlSeconds);
     }
@@ -100,14 +105,12 @@ public final class Discord {
 
     // this ensures the rest action are done in order
     private static void submitWithTtl(@NotNull Stream<RestAction<net.dv8tion.jda.api.entities.Message>> restActions, @Nullable Runnable onSuccess, int ttlSeconds) {
-        Consumer<net.dv8tion.jda.api.entities.Message> doNothing = message ->  {};
+        Consumer<net.dv8tion.jda.api.entities.Message> doNothing = message -> {};
         Consumer<net.dv8tion.jda.api.entities.Message> delete = message -> message.delete().queueAfter(ttlSeconds, TimeUnit.SECONDS);
         for (var iterator = restActions.iterator(); iterator.hasNext();) {
-            var request = iterator.next();
-            var success = ttlSeconds > 0 ? delete : doNothing;
-            success = null == onSuccess || iterator.hasNext() ? success : success.andThen(m -> onSuccess.run());
-            request.queue(success,
-                    err -> LOGGER.error("Exception occurred while sending discord message", err));
+            var cleanUp = ttlSeconds > 0 ? delete : doNothing;
+            var success = null == onSuccess ? cleanUp : cleanUp.andThen(m -> onSuccess.run());
+            iterator.next().queue(success, errorHandler(onSuccess));
         }
         // TODO check  if it finally works without chaining
 /*        restActions.reduce((message, nextMessage) -> message
@@ -119,6 +122,14 @@ public final class Discord {
  */
     }
 
+    @NotNull
+    private static ErrorHandler errorHandler(@Nullable Runnable unreachableUserHandler) {
+        return new ErrorHandler(ex -> LOGGER.error("Exception occurred while sending discord message", ex))
+                .handle(CANNOT_SEND_TO_USER, e -> { // TODO handler should performs task to delete message from notifications ? ou la mettre de coté ?
+                    LOGGER.error("Failed to send message, user leaved or blocked private messages", e);
+                    Optional.ofNullable(unreachableUserHandler).ifPresent(Runnable::run);
+                });
+    }
     @NotNull
     private JDA loadDiscordConnection(@NotNull String tokenFile) {
         try {

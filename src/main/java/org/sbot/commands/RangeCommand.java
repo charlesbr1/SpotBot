@@ -21,7 +21,6 @@ import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
-import static org.sbot.utils.Dates.DATE_TIME_FORMAT;
 import static org.sbot.utils.Dates.NOW_ARGUMENT;
 
 public final class RangeCommand extends CommandAdapter {
@@ -44,7 +43,7 @@ public final class RangeCommand extends CommandAdapter {
             option(STRING, FROM_DATE_ARGUMENT, "a date to start the box, expected format : " + Dates.DATE_TIME_FORMAT, false)
                     .setMinLength(NOW_ARGUMENT.length()),
             option(STRING, TO_DATE_ARGUMENT, "a future date to end the box, expected format : " + Dates.DATE_TIME_FORMAT, false)
-                    .setMinLength(DATE_TIME_FORMAT.length()));
+                    .setMinLength(NOW_ARGUMENT.length() + 2));
 
     record Arguments(String exchange, String pair, String message, BigDecimal low, BigDecimal high, ZonedDateTime fromDate, ZonedDateTime toDate) {}
 

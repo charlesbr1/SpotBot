@@ -17,7 +17,7 @@ import static org.sbot.entities.alerts.Alert.DEFAULT_SNOOZE_HOURS;
 import static org.sbot.entities.alerts.Alert.NEW_ALERT_ID;
 import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
 import static org.sbot.utils.ArgumentValidator.*;
-import static org.sbot.utils.Dates.DATE_TIME_FORMAT;
+import static org.sbot.utils.Dates.NOW_ARGUMENT;
 
 public final class RemainderCommand extends CommandAdapter {
 
@@ -31,7 +31,7 @@ public final class RemainderCommand extends CommandAdapter {
             option(STRING, MESSAGE_ARGUMENT, "a message for this remainder (" + MESSAGE_MAX_LENGTH + " chars max)", true)
                     .setMaxLength(MESSAGE_MAX_LENGTH),
             option(STRING, DATE_ARGUMENT, "a future date when to trigger the remainder, expected format : " + Dates.DATE_TIME_FORMAT, true)
-                    .setMinLength(DATE_TIME_FORMAT.length()));
+                    .setMinLength(NOW_ARGUMENT.length() + 2));
     record Arguments(String pair, String message, ZonedDateTime date) {}
 
 

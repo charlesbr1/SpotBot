@@ -8,6 +8,7 @@ import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.guild.GuildBanEvent;
 import net.dv8tion.jda.api.events.guild.GuildLeaveEvent;
+import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -78,6 +79,12 @@ final class EventAdapter extends ListenerAdapter {
         LOGGER.debug("onGuildMemberRemove, event {}", event);
         migrateUserAlertsToPrivateChannel(event.getUser().getIdLong(), event.getGuild(),
                 "You leaved guild " + Discord.guildName(event.getGuild()));
+    }
+
+    @Override
+    public void onGuildMemberJoin(@NotNull GuildMemberJoinEvent event) {
+        LOGGER.debug("onGuildMemberJoin, event {}", event);
+        // TODO check notifications that has been paused and notify
     }
 
     private void migrateUserAlertsToPrivateChannel(@NotNull Long userId, @NotNull Guild guild, @NotNull String reason) {
