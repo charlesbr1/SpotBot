@@ -14,16 +14,19 @@ import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.services.dao.AlertsDao;
+import org.sbot.services.dao.NotificationsDao;
 import org.sbot.services.discord.CommandListener;
 import org.sbot.services.discord.Discord;
 
-import java.awt.*;
+import java.awt.Color;
 import java.time.ZonedDateTime;
 import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.Optional.empty;
+import static org.sbot.commands.SecurityAccess.sameUser;
 import static org.sbot.commands.interactions.SelectEditInteraction.updateMenuOf;
 import static org.sbot.entities.alerts.Alert.Type.remainder;
 import static org.sbot.entities.alerts.Alert.isPrivate;
@@ -64,7 +67,6 @@ public abstract class CommandAdapter implements CommandListener {
     public static final Color OK_COLOR = Color.green;
     public static final Color DENIED_COLOR = Color.orange;
     public static final Color NOT_FOUND_COLOR = Color.red;
-    public static final Color NOTIFICATION_COLOR = Color.lightGray;
 
     public static final String ALERT_TIPS = "Your message will be shown in the title of your alert notification.";
     public static final String ALERT_TITLE_PAIR_FOOTER = "] ";
@@ -78,7 +80,7 @@ public abstract class CommandAdapter implements CommandListener {
         this.name = requireNonNull(name, "missing CommandAdapter name");
         this.description = requireNonNull(description, "missing CommandAdapter description");
         this.options = requireNonNull(options, "missing CommandAdapter options");
-        this.responseTtlSeconds = requirePositive(SpotBot.appProperties.getIntOr("command." + name + ".ttl-seconds", responseTtlSeconds));
+        this.responseTtlSeconds = requirePositive(SpotBot.appProperties.getIntOr("command." + name + ".ttl.seconds", responseTtlSeconds));
         LOGGER.debug("new CommandAdapter {}, responseTtlSeconds : {}, options : {}", name, this.responseTtlSeconds, options.toData());
     }
 
@@ -123,12 +125,12 @@ public abstract class CommandAdapter implements CommandListener {
         LOGGER.debug("securedAlertAccess, alertId : {}, user : {}, server : {}", alertId, context.user.getIdLong(), context.serverId());
         requireNonNull(readHandler);
         return context.transactional(txCtx -> {
-            var dao = txCtx.alertsDao();
-            Alert alert = dao.getAlert(alertId).orElse(null);
+            var alertsDao = txCtx.alertsDao();
+            Alert alert = alertsDao.getAlert(alertId).orElse(null);
             if(SecurityAccess.notFound(context, alert)) {
                 return Message.of(embedBuilder(":ghost: " + context.user.getEffectiveName(), NOT_FOUND_COLOR, "Alert " + alertId + " not found"));
             }
-            var message = readHandler.apply(alert, dao);
+            var message = readHandler.apply(alert, alertsDao);
             var embed = requireOneItem(message.embeds()).build();
             requireOneItem(message.embeds()).setTitle(null == embed.getTitle() ?":face_with_monocle: " + alert.type.titleName + " alert " + alertId : embed.getTitle());
             requireOneItem(message.embeds()).setColor(null == embed.getColor() ? OK_COLOR : embed.getColor());
@@ -136,20 +138,38 @@ public abstract class CommandAdapter implements CommandListener {
         });
     }
 
-    protected static EmbedBuilder securedAlertUpdate(long alertId, @NotNull CommandContext context, @NotNull BiFunction<Alert, AlertsDao, EmbedBuilder> updateHandler) {
+    @FunctionalInterface
+    public interface UpdateHandler {
+        Message update(@NotNull Alert alert, @NotNull AlertsDao alertsDao, @NotNull Supplier<NotificationsDao> notificationsDao);
+    }
+
+    public static Message securedAlertUpdate(long alertId, @NotNull CommandContext context, @NotNull UpdateHandler updateHandler) {
         LOGGER.debug("securedAlertUpdate, alertId : {}, user : {}, server : {}", alertId, context.user.getIdLong(), context.serverId());
         requireNonNull(updateHandler);
-        return context.transactional(txCtx -> {
-            var dao = txCtx.alertsDao();
-            Alert alert = dao.getAlertWithoutMessage(alertId).orElse(null);
+        NotificationsDao[] sendNotifications = new NotificationsDao[1];
+        var message = context.transactional(txCtx -> {
+            var alertsDao = txCtx.alertsDao();
+            Alert alert = alertsDao.getAlertWithoutMessage(alertId).orElse(null);
             if(SecurityAccess.notFound(context, alert)) {
-                return embedBuilder(":ghost: " + context.user.getEffectiveName(), NOT_FOUND_COLOR, "Alert " + alertId + " not found");
+                return Message.of(embedBuilder(":ghost: " + context.user.getEffectiveName(), NOT_FOUND_COLOR, "Alert " + alertId + " not found"));
             } else if(SecurityAccess.isDenied(context, alert)) {
-                return embedBuilder(":clown: " + context.user.getEffectiveName(), DENIED_COLOR, "You are not allowed to modify alert " + alertId);
+                return Message.of(embedBuilder(":clown: " + context.user.getEffectiveName(), DENIED_COLOR, "You are not allowed to modify alert " + alertId));
             }
-            var embedBuilder = updateHandler.apply(alert, dao).setTitle(":+1: " + context.user.getEffectiveName());
-            return embedBuilder.setColor(Optional.ofNullable(embedBuilder.build().getColor()).orElse(OK_COLOR));
+            var notificationsDao = txCtx.notificationsDao();
+            Supplier<NotificationsDao> notificationsDaoSupplier = () -> sendNotifications[0] = notificationsDao;
+            var update = updateHandler.update(alert, alertsDao, notificationsDaoSupplier);
+            var embedBuilder = requireOneItem(update.embeds());
+            embedBuilder.setTitle(":+1: " + context.user.getEffectiveName())
+                    .setColor(Optional.ofNullable(embedBuilder.build().getColor()).orElse(OK_COLOR));
+            return update;
         });
+        // perform user notification of its alerts being updated, if needed, once above update transaction is successful.
+        Optional.ofNullable(sendNotifications[0]).ifPresent(v -> context.notificationService().sendNotifications());
+        return message;
+    }
+
+    protected static boolean sendNotification(@NotNull CommandContext context, long userId, long count) {
+        return count > 0 && !sameUser(context.user, userId);
     }
 
     protected static Optional<Alert> saveAlert(@NotNull CommandContext context, @NotNull Alert alert) {
@@ -167,7 +187,7 @@ public abstract class CommandAdapter implements CommandListener {
     protected static Message createdAlertMessage(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert) {
         var message = editableAlertMessage(context, now, alert, 0, 0);
         if (remainder != alert.type) {
-            requireOneItem(message.embeds()).appendDescription(alertMessageTips(alert.message, alert.id));
+            requireOneItem(message.embeds()).appendDescription(alertMessageTips(alert.message));
         }
         return message;
     }
@@ -183,7 +203,7 @@ public abstract class CommandAdapter implements CommandListener {
                 .setFooter(total > 0 ? "(" + offset + "/" + total + ")" : null);
     }
 
-    protected static EmbedBuilder alertEmbed(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert) {
+    static EmbedBuilder alertEmbed(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert) {
         return alert.descriptionMessage(requireNonNull(now), isPrivateChannel(context) && !isPrivate(alert.serverId) ?
                 context.discord().guildServer(alert.serverId).map(Discord::guildName).orElse("unknown") : null);
     }
@@ -195,15 +215,9 @@ public abstract class CommandAdapter implements CommandListener {
     }
 
     @NotNull
-    protected static String alertMessageTips(@NotNull String message, long alertId) {
+    protected static String alertMessageTips(@NotNull String message) {
         return "\n\n" + ALERT_TIPS +
                 (message.contains("http://") || message.contains("https://") ? "" :
                 ("\n\n**Please consider adding a link to your AT in your message!!\n\n**"));
-    }
-
-    protected void sendUpdateNotification(@NotNull CommandContext context, long userId, @NotNull Message message) {
-        if(!isPrivateChannel(context)) {
-            context.discord().sendPrivateMessage(userId, message, null);
-        }
     }
 }

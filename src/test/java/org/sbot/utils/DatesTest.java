@@ -409,14 +409,14 @@ public class DatesTest {
 
     @Test
     void localePatterns() {
-        assertEquals("dd/MM/yyyy HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.FRENCH.toLocale()));
-        assertEquals("dd/MM/yyyy HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.ENGLISH_UK.toLocale()));
-        assertEquals("M/d/yyyy HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.ENGLISH_US.toLocale()));
-        assertEquals("yyyy/M/d HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.JAPANESE.toLocale()));
-        assertEquals("dd. MM. yyyy. HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.CROATIAN.toLocale()));
-        assertEquals("dd/MM/yyyy HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.PORTUGUESE_BRAZILIAN.toLocale()));
-        assertEquals("d-M-yyyy HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.DUTCH.toLocale()));
-        assertEquals("dd.MM.yyyy HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.TURKISH.toLocale()));
-        assertEquals("d.MM.yyyy HH:mm (optional) zone", Dates.LocalePatterns.get(DiscordLocale.POLISH.toLocale()));
+        assertEquals("dd/MM/yyyy HH:mm (optional timezone)", Dates.LocalePatterns.get(DiscordLocale.FRENCH.toLocale()));
+        assertEquals("dd/MM/yyyy HH:mm (optional timezone)", Dates.LocalePatterns.get(DiscordLocale.ENGLISH_UK.toLocale()));
+        assertEquals("M/d/yyyy HH:mm (optional timezone)", Dates.LocalePatterns.get(DiscordLocale.ENGLISH_US.toLocale()));
+        assertEquals("yyyy/M/d HH:mm (optional timezone)", Dates.LocalePatterns.get(DiscordLocale.JAPANESE.toLocale()));
+        assertEquals("dd. MM. yyyy. HH:mm (optional timezone)", Dates.LocalePatterns.get(DiscordLocale.CROATIAN.toLocale()));
+        assertEquals("dd/MM/yyyy HH:mm (optional timezone)", Dates.LocalePatterns.get(DiscordLocale.PORTUGUESE_BRAZILIAN.toLocale()));
+        assertEquals("d-M-yyyy HH:mm (optional timezone)", Dates.LocalePatterns.get(DiscordLocale.DUTCH.toLocale()));
+        assertEquals("dd.MM.yyyy HH:mm (optional timezone)", Dates.LocalePatterns.get(DiscordLocale.TURKISH.toLocale()));
+        assertEquals("d.MM.yyyy HH:mm (optional timezone)", Dates.LocalePatterns.get(DiscordLocale.POLISH.toLocale()));
     }
 }

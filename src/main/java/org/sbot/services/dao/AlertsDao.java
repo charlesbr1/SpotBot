@@ -44,8 +44,8 @@ public interface AlertsDao {
     }
 
     long fetchAlertsWithoutMessageByExchangeAndPairHavingPastListeningDateWithActiveRange(@NotNull String exchange, @NotNull String pair, @NotNull ZonedDateTime now, int checkPeriodMin, @NotNull Consumer<Stream<Alert>> alertsConsumer);
-    long fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer);
-    long fetchAlertsByTypeHavingToDateBefore(@NotNull Type type, @NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer);
+    long fetchAlertsWithoutMessageHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer);
+    long fetchAlertsWithoutMessageByTypeHavingToDateBefore(@NotNull Type type, @NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer);
 
     @NotNull
     Map<String, Set<String>> getPairsByExchangesHavingPastListeningDateWithActiveRange(@NotNull ZonedDateTime now, int checkPeriodMin);
@@ -71,9 +71,9 @@ public interface AlertsDao {
 
     long updateServerIdOf(@NotNull SelectionFilter filter, long newServerId);
 
-    void deleteAlert(long alertId);
+    void delete(long alertId);
 
-    long deleteAlerts(@NotNull SelectionFilter filter);
+    long delete(@NotNull SelectionFilter filter);
 
     // this update the alert listening date, margin to MARGIN_DISABLED, lastTrigger to now, and decrease repeat if not at zero
     void matchedAlertBatchUpdates(@NotNull ZonedDateTime now, @NotNull Consumer<BatchEntry> updater);
@@ -81,5 +81,5 @@ public interface AlertsDao {
     // this set the alert margin to MARGIN_DISABLED
     void marginAlertBatchUpdates(@NotNull ZonedDateTime now, @NotNull Consumer<BatchEntry> updater);
 
-    void alertBatchDeletes(@NotNull Consumer<BatchEntry> deleter);
+    void delete(@NotNull Consumer<BatchEntry> deleter);
 }

@@ -5,12 +5,13 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.sbot.entities.chart.Candlestick;
-import org.sbot.services.MatchingService.MatchingAlert;
+import org.sbot.entities.chart.DatedPrice;
 import org.sbot.services.MatchingService.MatchingAlert.MatchingStatus;
 import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -21,8 +22,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.*;
+import static org.sbot.entities.alerts.RangeAlertTest.createTestRangeAlert;
+import static org.sbot.entities.alerts.RemainderAlertTest.createTestRemainderAlert;
+import static org.sbot.entities.alerts.TrendAlertTest.createTestTrendAlert;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
-import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.*;
+import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.NOT_MATCHING;
+import static org.sbot.services.dao.AlertsDaoTest.assertDeepEquals;
 import static org.sbot.utils.DatesTest.nowUtc;
 
 public class AlertTest {
@@ -54,7 +59,7 @@ public class AlertTest {
 
         @NotNull
         @Override
-        protected EmbedBuilder asMessage(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick, @NotNull ZonedDateTime now) {
+        public EmbedBuilder asMessage(@NotNull MatchingStatus matchingStatus, @Nullable DatedPrice previousClose, @NotNull ZonedDateTime now) {
             return new EmbedBuilder().setDescription("TestAlert{" +
                     "id=" + id +
                     ", type=" + type +
@@ -222,6 +227,41 @@ public class AlertTest {
         assertThrows(IllegalArgumentException.class, () -> new TestAlert(NEW_ALERT_ID, TEST_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 TEST_FROM_PRICE, TEST_TO_PRICE, TEST_FROM_DATE, TEST_TO_DATE, TEST_LAST_TRIGGER,
                 TEST_MARGIN, DEFAULT_REPEAT, (short) -1));
+    }
+
+    @Test
+    void fieldsMap() {
+        Alert alert = createTestAlert();
+        var fieldsMap = alert.fieldsMap();
+        assertEquals(alert.id, fieldsMap.get(Field.ID));
+        assertEquals(alert.type, fieldsMap.get(Field.TYPE));
+        assertEquals(alert.userId, fieldsMap.get(Field.USER_ID));
+        assertEquals(alert.serverId, fieldsMap.get(Field.SERVER_ID));
+        assertEquals(alert.creationDate, fieldsMap.get(Field.CREATION_DATE));
+        assertEquals(alert.listeningDate, fieldsMap.get(Field.LISTENING_DATE));
+        assertEquals(alert.lastTrigger, fieldsMap.get(Field.LAST_TRIGGER));
+        assertEquals(alert.exchange, fieldsMap.get(Field.EXCHANGE));
+        assertEquals(alert.pair, fieldsMap.get(Field.PAIR));
+        assertEquals(alert.message, fieldsMap.get(Field.MESSAGE));
+        assertEquals(alert.fromPrice, fieldsMap.get(Field.FROM_PRICE));
+        assertEquals(alert.toPrice, fieldsMap.get(Field.TO_PRICE));
+        assertEquals(alert.fromDate, fieldsMap.get(Field.FROM_DATE));
+        assertEquals(alert.toDate, fieldsMap.get(Field.TO_DATE));
+        assertEquals(alert.margin, fieldsMap.get(Field.MARGIN));
+        assertEquals(alert.repeat, fieldsMap.get(Field.REPEAT));
+        assertEquals(alert.snooze, fieldsMap.get(Field.SNOOZE));
+    }
+
+    @Test
+    void alertOf() {
+        Alert alert = createTestAlert();
+        assertDeepEquals(alert, Alert.of(new HashMap<>(alert.fieldsMap())));
+        alert = createTestRangeAlert();
+        assertDeepEquals(alert, Alert.of(new HashMap<>(alert.fieldsMap())));
+        alert = createTestRemainderAlert();
+        assertDeepEquals(alert, Alert.of(new HashMap<>(alert.fieldsMap())));
+        alert = createTestTrendAlert();
+        assertDeepEquals(alert, Alert.of(new HashMap<>(alert.fieldsMap())));
     }
 
     @Test
@@ -508,20 +548,6 @@ public class AlertTest {
         Candlestick newerCandlestick = new Candlestick(candlestick.openTime(), closeTime.plusMinutes(1L),
                 candlestick.open(), candlestick.close(), candlestick.high(), candlestick.low());
         assertFalse(Alert.isNewerCandleStick(candlestick, newerCandlestick));
-    }
-
-    @Test
-    void onRaiseMessage() {
-        var now = nowUtc();
-        Alert alert = createTestAlert();
-        MatchingAlert matchingAlert = new MatchingAlert(alert, NOT_MATCHING, null);
-        assertTrue(alert.onRaiseMessage(matchingAlert, now).getDescriptionBuilder().toString().contains(NOT_MATCHING.name()));
-        Candlestick candlestick = new Candlestick(now.minusMinutes(1L), now,
-                BigDecimal.TWO, BigDecimal.TWO, BigDecimal.TEN, ONE);
-        matchingAlert = new MatchingAlert(alert, MATCHED, candlestick);
-        assertTrue(alert.onRaiseMessage(matchingAlert, now).getDescriptionBuilder().toString().contains(MATCHED.name()));
-        matchingAlert = new MatchingAlert(alert, MARGIN, candlestick);
-        assertTrue(alert.onRaiseMessage(matchingAlert, now).getDescriptionBuilder().toString().contains(MARGIN.name()));
     }
 
     @Test

@@ -6,27 +6,30 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.sbot.entities.FieldParser;
 import org.sbot.entities.chart.Candlestick;
-import org.sbot.utils.Tickers;
-import org.sbot.services.MatchingService.MatchingAlert;
+import org.sbot.entities.chart.DatedPrice;
 import org.sbot.services.MatchingService.MatchingAlert.MatchingStatus;
 import org.sbot.utils.Dates;
+import org.sbot.utils.Tickers;
 
 import java.awt.*;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.LongSupplier;
 
 import static java.util.Objects.requireNonNull;
-import static net.dv8tion.jda.api.entities.MessageEmbed.TITLE_MAX_LENGTH;
-import static org.sbot.entities.alerts.Alert.Type.remainder;
+import static org.sbot.entities.FieldParser.Type.*;
+import static org.sbot.entities.alerts.Alert.Field.*;
 import static org.sbot.entities.alerts.Alert.Type.trend;
-import static org.sbot.utils.Tickers.getSymbol;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.NOT_MATCHING;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.formatDiscordRelative;
+import static org.sbot.utils.Tickers.getSymbol;
 
 public abstract class Alert {
 
@@ -39,7 +42,7 @@ public abstract class Alert {
 
         public final String titleName;
 
-        Type(String titleName) {
+        Type(@NotNull String titleName) {
             this.titleName = requireNonNull(titleName);
         }
     }
@@ -53,9 +56,26 @@ public abstract class Alert {
     public static final Color DISABLED_COLOR = Color.black;
     public static final Color PRIVATE_COLOR = Color.blue;
     public static final Color PUBLIC_COLOR = Color.green;
-    public static final Color MATCHED_COLOR = Color.green;
-    public static final Color MARGIN_COLOR = Color.orange;
 
+    public enum Field implements FieldParser {
+        ID(LONG), TYPE(ALERT_TYPE), USER_ID(LONG), SERVER_ID(LONG),
+        CREATION_DATE(ZONED_DATE_TIME), LISTENING_DATE(ZONED_DATE_TIME), LAST_TRIGGER(ZONED_DATE_TIME),
+        EXCHANGE(STRING), PAIR(STRING), MESSAGE(STRING),
+        FROM_PRICE(DECIMAL), TO_PRICE(DECIMAL), FROM_DATE(ZONED_DATE_TIME), TO_DATE(ZONED_DATE_TIME),
+        MARGIN(DECIMAL), REPEAT(SHORT), SNOOZE(SHORT);
+
+        private final Type type;
+
+        Field(@NotNull Type type) {
+            this.type = requireNonNull(type);
+        }
+
+        @NotNull
+        @Override
+        public Object parse(@NotNull String value) {
+            return type.parse(value);
+        }
+    }
 
     public final long id;
 
@@ -115,16 +135,57 @@ public abstract class Alert {
         this.snooze = requireSnooze(snooze);
     }
 
+    protected Alert(@NotNull Map<FieldParser, Object> fields) {
+        this((long) fields.get(ID), (Type) fields.get(TYPE), (long) fields.get(USER_ID), (long) fields.get(SERVER_ID),
+                (ZonedDateTime) fields.get(CREATION_DATE), (ZonedDateTime) fields.get(LISTENING_DATE),
+                (String) fields.get(EXCHANGE), (String) fields.get(PAIR), (String) fields.get(MESSAGE),
+                (BigDecimal) fields.get(FROM_PRICE), (BigDecimal) fields.get(TO_PRICE),
+                (ZonedDateTime) fields.get(FROM_DATE), (ZonedDateTime) fields.get(TO_DATE),
+                (ZonedDateTime) fields.get(LAST_TRIGGER), (BigDecimal) fields.get(MARGIN),
+                (short) fields.get(REPEAT), (short) fields.get(SNOOZE));
+    }
+
     @NotNull
     protected abstract Alert build(long id, long userId, long serverId,
                                @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
                                @NotNull String exchange, @NotNull String pair, @NotNull String message,
                                BigDecimal fromPrice, BigDecimal toPrice,
                                ZonedDateTime fromDate, ZonedDateTime toDate,
-                               @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short snooze);
+                               @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin,
+                               short repeat, short snooze);
+
+    public Map<Field, Object> fieldsMap() {
+        var fields = new EnumMap<>(Field.class);
+        fields.put(ID, id);
+        fields.put(TYPE, type);
+        fields.put(USER_ID, userId);
+        fields.put(SERVER_ID, serverId);
+        fields.put(CREATION_DATE, creationDate);
+        fields.put(LISTENING_DATE, listeningDate);
+        fields.put(LAST_TRIGGER, lastTrigger);
+        fields.put(EXCHANGE, exchange);
+        fields.put(PAIR, pair);
+        fields.put(MESSAGE, message);
+        fields.put(FROM_PRICE, fromPrice);
+        fields.put(TO_PRICE, toPrice);
+        fields.put(FROM_DATE, fromDate);
+        fields.put(TO_DATE, toDate);
+        fields.put(MARGIN, margin);
+        fields.put(REPEAT, repeat);
+        fields.put(SNOOZE, snooze);
+        return fields;
+    }
+
+    public static Alert of(@NotNull Map<FieldParser, Object> fields) {
+        return switch ((Type) fields.get(TYPE)) {
+            case range -> new RangeAlert(fields);
+            case trend -> new TrendAlert(fields);
+            case remainder -> new RemainderAlert(fields);
+        };
+    }
 
     @NotNull
-    protected abstract EmbedBuilder asMessage(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick, @NotNull ZonedDateTime now);
+    public abstract EmbedBuilder asMessage(@NotNull MatchingStatus matchingStatus, @Nullable DatedPrice previousClose, @NotNull ZonedDateTime now);
 
     public static boolean isPrivate(long serverId) {
         return PRIVATE_MESSAGES == serverId;
@@ -262,13 +323,6 @@ public abstract class Alert {
     }
 
     @NotNull
-    public final EmbedBuilder onRaiseMessage(@NotNull MatchingAlert matchingAlert, @NotNull ZonedDateTime now) {
-        return asMessage(matchingAlert.status(), matchingAlert.matchingCandlestick(), now)
-                .setTitle(raiseTitle(matchingAlert.alert(), matchingAlert.status()))
-                .setColor(matchingAlert.status().isMatched() ? MATCHED_COLOR : MARGIN_COLOR);
-    }
-
-    @NotNull
     public final EmbedBuilder descriptionMessage(@NotNull ZonedDateTime now, @Nullable String guildName) {
         return asMessage(NOT_MATCHING, null, now)
                 .setColor(!isEnabled() ? DISABLED_COLOR : isPrivate(serverId) ? PRIVATE_COLOR : PUBLIC_COLOR)
@@ -276,7 +330,7 @@ public abstract class Alert {
     }
 
     @NotNull
-    protected final String header(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick, @NotNull ZonedDateTime now) {
+    protected final String header(@NotNull MatchingStatus matchingStatus, @Nullable DatedPrice previousClose, @NotNull ZonedDateTime now) {
         String header = matchingStatus.notMatching() ? type.titleName + " Alert set by <@" + userId + '>' :
                 "<@" + userId + ">\nYour " + type.name() + " set";
         return header + " on " + exchange + ' ' + pair +
@@ -288,9 +342,9 @@ public abstract class Alert {
                         .map(Dates::formatDiscordRelative)
                         .map("\n\nRaised "::concat)
                         .orElse("") :
-                        Optional.ofNullable(previousCandlestick).map(Candlestick::close)
+                        Optional.ofNullable(previousClose).map(DatedPrice::price)
                                 .map(price -> Tickers.formatPrice(price, getTicker2()))
-                                .map(price -> "\n\nLast close : " + price + " at " + formatDiscordRelative(previousCandlestick.closeTime()))
+                                .map(price -> "\n\nLast close : " + price + " at " + formatDiscordRelative(previousClose.dateTime()))
                                 .orElse(""));    }
 
     @NotNull
@@ -308,27 +362,12 @@ public abstract class Alert {
 
     public static final String DISABLED = "DISABLED";
 
-    private String withSnoozeTime(@NotNull ZonedDateTime now) {
+    protected String withSnoozeTime(@NotNull ZonedDateTime now) {
         if(null == listeningDate) {
             return "\n\n" + MarkdownUtil.bold(DISABLED);
         }
-        return !listeningDate.isAfter(now.plusMinutes(1L)) ? "" :
-                "\n\n" + MarkdownUtil.bold("SNOOZE for " + Dates.formatDiscordRelative(listeningDate));
-    }
-
-    //TODO test
-    private static String raiseTitle(@NotNull Alert alert, @NotNull MatchingStatus matchingStatus) {
-        String title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + alert.type.titleName + (alert.type != remainder ? " ALERT !!!" : "") + " - [" + alert.pair + "] ";
-        String message = remainder == alert.type ? "" : alert.message;
-        if(TITLE_MAX_LENGTH - message.length() < title.length()) {
-            LOGGER.warn("Alert name '{}' will be truncated from the title because it is too long : {}", alert.type.titleName, title);
-            title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + "ALERT !!! - [" + alert.pair + "] ";
-            if(TITLE_MAX_LENGTH - message.length() < title.length()) {
-                LOGGER.warn("Pair '{}' will be truncated from the title because it is too long : {}", alert.pair, title);
-                title = "!!! " + (matchingStatus.isMargin() ? "MARGIN " : "") + " ALERT !!! - ";
-            }
-        }
-        return title + message;
+        return listeningDate.isBefore(now.plusMinutes(1L)) ? "" :
+                "\n\n" + MarkdownUtil.bold("SNOOZE until " + Dates.formatDiscordRelative(listeningDate));
     }
 
     @Override
@@ -362,7 +401,6 @@ public abstract class Alert {
                 ", toDate=" + toDate +
                 ", margin=" + margin +
                 ", repeat=" + repeat +
-                ", snooze=" + snooze +
-                '}';
+                ", snooze=" + snooze + '}';
     }
 }

@@ -37,6 +37,14 @@ class CandlestickTest {
     }
 
     @Test
+    void datedClose() {
+        var candlestick = new Candlestick(TEST_OPEN_TIME, TEST_CLOSE_TIME, TEST_OPEN, TEST_CLOSE, TEST_HIGH, TEST_LOW);
+        var datedClose = candlestick.datedClose();
+        assertEquals(TEST_CLOSE, datedClose.price());
+        assertEquals(TEST_CLOSE_TIME, datedClose.dateTime());
+    }
+
+    @Test
     void periodSince() {
         assertEquals(0, CandlestickPeriod.ONE_MINUTE.daily());
         assertEquals(0, CandlestickPeriod.ONE_MINUTE.hourly());

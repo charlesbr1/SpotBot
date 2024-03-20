@@ -1,5 +1,6 @@
 package org.sbot.utils;
 
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -19,6 +20,7 @@ import static java.util.function.Predicate.not;
 import static net.dv8tion.jda.api.entities.Message.MentionType.USER;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
+import static org.sbot.services.discord.Discord.guildName;
 
 public interface ArgumentValidator {
 
@@ -26,7 +28,7 @@ public interface ArgumentValidator {
 
 
     int MESSAGE_MAX_LENGTH = 210;
-    int TICKER_MIN_LENGTH = 3;
+    int TICKER_MIN_LENGTH = 2;
     int TICKER_MAX_LENGTH = 5;
     int PAIR_MIN_LENGTH = 7;
     int PAIR_MAX_LENGTH = 11;
@@ -47,6 +49,10 @@ public interface ArgumentValidator {
     }
 
     static int requireStrictlyPositive(int value) {
+        return (int) requireStrictlyPositive((long) value);
+    }
+
+    static long requireStrictlyPositive(long value) {
         if(value <= 0) {
             throw new IllegalArgumentException("Zero or negative value : " + value);
         }
@@ -167,6 +173,13 @@ public interface ArgumentValidator {
 
     static long requireUser(@NotNull String userMention) {
         return asUser(userMention).orElseThrow(() -> new IllegalArgumentException("Provided string is not an user mention : " + userMention));
+    }
+
+    // possibly blocking call
+    static void requireGuildMember(@Nullable Guild guild, long userId) {
+        if(null != guild && null == guild.retrieveMemberById(userId).complete()) {
+            throw new IllegalArgumentException("User <@" + userId + "> is not a member of guild " + guildName(guild));
+        }
     }
 
     static Optional<Long> asUser(@NotNull String userMention) {

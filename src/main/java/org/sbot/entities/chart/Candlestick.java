@@ -29,6 +29,9 @@ public record Candlestick(@NotNull ZonedDateTime openTime, @NotNull ZonedDateTim
         }
     }
 
+    public DatedPrice datedClose() {
+        return new DatedPrice(close, closeTime);
+    }
 
     public record CandlestickPeriod(int daily, int hourly, int minutes) {
         public static final CandlestickPeriod ONE_MINUTE = new CandlestickPeriod(0, 0, 1);

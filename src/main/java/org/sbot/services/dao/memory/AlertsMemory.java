@@ -26,6 +26,7 @@ import static org.sbot.entities.alerts.Alert.Type.range;
 import static org.sbot.entities.alerts.Alert.Type.remainder;
 import static org.sbot.services.dao.BatchEntry.longId;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
+import static org.sbot.utils.ArgumentValidator.requireStrictlyPositive;
 
 public final class AlertsMemory implements AlertsDao {
 
@@ -59,10 +60,7 @@ public final class AlertsMemory implements AlertsDao {
         long[] read = new long[] {0L};
         alertsConsumer.accept(havingPastListeningDateWithActiveRange(now, checkPeriodMin, alerts.values().stream()
                 .filter(alert -> alert.exchange.equals(exchange) && alert.pair.equals(pair)))
-                .map(alert -> {
-                    read[0] += 1;
-                    return alert.withMessage(""); // simulate sql layer
-                }));
+                .filter(alert -> ++read[0] != 0));
         return read[0];
     }
 
@@ -77,8 +75,8 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public long fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
-        LOGGER.debug("fetchAlertsHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore {}", expirationDate);
+    public long fetchAlertsWithoutMessageHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(@NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchAlertsWithoutMessageHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore {}", expirationDate);
         requireNonNull(expirationDate);
         long[] read = new long[] {0L};
         Predicate<Alert> predicate = alert -> alert.repeat < 0 &&
@@ -90,8 +88,8 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public long fetchAlertsByTypeHavingToDateBefore(@NotNull Type type, @NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
-        LOGGER.debug("fetchAlertsByTypeHavingToDateBefore {} {}", type, expirationDate);
+    public long fetchAlertsWithoutMessageByTypeHavingToDateBefore(@NotNull Type type, @NotNull ZonedDateTime expirationDate, @NotNull Consumer<Stream<Alert>> alertsConsumer) {
+        LOGGER.debug("fetchAlertsWithoutMessageByTypeHavingToDateBefore {} {}", type, expirationDate);
         requireNonNull(type); requireNonNull(expirationDate);
         long[] read = new long[] {0L};
         Predicate<Alert> typeAndToDateBefore = alert -> alert.type == type && null != alert.toDate &&
@@ -156,7 +154,7 @@ public final class AlertsMemory implements AlertsDao {
         var order = null != filter.userId() ?
                 comparing(Alert::getPair).thenComparing(Alert::getId) :
                 comparing(Alert::getPair).thenComparing(Alert::getUserId).thenComparing(Alert::getId);
-        return getAlertsStream(filter).sorted(order).skip(offset).limit(limit).toList();
+        return getAlertsStream(filter).sorted(order).skip(offset).limit(requireStrictlyPositive(limit)).toList();
     }
 
     @Override
@@ -191,14 +189,14 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public void deleteAlert(long alertId) {
-        LOGGER.debug("deleteAlert {}", alertId);
+    public void delete(long alertId) {
+        LOGGER.debug("delete {}", alertId);
         alerts.remove(alertId);
     }
 
     @Override
-    public long deleteAlerts(@NotNull SelectionFilter filter) {
-        LOGGER.debug("deleteAlerts {}", filter);
+    public long delete(@NotNull SelectionFilter filter) {
+        LOGGER.debug("delete {}", filter);
         long[] deleted = new long[] {0L};
         alerts.values().removeIf(asSearchFilter(filter).and(a -> ++deleted[0] != 0));
         return deleted[0];
@@ -224,8 +222,8 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public void alertBatchDeletes(@NotNull Consumer<BatchEntry> deleter) {
-        LOGGER.debug("alertBatchDeletes");
+    public void delete(@NotNull Consumer<BatchEntry> deleter) {
+        LOGGER.debug("batchDelete");
         deleter.accept(ids -> alerts.remove(longId(ids)));
     }
 }

@@ -130,10 +130,27 @@ class ContextTest {
     }
 
     @Test
+    void notificationService() {
+        Parameters parameters = Parameters.of(null, "discordTokenFile", 1, 1);
+        var context = Context.of(Clock.systemUTC(), parameters, null, ctx -> mock(Discord.class));
+        assertNotNull(context.notificationService());
+    }
+
+    @Test
     void alertsWatcher() {
         Parameters parameters = Parameters.of(null, "discordTokenFile", 1, 1);
         var context = Context.of(Clock.systemUTC(), parameters, null, ctx -> mock(Discord.class));
         assertNotNull(context.alertsWatcher());
+    }
+
+    @Test
+    void asThreadSafeTxContext() {
+        Parameters parameters = Parameters.of(null, "discordTokenFile", 1, 1);
+        var context = Context.of(Clock.systemUTC(), parameters, null, ctx -> mock(Discord.class));
+        assertNotNull(context.asThreadSafeTxContext(SERIALIZABLE, 1));
+        assertThrows(NullPointerException.class, () -> context.asThreadSafeTxContext(null, 1));
+        assertThrows(IllegalArgumentException.class, () -> context.asThreadSafeTxContext(SERIALIZABLE, 0));
+        assertThrows(IllegalArgumentException.class, () -> context.asThreadSafeTxContext(SERIALIZABLE, -1));
     }
 
     @Test

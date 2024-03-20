@@ -96,6 +96,10 @@ public abstract class CommandContext implements Context {
         this.member = commandContext.member;
     }
 
+    public boolean isStringReader() {
+        return args instanceof StringArgumentReader;
+    }
+
     public final void reply(@NotNull Message message, int ttlSeconds) {
         reply(List.of(message), ttlSeconds);
     }

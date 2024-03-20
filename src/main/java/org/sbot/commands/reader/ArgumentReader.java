@@ -19,25 +19,21 @@ public interface ArgumentReader {
 
     @NotNull
     default String getMandatoryString(@NotNull String fieldName) {
-        return getString(fieldName).filter(not(String::isBlank)).orElseThrow(() -> new IllegalArgumentException("Missing text for argument '" + fieldName + '\''));
+        return getString(fieldName).filter(not(String::isBlank)).orElseThrow(() -> new IllegalArgumentException("Missing argument " + fieldName));
     }
 
     @NotNull
     default BigDecimal getMandatoryNumber(@NotNull String fieldName) {
-        return getNumber(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing or malformed number for argument '" + fieldName + '\''));
+        return getNumber(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing or invalid number argument " + fieldName));
     }
 
     default long getMandatoryLong(@NotNull String fieldName) {
-        return getLong(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing value for argument '" + fieldName + '\''));
+        return getLong(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing or invalid integer argument " + fieldName));
     }
 
     @NotNull
     default ZonedDateTime getMandatoryDateTime(@NotNull Locale locale, @Nullable ZoneId timezone, @NotNull Clock clock, @NotNull String fieldName) {
-        return getDateTime(locale, timezone, clock, fieldName).orElseThrow(() -> new IllegalArgumentException("Missing or malformed date time for argument '" + fieldName + "'\nexpected format : " + Dates.DATE_TIME_FORMAT + " UTC"));
-    }
-
-    default long getMandatoryUserId(@NotNull String fieldName) {
-        return getUserId(fieldName).orElseThrow(() -> new IllegalArgumentException("Missing user mention for argument '" + fieldName + '\''));
+        return getDateTime(locale, timezone, clock, fieldName).orElseThrow(() -> new IllegalArgumentException("Missing or malformed date time argument " + fieldName + "\nexpected format : " + Dates.DATE_TIME_FORMAT));
     }
 
     default Type getMandatoryType(@NotNull String fieldName) {

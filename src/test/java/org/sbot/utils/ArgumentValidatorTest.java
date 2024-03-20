@@ -1,6 +1,9 @@
 package org.sbot.utils;
 
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
+import net.dv8tion.jda.api.requests.restaction.CacheRestAction;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -12,6 +15,7 @@ import java.util.Optional;
 import static java.math.BigDecimal.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.mockito.Mockito.*;
 import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
@@ -47,13 +51,13 @@ class ArgumentValidatorTest {
         assertFalse(PAIR_PATTERN.matcher("eth/btc").matches());
         assertTrue(PAIR_PATTERN.matcher("1INCH/BTC").matches());
         assertTrue(PAIR_PATTERN.matcher("123/123").matches());
-        assertFalse(PAIR_PATTERN.matcher("12/123").matches());
+        assertTrue(PAIR_PATTERN.matcher("12/123").matches());
         assertFalse(PAIR_PATTERN.matcher("1/123").matches());
         assertFalse(PAIR_PATTERN.matcher("/123").matches());
         assertFalse(PAIR_PATTERN.matcher("/").matches());
         assertFalse(PAIR_PATTERN.matcher("").matches());
         assertFalse(PAIR_PATTERN.matcher("123").matches());
-        assertFalse(PAIR_PATTERN.matcher("123/12").matches());
+        assertTrue(PAIR_PATTERN.matcher("123/12").matches());
         assertFalse(PAIR_PATTERN.matcher("123/1").matches());
         assertFalse(PAIR_PATTERN.matcher("123/").matches());
         assertTrue(PAIR_PATTERN.matcher("12345/ABCDE").matches());
@@ -118,6 +122,12 @@ class ArgumentValidatorTest {
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireStrictlyPositive(0));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(-1));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(-300));
+
+        assertEquals(1L, ArgumentValidator.requireStrictlyPositive(1L));
+        assertEquals(300L, ArgumentValidator.requireStrictlyPositive(300L));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireStrictlyPositive(0L));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(-1L));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(-300L));
     }
 
     @Test
@@ -235,13 +245,11 @@ class ArgumentValidatorTest {
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("eth/btc"));
         assertEquals("1INCH/BTC", ArgumentValidator.requirePairFormat("1INCH/BTC"));
         assertEquals("123/123", ArgumentValidator.requirePairFormat("123/123"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("12/123"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("1/123"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("/123"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("/"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat(""));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("123"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("123/12"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("123/1"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("123/"));
         assertEquals("12345/ABCDE", ArgumentValidator.requirePairFormat("12345/ABCDE"));
@@ -253,11 +261,12 @@ class ArgumentValidatorTest {
     void requireTickerPairLength() {
         assertEquals("1INCH/BTC", ArgumentValidator.requireTickerPairLength("1INCH/BTC"));
         assertEquals("BTC", ArgumentValidator.requireTickerPairLength("BTC"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("BT"));
+        assertEquals("AR", ArgumentValidator.requireTickerPairLength("AR"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("B"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("BT3456"));
         assertEquals("12345/ABCDE", ArgumentValidator.requireTickerPairLength("12345/ABCDE"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("56/ABC"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("566/BC"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("5/ABC"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("566/C"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("1234567/ABC"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("123456/ABCDE"));
     }
@@ -304,6 +313,23 @@ class ArgumentValidatorTest {
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<@>"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<>"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(""));
+    }
+
+    @Test
+    void requireGuildMember() {
+        assertDoesNotThrow(() -> ArgumentValidator.requireGuildMember(null, 0L));
+        assertDoesNotThrow(() -> ArgumentValidator.requireGuildMember(null, 123L));
+        CacheRestAction<Member> restAction = mock();
+        Guild guild = mock();
+        when(guild.retrieveMemberById(123L)).thenReturn(restAction);
+        when(restAction.complete()).thenReturn(mock());
+        assertDoesNotThrow(() -> ArgumentValidator.requireGuildMember(guild, 123L));
+        verify(guild).retrieveMemberById(123L);
+
+        when(guild.retrieveMemberById(456L)).thenReturn(restAction);
+        when(restAction.complete()).thenReturn(null);
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireGuildMember(guild, 456L));
+        verify(guild).retrieveMemberById(456L);
     }
 
     @Test

@@ -22,11 +22,16 @@ class CommandContextTest {
     }
 
     @Test
+    void isStringReader() {
+
+    }
+
+    @Test
     void ofTest() {
 //        assertExceptionContains(IllegalArgumentException.class, "Missing command",
   //              () -> CommandContext.of(context, null, messageReceivedEvent, ""));
-
     }
+
     @Test
     void reply() {
     }

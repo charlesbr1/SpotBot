@@ -150,6 +150,6 @@ public interface Dates {
                             .replace("5", "M")
                             .replace("03", "dd")
                             .replace("3", "d") +
-                            ' ' + TIME_FORMAT + " (optional) zone"));
+                            ' ' + TIME_FORMAT + " (optional timezone)"));
     }
 }

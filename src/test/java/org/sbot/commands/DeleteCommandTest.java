@@ -8,13 +8,15 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
+import org.sbot.services.NotificationsService;
 import org.sbot.services.context.Context;
 import org.sbot.services.context.Context.DataServices;
 import org.sbot.services.context.Context.Services;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.AlertsDao.SelectionFilter;
-import org.sbot.services.discord.Discord;
+import org.sbot.services.dao.NotificationsDao;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
 
@@ -49,15 +51,17 @@ class DeleteCommandTest {
         when(member.getGuild()).thenReturn(guild);
         when(guild.getIdLong()).thenReturn(serverId);
         Context context = mock(Context.class);
+        Services services = mock();
+        when(context.services()).thenReturn(services);
+        NotificationsService notificationsService = mock();
+        when(services.notificationService()).thenReturn(notificationsService);
         AlertsDao alertsDao = mock();
+        NotificationsDao notificationsDao = mock();
         DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
-        Discord discord = mock();
-        when(context.discord()).thenReturn(discord);
-        Services services = mock();
-        when(services.discord()).thenReturn(discord);
-        when(context.services()).thenReturn(services);
+        when(context.clock()).thenReturn(Clock.systemUTC());
 
         var command = new DeleteCommand();
 
@@ -68,7 +72,7 @@ class DeleteCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao).getAlertWithoutMessage(alertId);
-        verify(alertsDao, never()).deleteAlert(alertId);
+        verify(alertsDao, never()).delete(alertId);
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         List<Message> messages = messagesReply.getValue();
@@ -84,7 +88,7 @@ class DeleteCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao).getAlertWithoutMessage(alertId);
-        verify(alertsDao, never()).deleteAlert(alertId);
+        verify(alertsDao, never()).delete(alertId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
@@ -99,7 +103,7 @@ class DeleteCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao).getAlertWithoutMessage(alertId);
-        verify(alertsDao).deleteAlert(alertId);
+        verify(alertsDao).delete(alertId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
@@ -113,13 +117,13 @@ class DeleteCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao).getAlertWithoutMessage(alertId);
-        verify(alertsDao).deleteAlert(alertId);
+        verify(alertsDao).delete(alertId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
         assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("deleted"));
-        verify(discord, never()).sendPrivateMessage(anyInt(), any(), eq(null));
+        verify(notificationsService, never()).sendNotifications();
 
         // guild channel
         // delete by id, alert exists, not same user, not same channel, not found
@@ -130,7 +134,7 @@ class DeleteCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao).getAlertWithoutMessage(alertId);
-        verify(alertsDao, never()).deleteAlert(alertId);
+        verify(alertsDao, never()).delete(alertId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
@@ -144,7 +148,7 @@ class DeleteCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao).getAlertWithoutMessage(alertId);
-        verify(alertsDao, never()).deleteAlert(alertId);
+        verify(alertsDao, never()).delete(alertId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
@@ -158,7 +162,7 @@ class DeleteCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao).getAlertWithoutMessage(alertId);
-        verify(alertsDao, never()).deleteAlert(alertId);
+        verify(alertsDao, never()).delete(alertId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
@@ -173,9 +177,9 @@ class DeleteCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao).getAlertWithoutMessage(alertId);
-        verify(alertsDao).deleteAlert(alertId);
+        verify(alertsDao).delete(alertId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord).sendPrivateMessage(eq(userId + 1), any(), eq(null));
+        verify(notificationsService).sendNotifications();
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -188,9 +192,9 @@ class DeleteCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao).getAlertWithoutMessage(alertId);
-        verify(alertsDao).deleteAlert(alertId);
+        verify(alertsDao).delete(alertId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord, never()).sendPrivateMessage(eq(userId), any(), eq(null));
+        verify(notificationsService).sendNotifications();
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -211,15 +215,17 @@ class DeleteCommandTest {
         when(member.getGuild()).thenReturn(guild);
         when(guild.getIdLong()).thenReturn(serverId);
         Context context = mock(Context.class);
+        when(context.clock()).thenReturn(Clock.systemUTC());
         AlertsDao alertsDao = mock();
+        NotificationsDao notificationsDao = mock();
         DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
-        Discord discord = mock();
-        when(context.discord()).thenReturn(discord);
         Services services = mock();
-        when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
+        NotificationsService notificationsService = mock();
+        when(services.notificationService()).thenReturn(notificationsService);
 
         var command = new DeleteCommand();
 
@@ -229,10 +235,10 @@ class DeleteCommandTest {
         var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " all" ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).deleteAlerts(SelectionFilter.ofUser(userId, null));
+        verify(alertsDao).delete(SelectionFilter.ofUser(userId, null));
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
         List<Message> messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -243,9 +249,9 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " all  <@" + (userId + 1) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao, never()).deleteAlerts(SelectionFilter.ofUser(userId + 1, null));
+        verify(alertsDao, never()).delete(SelectionFilter.ofUser(userId + 1, null));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -255,9 +261,9 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd  <@" + (userId) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).deleteAlerts(SelectionFilter.ofUser(userId, null).withTickerOrPair("ETH/USD"));
+        verify(alertsDao).delete(SelectionFilter.ofUser(userId, null).withTickerOrPair("ETH/USD"));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -266,7 +272,7 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " btc/usd trend <@" + (userId) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).deleteAlerts(SelectionFilter.ofUser(userId, trend).withTickerOrPair("BTC/USD"));
+        verify(alertsDao).delete(SelectionFilter.ofUser(userId, trend).withTickerOrPair("BTC/USD"));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
@@ -276,7 +282,7 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/xrp remainder" ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).deleteAlerts(SelectionFilter.ofUser(userId, remainder).withTickerOrPair("ETH/XRP"));
+        verify(alertsDao).delete(SelectionFilter.ofUser(userId, remainder).withTickerOrPair("ETH/XRP"));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
@@ -287,9 +293,9 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd  <@" + (userId + 2) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao, never()).deleteAlerts(SelectionFilter.ofUser(userId + 2, null).withTickerOrPair("ETH/USD"));
+        verify(alertsDao, never()).delete(SelectionFilter.ofUser(userId + 2, null).withTickerOrPair("ETH/USD"));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -301,9 +307,9 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " all " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).deleteAlerts(SelectionFilter.of(serverId, userId, null));
+        verify(alertsDao).delete(SelectionFilter.of(serverId, userId, null));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -313,9 +319,9 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " all  <@" + (userId + 1) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao, never()).deleteAlerts(SelectionFilter.of(serverId, userId + 1, null));
+        verify(alertsDao, never()).delete(SelectionFilter.of(serverId, userId + 1, null));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord, never()).sendPrivateMessage(anyInt(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -326,23 +332,23 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " all  <@" + (userId + 1) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).deleteAlerts(SelectionFilter.of(serverId, userId + 1, null));
+        verify(alertsDao).delete(SelectionFilter.of(serverId, userId + 1, null));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord, never()).sendPrivateMessage(eq(userId + 1), any(), any());
+        verify(notificationsService, never()).sendNotifications();
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
         assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert deleted"));
         when(member.hasPermission(ADMINISTRATOR)).thenReturn(false);
 
-        when(alertsDao.deleteAlerts(SelectionFilter.of(serverId, userId + 1, null))).thenReturn(3L);
+        when(alertsDao.delete(SelectionFilter.of(serverId, userId + 1, null))).thenReturn(3L);
         when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " all  <@" + (userId + 1) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao, times(2)).deleteAlerts(SelectionFilter.of(serverId, userId + 1, null));
+        verify(alertsDao, times(2)).delete(SelectionFilter.of(serverId, userId + 1, null));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord).sendPrivateMessage(eq(userId + 1), any(), any());
+        verify(notificationsService).sendNotifications();
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -353,9 +359,9 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd  <@" + userId + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).deleteAlerts(SelectionFilter.of(serverId, userId, null).withTickerOrPair("ETH/USD"));
+        verify(alertsDao).delete(SelectionFilter.of(serverId, userId, null).withTickerOrPair("ETH/USD"));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord, never()).sendPrivateMessage(eq(userId), any(), any());
+        verify(notificationsService).sendNotifications();
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -364,7 +370,7 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " btc/usd  remainder " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).deleteAlerts(SelectionFilter.of(serverId, userId, remainder).withTickerOrPair("BTC/USD"));
+        verify(alertsDao).delete(SelectionFilter.of(serverId, userId, remainder).withTickerOrPair("BTC/USD"));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
@@ -374,7 +380,7 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " btc/usd  range " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).deleteAlerts(SelectionFilter.of(serverId, userId, range).withTickerOrPair("BTC/USD"));
+        verify(alertsDao).delete(SelectionFilter.of(serverId, userId, range).withTickerOrPair("BTC/USD"));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
@@ -385,10 +391,9 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd  <@" + (userId + 3) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao, never()).deleteAlerts(SelectionFilter.of(serverId, userId + 3, null).withTickerOrPair("ETH/USD"));
+        verify(alertsDao, never()).delete(SelectionFilter.of(serverId, userId + 3, null).withTickerOrPair("ETH/USD"));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord, never()).sendPrivateMessage(eq(userId), any(), any());
-        verify(discord, never()).sendPrivateMessage(eq(userId + 3), any(), any());
+        verify(notificationsService).sendNotifications();
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -397,9 +402,9 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd trend <@" + (userId + 3) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao, never()).deleteAlerts(SelectionFilter.of(serverId, userId + 3, trend).withTickerOrPair("ETH/USD"));
+        verify(alertsDao, never()).delete(SelectionFilter.of(serverId, userId + 3, trend).withTickerOrPair("ETH/USD"));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord, never()).sendPrivateMessage(eq(userId + 3), any(), any());
+        verify(notificationsService).sendNotifications();
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -410,36 +415,34 @@ class DeleteCommandTest {
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd  <@" + (userId + 3) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).deleteAlerts(SelectionFilter.of(serverId, userId + 3, null).withTickerOrPair("ETH/USD"));
+        verify(alertsDao).delete(SelectionFilter.of(serverId, userId + 3, null).withTickerOrPair("ETH/USD"));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord, never()).sendPrivateMessage(eq(userId), any(), any());
-        verify(discord, never()).sendPrivateMessage(eq(userId + 3), any(), any());
+        verify(notificationsService).sendNotifications();
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
         assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert deleted"));
 
-        when(alertsDao.deleteAlerts(SelectionFilter.of(serverId, userId + 3, null).withTickerOrPair("ETH/USD"))).thenReturn(1L);
+        when(alertsDao.delete(SelectionFilter.of(serverId, userId + 3, null).withTickerOrPair("ETH/USD"))).thenReturn(1L);
         when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd  <@" + (userId + 3) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao, times(2)).deleteAlerts(SelectionFilter.of(serverId, userId + 3, null).withTickerOrPair("ETH/USD"));
+        verify(alertsDao, times(2)).delete(SelectionFilter.of(serverId, userId + 3, null).withTickerOrPair("ETH/USD"));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord, never()).sendPrivateMessage(eq(userId), any(), any());
-        verify(discord).sendPrivateMessage(eq(userId + 3), any(), any());
+        verify(notificationsService, times(2)).sendNotifications();
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
         assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("1 alert deleted"));
 
-        when(alertsDao.deleteAlerts(SelectionFilter.of(serverId, userId + 5, trend).withTickerOrPair("ETH/USD"))).thenReturn(7L);
+        when(alertsDao.delete(SelectionFilter.of(serverId, userId + 5, trend).withTickerOrPair("ETH/USD"))).thenReturn(7L);
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + " eth/usd trend <@" + (userId + 5) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).deleteAlerts(SelectionFilter.of(serverId, userId + 5, trend).withTickerOrPair("ETH/USD"));
+        verify(alertsDao).delete(SelectionFilter.of(serverId, userId + 5, trend).withTickerOrPair("ETH/USD"));
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(discord).sendPrivateMessage(eq(userId + 5), any(), any());
+        verify(notificationsService, times(3)).sendNotifications();
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -481,7 +484,7 @@ class DeleteCommandTest {
                 () -> DeleteCommand.arguments(commandContext[0]));
 
         // filter command
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + "  az");
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + "  z");
         assertExceptionContains(IllegalArgumentException.class, "ticker",
                 () -> DeleteCommand.arguments(commandContext[0]));
 
