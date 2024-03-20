@@ -15,7 +15,7 @@ import static java.util.Objects.requireNonNull;
 import static org.sbot.utils.ArgumentValidator.requirePairFormat;
 import static org.sbot.utils.ArgumentValidator.requireSupportedExchange;
 
-public class LastCandlesticksService {
+public final class LastCandlesticksService {
 
     private static final Logger LOGGER = LogManager.getLogger(LastCandlesticksService.class);
 
@@ -49,8 +49,8 @@ public class LastCandlesticksService {
         void batch(@NotNull String exchange, @NotNull String pair);
     }
 
-    void lastCandlestickBatchDeletes(@NotNull Consumer<DeleteLastCandlestickBatchEntry> deleter) {
-        context.lastCandlesticksDao().lastCandlestickBatchDeletes(batchEntry -> deleter.accept((exchange, pair) ->
+    void delete(@NotNull Consumer<DeleteLastCandlestickBatchEntry> deleter) {
+        context.lastCandlesticksDao().delete(batchEntry -> deleter.accept((exchange, pair) ->
                 batchEntry.batch(Map.of("exchange", requireSupportedExchange(exchange), "pair", requirePairFormat(pair)))));
     }
 }

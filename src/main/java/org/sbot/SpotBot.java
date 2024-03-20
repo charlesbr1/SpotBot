@@ -44,8 +44,8 @@ public class SpotBot {
 
     public static final String DATABASE_URL_PROPERTY = "database.url";
     public static final String DISCORD_BOT_TOKEN_FILE_PROPERTY = "discord.token.file";
-    public static final String ALERTS_CHECK_PERIOD_MINUTES_PROPERTY = "alerts.check.period-minutes";
-    public static final String ALERTS_HOURLY_SYNC_DELTA_MINUTES_PROPERTY = "alerts.check.hourly-sync.delta-minutes";
+    public static final String ALERTS_CHECK_PERIOD_MINUTES_PROPERTY = "alerts.check.period.minutes";
+    public static final String ALERTS_HOURLY_SYNC_DELTA_MINUTES_PROPERTY = "alerts.check.hourly-sync.delta.minutes";
 
     private static final int DEFAULT_CHECK_PERIOD_MINUTES = 15;
     private static final int DEFAULT_HOURLY_SYNC_DELTA_MINUTES = 3;

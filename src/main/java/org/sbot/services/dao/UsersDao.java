@@ -7,10 +7,10 @@ import org.sbot.utils.Dates;
 import java.time.Clock;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.LongStream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -21,7 +21,7 @@ public interface UsersDao {
         requireNonNull(locale);
         return accessUser(userId, clock).orElseGet(() -> {
             var user = new User(userId, locale, null, Dates.nowUtc(clock));
-            setUser(user);
+            addUser(user);
             return user;
         });
     }
@@ -39,9 +39,9 @@ public interface UsersDao {
 
     boolean userExists(long userId);
 
-    Map<Long, Locale> getLocales(@NotNull LongStream userIds);
+    Map<Long, Locale> getLocales(@NotNull List<Long> userIds);
 
-    void setUser(@NotNull User user);
+    void addUser(@NotNull User user);
 
     void updateLocale(long userId, @NotNull Locale locale);
 

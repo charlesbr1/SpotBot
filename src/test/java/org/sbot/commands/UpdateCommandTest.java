@@ -11,9 +11,11 @@ import org.mockito.ArgumentCaptor;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
 import org.sbot.entities.alerts.Alert;
+import org.sbot.services.NotificationsService;
 import org.sbot.services.context.Context;
 import org.sbot.services.context.Context.Services;
 import org.sbot.services.dao.AlertsDao;
+import org.sbot.services.dao.NotificationsDao;
 import org.sbot.services.dao.UsersDao;
 import org.sbot.services.discord.Discord;
 import org.sbot.utils.Dates;
@@ -283,14 +285,17 @@ class UpdateCommandTest {
         MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
         when(messageReceivedEvent.getMessage()).thenReturn(mock());
         User user = mock();
+        when(user.getAsMention()).thenReturn("<@123>");
         when(messageReceivedEvent.getAuthor()).thenReturn(user);
         when(user.getIdLong()).thenReturn(userId);
         Context context = mock(Context.class);
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(ChronoUnit.MINUTES);
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
+        NotificationsDao notificationsDao = mock();
         Context.DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
 
         var command = new UpdateCommand();
@@ -316,8 +321,10 @@ class UpdateCommandTest {
         // private channel, same user, any server, ok
         Discord discord = mock();
         Services services = mock();
+        NotificationsService notificationsService = mock();
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
+        when(services.notificationService()).thenReturn(notificationsService);
         Guild guild = mock();
         when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
@@ -343,7 +350,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(CHOICE_MESSAGE));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
@@ -362,7 +369,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, not same server, not found
         Member member = mock();
@@ -386,7 +393,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
@@ -405,7 +412,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, same server  ok
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID)));
@@ -428,7 +435,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(CHOICE_MESSAGE));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
@@ -447,7 +454,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not allowed"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server, admin,  ok, notification sent
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
@@ -471,7 +478,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(CHOICE_MESSAGE));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord).sendPrivateMessage(eq(userId + 1), any(), any());
+        verify(notificationsService).sendNotifications();
     }
 
     @Test
@@ -481,14 +488,17 @@ class UpdateCommandTest {
         MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
         when(messageReceivedEvent.getMessage()).thenReturn(mock());
         User user = mock();
+        when(user.getAsMention()).thenReturn("<@123>");
         when(messageReceivedEvent.getAuthor()).thenReturn(user);
         when(user.getIdLong()).thenReturn(userId);
         Context context = mock(Context.class);
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(ChronoUnit.MINUTES);
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
+        NotificationsDao notificationsDao = mock();
         Context.DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
 
         var command = new UpdateCommand();
@@ -526,8 +536,10 @@ class UpdateCommandTest {
         // private channel, same user, any server, ok
         Discord discord = mock();
         Services services = mock();
+        NotificationsService notificationsService = mock();
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
+        when(services.notificationService()).thenReturn(notificationsService);
         Guild guild = mock();
         when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
@@ -552,7 +564,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(CHOICE_LOW));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
@@ -571,7 +583,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, not same server, not found
         Member member = mock();
@@ -595,7 +607,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
@@ -614,7 +626,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, same server  ok
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID)));
@@ -637,7 +649,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(CHOICE_LOW));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
@@ -656,7 +668,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not allowed"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server, admin,  ok, notification sent
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
@@ -679,7 +691,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(CHOICE_LOW));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord).sendPrivateMessage(eq(userId + 1), any(), any());
+        verify(notificationsService).sendNotifications();
     }
 
     @Test
@@ -689,14 +701,17 @@ class UpdateCommandTest {
         MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
         when(messageReceivedEvent.getMessage()).thenReturn(mock());
         User user = mock();
+        when(user.getAsMention()).thenReturn("<@123>");
         when(messageReceivedEvent.getAuthor()).thenReturn(user);
         when(user.getIdLong()).thenReturn(userId);
         Context context = mock(Context.class);
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(ChronoUnit.MINUTES);
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
+        NotificationsDao notificationsDao = mock();
         Context.DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
 
         var command = new UpdateCommand();
@@ -734,8 +749,10 @@ class UpdateCommandTest {
         // private channel, same user, any server, ok
         Discord discord = mock();
         Services services = mock();
+        NotificationsService notificationsService = mock();
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
+        when(services.notificationService()).thenReturn(notificationsService);
         Guild guild = mock();
         when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
@@ -760,7 +777,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(CHOICE_HIGH));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
@@ -779,7 +796,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, not same server, not found
         Member member = mock();
@@ -803,7 +820,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
@@ -822,7 +839,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, same server  ok
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID)));
@@ -845,7 +862,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(CHOICE_HIGH));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
@@ -864,7 +881,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not allowed"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server, admin,  ok, notification sent
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
@@ -887,7 +904,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(CHOICE_HIGH));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord).sendPrivateMessage(eq(userId + 1), any(), any());
+        verify(notificationsService).sendNotifications();
     }
 
     @Test
@@ -897,14 +914,17 @@ class UpdateCommandTest {
         MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
         when(messageReceivedEvent.getMessage()).thenReturn(mock());
         User user = mock();
+        when(user.getAsMention()).thenReturn("<@123>");
         when(messageReceivedEvent.getAuthor()).thenReturn(user);
         when(user.getIdLong()).thenReturn(userId);
         Context context = mock(Context.class);
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(ChronoUnit.MINUTES);
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
+        NotificationsDao notificationsDao = mock();
         Context.DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
 
         var command = new UpdateCommand();
@@ -945,8 +965,10 @@ class UpdateCommandTest {
         // private channel, same user, any server, ok
         Discord discord = mock();
         Services services = mock();
+        NotificationsService notificationsService = mock();
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
+        when(services.notificationService()).thenReturn(notificationsService);
         Guild guild = mock();
         when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
@@ -984,7 +1006,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(DISPLAY_FROM_DATE));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
@@ -1003,7 +1025,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, not same server, not found
         Member member = mock();
@@ -1027,7 +1049,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
@@ -1046,7 +1068,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, same server  ok
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "DOT/XRP", trend).withServerId(TEST_SERVER_ID)));
@@ -1070,7 +1092,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(DISPLAY_FROM_DATE));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
@@ -1089,7 +1111,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not allowed"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server, admin,  ok, notification sent
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
@@ -1113,11 +1135,10 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(DISPLAY_FROM_DATE));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord).sendPrivateMessage(eq(userId + 1), any(), any());
+        verify(notificationsService).sendNotifications();
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(false);
 
         // range, from date after now -> listening date = from_date
-        verify(discord).sendPrivateMessage(anyLong(), any(), any());
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ETH/USD", range).withServerId(TEST_SERVER_ID)));
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now+14"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
@@ -1129,7 +1150,7 @@ class UpdateCommandTest {
         verify(alertsDao, times(5)).update(any(), any());
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserIdAndPairType(userId, "ETH/USD", range).withServerId(TEST_SERVER_ID).withListeningDateFromDate(now.plusHours(14L), now.plusHours(14L)), alertArg);
-        verify(discord).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService).sendNotifications();
 
         // parse null, range, listening date = now
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ETH/USD", range).withServerId(TEST_SERVER_ID)));
@@ -1143,7 +1164,7 @@ class UpdateCommandTest {
         verify(alertsDao, times(6)).update(any(), any());
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserIdAndPairType(userId, "ETH/USD", range).withServerId(TEST_SERVER_ID).withListeningDateFromDate(now, null), alertArg);
-        verify(discord).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService).sendNotifications();
 
         // remainder, listening date = from_date
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ADA/USD", remainder).withServerId(TEST_SERVER_ID)));
@@ -1157,7 +1178,7 @@ class UpdateCommandTest {
         verify(alertsDao, times(7)).update(any(), any());
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserIdAndPairType(userId, "ADA/USD", remainder).withServerId(TEST_SERVER_ID).withListeningDateFromDate(now.plusMinutes(90L), now.plusMinutes(90L)), alertArg);
-        verify(discord).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService).sendNotifications();
 
         // remainder, disabled, listening date = from_date
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ADA/USD", remainder).withListeningDateRepeat(null, (short) -2).withServerId(TEST_SERVER_ID)));
@@ -1171,7 +1192,7 @@ class UpdateCommandTest {
         verify(alertsDao, times(8)).update(any(), any());
         alertArg = alertCaptor.getValue();
         assertDeepEquals(createTestAlertWithUserIdAndPairType(userId, "ADA/USD", remainder).withServerId(TEST_SERVER_ID).withListeningDateFromDate(now.plusMinutes(90L), now.plusMinutes(90L)).withRepeat(REMAINDER_DEFAULT_REPEAT), alertArg);
-        verify(discord).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService).sendNotifications();
 
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ETH/USD", remainder).withServerId(TEST_SERVER_ID)));
         var fc8 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 null"));
@@ -1189,14 +1210,17 @@ class UpdateCommandTest {
         MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
         when(messageReceivedEvent.getMessage()).thenReturn(mock());
         User user = mock();
+        when(user.getAsMention()).thenReturn("<@123>");
         when(messageReceivedEvent.getAuthor()).thenReturn(user);
         when(user.getIdLong()).thenReturn(userId);
         Context context = mock(Context.class);
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(ChronoUnit.MINUTES);
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
+        NotificationsDao notificationsDao = mock();
         Context.DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
 
         var command = new UpdateCommand();
@@ -1237,8 +1261,10 @@ class UpdateCommandTest {
         // private channel, same user, any server, ok
         Discord discord = mock();
         Services services = mock();
+        NotificationsService notificationsService = mock();
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
+        when(services.notificationService()).thenReturn(notificationsService);
         Guild guild = mock();
         when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
@@ -1265,7 +1291,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(DISPLAY_TO_DATE));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
@@ -1284,7 +1310,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, not same server, not found
         Member member = mock();
@@ -1308,7 +1334,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
@@ -1327,7 +1353,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, same server  ok
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID)));
@@ -1350,7 +1376,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(DISPLAY_TO_DATE));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
@@ -1369,7 +1395,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not allowed"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server, admin,  ok, notification sent
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
@@ -1392,7 +1418,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(DISPLAY_TO_DATE));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord).sendPrivateMessage(eq(userId + 1), any(), any());
+        verify(notificationsService).sendNotifications();
 
         // parse null, now
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(false);
@@ -1434,14 +1460,17 @@ class UpdateCommandTest {
         MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
         when(messageReceivedEvent.getMessage()).thenReturn(mock());
         User user = mock();
+        when(user.getAsMention()).thenReturn("<@123>");
         when(messageReceivedEvent.getAuthor()).thenReturn(user);
         when(user.getIdLong()).thenReturn(userId);
         Context context = mock(Context.class);
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(ChronoUnit.MINUTES);
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
+        NotificationsDao notificationsDao = mock();
         Context.DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
 
         var command = new UpdateCommand();
@@ -1479,8 +1508,10 @@ class UpdateCommandTest {
         // private channel, same user, any server, ok
         Discord discord = mock();
         Services services = mock();
+        NotificationsService notificationsService = mock();
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
+        when(services.notificationService()).thenReturn(notificationsService);
         Guild guild = mock();
         when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
@@ -1505,7 +1536,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(CHOICE_MARGIN));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
@@ -1524,7 +1555,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, not same server, not found
         Member member = mock();
@@ -1548,7 +1579,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
@@ -1567,7 +1598,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, same server  ok
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID)));
@@ -1590,7 +1621,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(CHOICE_MARGIN));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
@@ -1609,7 +1640,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not allowed"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server, admin,  ok, notification sent
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
@@ -1632,7 +1663,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(CHOICE_MARGIN));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord).sendPrivateMessage(eq(userId + 1), any(), any());
+        verify(notificationsService).sendNotifications();
     }
 
     @Test
@@ -1642,14 +1673,17 @@ class UpdateCommandTest {
         MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
         when(messageReceivedEvent.getMessage()).thenReturn(mock());
         User user = mock();
+        when(user.getAsMention()).thenReturn("<@123>");
         when(messageReceivedEvent.getAuthor()).thenReturn(user);
         when(user.getIdLong()).thenReturn(userId);
         Context context = mock(Context.class);
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(ChronoUnit.MINUTES);
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
+        NotificationsDao notificationsDao = mock();
         Context.DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
 
         var command = new UpdateCommand();
@@ -1687,8 +1721,10 @@ class UpdateCommandTest {
         // private channel, same user, any server, ok
         Discord discord = mock();
         Services services = mock();
+        NotificationsService notificationsService = mock();
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
+        when(services.notificationService()).thenReturn(notificationsService);
         Guild guild = mock();
         when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
@@ -1713,7 +1749,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("repeat"));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
@@ -1732,7 +1768,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, not same server, not found
         Member member = mock();
@@ -1756,7 +1792,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
@@ -1775,7 +1811,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, same server  ok
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID)));
@@ -1798,7 +1834,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("repeat"));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
@@ -1817,7 +1853,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not allowed"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server, admin,  ok, notification sent
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
@@ -1840,7 +1876,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("repeat"));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord).sendPrivateMessage(eq(userId + 1), any(), any());
+        verify(notificationsService).sendNotifications();
     }
 
     @Test
@@ -1850,14 +1886,17 @@ class UpdateCommandTest {
         MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
         when(messageReceivedEvent.getMessage()).thenReturn(mock());
         User user = mock();
+        when(user.getAsMention()).thenReturn("<@123>");
         when(messageReceivedEvent.getAuthor()).thenReturn(user);
         when(user.getIdLong()).thenReturn(userId);
         Context context = mock(Context.class);
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(ChronoUnit.MINUTES);
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
+        NotificationsDao notificationsDao = mock();
         Context.DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
 
         var command = new UpdateCommand();
@@ -1895,8 +1934,10 @@ class UpdateCommandTest {
         // private channel, same user, any server, ok
         Discord discord = mock();
         Services services = mock();
+        NotificationsService notificationsService = mock();
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
+        when(services.notificationService()).thenReturn(notificationsService);
         Guild guild = mock();
         when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
@@ -1922,7 +1963,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("snooze"));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // test with snooze alert, listening date updated
         assertFalse(alert.inSnooze(now));
@@ -1952,7 +1993,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("snooze"));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
@@ -1971,7 +2012,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, not same server, not found
         Member member = mock();
@@ -1995,7 +2036,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
@@ -2014,7 +2055,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, same server  ok
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID)));
@@ -2037,7 +2078,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("snooze"));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
@@ -2056,7 +2097,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not allowed"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server, admin,  ok, notification sent
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
@@ -2080,7 +2121,7 @@ class UpdateCommandTest {
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("snooze"));
         assertTrue(message.getDescriptionBuilder().toString().contains("updated"));
-        verify(discord).sendPrivateMessage(eq(userId + 1), any(), any());
+        verify(notificationsService).sendNotifications();
     }
 
     @Test
@@ -2090,14 +2131,17 @@ class UpdateCommandTest {
         MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
         when(messageReceivedEvent.getMessage()).thenReturn(mock());
         User user = mock();
+        when(user.getAsMention()).thenReturn("<@123>");
         when(messageReceivedEvent.getAuthor()).thenReturn(user);
         when(user.getIdLong()).thenReturn(userId);
         Context context = mock(Context.class);
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(ChronoUnit.MINUTES);
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
+        NotificationsDao notificationsDao = mock();
         Context.DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
 
         var command = new UpdateCommand();
@@ -2135,8 +2179,10 @@ class UpdateCommandTest {
         // private channel, same user, any server, ok
         Discord discord = mock();
         Services services = mock();
+        NotificationsService notificationsService = mock();
         when(services.discord()).thenReturn(discord);
         when(context.services()).thenReturn(services);
+        when(services.notificationService()).thenReturn(notificationsService);
         Guild guild = mock();
         when(discord.guildServer(TEST_SERVER_ID)).thenReturn(Optional.of(guild));
         when(guild.getName()).thenReturn("test server");
@@ -2160,7 +2206,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(UPDATE_DISABLED_HEADER));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
@@ -2179,7 +2225,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, not same server, not found
         Member member = mock();
@@ -2203,7 +2249,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
@@ -2222,7 +2268,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not found"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, same user, same server  ok
         var alert = createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID).withListeningDateRepeat(null, (short)-1);
@@ -2245,7 +2291,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(UPDATE_ENABLED_HEADER));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
@@ -2264,7 +2310,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("not allowed"));
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         // server channel, not same user, same server, admin,  ok, notification sent
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
@@ -2288,7 +2334,7 @@ class UpdateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains(UPDATE_ENABLED_HEADER));
-        verify(discord).sendPrivateMessage(eq(userId + 1), any(), any());
+        verify(notificationsService).sendNotifications();
     }
 
     @Test

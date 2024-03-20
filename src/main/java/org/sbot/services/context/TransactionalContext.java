@@ -6,6 +6,7 @@ import org.sbot.exchanges.Exchanges;
 import org.sbot.services.LastCandlesticksService;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.LastCandlesticksDao;
+import org.sbot.services.dao.NotificationsDao;
 import org.sbot.services.dao.UsersDao;
 import org.sbot.services.dao.sql.jdbi.JDBITransactionHandler;
 
@@ -15,7 +16,7 @@ import java.util.function.Function;
 import static java.util.Objects.requireNonNull;
 import static org.jdbi.v3.core.transaction.TransactionIsolationLevel.READ_COMMITTED;
 
-public final class TransactionalContext implements Context {
+public class TransactionalContext implements Context {
 
     public static final TransactionIsolationLevel DEFAULT_ISOLATION_LEVEL = READ_COMMITTED;
 
@@ -49,6 +50,11 @@ public final class TransactionalContext implements Context {
     @NotNull
     public AlertsDao alertsDao() {
         return dataServices().alertsDao().apply(transactionHandler);
+    }
+
+    @NotNull
+    public NotificationsDao notificationsDao() {
+        return dataServices().notificationsDao().apply(transactionHandler);
     }
 
     @NotNull

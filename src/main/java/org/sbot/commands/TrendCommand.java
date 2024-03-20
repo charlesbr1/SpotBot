@@ -42,11 +42,11 @@ public final class TrendCommand extends CommandAdapter {
                     .setMaxLength(MESSAGE_MAX_LENGTH),
             option(NUMBER, FROM_PRICE_ARGUMENT, "the first price", true)
                     .setMinValue(0d),
-            option(STRING, FROM_DATE_ARGUMENT, "the date of first price, expected format : " + Dates.DATE_TIME_FORMAT, true)
+            option(STRING, FROM_DATE_ARGUMENT, "date of first price, expected format : '" + Dates.DATE_TIME_FORMAT.toLowerCase() + "' or 'now[+-]h'", true)
                     .setMinLength(NOW_ARGUMENT.length()),
             option(NUMBER, TO_PRICE_ARGUMENT, "the second price", true)
                     .setMinValue(0d),
-            option(STRING, TO_DATE_ARGUMENT, "the date of second price, expected format : " + Dates.DATE_TIME_FORMAT, true)
+            option(STRING, TO_DATE_ARGUMENT, "date of second price, expected format : '" + Dates.DATE_TIME_FORMAT.toLowerCase() + "' or 'now[+-]h'", true)
                     .setMinLength(NOW_ARGUMENT.length()));
 
     private static final SlashCommandData options =
@@ -120,8 +120,8 @@ public final class TrendCommand extends CommandAdapter {
     private Message trendPrice(@NotNull CommandContext context, @NotNull ZonedDateTime date, long alertId) {
         return securedAlertAccess(alertId, context, (alert, alertsDao) -> {
             if(trend == alert.type) {
-                return Message.of(embedBuilder("[" + alert.pair + "] at " + Dates.formatDiscord(date) + " : " + MarkdownUtil.bold(
-                        formatPrice(trendPriceAt(date, alert), alert.getTicker2())))
+                return Message.of(embedBuilder("[" + alert.pair + "] at " + Dates.formatDiscord(date) + " :\n" + MarkdownUtil.quote(MarkdownUtil.bold(
+                        formatPrice(trendPriceAt(date, alert), alert.getTicker2()))))
                         .addField(DISPLAY_FROM_PRICE, alert.fromPrice.toPlainString() + ' ' + getSymbol(alert.getTicker2()), true)
                         .addField(DISPLAY_FROM_DATE, formatDiscord(alert.fromDate), true)
                         .addBlankField(true)

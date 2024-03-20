@@ -30,7 +30,7 @@ public final class RemainderCommand extends CommandAdapter {
                     .setMinLength(PAIR_MIN_LENGTH).setMaxLength(PAIR_MAX_LENGTH),
             option(STRING, MESSAGE_ARGUMENT, "a message for this remainder (" + MESSAGE_MAX_LENGTH + " chars max)", true)
                     .setMaxLength(MESSAGE_MAX_LENGTH),
-            option(STRING, DATE_ARGUMENT, "a future date when to trigger the remainder, expected format : " + Dates.DATE_TIME_FORMAT, true)
+            option(STRING, DATE_ARGUMENT, "a future date when to trigger the remainder, expected format : '" + Dates.DATE_TIME_FORMAT.toLowerCase() + "' or 'now+h'", true)
                     .setMinLength(NOW_ARGUMENT.length() + 2));
     record Arguments(String pair, String message, ZonedDateTime date) {}
 

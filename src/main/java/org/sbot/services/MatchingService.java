@@ -14,7 +14,7 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class MatchingService {
+public final class MatchingService {
 
     public record MatchingAlert(@NotNull Alert alert, @NotNull MatchingStatus status, @Nullable Candlestick matchingCandlestick) {
 

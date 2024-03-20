@@ -1,6 +1,5 @@
 package org.sbot.services.discord;
 
-import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.Channel;
@@ -23,8 +22,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
+import org.sbot.entities.notifications.MigratedNotification.Reason;
 import org.sbot.services.context.Context;
-import org.sbot.services.dao.AlertsDao.SelectionFilter;
 
 import java.awt.Color;
 import java.util.Optional;
@@ -33,15 +32,18 @@ import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
+import static org.sbot.commands.MigrateCommand.migrateServerAlertsToPrivateChannel;
+import static org.sbot.commands.MigrateCommand.migrateUserAlertsToPrivateChannel;
 import static org.sbot.entities.alerts.Alert.DISABLED_COLOR;
-import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
+import static org.sbot.entities.alerts.Alert.isPrivate;
+import static org.sbot.services.discord.CommandListener.optionsDescription;
 import static org.sbot.utils.ArgumentValidator.START_WITH_DISCORD_USER_ID_PATTERN;
 
 final class EventAdapter extends ListenerAdapter {
 
     private static final Logger LOGGER = LogManager.getLogger(EventAdapter.class);
 
-    private static final int ERROR_REPLY_DELETE_DELAY_SECONDS = 30;
+    private static final int ERROR_REPLY_DELETE_DELAY_SECONDS = 90;
     private static final int UNKNOWN_COMMAND_REPLY_DELAY_SECONDS = 5;
 
     private final Context context;
@@ -53,52 +55,38 @@ final class EventAdapter extends ListenerAdapter {
     @Override
     public void onGuildLeave(@NotNull GuildLeaveEvent event) {
         LOGGER.debug("onGuildLeave, event {}", event);
-        // guild removed this bot, migrate all the alerts of this guild to private and notify each user
-        migrateAllAlertsToPrivateChannel(event.getGuild(),
-                "Guild " + Discord.guildName(event.getGuild()) + " removed this bot");
-    }
-
-    private void migrateAllAlertsToPrivateChannel(@NotNull Guild guild, @NotNull String reason) {
-        context.transactional(txCtx -> {
-            var ids = txCtx.alertsDao().getUserIdsByServerId(guild.getIdLong());
-            long totalMigrated = txCtx.alertsDao().updateServerIdOf(SelectionFilter.ofServer(guild.getIdLong(), null), PRIVATE_MESSAGES);
-            LOGGER.debug("Migrated to private {} alerts on server {}, reason : {}", totalMigrated, guild.getIdLong(), reason);
-            return ids;
-        }).forEach(uid -> notifyPrivateAlertMigration(uid, reason, null));
+        // guild removed this bot, migrate each alert of this guild to private and notify each user
+        var ids = context.transactional(txCtx -> migrateServerAlertsToPrivateChannel(txCtx, event.getGuild()));
+        if(!ids.isEmpty()) {
+            context.notificationService().sendNotifications();
+        }
     }
 
     @Override
     public void onGuildBan(@NotNull GuildBanEvent event) {
         LOGGER.debug("onGuildBan, event {}", event);
-        migrateUserAlertsToPrivateChannel(event.getUser().getIdLong(), event.getGuild(),
-                "You were banned from guild " + Discord.guildName(event.getGuild()));
+        var nbMigrated = context.transactional(txCtx -> migrateUserAlertsToPrivateChannel(txCtx, event.getUser().getIdLong(), null, event.getGuild(), Reason.BANNED));
+        if(nbMigrated > 0) {
+            context.notificationService().sendNotifications();
+        }
     }
 
     @Override
     public void onGuildMemberRemove(@NotNull GuildMemberRemoveEvent event) {
         LOGGER.debug("onGuildMemberRemove, event {}", event);
-        migrateUserAlertsToPrivateChannel(event.getUser().getIdLong(), event.getGuild(),
-                "You leaved guild " + Discord.guildName(event.getGuild()));
+        var nbMigrated = context.transactional(txCtx -> migrateUserAlertsToPrivateChannel(txCtx, event.getUser().getIdLong(), null, event.getGuild(), Reason.LEAVED));
+        if(nbMigrated > 0) {
+            context.notificationService().sendNotifications();
+        }
     }
 
     @Override
     public void onGuildMemberJoin(@NotNull GuildMemberJoinEvent event) {
         LOGGER.debug("onGuildMemberJoin, event {}", event);
-        // TODO check notifications that has been paused and notify
-    }
-
-    private void migrateUserAlertsToPrivateChannel(@NotNull Long userId, @NotNull Guild guild, @NotNull String reason) {
-        long nbMigrated = context.transactional(txCtx -> txCtx.alertsDao().updateServerIdOf(SelectionFilter.of(guild.getIdLong(), userId, null), PRIVATE_MESSAGES));
-        notifyPrivateAlertMigration(userId, reason, nbMigrated);
-        LOGGER.debug("Migrated to private {} alerts of user {} on server {}, reason : {}", nbMigrated, userId, guild.getIdLong(), reason);
-    }
-
-    private void notifyPrivateAlertMigration(long userId, @NotNull String reason, Long nbMigrated) {
-        if(null == nbMigrated || nbMigrated > 0) {
-            context.discord().sendPrivateMessage(userId, Message.of(embedBuilder("Notice of " + (null == nbMigrated || nbMigrated > 1 ? "alerts" : "alert") + " migration", Color.lightGray,
-                            reason + (nbMigrated == null ? ", all your alerts on this guild were " :
-                                    (nbMigrated > 1 ? ", all your alerts (" + nbMigrated + ") on this guild were " : ", your alert on this guild was ")) +
-                                    "migrated to your private channel")), null);
+        // unblock possibly bocked notifications since this user leaved the server
+        var nbUpdated = context.transactional(txCtx -> txCtx.notificationsDao().unblockStatusOfDiscordUser(event.getUser().getId()));
+        if(nbUpdated > 0) {
+            context.notificationService().sendNotifications();
         }
     }
 
@@ -135,10 +123,10 @@ final class EventAdapter extends ListenerAdapter {
                 var command = event.getMessage().getContentRaw().strip();
                 if (isPrivateMessage(event.getChannel().getType()) || command.startsWith(context.discord().spotBotUserMention())) {
                     LOGGER.info("Discord message received from user {} : {}", event.getAuthor().getEffectiveName(), event.getMessage().getContentRaw());
-                    var user = context.transactional(txCtx -> txCtx.usersDao()
-                            .accessUser(event.getAuthor().getIdLong(), context.clock())).orElse(null);
                     command = removeStartingMentions(command);
                     if(!command.isBlank()) {
+                        var user = context.transactional(txCtx -> txCtx.usersDao()
+                                .accessUser(event.getAuthor().getIdLong(), context.clock())).orElse(null);
                         onCommand(CommandContext.of(context, user, event, command));
                     }
                 }
@@ -182,20 +170,42 @@ final class EventAdapter extends ListenerAdapter {
     }
 
     void processCommand(@NotNull CommandContext command) {
+        CommandListener listener = null;
         try {
-            CommandListener listener = context.discord().getCommandListener(command.name);
+            listener = context.discord().getCommandListener(command.name);
             if (null != listener) {
                 listener.onCommand(command);
             } else {
                 throw new UnsupportedOperationException();
             }
-        } catch (RuntimeException e) {
-            if (!(e instanceof UnsupportedOperationException)) {
-                LOGGER.warn("Internal error while processing discord command : " + command.name, e);
+        } catch (Exception e) {
+            String error = command.isStringReader() && !isPrivate(command.serverId()) ? command.user.getAsMention() + ' ' : "";
+            var footer = "";
+            if(e instanceof UnsupportedOperationException) {
+                error += "I don't know this command : " + command.name;
+            } else {
+                if(e instanceof IllegalArgumentException) {
+                    error += e.getMessage();
+                    if (null != listener && command.isStringReader()) {
+                        // print command arguments
+                        error += commandArguments(listener);
+                        footer = "this command " + listener.description();
+                    }
+                } else {
+                    error += "Something went wrong !\n\n" + e.getMessage();
+                    LOGGER.warn("Internal error while processing discord command : " + command.name, e);
+                }
             }
-            command.reply(Message.of(embedBuilder(":confused: Oops !", Color.red,
-                    e instanceof UnsupportedOperationException ? command.user.getAsMention() + " I don't know this command" :
-                            command.user.getAsMention() + " Something went wrong !\n\n" + e.getMessage())), 30);
+            command.reply(Message.of(embedBuilder(":confused: Oops !", Color.red, error).setFooter(footer)), ERROR_REPLY_DELETE_DELAY_SECONDS);
+        }
+    }
+
+    static String commandArguments(@NotNull CommandListener listener) {
+        if (listener.options().getSubcommands().isEmpty()) {
+            return  listener.options().getOptions().isEmpty() ? "" :
+                    "\n\n" + MarkdownUtil.bold(listener.name()) + ' ' + optionsDescription(listener.options(), false);
+        } else {
+            return "\n\n" + MarkdownUtil.bold(listener.name()) + " *parameters :*" + optionsDescription(listener.options(), false);
         }
     }
 

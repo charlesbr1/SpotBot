@@ -16,14 +16,18 @@ import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import org.junit.jupiter.api.Test;
+import org.sbot.commands.SpotBotCommand;
 import org.sbot.commands.context.CommandContext;
+import org.sbot.services.NotificationsService;
 import org.sbot.services.context.Context;
 import org.sbot.services.context.Context.DataServices;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.AlertsDao.SelectionFilter;
+import org.sbot.services.dao.NotificationsDao;
 import org.sbot.services.dao.UsersDao;
 
 import java.awt.*;
+import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -49,14 +53,21 @@ class EventAdapterTest {
         when(guild.getIdLong()).thenReturn(serverId);
         when(event.getGuild()).thenReturn(guild);
         Context context = mock();
+        when(context.clock()).thenReturn(Clock.systemUTC());
         when(context.transactional(any())).thenCallRealMethod();
         when(context.transactional(any(), any(), anyBoolean())).thenCallRealMethod();
+        NotificationsService notificationsService = mock();
+        when(context.notificationService()).thenReturn(notificationsService);
         EventAdapter adapter = new EventAdapter(context);
 
         assertThrows(NullPointerException.class, () -> adapter.onGuildLeave(null));
+        UsersDao usersDao = mock();
         AlertsDao alertsDao = mock();
+        NotificationsDao notificationsDao = mock();
         DataServices dataServices = mock();
+        when(dataServices.usersDao()).thenReturn(v -> usersDao);
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
         Discord discord = mock();
         when(context.discord()).thenReturn(discord);
@@ -64,15 +75,15 @@ class EventAdapterTest {
         when(alertsDao.getUserIdsByServerId(serverId)).thenReturn(List.of());
         adapter.onGuildLeave(event);
         verify(alertsDao).getUserIdsByServerId(serverId);
-        verify(alertsDao).updateServerIdOf(SelectionFilter.ofServer(serverId, null), PRIVATE_MESSAGES);
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(alertsDao, never()).updateServerIdOf(any(), anyLong());
+        verify(notificationsService, never()).sendNotifications();
 
         when(alertsDao.getUserIdsByServerId(serverId)).thenReturn(List.of(123L));
         when(alertsDao.updateServerIdOf(SelectionFilter.ofServer(serverId, null), PRIVATE_MESSAGES)).thenReturn(1L);
         adapter.onGuildLeave(event);
         verify(alertsDao, times(2)).getUserIdsByServerId(serverId);
-        verify(alertsDao, times(2)).updateServerIdOf(SelectionFilter.ofServer(serverId, null), PRIVATE_MESSAGES);
-        verify(discord).sendPrivateMessage(eq(123L), any(), any());
+        verify(alertsDao).updateServerIdOf(SelectionFilter.ofServer(serverId, null), PRIVATE_MESSAGES);
+        verify(notificationsService).sendNotifications();
     }
 
     @Test
@@ -87,26 +98,33 @@ class EventAdapterTest {
         when(user.getIdLong()).thenReturn(userId);
         when(event.getUser()).thenReturn(user);
         Context context = mock();
+        when(context.clock()).thenReturn(Clock.systemUTC());
         when(context.transactional(any())).thenCallRealMethod();
         when(context.transactional(any(), any(), anyBoolean())).thenCallRealMethod();
+        NotificationsService notificationsService = mock();
+        when(context.notificationService()).thenReturn(notificationsService);
         EventAdapter adapter = new EventAdapter(context);
 
         assertThrows(NullPointerException.class, () -> adapter.onGuildBan(null));
+        UsersDao usersDao = mock();
         AlertsDao alertsDao = mock();
+        NotificationsDao notificationsDao = mock();
         DataServices dataServices = mock();
+        when(dataServices.usersDao()).thenReturn(v -> usersDao);
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
         Discord discord = mock();
         when(context.discord()).thenReturn(discord);
 
         adapter.onGuildBan(event);
         verify(alertsDao).updateServerIdOf(SelectionFilter.of(serverId, userId, null), PRIVATE_MESSAGES);
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         when(alertsDao.updateServerIdOf(SelectionFilter.of(serverId, userId, null), PRIVATE_MESSAGES)).thenReturn(1L);
         adapter.onGuildBan(event);
         verify(alertsDao, times(2)).updateServerIdOf(SelectionFilter.of(serverId, userId, null), PRIVATE_MESSAGES);
-        verify(discord).sendPrivateMessage(eq(userId), any(), any());
+        verify(notificationsService).sendNotifications();
     }
 
     @Test
@@ -121,26 +139,33 @@ class EventAdapterTest {
         when(user.getIdLong()).thenReturn(userId);
         when(event.getUser()).thenReturn(user);
         Context context = mock();
+        when(context.clock()).thenReturn(Clock.systemUTC());
         when(context.transactional(any())).thenCallRealMethod();
         when(context.transactional(any(), any(), anyBoolean())).thenCallRealMethod();
+        NotificationsService notificationsService = mock();
+        when(context.notificationService()).thenReturn(notificationsService);
         EventAdapter adapter = new EventAdapter(context);
 
         assertThrows(NullPointerException.class, () -> adapter.onGuildMemberRemove(null));
+        UsersDao usersDao = mock();
         AlertsDao alertsDao = mock();
+        NotificationsDao notificationsDao = mock();
         DataServices dataServices = mock();
+        when(dataServices.usersDao()).thenReturn(v -> usersDao);
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
         Discord discord = mock();
         when(context.discord()).thenReturn(discord);
 
         adapter.onGuildMemberRemove(event);
         verify(alertsDao).updateServerIdOf(SelectionFilter.of(serverId, userId, null), PRIVATE_MESSAGES);
-        verify(discord, never()).sendPrivateMessage(anyLong(), any(), any());
+        verify(notificationsService, never()).sendNotifications();
 
         when(alertsDao.updateServerIdOf(SelectionFilter.of(serverId, userId, null), PRIVATE_MESSAGES)).thenReturn(1L);
         adapter.onGuildMemberRemove(event);
         verify(alertsDao, times(2)).updateServerIdOf(SelectionFilter.of(serverId, userId, null), PRIVATE_MESSAGES);
-        verify(discord).sendPrivateMessage(eq(userId), any(), any());
+        verify(notificationsService).sendNotifications();
     }
 
     @Test
@@ -235,6 +260,15 @@ class EventAdapterTest {
         field.set(context, mock(User.class));
         adapter.processCommand(context);
         verify(context).reply(any(org.sbot.entities.Message.class), anyInt());
+    }
+
+    @Test
+    void commandArguments() {
+        assertEquals("\n\n" +
+                "**spotbot** *parameter :*\n" +
+                "\n" +
+                "- **selection** (_string, optional_) which help to show : 'doc' or 'commands', default to 'doc' if omitted",
+                EventAdapter.commandArguments(new SpotBotCommand()));
     }
 
     @Test

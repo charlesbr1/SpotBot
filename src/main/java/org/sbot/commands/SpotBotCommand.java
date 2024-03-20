@@ -7,7 +7,6 @@ import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.interactions.commands.Command.Choice;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
-import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.utils.MarkdownUtil;
 import org.jetbrains.annotations.NotNull;
@@ -29,8 +28,10 @@ import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static org.sbot.commands.Commands.SPOTBOT_COMMANDS;
 import static org.sbot.entities.alerts.Alert.DEFAULT_REPEAT;
 import static org.sbot.entities.alerts.Alert.DEFAULT_SNOOZE_HOURS;
-import static org.sbot.services.AlertsWatcher.DONE_DELAY_WEEKS;
-import static org.sbot.services.discord.Discord.*;
+import static org.sbot.services.AlertsWatcher.DONE_ALERTS_DELAY_WEEKS;
+import static org.sbot.services.discord.CommandListener.optionsDescription;
+import static org.sbot.services.discord.Discord.DISCORD_BOT_CHANNEL;
+import static org.sbot.services.discord.Discord.DISCORD_BOT_ROLE;
 import static org.sbot.utils.Dates.UTC;
 import static org.sbot.utils.PartitionSpliterator.split;
 
@@ -87,7 +88,7 @@ public final class SpotBotCommand extends CommandAdapter {
             * you can optionally specify a timezone
             * range alerts accepts 'null' as a date time, as their date are optionals
             * you can also use 'now' shortcut to get actual date time, with + or - hours : now+1.5 means in 1h30
-            * using command line and not slash command, you should use dash '-' instead of space between date and time or zone : {cmd-line-date-format}
+            * using command line and not slash command, you should use a dash '-' instead of a space between the date and time or zone : {cmd-line-date-format}
             
             For instance now it's {date-now} UTC
             and now+2 is {date-now+2} UTC
@@ -158,7 +159,6 @@ public final class SpotBotCommand extends CommandAdapter {
     }
 
     private List<Message> spotBot(@NotNull String selection, @NotNull CommandContext context) {
-        var l = commands();
         return switch (selection) {
             case CHOICE_DOC -> List.of(doc(context));
             case CHOICE_COMMANDS -> commands();
@@ -187,28 +187,9 @@ public final class SpotBotCommand extends CommandAdapter {
                 .replace("{date-now+2}", Dates.formatUTC(context.locale, Dates.parse(Locale.UK, UTC, context.clock(), "now+2")).replace('-', ' '))
                 .replace("{repeat}", "" + DEFAULT_REPEAT)
                 .replace("{snooze}", "" + DEFAULT_SNOOZE_HOURS)
-                .replace("{done-delay-weeks}", "" + DONE_DELAY_WEEKS)
+                .replace("{done-delay-weeks}", "" + DONE_ALERTS_DELAY_WEEKS)
                 .replace("{channel}", channel).replace("{role}", role)
                 .replace("{spotBot}", selfMention);
-    }
-
-    private static String commandDescription(SlashCommandData commandData) {
-        if(!commandData.getSubcommands().isEmpty()) {
-            return commandData.getSubcommands().stream()
-                    .map(command -> "\n\n**" + command.getName() + "** : *" + command.getDescription() + "*\n\n" + optionsDescription(command.getOptions(), false))
-                    .collect(joining("\n"));
-        } else if(!commandData.getOptions().isEmpty()) {
-            return optionsDescription(commandData.getOptions(), true);
-        }
-        return "";
-    }
-
-    private static String optionsDescription(List<OptionData> options, boolean header) {
-        return (header ? options.size() > 1 ? "\n\n*parameters :*\n\n" : "\n\n*parameter :*\n\n" : "") +
-                options.stream()
-                        .map(option -> "- **" + option.getName() + "** *" + option.getType().toString().toLowerCase() + "* " +
-                                (option.isRequired() ? "" : "*(optional)* ") + option.getDescription())
-                        .collect(joining("\n"));
     }
 
     private static List<Message> commands() {
@@ -219,7 +200,8 @@ public final class SpotBotCommand extends CommandAdapter {
         // split the list because it exceeds max discord message length
         return split(5, commands)
                 .map(cmdList -> Message.of(embedBuilder(null, OK_COLOR, cmdList.stream()
-                        .map(cmd -> "** " + cmd.name + "**\n\n" + MarkdownUtil.quote(cmd.description + commandDescription(cmd.options)))
+                        .map(cmd -> ' ' + MarkdownUtil.bold(cmd.name) + "\n\n" + MarkdownUtil.quote(cmd.description +
+                                Optional.ofNullable(optionsDescription(cmd.options, true)).map("\n\n"::concat).orElse("")))
                         .collect(joining("\n\n\n"))))).toList();
     }
 }

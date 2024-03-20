@@ -33,6 +33,7 @@ import static org.sbot.commands.UpdateCommand.*;
 import static org.sbot.commands.context.CommandContext.TOO_MANY_ARGUMENTS;
 import static org.sbot.commands.interactions.Interactions.INTERACTION_ID_SEPARATOR;
 import static org.sbot.commands.interactions.Interactions.interactionId;
+import static org.sbot.commands.interactions.ModalEditInteraction.CHOICE_DENIED;
 import static org.sbot.commands.interactions.ModalEditInteraction.UPDATE_FAILED_FOOTER;
 import static org.sbot.commands.interactions.SelectEditInteraction.*;
 import static org.sbot.entities.alerts.AlertTest.createTestAlert;
@@ -40,10 +41,28 @@ import static org.sbot.entities.alerts.AlertTest.createTestAlert;
 class ModalEditInteractionTest {
 
     @Test
+    void deniedModalOf() {
+        var modal = ModalEditInteraction.deniedModalOf(123L);
+        assertEquals(interactionId(ModalEditInteraction.NAME, 123L), modal.getId());
+        assertEquals("Not allowed to edit alert #123", modal.getTitle());
+        assertEquals(1, modal.getComponents().size());
+        assertEquals("TextInput[SHORT](id=denied, value=null)", modal.getComponents().get(0).getComponents().get(0).toString());
+    }
+
+    @Test
+    void notFoundModalOf() {
+        var modal = ModalEditInteraction.notFoundModalOf(123L);
+        assertEquals(interactionId(ModalEditInteraction.NAME, 123L), modal.getId());
+        assertEquals("Unable to edit alert #123", modal.getTitle());
+        assertEquals(1, modal.getComponents().size());
+        assertEquals("TextInput[SHORT](id=notfound, value=null)", modal.getComponents().get(0).getComponents().get(0).toString());
+    }
+
+    @Test
     void deleteModalOf() {
         var modal = ModalEditInteraction.deleteModalOf(123L);
         assertEquals(interactionId(ModalEditInteraction.NAME, 123L), modal.getId());
-        assertEquals("Delete Alert #123", modal.getTitle());
+        assertEquals("Delete alert #123", modal.getTitle());
         assertEquals(1, modal.getComponents().size());
         assertEquals("TextInput[SHORT](id=delete, value=null)", modal.getComponents().get(0).getComponents().get(0).toString());
     }
@@ -52,7 +71,7 @@ class ModalEditInteractionTest {
     void updateModalOf() {
         var modal = ModalEditInteraction.updateModalOf(123L, "field", "hint", 1, 10);
         assertEquals(interactionId(ModalEditInteraction.NAME, 123L), modal.getId());
-        assertEquals("Edit Alert #123", modal.getTitle());
+        assertEquals("Edit alert #123", modal.getTitle());
         assertEquals(1, modal.getComponents().size());
         assertEquals("TextInput[SHORT](id=field, value=null)", modal.getComponents().get(0).getComponents().get(0).toString());
     }
@@ -98,6 +117,17 @@ class ModalEditInteractionTest {
         assertNull(messages.get(0).component());
         assertNotNull(messages.get(0).editMapper());
 
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ModalEditInteraction.NAME + " 123 " + CHOICE_DENIED + " ko"));
+        doNothing().when(commandContext).reply(anyList(), anyInt());
+        command.onInteraction(commandContext);
+        verify(commandContext).reply(messagesReply.capture(), anyInt());
+        messages = messagesReply.getValue();
+        assertEquals(1, messages.size());
+        assertTrue(messages.get(0).embeds().isEmpty());
+        assertNull(messages.get(0).modal());
+        assertNull(messages.get(0).component());
+        assertNotNull(messages.get(0).editMapper());
+
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ModalEditInteraction.NAME + " 123 " + CHOICE_MIGRATE + " 0"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onInteraction(commandContext);
@@ -119,33 +149,6 @@ class ModalEditInteractionTest {
         assertNull(messages.get(0).modal());
         assertNull(messages.get(0).component());
         assertNotNull(messages.get(0).editMapper());
-    }
-
-    @Test
-    void switchEnableItem() {
-        var options = updateMenuOf("menuId", createTestAlert()).getOptions();
-        assertTrue(options.stream().map(SelectOption::getLabel).noneMatch(CHOICE_ENABLE::equals));
-        assertTrue(options.stream().map(SelectOption::getLabel).anyMatch(CHOICE_DISABLE::equals));
-        var newOptions = ModalEditInteraction.switchEnableItem(options, false);
-        assertTrue(newOptions.stream().map(SelectOption::getLabel).anyMatch(CHOICE_ENABLE::equals));
-        assertTrue(newOptions.stream().map(SelectOption::getLabel).noneMatch(CHOICE_DISABLE::equals));
-        var enabledOptions = newOptions;
-        newOptions = ModalEditInteraction.switchEnableItem(newOptions, true);
-        assertTrue(newOptions.stream().map(SelectOption::getLabel).noneMatch(CHOICE_ENABLE::equals));
-        assertTrue(newOptions.stream().map(SelectOption::getLabel).anyMatch(CHOICE_DISABLE::equals));
-        newOptions = ModalEditInteraction.switchEnableItem(newOptions, true);
-        assertNull(newOptions);
-        newOptions = ModalEditInteraction.switchEnableItem(options, false);
-        assertTrue(newOptions.stream().map(SelectOption::getLabel).anyMatch(CHOICE_ENABLE::equals));
-        assertTrue(newOptions.stream().map(SelectOption::getLabel).noneMatch(CHOICE_DISABLE::equals));
-        newOptions = ModalEditInteraction.switchEnableItem(newOptions, false);
-        assertNull(newOptions);
-
-        newOptions = ModalEditInteraction.switchEnableItem(enabledOptions, true);
-        assertTrue(newOptions.stream().map(SelectOption::getLabel).noneMatch(CHOICE_ENABLE::equals));
-        assertTrue(newOptions.stream().map(SelectOption::getLabel).anyMatch(CHOICE_DISABLE::equals));
-        newOptions = ModalEditInteraction.switchEnableItem(enabledOptions, false);
-        assertNull(newOptions);
     }
 
     @Test
@@ -272,7 +275,7 @@ class ModalEditInteractionTest {
     void originalDescription() {
         String originalDescription = "an alert description";
         var description = "update failed" + UPDATE_FAILED_FOOTER + originalDescription;
-        description = "updated !" + UPDATE_SUCCESS_FOOTER + description;
+        description = "updated !" + UPDATE_SUCCESS_FOOTER_NO_AUTHOR + description;
         description = UPDATE_ENABLED_HEADER + description;
         description = " " + UPDATE_DISABLED_HEADER + description;
         description += ALERT_TIPS + "tips";

@@ -51,19 +51,19 @@ public class SelectEditInteraction implements InteractionListener {
     static StringSelectMenu updateMenuOf(@NotNull String menuId, @NotNull Alert alert) {
         StringSelectMenu.Builder menu = selectMenu(menuId);
         if(remainder == alert.type) {
-            menu.addOption(CHOICE_DATE, CHOICE_DATE, "a future date when to trigger the remainder, UTC expected format : " + DATE_TIME_FORMAT, Emoji.fromUnicode("U+1F550"));
+            menu.addOption(CHOICE_DATE, CHOICE_DATE, "a future date when to trigger the remainder, expected format : " + DATE_TIME_FORMAT, Emoji.fromUnicode("U+1F550"));
             menu.addOption(CHOICE_MESSAGE, CHOICE_MESSAGE, "a message for this remainder (" + MESSAGE_MAX_LENGTH + " chars max)", Emoji.fromUnicode("U+1F5D2"));
         } else {
             menu.addOptions(alert.isEnabled() ? disableOption() : enableOption(alert.repeat < 0));
             menu.addOption(CHOICE_MESSAGE, CHOICE_MESSAGE, "a message to show when the alert is raised : add a link to your AT ! (" + MESSAGE_MAX_LENGTH + " chars max)", Emoji.fromUnicode("U+1F5D2"));
             if(range == alert.type) {
-                menu.addOption(DISPLAY_FROM_DATE, CHOICE_FROM_DATE, "a date to start the box, UTC expected format : " + DATE_TIME_FORMAT, Emoji.fromUnicode("U+27A1"));
-                menu.addOption(DISPLAY_TO_DATE, CHOICE_TO_DATE, "a future date to end the box, UTC expected format : " + DATE_TIME_FORMAT, Emoji.fromUnicode("U+2B05"));
+                menu.addOption(DISPLAY_FROM_DATE, CHOICE_FROM_DATE, "a date to start the box, expected format : " + DATE_TIME_FORMAT, Emoji.fromUnicode("U+27A1"));
+                menu.addOption(DISPLAY_TO_DATE, CHOICE_TO_DATE, "a future date to end the box, expected format : " + DATE_TIME_FORMAT, Emoji.fromUnicode("U+2B05"));
                 menu.addOption(CHOICE_LOW, CHOICE_LOW, "the low range price", Emoji.fromUnicode("U+2B06"));
                 menu.addOption(CHOICE_HIGH, CHOICE_HIGH, "to high range price", Emoji.fromUnicode("U+2B07"));
             } else {
-                menu.addOption(DISPLAY_FROM_DATE, CHOICE_FROM_DATE, "the date of first price, UTC expected format : " + DATE_TIME_FORMAT, Emoji.fromUnicode("U+1F4C5"));
-                menu.addOption(DISPLAY_TO_DATE, CHOICE_TO_DATE, "the date of second price, UTC expected format : " + DATE_TIME_FORMAT, Emoji.fromUnicode("U+1F4C6"));
+                menu.addOption(DISPLAY_FROM_DATE, CHOICE_FROM_DATE, "the date of first price, expected format : " + DATE_TIME_FORMAT, Emoji.fromUnicode("U+1F4C5"));
+                menu.addOption(DISPLAY_TO_DATE, CHOICE_TO_DATE, "the date of second price, expected format : " + DATE_TIME_FORMAT, Emoji.fromUnicode("U+1F4C6"));
                 menu.addOption(DISPLAY_FROM_PRICE, CHOICE_FROM_PRICE, "the first price", Emoji.fromUnicode("U+1F4C8"));
                 menu.addOption(DISPLAY_TO_PRICE, CHOICE_TO_PRICE, "the second price", Emoji.fromUnicode("U+1F4C9"));
             }
@@ -95,6 +95,16 @@ public class SelectEditInteraction implements InteractionListener {
         // this will open a Modal to get a new value from the user
         var arguments = arguments(context);
         LOGGER.debug("select {} interaction - user {}, server {}, arguments {}", NAME, context.user.getIdLong(), context.serverId(), arguments);
+
+        //check alert access, as string commands can not return an ephemeral message, all user can see the alerts and edit menu
+        var accessColor = requireOneItem(securedAlertUpdate(arguments.alertId(), context, (alert, alertsDao, notificationsDao) -> Message.of(embedBuilder(""))).embeds()).build().getColor();
+        if(DENIED_COLOR.equals(accessColor)) {
+            context.reply(Message.of(deniedModalOf(arguments.alertId)), 0);
+            return;
+        } else if(NOT_FOUND_COLOR.equals(accessColor)) {
+            context.reply(Message.of(notFoundModalOf(arguments.alertId)), 0);
+            return;
+        }
 
         int minLength = 1;
         int maxLength = PRICE_MAX_LENGTH;

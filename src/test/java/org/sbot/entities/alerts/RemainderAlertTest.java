@@ -1,26 +1,27 @@
 package org.sbot.entities.alerts;
 
 import org.junit.jupiter.api.Test;
-import org.sbot.entities.chart.Candlestick;
-import org.sbot.services.MatchingService;
+import org.sbot.entities.chart.DatedPrice;
 import org.sbot.utils.Dates;
+import org.sbot.utils.DatesTest;
 
 import java.time.ZonedDateTime;
 import java.util.List;
 
-import static java.math.BigDecimal.*;
+import static java.math.BigDecimal.ONE;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.remainder;
 import static org.sbot.entities.alerts.AlertTest.*;
-import static org.sbot.entities.alerts.RemainderAlert.*;
+import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
+import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_VIRTUAL_EXCHANGE;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.*;
 import static org.sbot.utils.DatesTest.nowUtc;
 
 class RemainderAlertTest {
 
     static RemainderAlert createTestRemainderAlert() {
-        return new RemainderAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_PAIR, TEST_MESSAGE, TEST_FROM_DATE, TEST_LAST_TRIGGER, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
+        return new RemainderAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(10L), TEST_FROM_DATE, TEST_PAIR, TEST_MESSAGE, TEST_FROM_DATE, TEST_LAST_TRIGGER, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
     }
 
     @Test
@@ -29,7 +30,7 @@ class RemainderAlertTest {
 
         assertEquals(remainder, alert.type);
         assertEquals(REMAINDER_VIRTUAL_EXCHANGE, alert.getExchange());
-        assertEquals(TEST_FROM_DATE.minusMinutes(1L), alert.creationDate);
+        assertEquals(TEST_FROM_DATE.minusMinutes(10L), alert.creationDate);
         assertEquals(TEST_FROM_DATE, alert.listeningDate);
         assertNull(alert.fromPrice);
         assertNull(alert.toPrice);
@@ -129,7 +130,7 @@ class RemainderAlertTest {
     @Test
     void asMessage() {
         RemainderAlert alert = (RemainderAlert) createTestRemainderAlert().withId(() -> 456L);
-        Candlestick candlestick = new Candlestick(nowUtc(), nowUtc(), TWO, ONE, TEN, ONE);
+        DatedPrice previousClose = new DatedPrice(ONE, nowUtc());
 
         assertThrows(NullPointerException.class, () -> alert.asMessage(null, null, null));
         String message = alert.asMessage(MATCHED, null, null).getDescriptionBuilder().toString();
@@ -144,10 +145,10 @@ class RemainderAlertTest {
         assertFalse(message.contains(DISABLED));
 
         // no candlestick
-        assertEquals(message, alert.asMessage(MATCHED, candlestick, null).getDescriptionBuilder().toString());
+        assertEquals(message, alert.asMessage(MATCHED, previousClose, null).getDescriptionBuilder().toString());
         assertEquals(message, alert.asMessage(MARGIN, null, null).getDescriptionBuilder().toString());
 
-        message = alert.withListeningDateRepeat(null, alert.repeat).asMessage(MATCHED, null, null).getDescriptionBuilder().toString();
+        message = alert.withListeningDateRepeat(null, alert.repeat).asMessage(NOT_MATCHING, null, null).getDescriptionBuilder().toString();
         assertTrue(message.contains(DISABLED));
 
         message = alert.asMessage(NOT_MATCHING, null, null).getDescriptionBuilder().toString();
@@ -161,9 +162,34 @@ class RemainderAlertTest {
         assertTrue(message.contains("created"));
         assertFalse(message.contains(alert.message));
         assertFalse(message.contains(DISABLED));
-        assertEquals(message, alert.asMessage(NOT_MATCHING, candlestick, null).getDescriptionBuilder().toString());
+        assertEquals(message, alert.asMessage(NOT_MATCHING, previousClose, null).getDescriptionBuilder().toString());
 
         message = alert.withListeningDateRepeat(null, alert.repeat).asMessage(NOT_MATCHING, null, null).getDescriptionBuilder().toString();
         assertTrue(message.contains(DISABLED));
+
+        message = alert.withListeningDateRepeat(alert.fromDate, alert.repeat).asMessage(NOT_MATCHING, null, null).getDescriptionBuilder().toString();
+        assertFalse(message.contains(DISABLED));
+        assertFalse(message.contains("SNOOZE"));
+
+        var now = DatesTest.nowUtc();
+        message = alert.withListeningDateRepeat(alert.fromDate.minusMinutes(1L), alert.repeat).asMessage(NOT_MATCHING, null, now).getDescriptionBuilder().toString();
+        assertFalse(message.contains(DISABLED));
+        assertFalse(message.contains("SNOOZE"));
+
+        message = alert.withListeningDateRepeat(alert.fromDate.minusMinutes(5L), alert.repeat).asMessage(NOT_MATCHING, null, now).getDescriptionBuilder().toString();
+        assertFalse(message.contains(DISABLED));
+        assertFalse(message.contains("SNOOZE"));
+
+        message = alert.withFromDate(now).withListeningDateRepeat(now.plusMinutes(1L).minusSeconds(1L), alert.repeat).asMessage(NOT_MATCHING, null, now).getDescriptionBuilder().toString();
+        assertFalse(message.contains(DISABLED));
+        assertFalse(message.contains("SNOOZE"));
+
+        message = alert.withFromDate(now).withListeningDateRepeat(now.plusMinutes(1L), alert.repeat).asMessage(NOT_MATCHING, null, now).getDescriptionBuilder().toString();
+        assertFalse(message.contains(DISABLED));
+        assertTrue(message.contains("SNOOZE"));
+
+        message = alert.withFromDate(now).withListeningDateRepeat(now.plusMinutes(10L), alert.repeat).asMessage(NOT_MATCHING, null, now).getDescriptionBuilder().toString();
+        assertFalse(message.contains(DISABLED));
+        assertTrue(message.contains("SNOOZE"));
     }
 }

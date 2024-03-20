@@ -9,11 +9,14 @@ import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
 import org.sbot.entities.User;
 import org.sbot.services.context.Context;
+import org.sbot.services.dao.AlertsDao;
+import org.sbot.services.dao.NotificationsDao;
 import org.sbot.utils.Dates;
 import org.sbot.utils.DatesTest;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
@@ -30,7 +33,7 @@ import static org.sbot.commands.interactions.Interactions.INTERACTION_ID_SEPARAT
 import static org.sbot.commands.interactions.Interactions.interactionId;
 import static org.sbot.commands.interactions.SelectEditInteraction.*;
 import static org.sbot.entities.alerts.Alert.Type.*;
-import static org.sbot.entities.alerts.AlertTest.createTestAlertWithType;
+import static org.sbot.entities.alerts.AlertTest.*;
 
 class SelectEditInteractionTest {
 
@@ -184,9 +187,16 @@ class SelectEditInteractionTest {
     @Test
     void onInteraction() {
         MessageReceivedEvent messageReceivedEvent = mock(MessageReceivedEvent.class);
+        net.dv8tion.jda.api.entities.User user = mock();
         when(messageReceivedEvent.getMessage()).thenReturn(mock());
-        when(messageReceivedEvent.getAuthor()).thenReturn(mock());
+        when(messageReceivedEvent.getAuthor()).thenReturn(user);
         Context context = mock(Context.class);
+        Context.DataServices dataServices = mock();
+        when(context.dataServices()).thenReturn(dataServices);
+        AlertsDao alertsDao = mock();
+        NotificationsDao notificationsDao = mock();
+        when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
+        when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
 
         var command = new SelectEditInteraction();
         assertThrows(NullPointerException.class, () -> command.onInteraction(null));
@@ -198,7 +208,15 @@ class SelectEditInteractionTest {
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onInteraction(fc2));
 
         var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME +   " 123 invalidField"));
-        assertExceptionContains(IllegalArgumentException.class, "Invalid field", () -> command.onInteraction(fc3));
+        assertExceptionContains(UnsupportedOperationException.class, "modal", () -> command.onInteraction(fc3));
+
+        when(alertsDao.getAlertWithoutMessage(123L)).thenReturn(Optional.of(createTestAlert()));
+        var fc4 = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME +   " 123 invalidField"));
+        assertExceptionContains(UnsupportedOperationException.class, "modal", () -> command.onInteraction(fc4));
+
+        when(user.getIdLong()).thenReturn(TEST_USER_ID);
+        var fc5 = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME +   " 123 invalidField"));
+        assertExceptionContains(IllegalArgumentException.class, "Invalid field", () -> command.onInteraction(fc5));
 
         var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME + " 123 " + CHOICE_EDIT));
         doNothing().when(commandContext).reply(anyList(), anyInt());

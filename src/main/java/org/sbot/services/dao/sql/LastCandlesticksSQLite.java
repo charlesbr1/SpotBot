@@ -8,13 +8,12 @@ import org.jdbi.v3.core.statement.SqlStatement;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.entities.chart.Candlestick;
+import org.sbot.services.dao.BatchEntry;
 import org.sbot.services.dao.LastCandlesticksDao;
 import org.sbot.services.dao.sql.jdbi.AbstractJDBI;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository;
-import org.sbot.services.dao.BatchEntry;
 import org.sbot.services.dao.sql.jdbi.JDBITransactionHandler;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.ZonedDateTime;
@@ -27,7 +26,8 @@ import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
 import static org.sbot.services.dao.sql.LastCandlesticksSQLite.SQL.Fields.*;
-import static org.sbot.utils.ArgumentValidator.*;
+import static org.sbot.utils.ArgumentValidator.requirePairFormat;
+import static org.sbot.utils.ArgumentValidator.requireSupportedExchange;
 import static org.sbot.utils.Dates.parseUtcDateTime;
 
 public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCandlesticksDao {
@@ -71,14 +71,14 @@ public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCa
     public static final class CandlestickMapper implements RowMapper<Candlestick> {
         @Override
         public Candlestick map(ResultSet rs, StatementContext ctx) throws SQLException {
-            ZonedDateTime openTime = parseUtcDateTime(rs.getTimestamp(OPEN_TIME))
+            var openTime = parseUtcDateTime(rs.getTimestamp(OPEN_TIME))
                     .orElseThrow(() -> new IllegalArgumentException("Missing field last_candlesticks open_time"));
-            ZonedDateTime closeTime = parseUtcDateTime(rs.getTimestamp(CLOSE_TIME))
+            var closeTime = parseUtcDateTime(rs.getTimestamp(CLOSE_TIME))
                     .orElseThrow(() -> new IllegalArgumentException("Missing field last_candlesticks close_time"));
-            BigDecimal open = rs.getBigDecimal(OPEN);
-            BigDecimal close = rs.getBigDecimal(CLOSE);
-            BigDecimal high = rs.getBigDecimal(HIGH);
-            BigDecimal low = rs.getBigDecimal(LOW);
+            var open = rs.getBigDecimal(OPEN);
+            var close = rs.getBigDecimal(CLOSE);
+            var high = rs.getBigDecimal(HIGH);
+            var low = rs.getBigDecimal(LOW);
             return new Candlestick(openTime, closeTime, open, close, high, low);
         }
     }
@@ -151,8 +151,8 @@ public final class LastCandlesticksSQLite extends AbstractJDBI implements LastCa
     }
 
     @Override
-    public void lastCandlestickBatchDeletes(@NotNull Consumer<BatchEntry> deleter) {
-        LOGGER.debug("lastCandlestickBatchDeletes");
+    public void delete(@NotNull Consumer<BatchEntry> deleter) {
+        LOGGER.debug("delete");
         batchUpdates(deleter, SQL.DELETE_BY_EXCHANGE_PAIR, emptyMap());
     }
 }

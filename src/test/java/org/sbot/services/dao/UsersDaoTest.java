@@ -7,8 +7,8 @@ import org.sbot.entities.User;
 import java.time.Clock;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Locale;
-import java.util.stream.LongStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.entities.alerts.AlertTest.createTestAlertWithUserId;
@@ -51,7 +51,7 @@ public abstract class UsersDaoTest {
 
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         User user = new User(1L, Locale.JAPAN, null, now);
-        users.setUser(user);
+        users.addUser(user);
         assertTrue(users.getUser(user.id()).isPresent());
         assertEquals(now, users.getUser(user.id()).get().lastAccess());
 
@@ -68,7 +68,7 @@ public abstract class UsersDaoTest {
         long userId = 123L;
         assertTrue(users.getUser(userId).isEmpty());
         User user = new User(userId, Locale.JAPAN, null, now);
-        users.setUser(user);
+        users.addUser(user);
         assertTrue(users.getUser(user.id()).isPresent());
         assertEquals(user, users.getUser(userId).get());
     }
@@ -79,7 +79,7 @@ public abstract class UsersDaoTest {
         long userId = 123L;
         assertFalse(users.userExists(userId));
         User user = new User(userId, Locale.JAPAN, null, nowUtc());
-        users.setUser(user);
+        users.addUser(user);
         assertTrue(users.userExists(userId));
         users.deleteHavingLastAccessBeforeAndNotInAlerts(nowUtc().plusMinutes(1L));
         assertFalse(users.userExists(userId));
@@ -95,32 +95,32 @@ public abstract class UsersDaoTest {
         var user2 = new User(2L, Locale.JAPAN, null, now);
         var user3 = new User(3L, Locale.FRENCH, null, now);
         var user4 = new User(4L, Locale.CANADA, null, now);
-        users.setUser(user1);
-        users.setUser(user2);
-        users.setUser(user3);
-        users.setUser(user4);
+        users.addUser(user1);
+        users.addUser(user2);
+        users.addUser(user3);
+        users.addUser(user4);
 
-        var locales = users.getLocales(LongStream.of());
+        var locales = users.getLocales(List.of());
         assertEquals(0, locales.size());
 
-        locales = users.getLocales(LongStream.of(user1.id()));
+        locales = users.getLocales(List.of(user1.id()));
         assertEquals(1, locales.size());
         assertEquals(user1.locale(), locales.get(user1.id()));
 
-        locales = users.getLocales(LongStream.of(user2.id()));
+        locales = users.getLocales(List.of(user2.id()));
         assertEquals(1, locales.size());
         assertEquals(user2.locale(), locales.get(user2.id()));
 
-        locales = users.getLocales(LongStream.of(user3.id()));
+        locales = users.getLocales(List.of(user3.id()));
         assertEquals(1, locales.size());
         assertEquals(user3.locale(), locales.get(user3.id()));
 
-        locales = users.getLocales(LongStream.of(user1.id(), user3.id()));
+        locales = users.getLocales(List.of(user1.id(), user3.id()));
         assertEquals(2, locales.size());
         assertEquals(user1.locale(), locales.get(user1.id()));
         assertEquals(user3.locale(), locales.get(user3.id()));
 
-        locales = users.getLocales(LongStream.of(user1.id(), user3.id(), user4.id()));
+        locales = users.getLocales(List.of(user1.id(), user3.id(), user4.id()));
         assertEquals(3, locales.size());
         assertEquals(user1.locale(), locales.get(user1.id()));
         assertEquals(user3.locale(), locales.get(user3.id()));
@@ -129,13 +129,13 @@ public abstract class UsersDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void setUser(UsersDao users) {
-        assertThrows(NullPointerException.class, () -> users.setUser(null));
+    void addUser(UsersDao users) {
+        assertThrows(NullPointerException.class, () -> users.addUser(null));
 
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         User user = new User(1L, Locale.JAPAN, UTC, now);
         assertTrue(users.getUser(user.id()).isEmpty());
-        users.setUser(user);
+        users.addUser(user);
         assertTrue(users.getUser(user.id()).isPresent());
         assertEquals(user, users.getUser(user.id()).get());
     }
@@ -147,7 +147,7 @@ public abstract class UsersDaoTest {
 
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         User user = new User(1L, Locale.JAPAN, null, now);
-        users.setUser(user);
+        users.addUser(user);
         assertTrue(users.getUser(user.id()).isPresent());
         assertEquals(Locale.JAPAN, users.getUser(user.id()).get().locale());
         users.updateLocale(user.id(), Locale.UK);
@@ -158,7 +158,7 @@ public abstract class UsersDaoTest {
     @MethodSource("provideDao")
     void updateTimezone(UsersDao users) {
         User user = new User(1L, Locale.JAPAN, null, nowUtc());
-        users.setUser(user);
+        users.addUser(user);
         assertTrue(users.getUser(user.id()).isPresent());
         assertNull(users.getUser(user.id()).get().timeZone());
         users.updateTimezone(user.id(), UTC);
@@ -174,7 +174,7 @@ public abstract class UsersDaoTest {
 
         ZonedDateTime now = nowUtc().withNano(0); // clear the seconds as sqlite save milliseconds and not nanos
         User user = new User(1L, Locale.JAPAN, null, now);
-        users.setUser(user);
+        users.addUser(user);
         assertTrue(users.getUser(user.id()).isPresent());
         assertEquals(now, users.getUser(user.id()).get().lastAccess());
         users.updateLastAccess(user.id(), now.plusMinutes(73L));
@@ -192,11 +192,11 @@ public abstract class UsersDaoTest {
         var user3 = new User(3L, Locale.FRENCH, null, now.minusDays(1L));
         var user4 = new User(4L, Locale.CANADA, null, now.minusWeeks(1L));
         var user5 = new User(5L, Locale.GERMAN, null, now.minusDays(1L));
-        users.setUser(user1);
-        users.setUser(user2);
-        users.setUser(user3);
-        users.setUser(user4);
-        users.setUser(user5);
+        users.addUser(user1);
+        users.addUser(user2);
+        users.addUser(user3);
+        users.addUser(user4);
+        users.addUser(user5);
         alerts.addAlert(createTestAlertWithUserId(user5.id()));
 
         assertTrue(users.getUser(user1.id()).isPresent());

@@ -4,8 +4,6 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.MessageEmbed.Footer;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
-import net.dv8tion.jda.api.interactions.components.selections.SelectOption;
-import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.interactions.components.text.TextInput;
 import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
 import net.dv8tion.jda.api.interactions.modals.Modal;
@@ -24,7 +22,10 @@ import org.sbot.entities.Message;
 import org.sbot.services.discord.CommandListener;
 import org.sbot.services.discord.InteractionListener;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.ConcurrentModificationException;
+import java.util.List;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
@@ -36,7 +37,6 @@ import static org.sbot.commands.ListCommand.ALERT_TITLE_PAIR_FOOTER;
 import static org.sbot.commands.UpdateCommand.*;
 import static org.sbot.commands.interactions.Interactions.interactionId;
 import static org.sbot.commands.interactions.SelectEditInteraction.*;
-import static org.sbot.entities.alerts.Alert.DISABLED;
 import static org.sbot.utils.ArgumentValidator.requireOneItem;
 import static org.sbot.utils.ArgumentValidator.requirePositive;
 
@@ -46,13 +46,31 @@ public final class ModalEditInteraction implements InteractionListener {
 
     static final String NAME = "edit-field";
     static final String UPDATE_FAILED_FOOTER = "```\n";
+    public static final String CHOICE_DENIED = "denied";
+    public static final String CHOICE_NOT_FOUND = "notfound";
+
 
     record Arguments(long alertId, String field, String value) {}
 
+
+    public static Modal deniedModalOf(long alertId) {
+        TextInput input = TextInput.create(CHOICE_DENIED, "Access denied", TextInputStyle.SHORT)
+                .setPlaceholder("Sorry, your are not allowed to edit this alert").setMaxLength(2).build();
+        return Modal.create(interactionId(NAME, alertId), "Not allowed to edit alert #" + alertId)
+                .addComponents(ActionRow.of(input)).build();
+    }
+
+    public static Modal notFoundModalOf(long alertId) {
+        TextInput input = TextInput.create(CHOICE_NOT_FOUND, "Deleted alert", TextInputStyle.SHORT)
+                .setPlaceholder("Sorry, this alert was deleted").setMaxLength(2).build();
+        return Modal.create(interactionId(NAME, alertId), "Unable to edit alert #" + alertId)
+                .addComponents(ActionRow.of(input)).build();
+    }
+
     public static Modal deleteModalOf(long alertId) {
         TextInput input = TextInput.create(CHOICE_DELETE, "alert will be be deleted", TextInputStyle.SHORT)
-                .setPlaceholder("type 'ok' to delete").setRequiredRange(0, 2).build();
-        return Modal.create(interactionId(NAME, alertId), "Delete Alert #" + alertId)
+                .setPlaceholder("type 'ok' to delete").setMaxLength(2).build();
+        return Modal.create(interactionId(NAME, alertId), "Delete alert #" + alertId)
                 .addComponents(ActionRow.of(input)).build();
     }
 
@@ -61,7 +79,7 @@ public final class ModalEditInteraction implements InteractionListener {
                 .setPlaceholder(hint)
                 .setRequiredRange(minLength, maxLength)
                 .build();
-        return Modal.create(interactionId(NAME, alertId), "Edit Alert #" + alertId)
+        return Modal.create(interactionId(NAME, alertId), "Edit alert #" + alertId)
                 .addComponents(ActionRow.of(input)).build();
     }
 
@@ -84,10 +102,10 @@ public final class ModalEditInteraction implements InteractionListener {
                         command = new DeleteCommand();
                         commandContext = context.withArgumentsAndReplyMapper(String.valueOf(arguments.alertId), replaceMapper());
                         break;
-                    } else { // close modal, do nothing
-                        context.reply(replyOriginal(null), 0);
-                        return;
-                    }
+                    } // else continue
+                case CHOICE_DENIED, CHOICE_NOT_FOUND: // close modal, do nothing
+                    context.reply(replyOriginal(null), 0);
+                    return;
                 case CHOICE_MIGRATE:
                     command = new MigrateCommand();
                     commandContext = context.withArgumentsAndReplyMapper(arguments.alertId + " " + arguments.value, replaceMapper());
@@ -95,7 +113,7 @@ public final class ModalEditInteraction implements InteractionListener {
                 default:
                     command = new UpdateCommand();
                     commandContext = context.withArgumentsAndReplyMapper(arguments.field + " " + arguments.alertId + " " + arguments.value,
-                            fromUpdateMapper(CHOICE_MESSAGE.equals(arguments.field) ? arguments.value : null, arguments.alertId));
+                            fromUpdateMapper(CHOICE_MESSAGE.equals(arguments.field) ? arguments.value : null));
             }
             command.onCommand(commandContext);
         } catch (RuntimeException e) { // always reply with an edited message
@@ -115,7 +133,7 @@ public final class ModalEditInteraction implements InteractionListener {
         BiFunction<Message, MessageEditBuilder, MessageEditData> editMapper = (message, editBuilder) -> {
             var newEmbedBuilder = requireOneItem(message.embeds());
             var built = newEmbedBuilder.build();
-            if(DENIED_COLOR.equals(built.getColor())) { // user rights changed
+            if(List.of(NOT_FOUND_COLOR, DENIED_COLOR).contains(built.getColor())) { // deleted or user rights changed
                 throw new ConcurrentModificationException(built.getDescription());
             }
             var originalEmbed = requireOneItem(editBuilder.getEmbeds());
@@ -129,47 +147,21 @@ public final class ModalEditInteraction implements InteractionListener {
     }
 
     @NotNull
-    private static UnaryOperator<List<Message>> fromUpdateMapper(@Nullable String newMessage, long alertId) {
+    private static UnaryOperator<List<Message>> fromUpdateMapper(@Nullable String newMessage) {
         // update listed alert content with new state and optional error message
         BiFunction<Message, MessageEditBuilder, MessageEditData> editMapper = (message, editBuilder) -> {
             var newEmbedBuilder = requireOneItem(message.embeds());
             var built = newEmbedBuilder.build();
-            if(DENIED_COLOR.equals(built.getColor())) { // user rights changed
+            if(List.of(NOT_FOUND_COLOR, DENIED_COLOR).contains(built.getColor())) { // deleted or user rights changed
                 throw new ConcurrentModificationException(built.getDescription());
             }
-            var originalEmbed = requireOneItem(editBuilder.getEmbeds());
-            // switch the enable / disable item in menu if enabled state changed
-            switchEnableItem(editBuilder, alertId, !requireNonNull(built.getDescription()).contains(DISABLED));
+            // set the edit menu with enable / disable item updated if needed
+            editBuilder.setComponents(requireNonNull(message.component()));
             // update message reply with update command reply updated to be in same format as ones produced by list command
+            var originalEmbed = requireOneItem(editBuilder.getEmbeds());
             return editBuilder.setEmbeds(updatedMessageEmbeds(originalEmbed, newEmbedBuilder, newMessage, false)).build();
         };
         return messages -> messages.stream().map(message -> Message.of(editBuilder -> editMapper.apply(message, editBuilder))).toList();
-    }
-
-    private static void switchEnableItem(@NotNull MessageEditBuilder editBuilder, long alertId, boolean isEnabled) {
-        StringSelectMenu select = (StringSelectMenu) requireOneItem(requireOneItem(editBuilder.getComponents()).getActionComponents());
-        Optional.ofNullable(switchEnableItem(select.getOptions(), isEnabled)).ifPresent(options -> {
-            var selectComponent = StringSelectMenu.create(interactionId(SelectEditInteraction.NAME, alertId))
-                    .addOptions(options);
-            editBuilder.setComponents(List.of(ActionRow.of(selectComponent.build())));
-        });
-    }
-
-    @Nullable
-    static List<SelectOption> switchEnableItem(@NotNull List<SelectOption> selectOptions, boolean isEnabled) {
-        for(int i = 0; i < selectOptions.size(); i++) {
-            var option = selectOptions.get(i);
-            if(isEnabled && CHOICE_ENABLE.equals(option.getLabel())) {
-                var options = new ArrayList<>(selectOptions);
-                options.set(i, disableOption()); // i should be 1 (remainder) or 3 (range / trend)
-                return options;
-            } else if (!isEnabled && CHOICE_DISABLE.equals(option.getLabel())) {
-                var options = new ArrayList<>(selectOptions);
-                options.set(i, enableOption(false));
-                return options;
-            }
-        }
-        return null;
     }
 
     @NotNull
@@ -219,8 +211,9 @@ public final class ModalEditInteraction implements InteractionListener {
 
     static String originalDescription(@NotNull String originalDescription) {
         // remove messages append or prepended by update command to the original list description
-        // another option would be to rebuild a new message from alert, here it avoid a database access
-        for(String header : List.of(UPDATE_FAILED_FOOTER, UPDATE_SUCCESS_FOOTER, UPDATE_ENABLED_HEADER, UPDATE_DISABLED_HEADER)) {
+        // another option would be to rebuild a new message from alert
+        for(String header : List.of(UPDATE_FAILED_FOOTER, UPDATE_SUCCESS_FOOTER_NO_AUTHOR, // UPDATE_SUCCESS_FOOTER_NO_AUTHOR won't match if an author is appended, and this is fine
+                                    UPDATE_ENABLED_HEADER, UPDATE_DISABLED_HEADER)) {
             int index = originalDescription.indexOf(header); // prepended at the start
             if(index >= 0) {
                 originalDescription = originalDescription.substring(header.length() + index);

@@ -30,8 +30,8 @@ public interface ArgumentValidator {
     int MESSAGE_MAX_LENGTH = 210;
     int TICKER_MIN_LENGTH = 2;
     int TICKER_MAX_LENGTH = 5;
-    int PAIR_MIN_LENGTH = 7;
-    int PAIR_MAX_LENGTH = 11;
+    int PAIR_MIN_LENGTH = (2 * TICKER_MIN_LENGTH) + 1;
+    int PAIR_MAX_LENGTH = (2 * TICKER_MAX_LENGTH) + 1;
     int PRICE_MAX_LENGTH = String.valueOf(Long.MAX_VALUE).length() + 1;
     int REPEAT_MIN = 0;
     int REPEAT_MAX = 100;

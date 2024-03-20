@@ -69,8 +69,8 @@ public final class LastCandlesticksMemory implements LastCandlesticksDao {
     }
 
     @Override
-    public void lastCandlestickBatchDeletes(@NotNull Consumer<BatchEntry> deleter) {
-        LOGGER.debug("lastCandlestickBatchDeletes");
+    public void delete(@NotNull Consumer<BatchEntry> deleter) {
+        LOGGER.debug("delete");
         deleter.accept(ids -> lastCandlesticks.remove(id((String) ids.get("exchange"), (String) ids.get("pair"))));
     }
 }

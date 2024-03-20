@@ -1,16 +1,17 @@
 package org.sbot.entities.alerts;
 
 import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.utils.MarkdownUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.sbot.entities.chart.Candlestick;
+import org.sbot.entities.FieldParser;
+import org.sbot.entities.chart.DatedPrice;
 import org.sbot.services.MatchingService.MatchingAlert;
 import org.sbot.services.MatchingService.MatchingAlert.MatchingStatus;
 import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -34,9 +35,13 @@ public final class RemainderAlert extends Alert {
                 null, lastTrigger, MARGIN_DISABLED, repeat, snooze);
     }
 
+    public RemainderAlert(@NotNull Map<FieldParser, Object> fields) {
+        super(fields);
+    }
+
     @Override
     @NotNull
-    public RemainderAlert build(long id, long userId, long serverId,
+    protected RemainderAlert build(long id, long userId, long serverId,
                                 @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
                                 @NotNull String exchange, @NotNull String pair, @NotNull String message,
                                 @Nullable BigDecimal fromPrice, @Nullable BigDecimal toPrice,
@@ -58,11 +63,11 @@ public final class RemainderAlert extends Alert {
 
     @Override
     @NotNull
-    protected EmbedBuilder asMessage(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick, @NotNull ZonedDateTime now) {
+    public EmbedBuilder asMessage(@NotNull MatchingStatus matchingStatus, @Nullable DatedPrice previousClose, @NotNull ZonedDateTime now) {
         int nextRepeat = matchingStatus.notMatching() ? repeat : repeat - 1;
         String description = (matchingStatus.notMatching() ? type.titleName + " set by <@" + userId + "> on " + pair :
                 "<@" + userId + ">\n\n**" + message + "**") +
-                (null == listeningDate ? "\n\n" + MarkdownUtil.bold(DISABLED)  : "") +
+                (matchingStatus.notMatching() && (null == listeningDate || !fromDate.isEqual(listeningDate)) ? withSnoozeTime(now) : "") +
                 "\n\n* id :\t" + id +
                 "\n* date :\t" + formatDiscord(fromDate) + '(' + formatDiscordRelative(fromDate) + ')' +
                 "\n* created :\t" + formatDiscordRelative(creationDate) +

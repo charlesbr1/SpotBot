@@ -114,8 +114,8 @@ public abstract class LastCandlesticksDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void lastCandlestickBatchDeletes(LastCandlesticksDao lastCandlesticks) {
-        assertThrows(NullPointerException.class, () -> lastCandlesticks.lastCandlestickBatchDeletes(null));
+    void delete(LastCandlesticksDao lastCandlesticks) {
+        assertThrows(NullPointerException.class, () -> lastCandlesticks.delete(null));
 
         ZonedDateTime now = nowUtc();
         Candlestick candlestick = new Candlestick(now, now, ONE, ONE, ONE, ONE);
@@ -123,18 +123,18 @@ public abstract class LastCandlesticksDaoTest {
         lastCandlesticks.setLastCandlestick(BinanceClient.NAME, "ETH/BTC", candlestick);
         assertFalse(lastCandlesticks.getPairsByExchanges().isEmpty());
         assertEquals(Map.of(BinanceClient.NAME, Set.of("ETH/BTC")), lastCandlesticks.getPairsByExchanges());
-        lastCandlesticks.lastCandlestickBatchDeletes(deleter -> deleter.batch(Map.of("exchange", BinanceClient.NAME, "pair", "ETH/DOT")));
+        lastCandlesticks.delete(deleter -> deleter.batch(Map.of("exchange", BinanceClient.NAME, "pair", "ETH/DOT")));
         assertFalse(lastCandlesticks.getPairsByExchanges().isEmpty());
         assertEquals(Map.of(BinanceClient.NAME, Set.of("ETH/BTC")), lastCandlesticks.getPairsByExchanges());
         if(lastCandlesticks instanceof LastCandlesticksMemory) {
-            assertThrows(IllegalArgumentException.class, () -> lastCandlesticks.lastCandlestickBatchDeletes(deleter -> deleter.batch(Map.of("exchange", "bad exchange", "pair", "ETH/BTC"))));
-            assertThrows(IllegalArgumentException.class, () -> lastCandlesticks.lastCandlestickBatchDeletes(deleter -> deleter.batch(Map.of("exchange", BinanceClient.NAME, "pair", "bad pairETH/BTC"))));
+            assertThrows(IllegalArgumentException.class, () -> lastCandlesticks.delete(deleter -> deleter.batch(Map.of("exchange", "bad exchange", "pair", "ETH/BTC"))));
+            assertThrows(IllegalArgumentException.class, () -> lastCandlesticks.delete(deleter -> deleter.batch(Map.of("exchange", BinanceClient.NAME, "pair", "bad pairETH/BTC"))));
         } else { // LastCandlesticksSQLite batch delete does not perform checks on arguments, this difference is solved into service layer LastCandlesticksService
-            lastCandlesticks.lastCandlestickBatchDeletes(deleter -> deleter.batch(Map.of("exchange", "bad exchange", "pair", "ETH/BTC")));
+            lastCandlesticks.delete(deleter -> deleter.batch(Map.of("exchange", "bad exchange", "pair", "ETH/BTC")));
             assertFalse(lastCandlesticks.getPairsByExchanges().isEmpty());
             assertEquals(Map.of(BinanceClient.NAME, Set.of("ETH/BTC")), lastCandlesticks.getPairsByExchanges());
         }
-        lastCandlesticks.lastCandlestickBatchDeletes(deleter -> deleter.batch(Map.of("exchange", BinanceClient.NAME, "pair", "ETH/BTC")));
+        lastCandlesticks.delete(deleter -> deleter.batch(Map.of("exchange", BinanceClient.NAME, "pair", "ETH/BTC")));
         assertTrue(lastCandlesticks.getPairsByExchanges().isEmpty());
 
         lastCandlesticks.setLastCandlestick(BinanceClient.NAME, "ETH/BTC", candlestick);
@@ -144,14 +144,14 @@ public abstract class LastCandlesticksDaoTest {
         lastCandlesticks.setLastCandlestick(BinanceClient.NAME, "CAN/USD", candlestick);
 
         assertEquals(Map.of(BinanceClient.NAME, Set.of("ETH/BTC", "DOT/BTC", "BNB/USDT", "EUR/USD", "CAN/USD")), lastCandlesticks.getPairsByExchanges());
-        lastCandlesticks.lastCandlestickBatchDeletes(deleter -> {
+        lastCandlesticks.delete(deleter -> {
             deleter.batch(Map.of("exchange", BinanceClient.NAME, "pair", "ETH/BTC"));
             deleter.batch(Map.of("exchange", BinanceClient.NAME, "pair", "EUR/USD"));
             deleter.batch(Map.of("exchange", BinanceClient.NAME, "pair", "SOT/ABS"));
         });
         assertEquals(Map.of(BinanceClient.NAME, Set.of("DOT/BTC", "BNB/USDT", "CAN/USD")), lastCandlesticks.getPairsByExchanges());
         assertFalse(lastCandlesticks.getPairsByExchanges().isEmpty());
-        lastCandlesticks.lastCandlestickBatchDeletes(deleter -> {
+        lastCandlesticks.delete(deleter -> {
             deleter.batch(Map.of("exchange", BinanceClient.NAME, "pair", "ETH/BTC"));
             deleter.batch(Map.of("exchange", BinanceClient.NAME, "pair", "DOT/BTC"));
             deleter.batch(Map.of("exchange", BinanceClient.NAME, "pair", "BNB/USDT"));

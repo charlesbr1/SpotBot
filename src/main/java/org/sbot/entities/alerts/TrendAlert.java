@@ -3,7 +3,9 @@ package org.sbot.entities.alerts;
 import net.dv8tion.jda.api.EmbedBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.sbot.entities.FieldParser;
 import org.sbot.entities.chart.Candlestick;
+import org.sbot.entities.chart.DatedPrice;
 import org.sbot.services.MatchingService.MatchingAlert;
 import org.sbot.services.MatchingService.MatchingAlert.MatchingStatus;
 
@@ -11,6 +13,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Map;
 
 import static java.math.RoundingMode.HALF_UP;
 import static java.util.Objects.requireNonNull;
@@ -33,6 +36,15 @@ public final class TrendAlert extends Alert {
                       short repeat, short snooze) {
         super(id, Type.trend, userId, serverId, creationDate, listeningDate, exchange, pair, message, requireNonNull(fromPrice), requireNonNull(toPrice),
                 fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        checkArguments(fromDate, toDate);
+    }
+
+    public TrendAlert(@NotNull Map<FieldParser, Object> fields) {
+        super(fields);
+        checkArguments(fromDate, toDate);
+    }
+
+    private static void checkArguments(@NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate) {
         if(fromDate.isAfter(toDate)) {
             throw new IllegalArgumentException("from_date is after to_date");
         } else if(fromDate.isEqual(toDate)) {
@@ -42,7 +54,7 @@ public final class TrendAlert extends Alert {
 
     @Override
     @NotNull
-    public TrendAlert build(long id, long userId, long serverId,
+    protected TrendAlert build(long id, long userId, long serverId,
                             @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
                             @NotNull String exchange, @NotNull String pair, @NotNull String message,
                             @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
@@ -98,8 +110,8 @@ public final class TrendAlert extends Alert {
 
     @Override
     @NotNull
-    protected EmbedBuilder asMessage(@NotNull MatchingStatus matchingStatus, @Nullable Candlestick previousCandlestick, @NotNull ZonedDateTime now) {
-        String description = header(matchingStatus, previousCandlestick, now) +
+    public EmbedBuilder asMessage(@NotNull MatchingStatus matchingStatus, @Nullable DatedPrice previousClose, @NotNull ZonedDateTime now) {
+        String description = header(matchingStatus, previousClose, now) +
                 "\n\n* id :\t" + id +
                 footer(matchingStatus);
         return new EmbedBuilder().setDescription(description)

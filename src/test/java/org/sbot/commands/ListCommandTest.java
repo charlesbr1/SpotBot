@@ -206,7 +206,7 @@ class ListCommandTest {
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS,
                 () -> ListCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  <@321> 12 23");
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  <@321> 12 2");
         assertExceptionContains(IllegalArgumentException.class, "ticker",
                 () -> ListCommand.arguments(commandContext[0]));
 

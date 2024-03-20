@@ -23,5 +23,5 @@ public interface LastCandlesticksDao {
 
     void updateLastCandlestick(@NotNull String exchange, @NotNull String pair, @NotNull Candlestick candlestick);
 
-    void lastCandlestickBatchDeletes(@NotNull Consumer<BatchEntry> deleter);
+    void delete(@NotNull Consumer<BatchEntry> deleter);
 }

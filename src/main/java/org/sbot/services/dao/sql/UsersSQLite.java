@@ -18,10 +18,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.LongStream;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -66,10 +66,10 @@ public class UsersSQLite extends AbstractJDBI implements UsersDao {
         @Override
         public User map(ResultSet rs, StatementContext ctx) throws SQLException {
             long userId = rs.getLong(ID);
-            Locale locale = Optional.ofNullable(rs.getString(LOCALE)).map(Locale::forLanguageTag)
+            var locale = Optional.ofNullable(rs.getString(LOCALE)).map(Locale::forLanguageTag)
                     .orElseThrow(() -> new IllegalArgumentException("Missing field user locale"));
-            ZoneId timezone = Optional.ofNullable(rs.getString(TIMEZONE)).map(ZoneId::of).orElse(null);
-            ZonedDateTime lastAccess = parseUtcDateTime(rs.getTimestamp(LAST_ACCESS))
+            var timezone = Optional.ofNullable(rs.getString(TIMEZONE)).map(ZoneId::of).orElse(null);
+            var lastAccess = parseUtcDateTime(rs.getTimestamp(LAST_ACCESS))
                     .orElseThrow(() -> new IllegalArgumentException("Missing field user last_access"));
             return new User(userId, locale, timezone, lastAccess);
         }
@@ -115,17 +115,16 @@ public class UsersSQLite extends AbstractJDBI implements UsersDao {
 
     @Override
     @NotNull
-    public Map<Long, Locale> getLocales(@NotNull LongStream userIds) {
-        var userIdList = userIds.boxed().toList();
-        LOGGER.debug("getLocales {}", userIdList);
-        if(userIdList.isEmpty()) {
+    public Map<Long, Locale> getLocales(@NotNull List<Long> userIds) {
+        LOGGER.debug("getLocales {}", userIds);
+        if(userIds.isEmpty()) {
             return emptyMap();
         }
-        return queryMap(SQL.SELECT_ID_LOCALE_HAVING_ID_IN, new GenericType<>() {}, query -> query.bindList("ids", userIdList), ID, LOCALE);
+        return queryMap(SQL.SELECT_ID_LOCALE_HAVING_ID_IN, new GenericType<>() {}, query -> query.bindList("ids", userIds), ID, LOCALE);
     }
 
     @Override
-    public void setUser(@NotNull User user) {
+    public void addUser(@NotNull User user) {
         LOGGER.debug("setUser {}", user);
         requireNonNull(user);
         update(SQL.INSERT_USER, query -> bindUserFields(user, query));

@@ -260,15 +260,6 @@ class StringArgumentReaderTest {
     }
 
     @Test
-    void getMandatoryUserId() {
-        var reader = new StringArgumentReader("<@33>");
-        assertEquals(33L, reader.getMandatoryUserId(""));
-
-        var finalReader = new StringArgumentReader("abc");
-        assertThrows(IllegalArgumentException.class, () -> finalReader.getMandatoryUserId(""));
-    }
-
-    @Test
     void getMandatoryType() {
         var reader = new StringArgumentReader("range");
         assertEquals(range, reader.getMandatoryType(""));

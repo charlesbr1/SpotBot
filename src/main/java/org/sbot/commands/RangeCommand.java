@@ -6,7 +6,6 @@ import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.commands.context.CommandContext;
-import org.sbot.commands.reader.StringArgumentReader;
 import org.sbot.entities.Message;
 import org.sbot.entities.alerts.RangeAlert;
 import org.sbot.utils.ArgumentValidator;
@@ -40,9 +39,9 @@ public final class RangeCommand extends CommandAdapter {
                     .setMinValue(0d),
             option(NUMBER, HIGH_ARGUMENT, "the high range price", false)
                     .setMinValue(0d),
-            option(STRING, FROM_DATE_ARGUMENT, "a date to start the box, expected format : " + Dates.DATE_TIME_FORMAT, false)
+            option(STRING, FROM_DATE_ARGUMENT, "a date to start the box, expected format : '" + Dates.DATE_TIME_FORMAT.toLowerCase() + "' or 'now+h'", false)
                     .setMinLength(NOW_ARGUMENT.length()),
-            option(STRING, TO_DATE_ARGUMENT, "a future date to end the box, expected format : " + Dates.DATE_TIME_FORMAT, false)
+            option(STRING, TO_DATE_ARGUMENT, "a future date to end the box, expected format : '" + Dates.DATE_TIME_FORMAT.toLowerCase() + "' or 'now+h'", false)
                     .setMinLength(NOW_ARGUMENT.length() + 2));
 
     record Arguments(String exchange, String pair, String message, BigDecimal low, BigDecimal high, ZonedDateTime fromDate, ZonedDateTime toDate) {}
@@ -66,15 +65,14 @@ public final class RangeCommand extends CommandAdapter {
         String exchange = requireSupportedExchange(context.args.getMandatoryString(EXCHANGE_ARGUMENT));
         String pair = requirePairFormat(context.args.getMandatoryString(PAIR_ARGUMENT).toUpperCase());
         var reversed = context.args.reversed();
-        boolean stringReader = context.args instanceof StringArgumentReader;
         ZonedDateTime toDate = reversed.getDateTime(context.locale, context.timezone, context.clock(), TO_DATE_ARGUMENT).orElse(null);
-        ZonedDateTime fromDate = !stringReader || null != toDate ? reversed.getDateTime(context.locale, context.timezone, context.clock(), FROM_DATE_ARGUMENT).orElse(null) : null;
+        ZonedDateTime fromDate = !context.isStringReader() || null != toDate ? reversed.getDateTime(context.locale, context.timezone, context.clock(), FROM_DATE_ARGUMENT).orElse(null) : null;
         BigDecimal high = reversed.getNumber(HIGH_ARGUMENT).map(ArgumentValidator::requirePrice).orElse(null);
         BigDecimal low = reversed.getNumber(LOW_ARGUMENT).map(ArgumentValidator::requirePrice).orElse(null);
         String message = requireAlertMessageMaxLength(reversed.getLastArgs(MESSAGE_ARGUMENT)
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
 
-        if (stringReader) { // optional arguments are rode backward, this need to ensure correct arguments mapping
+        if (context.isStringReader()) { // optional arguments are rode backward, this need to ensure correct arguments mapping
             if(null != toDate && null == fromDate) { // both dates are optional, but fromDate is first
                 fromDate = toDate;
                 toDate = null;

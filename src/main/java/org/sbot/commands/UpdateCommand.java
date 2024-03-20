@@ -1,15 +1,16 @@
 package org.sbot.commands;
 
-import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
+import net.dv8tion.jda.api.interactions.components.ActionRow;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
 import org.sbot.entities.alerts.Alert;
-import org.sbot.services.dao.AlertsDao;
+import org.sbot.entities.notifications.UpdatedNotification;
+import org.sbot.services.dao.NotificationsDao;
 import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
@@ -18,15 +19,17 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiFunction;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 import static net.dv8tion.jda.api.interactions.commands.build.OptionData.MAX_POSITIVE_NUMBER;
 import static org.sbot.commands.SecurityAccess.sameUser;
-import static org.sbot.entities.alerts.Alert.*;
+import static org.sbot.commands.interactions.SelectEditInteraction.updateMenuOf;
+import static org.sbot.entities.alerts.Alert.DEFAULT_REPEAT;
+import static org.sbot.entities.alerts.Alert.Type;
 import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
 import static org.sbot.services.dao.AlertsDao.UpdateField.*;
@@ -64,6 +67,8 @@ public final class UpdateCommand extends CommandAdapter {
 
     public static final String UPDATE_ENABLED_HEADER = "Status set to **enabled** !\n\n";
     public static final String UPDATE_DISABLED_HEADER = "Status set to **disabled** !\n\n";
+    public static final String UPDATE_SUCCESS_FOOTER = "** updated by {author} !\n\n";
+    public static final String UPDATE_SUCCESS_FOOTER_NO_AUTHOR = "** updated !\n\n";
 
 
     private static final SlashCommandData options =
@@ -74,7 +79,7 @@ public final class UpdateCommand extends CommandAdapter {
                                     .addChoice(CHOICE_TIMEZONE, CHOICE_TIMEZONE),
                             option(STRING, VALUE_ARGUMENT, "a new locale or timezone to use by default", true)
                                     .setMinLength(1)),
-                    new SubcommandData("alert", "update an alert field (only 'message' 'from_date' 'repeat' 'snooze' can be updated on a remainder)").addOptions(
+                    new SubcommandData("alert", "update an alert field (only 'message', 'date', 'repeat', 'snooze' can be updated on a remainder)").addOptions(
                             option(STRING, SELECTION_ARGUMENT, CHOICE_MESSAGE + ", " + CHOICE_FROM_PRICE + ", " + CHOICE_LOW +
                             ", " + CHOICE_TO_PRICE + ", " + CHOICE_HIGH + ", " + CHOICE_FROM_DATE + ", " + CHOICE_DATE +
                             ", " + DISPLAY_TO_DATE + ", " + CHOICE_MARGIN + ", " + CHOICE_REPEAT + ", " + CHOICE_SNOOZE, true)
@@ -87,7 +92,7 @@ public final class UpdateCommand extends CommandAdapter {
                             .addChoice(CHOICE_REPEAT, CHOICE_REPEAT)
                             .addChoice(CHOICE_SNOOZE, CHOICE_SNOOZE)
                             .addChoice(CHOICE_ENABLE, CHOICE_ENABLE),
-                    option(INTEGER, ALERT_ID_ARGUMENT, "id of the alert", true)
+                    option(INTEGER, ALERT_ID_ARGUMENT, "id of the alert to update", true)
                             .setMinValue(0).setMaxValue((long) MAX_POSITIVE_NUMBER),
                     option(STRING, VALUE_ARGUMENT, "a new value depending on the selected field : a price, a message, or a date (" + Dates.DATE_TIME_FORMAT + ')', true)
                             .setMinLength(1)));
@@ -146,71 +151,72 @@ public final class UpdateCommand extends CommandAdapter {
     }
 
     private void updateField(@NotNull CommandContext context, @NotNull Arguments arguments) {
-        Runnable[] notificationCallBack = new Runnable[1];
         var now = Dates.nowUtc(context.clock());
-
-        context.reply(Message.of(securedAlertUpdate(arguments.alertId, context,
+        context.reply(securedAlertUpdate(arguments.alertId, context,
                 switch (arguments.selection) {
-                    case CHOICE_MESSAGE -> message(context, now, notificationCallBack);
-                    case CHOICE_FROM_PRICE, CHOICE_LOW -> fromPrice(context, now, notificationCallBack);
-                    case CHOICE_TO_PRICE, CHOICE_HIGH -> toPrice(context, now, notificationCallBack);
-                    case CHOICE_FROM_DATE -> fromDate(context, now, notificationCallBack, DISPLAY_FROM_DATE);
-                    case CHOICE_DATE -> fromDate(context, now, notificationCallBack, CHOICE_DATE);
-                    case CHOICE_TO_DATE -> toDate(context, now, notificationCallBack);
-                    case CHOICE_MARGIN -> margin(context, now, notificationCallBack);
-                    case CHOICE_REPEAT -> repeat(context, now, notificationCallBack);
-                    case CHOICE_SNOOZE -> snooze(context, now, notificationCallBack);
-                    case CHOICE_ENABLE -> enable(context, now, notificationCallBack);
+                    case CHOICE_MESSAGE -> message(context, now);
+                    case CHOICE_FROM_PRICE, CHOICE_LOW -> fromPrice(context, now);
+                    case CHOICE_TO_PRICE, CHOICE_HIGH -> toPrice(context, now);
+                    case CHOICE_FROM_DATE -> fromDate(context, now, DISPLAY_FROM_DATE);
+                    case CHOICE_DATE -> fromDate(context, now, CHOICE_DATE);
+                    case CHOICE_TO_DATE -> toDate(context, now);
+                    case CHOICE_MARGIN -> margin(context, now);
+                    case CHOICE_REPEAT -> repeat(context, now);
+                    case CHOICE_SNOOZE -> snooze(context, now);
+                    case CHOICE_ENABLE -> enable(context, now);
                     default -> throw new IllegalArgumentException("Invalid " + SELECTION_ARGUMENT + " : " + arguments.selection);
-                })), responseTtlSeconds);
-        // perform user notification of its alerts being updated, if needed, once above update transaction is successful.
-        Optional.ofNullable(notificationCallBack[0]).ifPresent(Runnable::run);
+                }), responseTtlSeconds);
     }
 
     @NotNull
-    private static BiFunction<Alert, AlertsDao, EmbedBuilder> update(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull BiFunction<Alert, AlertsDao, EmbedBuilder> updater, @NotNull Predicate<Alert> tester) {
-        return (alert, alertsDao) -> {
+    private static UpdateHandler update(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull UpdateHandler updater, @NotNull Predicate<Alert> tester) {
+        return (alert, alertsDao, notificationsDao) -> {
             if(tester.test(alert)) {
-                return updater.apply(alert, alertsDao);
+                return updater.update(alert, alertsDao, notificationsDao);
             }
-            return alertEmbed(context, now, alert);
+            return Message.of(alertEmbed(context, now, alert), ActionRow.of(updateMenuOf(alert)));
         };
     }
 
-    private BiFunction<Alert, AlertsDao, EmbedBuilder> message(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
+    @NotNull
+    private UpdateHandler message(@NotNull CommandContext context, @NotNull ZonedDateTime now) {
         String message = requireAlertMessageMaxLength(context.args.getLastArgs(VALUE_ARGUMENT)
                 .orElseThrow(() -> new IllegalArgumentException("Please add a message to your alert !")));
-        return (alert, alertsDao) -> { // message is not loaded into the provided alert, just update it everytime
+        return (alert, alertsDao, notificationsDao) -> { // message is not loaded into the provided alert, just update it everytime
             alert = alert.withMessage(message);
             alertsDao.update(alert, Set.of(MESSAGE));
-            return updateNotifyMessage(context, now, alert, CHOICE_MESSAGE, message, outNotificationCallBack)
-                    .appendDescription(remainder != alert.type ? alertMessageTips(message, alert.id) : "");
+            var answer = updateNotifyMessage(context, now, alert, CHOICE_MESSAGE, message, notificationsDao);
+            requireOneItem(answer.embeds()).appendDescription(remainder != alert.type ? alertMessageTips(message) : "");
+            return answer;
         };
     }
 
-    private BiFunction<Alert, AlertsDao, EmbedBuilder> fromPrice(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
+    @NotNull
+    private UpdateHandler fromPrice(@NotNull CommandContext context, @NotNull ZonedDateTime now) {
         BigDecimal fromPrice = requirePrice(context.args.getMandatoryNumber(VALUE_ARGUMENT));
-        return update(context.noMoreArgs(), now, (alert, alertsDao) -> {
+        return update(context.noMoreArgs(), now, (alert, alertsDao, notificationsDao) -> {
             alert = alert.withFromPrice(fromPrice);
             alertsDao.update(alert, Set.of(FROM_PRICE));
             String displayName = range == alert.type ? CHOICE_LOW : DISPLAY_FROM_PRICE;
-            return updateNotifyMessage(context, now, alert, displayName, fromPrice.toPlainString(), outNotificationCallBack);
+            return updateNotifyMessage(context, now, alert, displayName, fromPrice.toPlainString(), notificationsDao);
         }, alert -> fromPrice.compareTo(alert.fromPrice) != 0);
     }
 
-    private BiFunction<Alert, AlertsDao, EmbedBuilder> toPrice(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
+    @NotNull
+    private UpdateHandler toPrice(@NotNull CommandContext context, @NotNull ZonedDateTime now) {
         BigDecimal toPrice = requirePrice(context.args.getMandatoryNumber(VALUE_ARGUMENT));
-        return update(context.noMoreArgs(), now, (alert, alertsDao) -> {
+        return update(context.noMoreArgs(), now, (alert, alertsDao, notificationsDao) -> {
             alert = alert.withToPrice(toPrice);
             alertsDao.update(alert, Set.of(TO_PRICE));
             String displayName = range == alert.type ? CHOICE_HIGH : DISPLAY_TO_PRICE;
-            return updateNotifyMessage(context, now, alert, displayName, toPrice.toPlainString(), outNotificationCallBack);
+            return updateNotifyMessage(context, now, alert, displayName, toPrice.toPlainString(), notificationsDao);
         }, alert -> toPrice.compareTo(alert.toPrice) != 0);
     }
 
-    private BiFunction<Alert, AlertsDao, EmbedBuilder> fromDate(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack, @NotNull String displayName) {
+    @NotNull
+    private UpdateHandler fromDate(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull String displayName) {
         ZonedDateTime fromDate = readDate(context, displayName);
-        return update(context, now, (alert, alertsDao) -> {
+        return update(context, now, (alert, alertsDao, notificationsDao) -> {
             validateDateArgument(now, alert.type, fromDate, displayName);
             var fields = Set.of(FROM_DATE);
             if(trend == alert.type || (range == alert.type && !alert.isEnabled())) {
@@ -224,42 +230,46 @@ public final class UpdateCommand extends CommandAdapter {
             }
             alertsDao.update(alert, fields);
             String date = null != fromDate ? formatDiscord(fromDate) : NULL_DATE_ARGUMENT;
-            return updateNotifyMessage(context, now, alert, displayName, date, outNotificationCallBack);
+            return updateNotifyMessage(context, now, alert, displayName, date, notificationsDao);
         }, alert -> notEquals(fromDate, alert.fromDate));
     }
 
-    private BiFunction<Alert, AlertsDao, EmbedBuilder> toDate(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
+    @NotNull
+    private UpdateHandler toDate(@NotNull CommandContext context, @NotNull ZonedDateTime now) {
         ZonedDateTime toDate = readDate(context, DISPLAY_TO_DATE);
-        return update(context, now, (alert, alertsDao) -> {
+        return update(context, now, (alert, alertsDao, notificationsDao) -> {
             validateDateArgument(now, alert.type, toDate, DISPLAY_TO_DATE);
             alert = alert.withToDate(toDate);
             alertsDao.update(alert, Set.of(TO_DATE));
             String date = null != toDate ? formatDiscord(toDate) : NULL_DATE_ARGUMENT;
-            return updateNotifyMessage(context, now, alert, DISPLAY_TO_DATE, date, outNotificationCallBack);
+            return updateNotifyMessage(context, now, alert, DISPLAY_TO_DATE, date, notificationsDao);
         }, alert -> notEquals(toDate, alert.toDate));
     }
 
-    private BiFunction<Alert, AlertsDao, EmbedBuilder> margin(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
+    @NotNull
+    private UpdateHandler margin(@NotNull CommandContext context, @NotNull ZonedDateTime now) {
         BigDecimal margin = requirePrice(context.args.getMandatoryNumber(VALUE_ARGUMENT));
-        return update(context.noMoreArgs(), now, (alert, alertsDao) -> {
+        return update(context.noMoreArgs(), now, (alert, alertsDao, notificationsDao) -> {
             alert = alert.withMargin(margin);
             alertsDao.update(alert, Set.of(MARGIN));
-            return updateNotifyMessage(context, now, alert, CHOICE_MARGIN, margin.toPlainString(), outNotificationCallBack);
+            return updateNotifyMessage(context, now, alert, CHOICE_MARGIN, margin.toPlainString(), notificationsDao);
         }, alert -> margin.compareTo(alert.margin) != 0);
     }
 
-    private BiFunction<Alert, AlertsDao, EmbedBuilder> repeat(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
+    @NotNull
+    private UpdateHandler repeat(@NotNull CommandContext context, @NotNull ZonedDateTime now) {
         short repeat = requireRepeat(context.args.getMandatoryLong(VALUE_ARGUMENT));
-        return update(context.noMoreArgs(), now, (alert, alertsDao) -> {
+        return update(context.noMoreArgs(), now, (alert, alertsDao, notificationsDao) -> {
             alert = alert.withRepeat(repeat);
             alertsDao.update(alert, Set.of(REPEAT));
-            return updateNotifyMessage(context, now, alert, CHOICE_REPEAT, String.valueOf(repeat), outNotificationCallBack);
+            return updateNotifyMessage(context, now, alert, CHOICE_REPEAT, String.valueOf(repeat), notificationsDao);
         }, alert -> repeat != alert.repeat);
     }
 
-    private BiFunction<Alert, AlertsDao, EmbedBuilder> snooze(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
+    @NotNull
+    private UpdateHandler snooze(@NotNull CommandContext context, @NotNull ZonedDateTime now) {
         short snooze = requireSnooze(context.args.getMandatoryLong(VALUE_ARGUMENT));
-        return update(context.noMoreArgs(), now, (alert, alertsDao) -> {
+        return update(context.noMoreArgs(), now, (alert, alertsDao, notificationsDao) -> {
             var fields = Set.of(SNOOZE);
             if(alert.inSnooze(now)) {
                 alert = alert.withListeningDateSnooze(requireNonNull(alert.listeningDate)
@@ -269,20 +279,21 @@ public final class UpdateCommand extends CommandAdapter {
                 alert = alert.withSnooze(snooze);
             }
             alertsDao.update(alert, fields);
-            return updateNotifyMessage(context, now, alert, CHOICE_SNOOZE, String.valueOf(snooze) + (snooze > 1 ? " hours" : " hour"), outNotificationCallBack);
+            return updateNotifyMessage(context, now, alert, CHOICE_SNOOZE, String.valueOf(snooze) + (snooze > 1 ? " hours" : " hour"), notificationsDao);
         }, alert -> snooze != alert.snooze);
     }
 
-    private BiFunction<Alert, AlertsDao, EmbedBuilder> enable(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Runnable[] outNotificationCallBack) {
+    @NotNull
+    private UpdateHandler enable(@NotNull CommandContext context, @NotNull ZonedDateTime now) {
         boolean enable = requireBoolean(context.args.getMandatoryString(VALUE_ARGUMENT), CHOICE_ENABLE);
-        return update(context.noMoreArgs(), now, (alert, alertsDao) -> {
+        return update(context.noMoreArgs(), now, (alert, alertsDao, notificationsDao) -> {
             if(remainder == alert.type) {
                 throw new IllegalArgumentException("Remainder alert can't be disabled, drop it instead");
             }
             var repeat = enable && alert.repeat < 0 ? DEFAULT_REPEAT : alert.repeat;
             alert = alert.withListeningDateRepeat(enable ? listeningDate(now, alert) : null, repeat);
             alertsDao.update(alert, Set.of(LISTENING_DATE, REPEAT));
-            return updateNotifyMessage(context, now, alert, enable ? UPDATE_ENABLED_HEADER : UPDATE_DISABLED_HEADER, Boolean.toString(enable), CHOICE_ENABLE, outNotificationCallBack);
+            return updateNotifyMessage(context, now, alert, enable ? UPDATE_ENABLED_HEADER : UPDATE_DISABLED_HEADER, Boolean.toString(enable), CHOICE_ENABLE, notificationsDao);
         }, alert -> enable != alert.isEnabled());
     }
 
@@ -316,24 +327,20 @@ public final class UpdateCommand extends CommandAdapter {
         }
     }
 
-    private EmbedBuilder updateNotifyMessage(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert, @NotNull String displayName, @NotNull String newValue, @NotNull Runnable[] outNotificationCallBack) {
-        return updateNotifyMessage(context, now, alert, null, displayName, newValue, outNotificationCallBack);
+    private Message updateNotifyMessage(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert, @NotNull String displayName, @NotNull String newValue, @NotNull Supplier<NotificationsDao> notificationsDao) {
+        return updateNotifyMessage(context, now, alert, null, displayName, newValue, notificationsDao);
     }
 
-    public static final String UPDATE_SUCCESS_FOOTER = "** updated !\n\n";
-
-    private EmbedBuilder updateNotifyMessage(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert, @Nullable String altFieldName, @NotNull String displayName, @NotNull String newValue, @NotNull Runnable[] outNotificationCallBack) {
-        ownerUpdateNotification(context, alert, displayName, newValue, outNotificationCallBack);
+    private Message updateNotifyMessage(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert, @Nullable String altFieldName, @NotNull String displayName, @NotNull String newValue, @NotNull Supplier<NotificationsDao> notificationsDao) {
+        ownerUpdateNotification(context, now, alert, displayName, newValue, notificationsDao);
         var embed = alertEmbed(context, now, alert);
-        return embed.setDescription((null != altFieldName ? altFieldName : "Field **" + requireNonNull(displayName) + UPDATE_SUCCESS_FOOTER) + embed.getDescriptionBuilder());
+        var updatedBy = sameUser(context.user, alert.userId) ? UPDATE_SUCCESS_FOOTER_NO_AUTHOR : UPDATE_SUCCESS_FOOTER.replace("{author}", context.user.getAsMention());
+        return Message.of(embed.setDescription((null != altFieldName ? altFieldName : "Field **" + requireNonNull(displayName) + updatedBy) + embed.getDescriptionBuilder()), ActionRow.of(updateMenuOf(alert)));
     }
 
-    private void ownerUpdateNotification(@NotNull CommandContext context, @NotNull Alert alert, @NotNull String field, @NotNull String newValue, @NotNull Runnable[] outNotificationCallBack) {
+    private void ownerUpdateNotification(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert, @NotNull String field, @NotNull String newValue, @NotNull Supplier<NotificationsDao> notificationsDao) {
         if(!sameUser(context.user, alert.userId)) {
-            outNotificationCallBack[0] = () -> sendUpdateNotification(context, alert.userId,
-                    Message.of(embedBuilder("Notice of alert update", NOTIFICATION_COLOR,
-                "Your alert " + alert.id + " was updated on guild " + guildName(requireNonNull(context.member).getGuild()) +
-                        ", " + field + " = " + newValue)));
+            notificationsDao.get().addNotification(UpdatedNotification.of(now, context.locale, alert.userId, alert.id, field, newValue, guildName(requireNonNull(context.member).getGuild())));
         }
     }
 }
