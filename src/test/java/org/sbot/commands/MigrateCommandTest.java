@@ -682,7 +682,7 @@ class MigrateCommandTest {
         assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
                 () -> MigrateCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  btc/lk");
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  bt/l");
         assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
                 () -> MigrateCommand.arguments(commandContext[0]));
 

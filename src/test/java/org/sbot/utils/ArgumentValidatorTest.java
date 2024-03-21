@@ -266,7 +266,7 @@ class ArgumentValidatorTest {
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("BT3456"));
         assertEquals("12345/ABCDE", ArgumentValidator.requireTickerPairLength("12345/ABCDE"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("5/ABC"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("566/C"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("56/C"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("1234567/ABC"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("123456/ABCDE"));
     }

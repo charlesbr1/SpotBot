@@ -362,7 +362,7 @@ public abstract class Alert {
 
     public static final String DISABLED = "DISABLED";
 
-    protected String withSnoozeTime(@NotNull ZonedDateTime now) {
+    protected final String withSnoozeTime(@NotNull ZonedDateTime now) {
         if(null == listeningDate) {
             return "\n\n" + MarkdownUtil.bold(DISABLED);
         }
@@ -383,7 +383,7 @@ public abstract class Alert {
     }
 
     @Override
-    public String toString() {
+    public final String toString() {
         return "Alert{" +
                 "id=" + id +
                 ", type=" + type +

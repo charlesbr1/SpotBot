@@ -496,7 +496,7 @@ class DeleteCommandTest {
         assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
                 () -> DeleteCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + "  btc/lk");
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, DeleteCommand.NAME + "  bc/k");
         assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
                 () -> DeleteCommand.arguments(commandContext[0]));
 

@@ -130,7 +130,7 @@ class ListCommandTest {
         assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
                 () -> ListCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  btc/lk");
+        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, ListCommand.NAME + "  bt/k");
         assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
                 () -> ListCommand.arguments(commandContext[0]));
 
