@@ -187,10 +187,10 @@ public final class ListCommand extends CommandAdapter {
         return paginatedAnswer(messages, arguments, alertsTotal.alerts.size(), alertsTotal.total);
     }
 
+    // return list of message containing all the embeds (alerts, ordered) between each editable message that can contains only one alert embed
     private static ArrayList<Message> alertMessages(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Arguments arguments, @NotNull List<Alert> alerts, long total) {
         boolean adminEditable = null != arguments.ownerId && isAdminMember(context.member);
         boolean editable = null != arguments.tickerOrPair || null != arguments.type;
-        // return list of message containing all the embeds (alerts) between each editable message that can contains only one embed
         long userId = context.user.getIdLong();
         var messages = new ArrayList<Message>();
         int i = 0;

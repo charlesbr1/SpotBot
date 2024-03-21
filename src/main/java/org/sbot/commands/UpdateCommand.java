@@ -273,7 +273,7 @@ public final class UpdateCommand extends CommandAdapter {
             var fields = Set.of(SNOOZE);
             if(alert.inSnooze(now)) {
                 alert = alert.withListeningDateSnooze(requireNonNull(alert.listeningDate)
-                        .minusHours(alert.snooze).plusHours(snooze), snooze);
+                        .plusHours((long) snooze - alert.snooze), snooze);
                 fields = Set.of(LISTENING_DATE, SNOOZE);
             } else {
                 alert = alert.withSnooze(snooze);
