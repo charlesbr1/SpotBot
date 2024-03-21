@@ -39,7 +39,7 @@ class MigratedNotificationTest {
         assertEquals(321L, notification.fields.get(ALERT_ID));
         assertEquals(range, notification.fields.get(TYPE));
         assertEquals("tickerOrPair", notification.fields.get(TICKER_OR_PAIR));
-        assertEquals(Reason.ADMIN.ordinal(), notification.fields.get(REASON));
+        assertEquals((short) Reason.ADMIN.ordinal(), notification.fields.get(REASON));
         assertEquals("fromGuild", notification.fields.get(GUILD_NAME));
         assertEquals("toGuild", notification.fields.get(TO_GUILD));
         assertEquals(3L, notification.fields.get(NB_MIGRATED));

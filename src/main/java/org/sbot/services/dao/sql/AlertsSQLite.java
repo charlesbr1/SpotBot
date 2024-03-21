@@ -225,7 +225,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         if(null != filter.userId())
             andSeparator.get().append(USER_ID).append("=:").append(USER_ID);
         if(null != filter.type())
-            andSeparator.get().append(TYPE).append(" LIKE :").append(TYPE);
+            andSeparator.get().append(TYPE).append("=:").append(TYPE);
         if(null != filter.tickerOrPair())
             andSeparator.get().append(PAIR).append(" LIKE '%'||:").append(TICKER_OR_PAIR_ARGUMENT).append("||'%'");
         return builder.isEmpty() ? "1 = 1" : builder;

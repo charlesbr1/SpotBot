@@ -128,10 +128,10 @@ class AlertsSQLiteTest extends AlertsDaoTest {
         assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID, AlertsSQLite.asSearchFilter(selection).toString());
 
         selection = SelectionFilter.of(serverId, userId, trend);
-        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID + " AND " + TYPE + " LIKE :" + TYPE, AlertsSQLite.asSearchFilter(selection).toString());
+        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID + " AND " + TYPE + "=:" + TYPE, AlertsSQLite.asSearchFilter(selection).toString());
 
         selection = SelectionFilter.of(serverId, userId, remainder).withTickerOrPair("SOL/EUR");
-        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID + " AND " + TYPE + " LIKE :" + TYPE + " AND " + PAIR + " LIKE '%'||:" + TICKER_OR_PAIR_ARGUMENT + "||'%'", AlertsSQLite.asSearchFilter(selection).toString());
+        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID + " AND " + TYPE + "=:" + TYPE + " AND " + PAIR + " LIKE '%'||:" + TICKER_OR_PAIR_ARGUMENT + "||'%'", AlertsSQLite.asSearchFilter(selection).toString());
     }
 
     @Test

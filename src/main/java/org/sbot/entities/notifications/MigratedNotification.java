@@ -66,7 +66,7 @@ public final class MigratedNotification extends Notification {
             fields.put(TYPE, type);
         }
         fields.put(TICKER_OR_PAIR, requireNonNull(tickerOrPair));
-        fields.put(REASON, reason.ordinal());
+        fields.put(REASON, (short) reason.ordinal());
         fields.put(GUILD_NAME, requireNonNull(fromGuild));
         if(null != toGuild) {
             fields.put(TO_GUILD, toGuild);
@@ -93,7 +93,7 @@ public final class MigratedNotification extends Notification {
     @NotNull
     public Message asMessage(@NotNull Context unused) {
         String fromGuild = (String) fields.get(GUILD_NAME);
-        Reason reason = Reason.values()[(Integer) fields.get(REASON)];
+        Reason reason = Reason.values()[(short) fields.get(REASON)];
         String header = switch (reason) {
             case SERVER_LEAVED -> "Guild " + fromGuild + " removed this bot";
             case LEAVED -> "You leaved guild " + fromGuild;

@@ -1,5 +1,6 @@
 package org.sbot.entities.notifications;
 
+import net.dv8tion.jda.api.entities.MessageEmbed;
 import org.junit.jupiter.api.Test;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.entities.chart.DatedPrice;
@@ -150,6 +151,7 @@ class MatchingNotificationTest {
         alert = createTestAlertWithUserIdAndPairType(TEST_USER_ID, "12345/12346", range).withMessage(longMess);
         assertEquals("!!! MARGIN Range ALERT !!! - [12345/12346] " + longMess, MatchingNotification.raiseTitle(alert, MARGIN));
         assertEquals("!!! Range ALERT !!! - [12345/12346] " + longMess, MatchingNotification.raiseTitle(alert, MATCHED));
+        assertTrue(MatchingNotification.raiseTitle(alert, MARGIN).length() <= MessageEmbed.TITLE_MAX_LENGTH);
 
         alert = createTestAlertWithUserIdAndPairType(TEST_USER_ID, "12345/12346", trend).withMessage(longMess);
         assertEquals("!!! MARGIN Trend ALERT !!! - [12345/12346] " + longMess, MatchingNotification.raiseTitle(alert, MARGIN));
