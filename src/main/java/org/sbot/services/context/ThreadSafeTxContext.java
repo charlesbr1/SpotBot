@@ -56,11 +56,9 @@ public final class ThreadSafeTxContext extends TransactionalContext {
             try {
                 super.commit();
             } finally {
-                if(!afterCommit.isEmpty()) {
-                    LOGGER.debug("after commit");
-                    afterCommit.forEach(Runnable::run);
-                    afterCommit.clear();
-                }
+                LOGGER.debug("after commit");
+                afterCommit.forEach(Runnable::run);
+                afterCommit.clear();
             }
         } else if (countdown.get() < 0) {
             LOGGER.error("Unexpected negative countdown value {}", countdown.get());

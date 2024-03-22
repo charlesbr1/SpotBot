@@ -509,7 +509,7 @@ class TrendAlertTest {
                 .asMessage(NOT_MATCHING, previousClose, now).getDescriptionBuilder().toString().contains(DISABLED));
         assertFalse(alert.withListeningDateRepeat(now.plusMinutes(1L), (short) 1).asMessage(NOT_MATCHING, previousClose, now).getDescriptionBuilder().toString().contains(DISABLED));
         assertFalse(alert.withListeningDateRepeat(now.plusMinutes(1L), (short) 1).asMessage(NOT_MATCHING, previousClose, TEST_TO_DATE).getDescriptionBuilder().toString().contains("deleted"));
-        assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L), (short) 1).asMessage(NOT_MATCHING, previousClose, TEST_TO_DATE.minusMinutes(13L)).getDescriptionBuilder().toString().contains("deleted"));
+        assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L), (short) 1).asMessage(NOT_MATCHING, previousClose, TEST_TO_DATE.plusMinutes(13L)).getDescriptionBuilder().toString().contains("deleted"));
         assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L).plusSeconds(1L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, previousClose, now).getDescriptionBuilder().toString().contains("SNOOZE"));
         assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L).plusSeconds(1L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, previousClose, now).getDescriptionBuilder().toString().contains("" + now.plusMinutes(1L).plusSeconds(1L).plusNanos(1000000L).toEpochSecond()));
         assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L).plusSeconds(3L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, previousClose, now).getDescriptionBuilder().toString().contains("" + now.plusMinutes(1L).plusSeconds(3L).plusNanos(1000000L).toEpochSecond()));

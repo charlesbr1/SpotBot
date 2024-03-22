@@ -43,12 +43,14 @@ public final class NotificationsService {
 
 
     private final Context context;
-    private final Semaphore semaphore = new Semaphore(1); // init to 1 to process any pending notifications on app start
+    private final Semaphore semaphore = new Semaphore(0);
     private final Runnable waitAndSendNotifications;
 
     public NotificationsService(@NotNull Context context) {
         this.context = requireNonNull(context);
         waitAndSendNotifications = this::waitAndSendNotifications; // store a single instance of this method ref
+        sendNewNotifications(); // process any pending notifications on app start
+        // this can't be done directly by notificationsThread due to a jdbi init thread sync issue (he should sleep a bit otherwise)
         Thread.ofVirtual().name("Notifications thread").start(this::notificationsThread);
     }
 
@@ -101,7 +103,7 @@ public final class NotificationsService {
             var newNotifications = dao.getNewNotifications(BATCH_SIZE);
             dao.statusBatchUpdate(SENDING, updater -> newNotifications.forEach(notification -> updater.batchId(notification.id)));
             return newNotifications;
-        });
+        }, READ_UNCOMMITTED, false);
     }
 
     private void sendNotifications(@NotNull ThreadSafeTxContext txContext, @NotNull RecipientType recipientType, @NotNull String recipientId, @NotNull List<Notification> notifications) {
@@ -213,7 +215,8 @@ public final class NotificationsService {
             Consumer<Boolean> onFailure = blocked -> updateStatusCallback(txContext, List.of(notification), blocked);
             Discord.sendMessages(channel, List.of(notification.asMessage(context)), onSuccess, onFailure);
         } catch (RuntimeException e) {
-            LOGGER.error("Unable to send notification " + notification, e);
+            var error = "Unable to send notification " + notification;
+            LOGGER.error(error, e);
             updateStatusCallback(txContext, List.of(notification), false);
         }
     }
