@@ -15,6 +15,7 @@ import org.sbot.entities.notifications.MigratedNotification;
 import org.sbot.entities.notifications.MigratedNotification.Reason;
 import org.sbot.services.context.TransactionalContext;
 import org.sbot.services.dao.AlertsDao.SelectionFilter;
+import org.sbot.services.discord.Discord;
 import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
 
@@ -185,17 +186,17 @@ public final class MigrateCommand extends CommandAdapter {
     }
 
     // used by discord EventAdapter onGuildLeave
-    public static List<Long> migrateServerAlertsToPrivateChannel(@NotNull TransactionalContext txCtx, @NotNull Guild guild) {
-        long serverId = guild.getIdLong();
+    public static List<Long> migrateServerAlertsToPrivateChannel(@NotNull TransactionalContext txCtx, long guildId, @Nullable Guild guild) {
         var alertsDao = txCtx.alertsDao();
-        var userIds = alertsDao.getUserIdsByServerId(serverId);
+        var userIds = alertsDao.getUserIdsByServerId(guildId);
         if(!userIds.isEmpty()) {
-            long totalMigrated = alertsDao.updateServerIdOf(SelectionFilter.ofServer(serverId, null), PRIVATE_MESSAGES);
-            LOGGER.debug("Migrated to private {} alerts on server {}, reason : {}", totalMigrated, serverId, Reason.SERVER_LEAVED);
+            long totalMigrated = alertsDao.updateServerIdOf(SelectionFilter.ofServer(guildId, null), PRIVATE_MESSAGES);
+            LOGGER.debug("Migrated to private {} alerts on server {}, reason : {}", totalMigrated, guildId, Reason.SERVER_LEAVED);
             var userLocales = txCtx.usersDao().getLocales(userIds);
             var now = Dates.nowUtc(txCtx.clock());
+            var guildName = Optional.ofNullable(guild).map(Discord::guildName).orElseGet(() -> String.valueOf(guildId));
             userIds.forEach(userId -> txCtx.notificationsDao().addNotification(MigratedNotification
-                    .of(now, userLocales.getOrDefault(userId, DEFAULT_LOCALE), userId, null, null, MIGRATE_ALL, guildName(guild), null, Reason.SERVER_LEAVED, 0L)));
+                    .of(now, userLocales.getOrDefault(userId, DEFAULT_LOCALE), userId, null, null, MIGRATE_ALL, guildName, null, Reason.SERVER_LEAVED, 0L)));
         }
         return userIds;
     }

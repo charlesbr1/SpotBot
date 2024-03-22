@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.exceptions.ErrorHandler;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.requests.GatewayIntent;
@@ -31,10 +32,11 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static java.util.Comparator.comparing;
+import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static net.dv8tion.jda.api.entities.Message.MAX_EMBED_COUNT;
-import static net.dv8tion.jda.api.requests.ErrorResponse.CANNOT_SEND_TO_USER;
+import static net.dv8tion.jda.api.requests.ErrorResponse.*;
 import static org.sbot.utils.PartitionSpliterator.split;
 import static org.sbot.utils.PropertiesReader.readFile;
 
@@ -59,35 +61,29 @@ public final class Discord {
         jda.addEventListener(new EventAdapter(context));
     }
 
-    // AlertsWatcher notifications
-    public void sendGuildMessage(@NotNull Guild guild, @NotNull Message message, @NotNull Runnable onSuccess) {
-        spotBotChannel(guild).ifPresent(channel -> sendMessages(List.of(message), channel::sendMessageEmbeds, onSuccess, 0));
+    // notifications service
+    public static void sendMessages(@NotNull MessageChannel channel, @NotNull List<Message> messages, @NotNull Runnable onSuccess, @NotNull Consumer<Boolean> onFailure) {
+        sendMessages(messages, channel::sendMessageEmbeds, onSuccess, onFailure, 0);
     }
 
-    // AlertsWatcher & EventHandler notifications
-    public void sendPrivateMessage(long userId, @NotNull Message message, @Nullable Runnable onSuccess) {
-        jda.retrieveUserById(userId) // TODO check cache usage JDABuilder.createLight
-                .flatMap(User::openPrivateChannel)
-                .onSuccess(channel -> sendMessages(List.of(message), channel::sendMessageEmbeds, onSuccess, 0))
-                .queue(null, err -> new ErrorHandler(ex -> LOGGER.error("Unable to retrieve private user channel " + userId, ex)));
-    }
-
-    // CommandAdapter responses
+    // CommandContext responses
     public static void sendMessages(@NotNull List<Message> messages, @NotNull Function<List<MessageEmbed>, MessageCreateAction> mapper, int ttlSeconds) {
-        sendMessages(messages, mapper, null, ttlSeconds);
+        sendMessages(messages, mapper, null, null, ttlSeconds);
     }
 
-    private static void sendMessages(@NotNull List<Message> messages, @NotNull Function<List<MessageEmbed>, MessageCreateAction> mapper, @Nullable Runnable onSuccess,  int ttlSeconds) {
-        submitWithTtl(messages.stream().flatMap(message -> asMessageRequests(message, mapper)), onSuccess, ttlSeconds);
+
+    private static void sendMessages(@NotNull List<Message> messages, @NotNull Function<List<MessageEmbed>, MessageCreateAction> mapper, @Nullable Runnable onSuccess, @Nullable Consumer<Boolean> onFailure, int ttlSeconds) {
+        submitWithTtl(messages.stream().flatMap(message -> asMessageRequests(message, mapper)), onSuccess, onFailure, ttlSeconds);
     }
 
+    // CommandContext reply
     public static void replyMessages(@NotNull List<Message> messages, @NotNull InteractionHook interactionHook, int ttlSeconds) {
-        submitWithTtl(messages.stream().flatMap(message -> asMessageRequests(message, interactionHook::sendMessageEmbeds)), null, ttlSeconds);
+        submitWithTtl(messages.stream().flatMap(message -> asMessageRequests(message, interactionHook::sendMessageEmbeds)), null, null, ttlSeconds);
     }
 
     static <T extends MessageCreateRequest<?>> Stream<T> asMessageRequests(@NotNull Message message, @NotNull Function<List<MessageEmbed>, T> mapper) {
         return split(MAX_EMBED_COUNT, message.embeds().stream().map(EmbedBuilder::build)).map(mapper)
-                .map(request -> {
+                .peek(request -> {
                     Optional.ofNullable(message.files()).map(files -> files.stream().map(file -> FileUpload.fromData(file.content(), file.name())).toList()).ifPresent(request::setFiles);
                     Optional.ofNullable(message.component()).ifPresent(request::setComponents);
                     Optional.ofNullable(message.mentionRoles()).ifPresent(request::mentionRoles);
@@ -99,37 +95,34 @@ public final class Discord {
                     if(!mentionedRolesAndUsers.isEmpty()) {
                         request.setContent(mentionedRolesAndUsers);
                     }
-                    return request;
                 });
     }
 
     // this ensures the rest action are done in order
-    private static void submitWithTtl(@NotNull Stream<RestAction<net.dv8tion.jda.api.entities.Message>> restActions, @Nullable Runnable onSuccess, int ttlSeconds) {
-        Consumer<net.dv8tion.jda.api.entities.Message> doNothing = message -> {};
-        Consumer<net.dv8tion.jda.api.entities.Message> delete = message -> message.delete().queueAfter(ttlSeconds, TimeUnit.SECONDS);
-        for (var iterator = restActions.iterator(); iterator.hasNext();) {
-            var cleanUp = ttlSeconds > 0 ? delete : doNothing;
-            var success = null == onSuccess ? cleanUp : cleanUp.andThen(m -> onSuccess.run());
-            iterator.next().queue(success, errorHandler(onSuccess));
-        }
-        // TODO check  if it finally works without chaining
-/*        restActions.reduce((message, nextMessage) -> message
-                .onSuccess(m -> m.delete().queueAfter(ttlSeconds, TimeUnit.SECONDS))
-                .flatMap(m -> nextMessage)).ifPresent(request ->
-                request.queue(
-                        m -> m.delete().queueAfter(ttlSeconds, TimeUnit.SECONDS),
-                        err -> LOGGER.error("Exception occurred while sending discord message", err)));
- */
+    private static void submitWithTtl(@NotNull Stream<RestAction<net.dv8tion.jda.api.entities.Message>> restActions, @Nullable Runnable onSuccess, @Nullable Consumer<Boolean> onFailure, int ttlSeconds) {
+        Consumer<net.dv8tion.jda.api.entities.Message> delete = ttlSeconds <= 0 ? m -> {} :
+                message -> message.delete().queueAfter(ttlSeconds, TimeUnit.SECONDS, null,
+                        new ErrorHandler(err -> LOGGER.error("Unable to delete message {} : {}", message.getId(), err.getMessage())));
+        var success = null == onSuccess ? delete : delete.andThen(m -> onSuccess.run());
+        var errorHandler = null != onFailure ? errorHandler(requireNonNull(onSuccess), onFailure) :
+                new ErrorHandler(err -> LOGGER.error("Unable to send message : {}", err.getMessage()));
+        restActions.forEach(restAction -> restAction.queue(success, errorHandler));
     }
 
     @NotNull
-    private static ErrorHandler errorHandler(@Nullable Runnable unreachableUserHandler) {
-        return new ErrorHandler(ex -> LOGGER.error("Exception occurred while sending discord message", ex))
-                .handle(CANNOT_SEND_TO_USER, e -> { // TODO handler should performs task to delete message from notifications ? ou la mettre de coté ?
-                    LOGGER.error("Failed to send message, user leaved or blocked private messages", e);
-                    Optional.ofNullable(unreachableUserHandler).ifPresent(Runnable::run);
-                });
+    static ErrorHandler errorHandler(@NotNull Runnable onSuccess, @NotNull Consumer<Boolean> onFailure) {
+        return new ErrorHandler(ex -> {
+            LOGGER.info("Exception occurred while sending discord message", ex);
+            onFailure.accept(false); // network error, will try to send the message again
+        }).handle(List.of(UNKNOWN_USER, UNKNOWN_GUILD, UNKNOWN_CHANNEL, MESSAGE_BLOCKED_BY_HARMFUL_LINK_FILTER, MESSAGE_BLOCKED_BY_AUTOMOD), e -> {
+            LOGGER.info("Failed to send message, user or server deleted, or message has unsafe content", e);
+            onSuccess.run(); // this will consider the message sent and delete it
+        }).handle(List.of(CANNOT_SEND_TO_USER), e -> {
+            LOGGER.info("Failed to send message, user leaved or blocked private messages", e);
+            onFailure.accept(true); // this will set the message as blocked
+        });
     }
+
     @NotNull
     private JDA loadDiscordConnection(@NotNull String tokenFile) {
         try {
@@ -148,6 +141,16 @@ public final class Discord {
             LOGGER.error("Unable to establish discord connection");
             throw new IllegalStateException(e);
         }
+    }
+
+    public void userPrivateChannel(@NotNull String userId, @NotNull Consumer<MessageChannel> onSuccess, @NotNull ErrorHandler onFailure) {
+        jda.retrieveUserById(userId)
+                .flatMap(User::openPrivateChannel)
+                .queue(onSuccess, onFailure);
+    }
+
+    public Optional<Guild> guildServer(@NotNull String guildServerId) {
+        return guildServer(Long.parseLong(guildServerId));
     }
 
     public Optional<Guild> guildServer(long guildServerId) {

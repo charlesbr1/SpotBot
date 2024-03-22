@@ -846,6 +846,8 @@ class MigrateCommandTest {
 
     @Test
     void migrateServerAlertsToPrivateChannel() {
+        assertThrows(NullPointerException.class, () -> MigrateCommand.migrateServerAlertsToPrivateChannel(null, 123L, mock()));
+
         TransactionalContext txCtx = mock();
         when(txCtx.clock()).thenReturn(Clock.systemUTC());
         UsersDao usersDao = mock();
@@ -858,7 +860,7 @@ class MigrateCommandTest {
         when(guild.getIdLong()).thenReturn(123L);
 
         when(alertsDao.getUserIdsByServerId(123L)).thenReturn(List.of());
-        assertTrue(MigrateCommand.migrateServerAlertsToPrivateChannel(txCtx, guild).isEmpty());
+        assertTrue(MigrateCommand.migrateServerAlertsToPrivateChannel(txCtx, 123L, guild).isEmpty());
         verify(alertsDao).getUserIdsByServerId(123L);
         verify(alertsDao, never()).updateServerIdOf(any(), anyLong());
         verify(usersDao, never()).getLocales(anyList());
@@ -868,7 +870,7 @@ class MigrateCommandTest {
         when(alertsDao.getUserIdsByServerId(321L)).thenReturn(List.of(11L));
         when(alertsDao.updateServerIdOf(SelectionFilter.ofServer(321L, null), PRIVATE_MESSAGES)).thenReturn(3L);
         when(usersDao.getLocales(List.of(11L))).thenReturn(emptyMap());
-        assertEquals(1L, MigrateCommand.migrateServerAlertsToPrivateChannel(txCtx, guild).size());
+        assertEquals(1L, MigrateCommand.migrateServerAlertsToPrivateChannel(txCtx, 321L, guild).size());
         verify(alertsDao).getUserIdsByServerId(321L);
         verify(alertsDao).updateServerIdOf(SelectionFilter.ofServer(321L, null), PRIVATE_MESSAGES);
         verify(usersDao).getLocales(List.of(11L));

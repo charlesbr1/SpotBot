@@ -56,7 +56,7 @@ final class EventAdapter extends ListenerAdapter {
     public void onGuildLeave(@NotNull GuildLeaveEvent event) {
         LOGGER.debug("onGuildLeave, event {}", event);
         // guild removed this bot, migrate each alert of this guild to private and notify each user
-        var ids = context.transactional(txCtx -> migrateServerAlertsToPrivateChannel(txCtx, event.getGuild()));
+        var ids = context.transactional(txCtx -> migrateServerAlertsToPrivateChannel(txCtx, event.getGuild().getIdLong(), event.getGuild()));
         if(!ids.isEmpty()) {
             context.notificationService().sendNotifications();
         }

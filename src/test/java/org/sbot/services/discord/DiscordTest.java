@@ -1,12 +1,11 @@
 package org.sbot.services.discord;
 
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.MessageEmbed;
-import net.dv8tion.jda.api.entities.Role;
-import net.dv8tion.jda.api.entities.SelfUser;
+import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.interactions.components.LayoutComponent;
+import net.dv8tion.jda.api.requests.restaction.CacheRestAction;
 import net.dv8tion.jda.api.utils.messages.MessageCreateRequest;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
@@ -18,8 +17,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
+import static net.dv8tion.jda.api.requests.ErrorResponse.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -46,24 +48,31 @@ class DiscordTest {
     }
 
     @Test
-    void sendGuildMessage() {
-    }
-
-    @Test
-    void sendPrivateMessage() {
-    }
-
-    @Test
-    void sendMessages() {
-    }
-
-    @Test
-    void replyMessages() {
-    }
-
-    @Test
     void errorHandler() {
-        //TODO
+        AtomicBoolean onSuccess = new AtomicBoolean(false);
+        AtomicReference<Boolean> onFailure = new AtomicReference<>(null);
+        var errorHandler = Discord.errorHandler(() -> onSuccess.set(true), onFailure::set);
+
+        errorHandler.accept(new Exception());
+        assertEquals(false, onFailure.get());
+        assertFalse(onSuccess.get());
+
+        ErrorResponseException error = mock();
+        for(var err : List.of(UNKNOWN_USER, UNKNOWN_GUILD, UNKNOWN_CHANNEL, MESSAGE_BLOCKED_BY_HARMFUL_LINK_FILTER, MESSAGE_BLOCKED_BY_AUTOMOD)) {
+            when(error.getErrorResponse()).thenReturn(err);
+            onSuccess.set(false);
+            onFailure.set(null);
+            errorHandler.accept(error);
+            assertNull(onFailure.get());
+            assertTrue(onSuccess.get());
+        }
+
+        when(error.getErrorResponse()).thenReturn(CANNOT_SEND_TO_USER);
+        onSuccess.set(false);
+        onFailure.set(null);
+        errorHandler.accept(error);
+        assertEquals(true, onFailure.get());
+        assertFalse(onSuccess.get());
     }
 
     @Test
@@ -96,6 +105,19 @@ class DiscordTest {
     }
 
     @Test
+    void userPrivateChannel() {
+        JDA jda = mock();
+        Discord discord = mock();
+        setJDA(discord, jda);
+        doCallRealMethod().when(discord).userPrivateChannel(any(), any(), any());
+        CacheRestAction<User> restAction = mock();
+        when(jda.retrieveUserById("123")).thenReturn(restAction);
+        when(restAction.flatMap(any())).thenReturn(mock());
+        discord.userPrivateChannel("123", mock(), mock());
+        verify(jda).retrieveUserById("123");
+    }
+
+    @Test
     void guildServer() {
         JDA jda = mock();
         Guild guild = mock();
@@ -103,7 +125,9 @@ class DiscordTest {
         Discord discord = mock();
         setJDA(discord, jda);
         when(discord.guildServer(123L)).thenCallRealMethod();
+        when(discord.guildServer("123")).thenCallRealMethod();
         assertEquals(Optional.of(guild), discord.guildServer(123L));
+        assertEquals(Optional.of(guild), discord.guildServer("123"));
     }
 
     @Test
