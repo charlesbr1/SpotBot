@@ -105,6 +105,7 @@ public final class MigratedNotification extends Notification {
         String tickerOrPair = (String) fields.get(TICKER_OR_PAIR);
         Long nbMigrated = Optional.ofNullable((Long) fields.get(NB_MIGRATED)).filter(v -> v > 0).orElse(null);
         String description = header;
+        String it = "it";
         if(null != alertId) {
             description += ", your" + type + " alert #" + alertId + " on " + tickerOrPair + " was migrated to ";
         } else {
@@ -114,9 +115,13 @@ public final class MigratedNotification extends Notification {
                 description += ", " + (nbMigrated > 1 ? nbMigrated + " of your" + type + " alerts having pair or ticker '" + tickerOrPair + "' were migrated to " :
                         ", your" + type + " alert was migrated to ");
             }
+            if(null == nbMigrated || nbMigrated > 1) {
+                it = "them";
+            }
         }
         String toGuild = (String) fields.get(TO_GUILD);
         description += (null != toGuild ? "guild " + toGuild : "your private channel");
+        description += "\n\nuse /migrate command to migrate " + it + " back";
 
         return Message.of(embedBuilder("Notice of " + (null == nbMigrated || nbMigrated > 1 ? "alerts" : "alert") + " migration",
                 NOTIFICATION_COLOR, description));

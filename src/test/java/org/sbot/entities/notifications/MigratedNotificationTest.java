@@ -70,42 +70,42 @@ class MigratedNotificationTest {
         var message = notification.asMessage(null);
         var embed = requireOneItem(message.embeds()).build();
         assertEquals("Notice of alert migration", embed.getTitle());
-        assertEquals("An admin on guild fromGuild made a change, your range alert #321 on tickerOrPair was migrated to guild toGuild", embed.getDescription());
+        assertEquals("An admin on guild fromGuild made a change, your range alert #321 on tickerOrPair was migrated to guild toGuild\n\nuse /migrate command to migrate it back", embed.getDescription());
         assertEquals(NOTIFICATION_COLOR, embed.getColor());
 
         notification = MigratedNotification.of(DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", null, Reason.SERVER_LEAVED, 1L);
         message = notification.asMessage(null);
         embed = requireOneItem(message.embeds()).build();
         assertEquals("Notice of alert migration", embed.getTitle());
-        assertEquals("Guild fromGuild removed this bot, your range alert #321 on tickerOrPair was migrated to your private channel", embed.getDescription());
+        assertEquals("Guild fromGuild removed this bot, your range alert #321 on tickerOrPair was migrated to your private channel\n\nuse /migrate command to migrate it back", embed.getDescription());
         assertEquals(NOTIFICATION_COLOR, embed.getColor());
 
         notification = MigratedNotification.of(DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", Reason.LEAVED, 1L);
         message = notification.asMessage(null);
         embed = requireOneItem(message.embeds()).build();
         assertEquals("Notice of alert migration", embed.getTitle());
-        assertEquals("You leaved guild fromGuild, your range alert #321 on tickerOrPair was migrated to guild toGuild", embed.getDescription());
+        assertEquals("You leaved guild fromGuild, your range alert #321 on tickerOrPair was migrated to guild toGuild\n\nuse /migrate command to migrate it back", embed.getDescription());
         assertEquals(NOTIFICATION_COLOR, embed.getColor());
 
         notification = MigratedNotification.of(DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", Reason.BANNED, 1L);
         message = notification.asMessage(null);
         embed = requireOneItem(message.embeds()).build();
         assertEquals("Notice of alert migration", embed.getTitle());
-        assertEquals("You were banned from guild fromGuild, your range alert #321 on tickerOrPair was migrated to guild toGuild", embed.getDescription());
+        assertEquals("You were banned from guild fromGuild, your range alert #321 on tickerOrPair was migrated to guild toGuild\n\nuse /migrate command to migrate it back", embed.getDescription());
         assertEquals(NOTIFICATION_COLOR, embed.getColor());
 
         notification = MigratedNotification.of(DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, null, range, "all", "fromGuild", "toGuild", Reason.BANNED, 3L);
         message = notification.asMessage(null);
         embed = requireOneItem(message.embeds()).build();
         assertEquals("Notice of alerts migration", embed.getTitle());
-        assertEquals("You were banned from guild fromGuild, all your range alerts were migrated to guild toGuild", embed.getDescription());
+        assertEquals("You were banned from guild fromGuild, all your range alerts were migrated to guild toGuild\n\nuse /migrate command to migrate them back", embed.getDescription());
         assertEquals(NOTIFICATION_COLOR, embed.getColor());
 
         notification = MigratedNotification.of(DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, null, range, "eth", "fromGuild", "toGuild", Reason.BANNED, 3L);
         message = notification.asMessage(null);
         embed = requireOneItem(message.embeds()).build();
         assertEquals("Notice of alerts migration", embed.getTitle());
-        assertEquals("You were banned from guild fromGuild, 3 of your range alerts having pair or ticker 'eth' were migrated to guild toGuild", embed.getDescription());
+        assertEquals("You were banned from guild fromGuild, 3 of your range alerts having pair or ticker 'eth' were migrated to guild toGuild\n\nuse /migrate command to migrate them back", embed.getDescription());
         assertEquals(NOTIFICATION_COLOR, embed.getColor());
     }
 }
