@@ -99,6 +99,7 @@ public final class RangeAlert extends Alert {
     @Override
     @NotNull
      public EmbedBuilder asMessage(@NotNull MatchingStatus matchingStatus, @Nullable DatedPrice previousClose, @NotNull ZonedDateTime now) {
+        requireNonNull(now);
         String description = header(matchingStatus, previousClose, now) +
                 "\n\n* id :\t" + id +
                 footer(matchingStatus);

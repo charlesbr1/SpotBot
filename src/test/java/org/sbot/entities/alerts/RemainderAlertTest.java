@@ -10,6 +10,7 @@ import java.util.List;
 
 import static java.math.BigDecimal.ONE;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.remainder;
 import static org.sbot.entities.alerts.AlertTest.*;
@@ -132,8 +133,10 @@ class RemainderAlertTest {
         RemainderAlert alert = (RemainderAlert) createTestRemainderAlert().withId(() -> 456L);
         DatedPrice previousClose = new DatedPrice(ONE, nowUtc());
 
-        assertThrows(NullPointerException.class, () -> alert.asMessage(null, null, null));
-        String message = alert.asMessage(MATCHED, null, null).getDescriptionBuilder().toString();
+        assertThrows(NullPointerException.class, () -> alert.asMessage(null, null, TEST_FROM_DATE));
+        assertThrows(NullPointerException.class, () -> alert.asMessage(mock(), null, null));
+
+        String message = alert.asMessage(MATCHED, null, TEST_FROM_DATE).getDescriptionBuilder().toString();
         assertNotNull(message);
         assertTrue(message.startsWith("<@" + alert.userId + ">"));
         assertTrue(message.contains(String.valueOf(alert.id)));
@@ -145,13 +148,13 @@ class RemainderAlertTest {
         assertFalse(message.contains(DISABLED));
 
         // no candlestick
-        assertEquals(message, alert.asMessage(MATCHED, previousClose, null).getDescriptionBuilder().toString());
-        assertEquals(message, alert.asMessage(MARGIN, null, null).getDescriptionBuilder().toString());
+        assertEquals(message, alert.asMessage(MATCHED, previousClose, TEST_FROM_DATE).getDescriptionBuilder().toString());
+        assertEquals(message, alert.asMessage(MARGIN, null, TEST_FROM_DATE).getDescriptionBuilder().toString());
 
-        message = alert.withListeningDateRepeat(null, alert.repeat).asMessage(NOT_MATCHING, null, null).getDescriptionBuilder().toString();
+        message = alert.withListeningDateRepeat(null, alert.repeat).asMessage(NOT_MATCHING, null, TEST_FROM_DATE).getDescriptionBuilder().toString();
         assertTrue(message.contains(DISABLED));
 
-        message = alert.asMessage(NOT_MATCHING, null, null).getDescriptionBuilder().toString();
+        message = alert.asMessage(NOT_MATCHING, null, TEST_FROM_DATE).getDescriptionBuilder().toString();
         assertNotNull(message);
         assertFalse(message.startsWith("<@" + alert.userId + ">"));
         assertTrue(message.contains("<@" + alert.userId + ">"));
@@ -162,12 +165,12 @@ class RemainderAlertTest {
         assertTrue(message.contains("created"));
         assertFalse(message.contains(alert.message));
         assertFalse(message.contains(DISABLED));
-        assertEquals(message, alert.asMessage(NOT_MATCHING, previousClose, null).getDescriptionBuilder().toString());
+        assertEquals(message, alert.asMessage(NOT_MATCHING, previousClose, TEST_FROM_DATE).getDescriptionBuilder().toString());
 
-        message = alert.withListeningDateRepeat(null, alert.repeat).asMessage(NOT_MATCHING, null, null).getDescriptionBuilder().toString();
+        message = alert.withListeningDateRepeat(null, alert.repeat).asMessage(NOT_MATCHING, null, TEST_FROM_DATE).getDescriptionBuilder().toString();
         assertTrue(message.contains(DISABLED));
 
-        message = alert.withListeningDateRepeat(alert.fromDate, alert.repeat).asMessage(NOT_MATCHING, null, null).getDescriptionBuilder().toString();
+        message = alert.withListeningDateRepeat(alert.fromDate, alert.repeat).asMessage(NOT_MATCHING, null, TEST_FROM_DATE).getDescriptionBuilder().toString();
         assertFalse(message.contains(DISABLED));
         assertFalse(message.contains("SNOOZE"));
 

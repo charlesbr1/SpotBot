@@ -403,11 +403,13 @@ class TrendAlertTest {
 
     @Test
     void asMessage() {
-        var now = nowUtc();
+        var now = TEST_FROM_DATE;
         Alert alert = createTestTrendAlert().withId(() -> 456L);
         ZonedDateTime closeTime = Dates.parse(Locale.US, UTC, mock(), "01/01/2000-00:03");
         DatedPrice previousClose = new DatedPrice(ONE, closeTime);
+
         assertThrows(NullPointerException.class, () -> alert.asMessage(null, null, now));
+        assertThrows(NullPointerException.class, () -> alert.asMessage(mock(), null, null));
 
         var embed = alert.asMessage(MATCHED, null, now);
         String message = embed.getDescriptionBuilder().toString();
@@ -506,6 +508,8 @@ class TrendAlertTest {
         assertTrue(alert.withListeningDateRepeat(null, alert.repeat)
                 .asMessage(NOT_MATCHING, previousClose, now).getDescriptionBuilder().toString().contains(DISABLED));
         assertFalse(alert.withListeningDateRepeat(now.plusMinutes(1L), (short) 1).asMessage(NOT_MATCHING, previousClose, now).getDescriptionBuilder().toString().contains(DISABLED));
+        assertFalse(alert.withListeningDateRepeat(now.plusMinutes(1L), (short) 1).asMessage(NOT_MATCHING, previousClose, TEST_TO_DATE).getDescriptionBuilder().toString().contains("deleted"));
+        assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L), (short) 1).asMessage(NOT_MATCHING, previousClose, TEST_TO_DATE.minusMinutes(13L)).getDescriptionBuilder().toString().contains("deleted"));
         assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L).plusSeconds(1L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, previousClose, now).getDescriptionBuilder().toString().contains("SNOOZE"));
         assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L).plusSeconds(1L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, previousClose, now).getDescriptionBuilder().toString().contains("" + now.plusMinutes(1L).plusSeconds(1L).plusNanos(1000000L).toEpochSecond()));
         assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L).plusSeconds(3L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, previousClose, now).getDescriptionBuilder().toString().contains("" + now.plusMinutes(1L).plusSeconds(3L).plusNanos(1000000L).toEpochSecond()));

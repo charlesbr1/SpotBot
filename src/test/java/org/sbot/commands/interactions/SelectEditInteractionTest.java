@@ -39,6 +39,8 @@ class SelectEditInteractionTest {
 
     @Test
     void updateMenuOf() {
+        assertThrows(NullPointerException.class, () -> SelectEditInteraction.updateMenuOf(null));
+
         // remainder, disabled
         var alert = createTestAlertWithType(remainder).withListeningDateRepeat(null, (short) 0);
         assertFalse(alert.isEnabled());

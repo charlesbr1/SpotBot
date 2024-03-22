@@ -2,8 +2,6 @@ package org.sbot.entities.alerts;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.utils.MarkdownUtil;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.FieldParser;
@@ -13,7 +11,7 @@ import org.sbot.services.MatchingService.MatchingAlert.MatchingStatus;
 import org.sbot.utils.Dates;
 import org.sbot.utils.Tickers;
 
-import java.awt.*;
+import java.awt.Color;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.EnumMap;
@@ -26,14 +24,14 @@ import static java.util.Objects.requireNonNull;
 import static org.sbot.entities.FieldParser.Type.*;
 import static org.sbot.entities.alerts.Alert.Field.*;
 import static org.sbot.entities.alerts.Alert.Type.trend;
+import static org.sbot.services.AlertsWatcher.DONE_ALERTS_DELAY_WEEKS;
+import static org.sbot.services.AlertsWatcher.EXPIRED_ALERTS_DELAY_WEEKS;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.NOT_MATCHING;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.formatDiscordRelative;
 import static org.sbot.utils.Tickers.getSymbol;
 
 public abstract class Alert {
-
-    private static final Logger LOGGER = LogManager.getLogger(Alert.class);
 
     public enum Type {
         range("Range"),
@@ -337,7 +335,7 @@ public abstract class Alert {
                 (matchingStatus.notMatching() ? "" : (matchingStatus.isMargin() ? " reached **margin** threshold. Set a new one using :\n\n" +
                         MarkdownUtil.quote("*update margin " + id + " 'amount in " + getSymbol(getTicker2()) + "'*") :
                         " was **tested !**") +  "\n\n:rocket: Check out the price !!") +
-                (matchingStatus.notMatching() ? withSnoozeTime(now) : "") +
+                (matchingStatus.notMatching() ? withListeningTime(now) : "") +
                 (matchingStatus.notMatching() ? Optional.ofNullable(lastTrigger)
                         .map(Dates::formatDiscordRelative)
                         .map("\n\nRaised "::concat)
@@ -362,12 +360,38 @@ public abstract class Alert {
 
     public static final String DISABLED = "DISABLED";
 
-    protected final String withSnoozeTime(@NotNull ZonedDateTime now) {
-        if(null == listeningDate) {
-            return "\n\n" + MarkdownUtil.bold(DISABLED);
+    protected final String withListeningTime(@NotNull ZonedDateTime now) {
+        if(!isEnabled()) {
+            ZonedDateTime date = null;
+            if(repeat < 0) {
+                date = (null != lastTrigger ? lastTrigger : creationDate)
+                        .plusWeeks(DONE_ALERTS_DELAY_WEEKS);
+            }
+            if(null != toDate && toDate.isBefore(now.plusWeeks(EXPIRED_ALERTS_DELAY_WEEKS))) {
+                var deleteDate = toDate.plusWeeks(EXPIRED_ALERTS_DELAY_WEEKS);
+                if(null == date || deleteDate.isBefore(date)) {
+                    date = deleteDate;
+                }
+            }
+            String deleteDate = "";
+            if(null != date) {
+                deleteDate = " (will be deleted" + (date.isAfter(now) ? ' ' + Dates.formatDiscordRelative(date) : "") + ')';
+            }
+            return "\n\n" + MarkdownUtil.bold(DISABLED) + deleteDate;
         }
-        return listeningDate.isBefore(now.plusMinutes(1L)) ? "" :
-                "\n\n" + MarkdownUtil.bold("SNOOZE until " + Dates.formatDiscordRelative(listeningDate));
+        String deleteDate = null;
+        if(null != toDate && toDate.isBefore(now.plusWeeks(EXPIRED_ALERTS_DELAY_WEEKS))) {
+            var date = toDate.plusWeeks(EXPIRED_ALERTS_DELAY_WEEKS);
+            if(toDate.isAfter(now)) {
+                deleteDate = "(will be deleted" + (date.isAfter(now) ? ' ' + Dates.formatDiscordRelative(date) : "") + ')';
+            }
+        }
+        requireNonNull(listeningDate);
+        if(listeningDate.isBefore(now.plusMinutes(1L))) {
+            return null != deleteDate ? "\n\n" + deleteDate : "";
+        }
+        return "\n\n" + MarkdownUtil.bold("SNOOZE until " + Dates.formatDiscordRelative(listeningDate)) +
+                        (null != deleteDate ? ' ' + deleteDate : "");
     }
 
     @Override

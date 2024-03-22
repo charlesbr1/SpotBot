@@ -2135,7 +2135,7 @@ class UpdateCommandTest {
         when(messageReceivedEvent.getAuthor()).thenReturn(user);
         when(user.getIdLong()).thenReturn(userId);
         Context context = mock(Context.class);
-        ZonedDateTime now = DatesTest.nowUtc().truncatedTo(ChronoUnit.MINUTES);
+        ZonedDateTime now = TEST_FROM_DATE.truncatedTo(ChronoUnit.MINUTES);
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
         NotificationsDao notificationsDao = mock();

@@ -64,10 +64,11 @@ public final class RemainderAlert extends Alert {
     @Override
     @NotNull
     public EmbedBuilder asMessage(@NotNull MatchingStatus matchingStatus, @Nullable DatedPrice previousClose, @NotNull ZonedDateTime now) {
+        requireNonNull(now);
         int nextRepeat = matchingStatus.notMatching() ? repeat : repeat - 1;
         String description = (matchingStatus.notMatching() ? type.titleName + " set by <@" + userId + "> on " + pair :
                 "<@" + userId + ">\n\n**" + message + "**") +
-                (matchingStatus.notMatching() && (null == listeningDate || !fromDate.isEqual(listeningDate)) ? withSnoozeTime(now) : "") +
+                (matchingStatus.notMatching() && (null == listeningDate || !fromDate.isEqual(listeningDate)) ? withListeningTime(now) : "") +
                 "\n\n* id :\t" + id +
                 "\n* date :\t" + formatDiscord(fromDate) + '(' + formatDiscordRelative(fromDate) + ')' +
                 "\n* created :\t" + formatDiscordRelative(creationDate) +

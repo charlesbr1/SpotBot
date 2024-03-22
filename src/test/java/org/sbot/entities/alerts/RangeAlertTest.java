@@ -490,11 +490,13 @@ public class RangeAlertTest {
 
     @Test
     void asMessage() {
-        var now = nowUtc();
+        var now = TEST_FROM_DATE;
         Alert alert = createTestRangeAlert().withId(() -> 456L);
         ZonedDateTime closeTime = Dates.parse(Locale.US, null, mock(), "01/01/2000-00:03");
         DatedPrice previousClose = new DatedPrice(ONE, closeTime);
+
         assertThrows(NullPointerException.class, () -> alert.asMessage(null, null, now));
+        assertThrows(NullPointerException.class, () -> alert.asMessage(mock(), null, null));
 
         EmbedBuilder embed = alert.asMessage(MATCHED, null, now);
         assertNotNull(embed);
@@ -575,7 +577,7 @@ public class RangeAlertTest {
                 .getFields().stream().map(Field::getName).noneMatch("to date"::equals));
 
         // NOT MATCHING
-        embed = alert.asMessage(NOT_MATCHING, null, now);
+        embed = alert.asMessage(NOT_MATCHING, null, TEST_FROM_DATE);
         message = embed.getDescriptionBuilder().toString();
         assertNotNull(message);
         assertTrue(message.startsWith("Range Alert set by"));
@@ -593,7 +595,7 @@ public class RangeAlertTest {
         assertFalse(message.contains(alert.message));
         assertFalse(message.contains("threshold"));
         // with candlestick
-        assertEquals(message, alert.asMessage(NOT_MATCHING, previousClose, now).getDescriptionBuilder().toString());
+        assertEquals(message, alert.asMessage(NOT_MATCHING, previousClose, TEST_FROM_DATE).getDescriptionBuilder().toString());
         assertFalse(alert.asMessage(NOT_MATCHING, previousClose, now).getDescriptionBuilder().toString().contains("" + closeTime.toEpochSecond()));
         // disabled
         assertFalse(message.contains(DISABLED));
@@ -605,6 +607,8 @@ public class RangeAlertTest {
         assertFalse(message.contains("SNOOZE"));
 
         assertFalse(alert.withListeningDateRepeat(now.plusMinutes(1L), (short) 1).asMessage(NOT_MATCHING, previousClose, now).getDescriptionBuilder().toString().contains(DISABLED));
+        assertFalse(alert.withListeningDateRepeat(now.plusMinutes(1L), (short) 1).asMessage(NOT_MATCHING, previousClose, TEST_TO_DATE).getDescriptionBuilder().toString().contains("delete"));
+        assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L), (short) 1).asMessage(NOT_MATCHING, previousClose, TEST_TO_DATE.minusMinutes(11L)).getDescriptionBuilder().toString().contains("delete"));
         assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L).plusSeconds(1L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, previousClose, now).getDescriptionBuilder().toString().contains("SNOOZE"));
         assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L).plusSeconds(1L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, previousClose, now).getDescriptionBuilder().toString().contains("" + now.plusMinutes(1L).plusSeconds(1L).plusNanos(1000000L).toEpochSecond()));
         assertTrue(alert.withListeningDateRepeat(now.plusMinutes(1L).plusSeconds(3L).plusNanos(1000000L), (short) 1).asMessage(NOT_MATCHING, previousClose, now).getDescriptionBuilder().toString().contains("" + now.plusMinutes(1L).plusSeconds(3L).plusNanos(1000000L).toEpochSecond()));

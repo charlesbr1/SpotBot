@@ -111,14 +111,14 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
 
         String PAST_LISTENING_DATE_WITH_ACTIVE_RANGE =
                 "listening_date NOT NULL AND listening_date<=(:nowMs+1000) AND " +
-                "(type NOT LIKE 'remainder' OR (from_date<(:nowMs+:periodMs))) AND " +
-                "(type NOT LIKE 'range' OR (to_date IS NULL OR (to_date>:nowMs)))";
+                "(type!='remainder' OR (from_date<(:nowMs+:periodMs))) AND " +
+                "(type!='range' OR (to_date IS NULL OR (to_date>:nowMs)))";
         String SELECT_WITHOUT_MESSAGE_BY_EXCHANGE_AND_PAIR_HAVING_PAST_LISTENING_DATE_WITH_ACTIVE_RANGE =
                 "SELECT id,type,user_id,server_id,creation_date,listening_date,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts " +
                 "WHERE exchange=:exchange AND pair=:pair AND " + PAST_LISTENING_DATE_WITH_ACTIVE_RANGE;
 
         String SELECT_WITHOUT_MESSAGE_HAVING_REPEAT_NEGATIVE_AND_LAST_TRIGGER_BEFORE_OR_NULL_AND_CREATION_BEFORE = "SELECT id,type,user_id,server_id,creation_date,listening_date,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts WHERE repeat<0 AND ((last_trigger IS NOT NULL AND last_trigger<:expirationDate) OR (last_trigger IS NULL AND creation_date<:expirationDate))";
-        String SELECT_WITHOUT_MESSAGE_BY_TYPE_HAVING_TO_DATE_BEFORE = "SELECT id,type,user_id,server_id,creation_date,listening_date,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts WHERE type LIKE :type AND to_date IS NOT NULL AND to_date<:expirationDate";
+        String SELECT_WITHOUT_MESSAGE_BY_TYPE_HAVING_TO_DATE_BEFORE = "SELECT id,type,user_id,server_id,creation_date,listening_date,exchange,pair,''AS message,from_price,to_price,from_date,to_date,last_trigger,margin,repeat,snooze FROM alerts WHERE type=:type AND to_date IS NOT NULL AND to_date<:expirationDate";
         String SELECT_PAIRS_EXCHANGES_HAVING_PAST_LISTENING_DATE_WITH_ACTIVE_RANGE =
                 "SELECT DISTINCT exchange,pair FROM alerts WHERE " + PAST_LISTENING_DATE_WITH_ACTIVE_RANGE;
         String COUNT_ALERTS_OF_SELECTION = "SELECT COUNT(*) FROM alerts WHERE ";
