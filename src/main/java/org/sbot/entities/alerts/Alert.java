@@ -361,37 +361,27 @@ public abstract class Alert {
     public static final String DISABLED = "DISABLED";
 
     protected final String withListeningTime(@NotNull ZonedDateTime now) {
+        ZonedDateTime expirationDate = null;
+        String deleteDate = "";
+        if(null != toDate && toDate.isBefore(now)) {
+            expirationDate = toDate.plusWeeks(EXPIRED_ALERTS_DELAY_WEEKS);
+            deleteDate = "  (will be deleted" + (expirationDate.isAfter(now) ? ' ' + Dates.formatDiscordRelative(expirationDate) : "") + ')';
+        }
         if(!isEnabled()) {
-            ZonedDateTime date = null;
             if(repeat < 0) {
-                date = (null != lastTrigger ? lastTrigger : creationDate)
+                var date = (null != lastTrigger ? lastTrigger : creationDate)
                         .plusWeeks(DONE_ALERTS_DELAY_WEEKS);
-            }
-            if(null != toDate && toDate.isBefore(now.plusWeeks(EXPIRED_ALERTS_DELAY_WEEKS))) {
-                var deleteDate = toDate.plusWeeks(EXPIRED_ALERTS_DELAY_WEEKS);
-                if(null == date || deleteDate.isBefore(date)) {
-                    date = deleteDate;
+                if(null == expirationDate || date.isBefore(expirationDate)) {
+                    deleteDate = "  (will be deleted" + (date.isAfter(now) ? ' ' + Dates.formatDiscordRelative(date) : "") + ')';
                 }
             }
-            String deleteDate = "";
-            if(null != date) {
-                deleteDate = " (will be deleted" + (date.isAfter(now) ? ' ' + Dates.formatDiscordRelative(date) : "") + ')';
-            }
-            return "\n\n" + MarkdownUtil.bold(DISABLED) + deleteDate;
-        }
-        String deleteDate = null;
-        if(null != toDate && toDate.isBefore(now.plusWeeks(EXPIRED_ALERTS_DELAY_WEEKS))) {
-            var date = toDate.plusWeeks(EXPIRED_ALERTS_DELAY_WEEKS);
-            if(toDate.isAfter(now)) {
-                deleteDate = "(will be deleted" + (date.isAfter(now) ? ' ' + Dates.formatDiscordRelative(date) : "") + ')';
-            }
+            return "\n\n" + MarkdownUtil.bold(DISABLED) + (deleteDate.isEmpty() ? deleteDate :  MarkdownUtil.italics(deleteDate));
         }
         requireNonNull(listeningDate);
         if(listeningDate.isBefore(now.plusMinutes(1L))) {
-            return null != deleteDate ? "\n\n" + deleteDate : "";
+            return deleteDate.isEmpty() ? deleteDate : "\n\n" + MarkdownUtil.italics(deleteDate.trim());
         }
-        return "\n\n" + MarkdownUtil.bold("SNOOZE until " + Dates.formatDiscordRelative(listeningDate)) +
-                        (null != deleteDate ? ' ' + deleteDate : "");
+        return "\n\n" + MarkdownUtil.bold("SNOOZE until " + Dates.formatDiscordRelative(listeningDate)) + MarkdownUtil.italics(deleteDate);
     }
 
     @Override

@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.*;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.function.Predicate.not;
 import static org.sbot.entities.FieldParser.Type.DECIMAL;
 import static org.sbot.entities.FieldParser.Type.ZONED_DATE_TIME;
@@ -68,7 +69,7 @@ public final class MatchingNotification extends Notification {
             fields.put(LAST_CLOSE, previousClose.price());
             fields.put(LAST_CLOSE_TIME, previousClose.dateTime());
         }
-        fields.put(LAST_TRIGGER, alert.lastTrigger);
+        fields.put(LAST_TRIGGER, requireNonNullElse(alert.lastTrigger, now));
         fields.putAll(alert.fieldsMap());
         var recipientType = isPrivate(alert.serverId) ? DISCORD_USER : DISCORD_SERVER;
         var recipientId = DISCORD_USER.equals(recipientType) ? alert.userId : alert.serverId;

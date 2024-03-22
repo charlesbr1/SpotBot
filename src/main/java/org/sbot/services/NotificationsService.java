@@ -213,7 +213,7 @@ public final class NotificationsService {
             Consumer<Boolean> onFailure = blocked -> updateStatusCallback(txContext, List.of(notification), blocked);
             Discord.sendMessages(channel, List.of(notification.asMessage(context)), onSuccess, onFailure);
         } catch (RuntimeException e) {
-            LOGGER.error("Unable to send notification {}", notification);
+            LOGGER.error("Unable to send notification " + notification, e);
             updateStatusCallback(txContext, List.of(notification), false);
         }
     }

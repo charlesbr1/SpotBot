@@ -11,6 +11,7 @@ import org.sbot.services.discord.Discord;
 import org.sbot.utils.DatesTest;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.math.BigDecimal.ONE;
@@ -58,7 +59,7 @@ class MatchingNotificationTest {
         assertEquals(alert.lastTrigger, notification.fields.get(LAST_TRIGGER));
         assertTrue(alert.fieldsMap().entrySet().stream().allMatch(e -> notification.fields.get(e.getKey()).equals(e.getValue())));
 
-        alert = alert.withServerId(PRIVATE_MESSAGES);
+        alert = alert.withServerId(PRIVATE_MESSAGES).withLastTriggerMargin(null, alert.margin);
         var notification2 = MatchingNotification.of(now, DEFAULT_LOCALE, MatchingStatus.MARGIN, alert, new DatedPrice(ONE, now));
         assertEquals(NEW_NOTIFICATION_ID, notification2.id);
         assertEquals(now, notification2.creationDate);
@@ -66,7 +67,8 @@ class MatchingNotificationTest {
         assertEquals(String.valueOf(alert.userId), notification2.recipientId);
         assertEquals(DISCORD_USER, notification2.recipientType);
         assertEquals(DEFAULT_LOCALE, notification2.locale);
-        assertTrue(alert.fieldsMap().entrySet().stream().allMatch(e -> notification2.fields.get(e.getKey()).equals(e.getValue())));
+        assertEquals(now, notification2.fields.get(LAST_TRIGGER));
+        assertTrue(alert.fieldsMap().entrySet().stream().allMatch(e -> Objects.equals(notification2.fields.get(e.getKey()), e.getValue())));
     }
 
     @Test
