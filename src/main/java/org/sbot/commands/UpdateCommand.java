@@ -341,7 +341,7 @@ public final class UpdateCommand extends CommandAdapter {
     private void ownerUpdateNotification(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert, @NotNull String field, @NotNull String newValue, @NotNull Supplier<NotificationsDao> notificationsDao) {
         if(!sameUser(context, alert.userId)) {
             var serverName = switch (context.clientType) {
-                case DISCORD -> guildName(requireNonNull(context.member).getGuild());
+                case DISCORD -> guildName(requireNonNull(context.discordMember).getGuild());
             };
             notificationsDao.get().addNotification(UpdatedNotification.of(context.clientType, now, context.locale, alert.userId, alert.id, field, newValue, serverName));
         }

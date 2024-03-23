@@ -167,7 +167,7 @@ public final class SpotBotCommand extends CommandAdapter {
     }
     private static Message doc(@NotNull CommandContext context) {
         Object server = switch (context.clientType) {
-            case DISCORD -> Optional.ofNullable(context.member).map(Member::getGuild).orElse(null);
+            case DISCORD -> Optional.ofNullable(context.discordMember).map(Member::getGuild).orElse(null);
         };
         String selfMention = switch (context.clientType) {
             case DISCORD -> context.discord().spotBotUserMention();

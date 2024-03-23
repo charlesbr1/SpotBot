@@ -52,11 +52,11 @@ public abstract class CommandContext implements Context {
     public final @NotNull ClientType clientType;
     public final @NotNull String name;
     public final long userId;
-    public final String userName;
+    public final @NotNull String userName;
     public final @NotNull Locale locale;
     public final @Nullable ZoneId timezone;
     public final @NotNull ArgumentReader args;
-    public final @Nullable Member member; // rename clientMember, Object
+    public final @Nullable Member discordMember; // discord specific field when a command comes from a guild (not a PM)
 
 
     private CommandContext(@NotNull Context context, @NotNull ClientType clientType, @NotNull Locale locale, @Nullable ZoneId timezone, @NotNull MessageReceivedEvent event, @NotNull String command) {
@@ -68,7 +68,7 @@ public abstract class CommandContext implements Context {
         this.userName = event.getAuthor().getEffectiveName();
         this.locale = requireNonNull(locale);
         this.timezone = timezone;
-        this.member = event.getMember();
+        this.discordMember = event.getMember();
     }
 
     private CommandContext(@NotNull Context context, @NotNull ClientType clientType, @NotNull Locale locale, @Nullable ZoneId timezone, @NotNull SlashCommandInteractionEvent event) {
@@ -80,7 +80,7 @@ public abstract class CommandContext implements Context {
         this.userName = event.getUser().getEffectiveName();
         this.locale = requireNonNull(locale);
         this.timezone = timezone;
-        this.member = event.getMember();
+        this.discordMember = event.getMember();
     }
 
     private CommandContext(@NotNull Context context, @NotNull ClientType clientType, @NotNull Locale locale, @Nullable ZoneId timezone, @NotNull GenericInteractionCreateEvent event, @NotNull String interactionId, @NotNull String args) {
@@ -92,7 +92,7 @@ public abstract class CommandContext implements Context {
         this.userName = event.getUser().getEffectiveName();
         this.locale = requireNonNull(locale);
         this.timezone = timezone;
-        this.member = event.getMember();
+        this.discordMember = event.getMember();
     }
 
     private CommandContext(@NotNull CommandContext commandContext, @NotNull String arguments) {
@@ -104,7 +104,7 @@ public abstract class CommandContext implements Context {
         this.userName = commandContext.userName;
         this.locale = commandContext.locale;
         this.timezone = commandContext.timezone;
-        this.member = commandContext.member;
+        this.discordMember = commandContext.discordMember;
     }
 
     public boolean isStringReader() {
@@ -207,7 +207,7 @@ public abstract class CommandContext implements Context {
 
     public final long serverId() {
         return switch (clientType) {
-            case DISCORD -> null != member ? member.getGuild().getIdLong() : PRIVATE_MESSAGES;
+            case DISCORD -> null != discordMember ? discordMember.getGuild().getIdLong() : PRIVATE_MESSAGES;
         };
     }
 

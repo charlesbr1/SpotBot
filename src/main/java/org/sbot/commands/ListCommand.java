@@ -189,7 +189,7 @@ public final class ListCommand extends CommandAdapter {
 
     // return list of message containing all the embeds (alerts, ordered) between each editable message that can contains only one alert embed
     private static ArrayList<Message> alertMessages(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Arguments arguments, @NotNull List<Alert> alerts, long total) {
-        boolean adminEditable = null != arguments.ownerId && isAdminMember(context.member);
+        boolean adminEditable = null != arguments.ownerId && isAdminMember(context);
         boolean editable = null != arguments.tickerOrPair || null != arguments.type;
         var messages = new ArrayList<Message>();
         int i = 0;

@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
+import static org.sbot.entities.alerts.AlertTest.TEST_CLIENT_TYPE;
 import static org.sbot.entities.alerts.AlertTest.createTestAlertWithUserId;
 
 class SecurityAccessTest {
@@ -21,14 +22,17 @@ class SecurityAccessTest {
             var field = CommandContext.class.getDeclaredField("userId");
             field.setAccessible(true);
             field.set(context, userId);
-            field = CommandContext.class.getDeclaredField("member");
+            field = CommandContext.class.getDeclaredField("discordMember");
             field.setAccessible(true);
             field.set(context, member);
+            field = CommandContext.class.getDeclaredField("clientType");
+            field.setAccessible(true);
+            field.set(context, TEST_CLIENT_TYPE);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
         assertEquals(userId, context.userId);
-        assertEquals(member, context.member);
+        assertEquals(member, context.discordMember);
         return context;
     }
 
@@ -150,21 +154,26 @@ class SecurityAccessTest {
     @Test
     void sameServer() {
         long serverId = 123L;
-        assertFalse(SecurityAccess.sameServer(null, serverId));
+        assertThrows(NullPointerException.class, () -> SecurityAccess.sameServer(null, serverId));
         Member member = mock();
         Guild guild = mock();
         when(member.getGuild()).thenReturn(guild);
         when(guild.getIdLong()).thenReturn(serverId);
-        assertTrue(SecurityAccess.sameServer(member, serverId));
-        assertFalse(SecurityAccess.sameServer(member, 543L));
+        CommandContext context = contextOf(33L, member);
+        assertTrue(SecurityAccess.sameServer(context, serverId));
+        assertFalse(SecurityAccess.sameServer(context, 543L));
+        context = contextOf(33L, null);
+        assertFalse(SecurityAccess.sameServer(context, serverId));
     }
 
     @Test
     void isAdminMember() {
-        assertFalse(SecurityAccess.isAdminMember(null));
+        CommandContext context = contextOf(33L, null);
+        assertFalse(SecurityAccess.isAdminMember(context));
         Member member = mock();
-        assertFalse(SecurityAccess.isAdminMember(member));
+        context = contextOf(33L, member);
+        assertFalse(SecurityAccess.isAdminMember(context));
         when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
-        assertTrue(SecurityAccess.isAdminMember(member));
+        assertTrue(SecurityAccess.isAdminMember(context));
     }
 }
