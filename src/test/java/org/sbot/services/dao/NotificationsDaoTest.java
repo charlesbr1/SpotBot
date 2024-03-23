@@ -6,7 +6,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.sbot.entities.notifications.MigratedNotification;
 import org.sbot.entities.notifications.Notification;
 import org.sbot.entities.notifications.Notification.NotificationStatus;
-import org.sbot.entities.notifications.Notification.RecipientType;
+import org.sbot.entities.notifications.RecipientType;
 import org.sbot.utils.DatesTest;
 
 import java.time.temporal.ChronoUnit;
@@ -17,6 +17,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.Type.range;
+import static org.sbot.entities.alerts.AlertTest.TEST_CLIENT_TYPE;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.*;
 import static org.sbot.utils.ArgumentValidator.requireOneItem;
 
@@ -40,7 +41,7 @@ public abstract class NotificationsDaoTest {
     void addNotification(NotificationsDao notifications) {
         assertThrows(NullPointerException.class, () -> notifications.addNotification(null));
 
-        var notification = MigratedNotification.of(DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
+        var notification = MigratedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
         notifications.addNotification(notification);
         assertEquals(1, notifications.getNewNotifications(100).size());
         assertDeepEquals(notification.withId(() -> 1L), notifications.getNewNotifications(1).getFirst());
@@ -53,7 +54,7 @@ public abstract class NotificationsDaoTest {
         assertThrows(IllegalArgumentException.class, () -> notifications.getNewNotifications(-1L));
 
         assertEquals(0, notifications.getNewNotifications(100).size());
-        var notification = MigratedNotification.of(DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
+        var notification = MigratedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
         notifications.addNotification(notification);
         notifications.addNotification(notification);
         notifications.addNotification(notification);
@@ -69,12 +70,12 @@ public abstract class NotificationsDaoTest {
     void unblockStatusOfDiscordUser(NotificationsDao notifications) {
         assertThrows(NullPointerException.class, () -> notifications.unblockStatusOfDiscordUser(null));
 
-        var notificationU1 = MigratedNotification.of(DatesTest.nowUtc(), DEFAULT_LOCALE, 111L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
+        var notificationU1 = MigratedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 111L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
         notifications.addNotification(notificationU1);
-        var notificationU2 = MigratedNotification.of(DatesTest.nowUtc(), DEFAULT_LOCALE, 222L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
+        var notificationU2 = MigratedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 222L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
         notifications.addNotification(notificationU2.withStatus(BLOCKED));
         notifications.addNotification(notificationU2);
-        var notificationU3 = MigratedNotification.of(DatesTest.nowUtc(), DEFAULT_LOCALE, 333L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
+        var notificationU3 = MigratedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 333L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
         notifications.addNotification(notificationU3.withStatus(BLOCKED));
         notifications.addNotification(notificationU3.withStatus(BLOCKED));
         notifications.addNotification(notificationU3);
@@ -120,7 +121,7 @@ public abstract class NotificationsDaoTest {
         assertThrows(NullPointerException.class, () -> notifications.statusRecipientBatchUpdate(SENDING, "123", null, u -> {}));
         assertThrows(NullPointerException.class, () -> notifications.statusRecipientBatchUpdate(SENDING, "123", RecipientType.DISCORD_USER, null));
 
-        var notification = MigratedNotification.of(DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
+        var notification = MigratedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
         notifications.addNotification(notification);
         notifications.addNotification(notification);
         notifications.addNotification(notification);
@@ -146,7 +147,7 @@ public abstract class NotificationsDaoTest {
         assertThrows(NullPointerException.class, () -> notifications.statusBatchUpdate(null, u -> {}));
         assertThrows(NullPointerException.class, () -> notifications.statusBatchUpdate(SENDING, null));
 
-        var notification = MigratedNotification.of(DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
+        var notification = MigratedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
         notifications.addNotification(notification);
         notifications.addNotification(notification);
         notifications.addNotification(notification);
@@ -171,7 +172,7 @@ public abstract class NotificationsDaoTest {
     void delete(NotificationsDao notifications) {
         assertThrows(NullPointerException.class, () -> notifications.delete(null));
 
-        var notification = MigratedNotification.of(DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
+        var notification = MigratedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
         notifications.addNotification(notification);
         notifications.addNotification(notification);
         notifications.addNotification(notification);
@@ -195,22 +196,22 @@ public abstract class NotificationsDaoTest {
         assertThrows(NullPointerException.class, () -> notifications.deleteHavingCreationDateBefore(null));
 
         var now = DatesTest.nowUtc();
-        var notification = MigratedNotification.of(now, DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
+        var notification = MigratedNotification.of(TEST_CLIENT_TYPE, now, DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
         notifications.addNotification(notification);
         notifications.addNotification(notification);
         notifications.addNotification(notification);
         assertEquals(3, notifications.getNewNotifications(100).size());
 
-        notification = MigratedNotification.of(now.minusHours(3L), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
+        notification = MigratedNotification.of(TEST_CLIENT_TYPE, now.minusHours(3L), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
         notifications.addNotification(notification);
         notifications.addNotification(notification);
         assertEquals(5, notifications.getNewNotifications(100).size());
 
-        notification = MigratedNotification.of(now.minusDays(1L), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
+        notification = MigratedNotification.of(TEST_CLIENT_TYPE, now.minusDays(1L), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
         notifications.addNotification(notification);
         assertEquals(6, notifications.getNewNotifications(100).size());
 
-        notification = MigratedNotification.of(now.minusDays(2L), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
+        notification = MigratedNotification.of(TEST_CLIENT_TYPE, now.minusDays(2L), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
         notifications.addNotification(notification);
         assertEquals(7, notifications.getNewNotifications(100).size());
 

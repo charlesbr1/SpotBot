@@ -47,6 +47,7 @@ public abstract class AlertsDaoTest {
                 alert.repeat == other.repeat &&
                 alert.snooze == other.snooze &&
                 alert.type == other.type &&
+                alert.clientType == other.clientType &&
                 Objects.equals(alert.exchange, other.exchange) &&
                 Objects.equals(alert.pair, other.pair) &&
                 Objects.equals(alert.message, other.message) &&
@@ -68,53 +69,57 @@ public abstract class AlertsDaoTest {
     }
 
     private static SelectionFilter ofServer(long serverId, @NotNull String tickerOrPair) {
-        return SelectionFilter.ofServer(serverId, null).withTickerOrPair(tickerOrPair);
+        return SelectionFilter.ofServer(TEST_CLIENT_TYPE, serverId, null).withTickerOrPair(tickerOrPair);
     }
 
     private static SelectionFilter ofUser(long userId, @NotNull String tickerOrPair) {
-        return SelectionFilter.ofUser(userId, null).withTickerOrPair(tickerOrPair);
+        return SelectionFilter.ofUser(TEST_CLIENT_TYPE, userId, null).withTickerOrPair(tickerOrPair);
     }
 
     private static SelectionFilter of(long serverId, long userId, @NotNull String tickerOrPair) {
-        return SelectionFilter.of(serverId, userId, null).withTickerOrPair(tickerOrPair);
+        return SelectionFilter.of(TEST_CLIENT_TYPE, serverId, userId, null).withTickerOrPair(tickerOrPair);
     }
 
     @Test
     void selectionFilterTest() {
+        assertThrows(NullPointerException.class, () -> SelectionFilter.of(null, 1L, 1L, trend));
+        assertThrows(NullPointerException.class, () -> SelectionFilter.ofServer(null, 1L, trend));
+        assertThrows(NullPointerException.class, () -> SelectionFilter.ofUser(null, 1L, trend));
+
         long serverId = 123L;
         long userId = 654L;
 
-        var selection = SelectionFilter.ofServer(serverId, null);
+        var selection = SelectionFilter.ofServer(TEST_CLIENT_TYPE, serverId, null);
         assertEquals(serverId, selection.serverId());
         assertNull(selection.userId());
         assertNull(selection.tickerOrPair());
         assertNull(selection.type());
 
-        selection = SelectionFilter.ofServer(serverId, range);
+        selection = SelectionFilter.ofServer(TEST_CLIENT_TYPE, serverId, range);
         assertEquals(serverId, selection.serverId());
         assertNull(selection.userId());
         assertNull(selection.tickerOrPair());
         assertEquals(range, selection.type());
 
-        selection = SelectionFilter.ofUser(userId, null);
+        selection = SelectionFilter.ofUser(TEST_CLIENT_TYPE, userId, null);
         assertNull(selection.serverId());
         assertEquals(userId, selection.userId());
         assertNull(selection.tickerOrPair());
         assertNull(selection.type());
 
-        selection = SelectionFilter.ofUser(userId, trend);
+        selection = SelectionFilter.ofUser(TEST_CLIENT_TYPE, userId, trend);
         assertNull(selection.serverId());
         assertEquals(userId, selection.userId());
         assertNull(selection.tickerOrPair());
         assertEquals(trend, selection.type());
 
-        selection = SelectionFilter.of(serverId, userId, null);
+        selection = SelectionFilter.of(TEST_CLIENT_TYPE, serverId, userId, null);
         assertEquals(serverId, selection.serverId());
         assertEquals(userId, selection.userId());
         assertNull(selection.tickerOrPair());
         assertNull(selection.type());
 
-        selection = SelectionFilter.ofUser(userId, remainder);
+        selection = SelectionFilter.ofUser(TEST_CLIENT_TYPE, userId, remainder);
         assertNull(selection.serverId());
         assertEquals(userId, selection.userId());
         assertNull(selection.tickerOrPair());
@@ -401,7 +406,7 @@ public abstract class AlertsDaoTest {
         long alertId7 = alerts.addAlert(alert7);
         alerts.addAlert(createTestAlertWithCreationDate(lastTrigger.plusDays(1L)).withListeningDateLastTriggerMarginRepeat(null, null, MARGIN_DISABLED, (short) 1));
 
-        assertEquals(14, alerts.countAlerts(SelectionFilter.ofUser(TEST_USER_ID, null)));
+        assertEquals(14, alerts.countAlerts(SelectionFilter.ofUser(TEST_CLIENT_TYPE, TEST_USER_ID, null)));
         assertEquals(0, alerts.fetchAlertsWithoutMessageHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusDays(2L),
                 stream -> assertEquals(0, stream.count())));
         assertEquals(0, alerts.fetchAlertsWithoutMessageHavingRepeatNegativeAndLastTriggerBeforeOrNullAndCreationBefore(lastTrigger.minusDays(1L),
@@ -462,7 +467,7 @@ public abstract class AlertsDaoTest {
         alerts.addAlert(createTestAlertWithType(remainder).withToDate(date.plusDays(1L).plusHours(2L)));
         alerts.addAlert(createTestAlertWithType(trend).withToDate(date.plusDays(1L).plusHours(2L).plusMinutes(13L)));
 
-        assertEquals(15, alerts.countAlerts(SelectionFilter.ofUser(TEST_USER_ID, null)));
+        assertEquals(15, alerts.countAlerts(SelectionFilter.ofUser(TEST_CLIENT_TYPE, TEST_USER_ID, null)));
         assertEquals(0, alerts.fetchAlertsWithoutMessageByTypeHavingToDateBefore(range, date,
                 stream -> assertEquals(0, stream.count())));
         assertEquals(0, alerts.fetchAlertsWithoutMessageByTypeHavingToDateBefore(range, date.plusMinutes(40L),
@@ -727,6 +732,7 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void getUserIdsByServerId(AlertsDao alerts, UsersDao users) {
+        assertThrows(NullPointerException.class, () -> alerts.getUserIdsByServerId(null, 1L));
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
@@ -740,11 +746,11 @@ public abstract class AlertsDaoTest {
         alerts.addAlert(createTestAlertWithUserId(user2).withServerId(server1));
         alerts.addAlert(createTestAlertWithUserId(user3).withServerId(server2));
 
-        var userIds = alerts.getUserIdsByServerId(server1);
+        var userIds = alerts.getUserIdsByServerId(TEST_CLIENT_TYPE, server1);
         assertNotEquals(new HashSet<>(userIds), Set.of(user1));
         assertEquals(new HashSet<>(userIds), Set.of(user1, user2));
 
-        userIds = alerts.getUserIdsByServerId(server2);
+        userIds = alerts.getUserIdsByServerId(TEST_CLIENT_TYPE, server2);
         assertNotEquals(new HashSet<>(userIds), Set.of(user1));
         assertEquals(new HashSet<>(userIds), Set.of(user1, user3));
     }
@@ -752,49 +758,50 @@ public abstract class AlertsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void getAlert(AlertsDao alerts, UsersDao users) {
+        assertThrows(NullPointerException.class, () -> alerts.getAlert(null, 1L));
         setUser(users, TEST_USER_ID);
-        assertThrows(NullPointerException.class, () -> alerts.addAlert(null));
 
         Alert alert = createTestAlert();
         assertEquals(0, alert.id);
         long alertId = alerts.addAlert(alert);
         assertEquals(1, alertId);
-        assertTrue(alerts.getAlert(alertId).isPresent());
-        assertNotEquals(alert, alerts.getAlert(alertId).get());
-        assertDeepEquals(setId(alert, 1L), alerts.getAlert(alertId).get());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId).isPresent());
+        assertNotEquals(alert, alerts.getAlert(TEST_CLIENT_TYPE, alertId).get());
+        assertDeepEquals(setId(alert, 1L), alerts.getAlert(TEST_CLIENT_TYPE, alertId).get());
 
         // check type of retrieved alert
         alertId = alerts.addAlert(createTestAlertWithType(range));
         assertEquals(2, alertId);
-        assertTrue(alerts.getAlert(alertId).isPresent());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId).isPresent());
         if(alerts instanceof AlertsSQLite) // memory dao returns provided test instance : TestAlert
-            assertInstanceOf(RangeAlert.class, alerts.getAlert(alertId).get());
+            assertInstanceOf(RangeAlert.class, alerts.getAlert(TEST_CLIENT_TYPE, alertId).get());
 
         alertId = alerts.addAlert(createTestAlertWithType(trend));
         assertEquals(3, alertId);
-        assertTrue(alerts.getAlert(alertId).isPresent());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId).isPresent());
         if(alerts instanceof AlertsSQLite) // memory dao returns provided test instance : TestAlert
-            assertInstanceOf(TrendAlert.class, alerts.getAlert(alertId).get());
+            assertInstanceOf(TrendAlert.class, alerts.getAlert(TEST_CLIENT_TYPE, alertId).get());
 
         alertId = alerts.addAlert(createTestAlertWithType(remainder));
         assertEquals(4, alertId);
-        assertTrue(alerts.getAlert(alertId).isPresent());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId).isPresent());
         if(alerts instanceof AlertsSQLite) // memory dao returns provided test instance : TestAlert
-            assertInstanceOf(RemainderAlert.class, alerts.getAlert(alertId).get());
+            assertInstanceOf(RemainderAlert.class, alerts.getAlert(TEST_CLIENT_TYPE, alertId).get());
     }
 
     @ParameterizedTest
     @MethodSource("provideDao")
     void getAlertWithoutMessage(AlertsDao alerts, UsersDao users) {
+        assertThrows(NullPointerException.class, () -> alerts.getAlertWithoutMessage(null, 1L));
         setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert().withMessage("message...");
         long alertId = alerts.addAlert(alert);
-        assertTrue(alerts.getAlert(alertId).isPresent());
-        assertEquals(alert.message, alerts.getAlert(alertId).get().message);
-        assertTrue(alerts.getAlertWithoutMessage(alertId).isPresent());
-        assertNotEquals(alert.message, alerts.getAlertWithoutMessage(alertId).get().message);
-        assertTrue(alerts.getAlertWithoutMessage(alertId).get().message.isEmpty());
-        assertDeepEquals(setId(alert, 1L).withMessage(""), alerts.getAlertWithoutMessage(alertId).get());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId).isPresent());
+        assertEquals(alert.message, alerts.getAlert(TEST_CLIENT_TYPE, alertId).get().message);
+        assertTrue(alerts.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId).isPresent());
+        assertNotEquals(alert.message, alerts.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId).get().message);
+        assertTrue(alerts.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId).get().message.isEmpty());
+        assertDeepEquals(setId(alert, 1L).withMessage(""), alerts.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId).get());
     }
 
     @ParameterizedTest
@@ -870,29 +877,29 @@ public abstract class AlertsDaoTest {
         alerts.addAlert(createTestAlertWithUserIdAndPairType(user2, "DOT/BTC", range).withServerId(server1));
         alerts.addAlert(createTestAlertWithUserIdAndPairType(user3, "ETH/BTC", remainder).withServerId(server2));
 
-        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(server1, null)));
-        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(server1, range)));
-        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(server1, trend)));
-        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(server1, remainder)));
-        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(server1, null).withTickerOrPair("ETH/BTC")));
-        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(server1, range).withTickerOrPair("ETH/BTC")));
-        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(server1, remainder).withTickerOrPair("ETH/BTC")));
-        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(server1, null).withTickerOrPair("BTC")));
-        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(server1, remainder).withTickerOrPair("BTC")));
-        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(server1, null).withTickerOrPair("DOT")));
-        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(server1, range).withTickerOrPair("DOT")));
-        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(server1, trend).withTickerOrPair("DOT")));
+        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, null)));
+        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, range)));
+        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, trend)));
+        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, remainder)));
+        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, null).withTickerOrPair("ETH/BTC")));
+        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, range).withTickerOrPair("ETH/BTC")));
+        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, remainder).withTickerOrPair("ETH/BTC")));
+        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, null).withTickerOrPair("BTC")));
+        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, remainder).withTickerOrPair("BTC")));
+        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, null).withTickerOrPair("DOT")));
+        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, range).withTickerOrPair("DOT")));
+        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, trend).withTickerOrPair("DOT")));
 
-        assertEquals(3, alerts.countAlerts(SelectionFilter.ofServer(server2, null)));
-        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(server2, range)));
-        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(server2, trend)));
-        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(server2, remainder)));
-        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(server2, null).withTickerOrPair("ETH/BTC")));
-        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(server2, remainder).withTickerOrPair("ETH/BTC")));
-        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(server2, range).withTickerOrPair("ETH/BTC")));
-        assertEquals(3, alerts.countAlerts(SelectionFilter.ofServer(server2, null).withTickerOrPair("ETH")));
-        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(server2, trend).withTickerOrPair("ETH")));
-        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(server2, remainder).withTickerOrPair("ETH")));
+        assertEquals(3, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, null)));
+        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, range)));
+        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, trend)));
+        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, remainder)));
+        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, null).withTickerOrPair("ETH/BTC")));
+        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, remainder).withTickerOrPair("ETH/BTC")));
+        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, range).withTickerOrPair("ETH/BTC")));
+        assertEquals(3, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, null).withTickerOrPair("ETH")));
+        assertEquals(1, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, trend).withTickerOrPair("ETH")));
+        assertEquals(2, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, remainder).withTickerOrPair("ETH")));
     }
 
     @ParameterizedTest
@@ -912,9 +919,9 @@ public abstract class AlertsDaoTest {
         alerts.addAlert(createTestAlertWithUserIdAndPair(user2, "DOT/BTC").withServerId(server1));
         alerts.addAlert(createTestAlertWithUserIdAndPair(user3, "ETH/BTC").withServerId(server2));
 
-        assertEquals(3, alerts.countAlerts(SelectionFilter.ofUser(user1, null)));
-        assertEquals(1, alerts.countAlerts(SelectionFilter.ofUser(user2, null)));
-        assertEquals(1, alerts.countAlerts(SelectionFilter.ofUser(user3, null)));
+        assertEquals(3, alerts.countAlerts(SelectionFilter.ofUser(TEST_CLIENT_TYPE, user1, null)));
+        assertEquals(1, alerts.countAlerts(SelectionFilter.ofUser(TEST_CLIENT_TYPE, user2, null)));
+        assertEquals(1, alerts.countAlerts(SelectionFilter.ofUser(TEST_CLIENT_TYPE, user3, null)));
     }
 
     @ParameterizedTest
@@ -971,9 +978,9 @@ public abstract class AlertsDaoTest {
         alerts.addAlert(createTestAlertWithUserIdAndPair(user2, "ADA/BTC").withServerId(server1));
         alerts.addAlert(createTestAlertWithUserIdAndPair(user3, "ETH/BTC").withServerId(server2));
 
-        assertEquals(9, alerts.countAlerts(SelectionFilter.ofServer(server1, null)));
-        assertEquals(3, alerts.countAlerts(SelectionFilter.ofServer(server2, null)));
-        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(123L, null)));
+        assertEquals(9, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, null)));
+        assertEquals(3, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, null)));
+        assertEquals(0, alerts.countAlerts(SelectionFilter.ofServer(TEST_CLIENT_TYPE, 123L, null)));
     }
 
     @ParameterizedTest
@@ -995,12 +1002,12 @@ public abstract class AlertsDaoTest {
         alerts.addAlert(createTestAlertWithUserIdAndPair(user2, "DOT/BTC").withServerId(server1));
         alerts.addAlert(createTestAlertWithUserIdAndPair(user3, "ETH/BTC").withServerId(server2));
 
-        assertEquals(3, alerts.countAlerts(SelectionFilter.of(server1, user1, null)));
-        assertEquals(1, alerts.countAlerts(SelectionFilter.of(server1, user2, null)));
-        assertEquals(0, alerts.countAlerts(SelectionFilter.of(server1, user3, null)));
-        assertEquals(2, alerts.countAlerts(SelectionFilter.of(server2, user1, null)));
-        assertEquals(0, alerts.countAlerts(SelectionFilter.of(server2, user2, null)));
-        assertEquals(1, alerts.countAlerts(SelectionFilter.of(server2, user3, null)));
+        assertEquals(3, alerts.countAlerts(SelectionFilter.of(TEST_CLIENT_TYPE, server1, user1, null)));
+        assertEquals(1, alerts.countAlerts(SelectionFilter.of(TEST_CLIENT_TYPE, server1, user2, null)));
+        assertEquals(0, alerts.countAlerts(SelectionFilter.of(TEST_CLIENT_TYPE, server1, user3, null)));
+        assertEquals(2, alerts.countAlerts(SelectionFilter.of(TEST_CLIENT_TYPE, server2, user1, null)));
+        assertEquals(0, alerts.countAlerts(SelectionFilter.of(TEST_CLIENT_TYPE, server2, user2, null)));
+        assertEquals(1, alerts.countAlerts(SelectionFilter.of(TEST_CLIENT_TYPE, server2, user3, null)));
     }
 
     @ParameterizedTest
@@ -1119,8 +1126,8 @@ public abstract class AlertsDaoTest {
     @MethodSource("provideDao")
     void getAlertsOrderByPairUserIdId(AlertsDao alerts, UsersDao users) {
         assertThrows(NullPointerException.class, () -> alerts.getAlertsOrderByPairUserIdId(null, 0L, 1L));
-        assertThrows(IllegalArgumentException.class, () -> alerts.getAlertsOrderByPairUserIdId(mock(), 0L, 0L));
-        assertThrows(IllegalArgumentException.class, () -> alerts.getAlertsOrderByPairUserIdId(mock(), 0L, -1L));
+        assertThrows(NullPointerException.class, () -> alerts.getAlertsOrderByPairUserIdId(mock(), 0L, 0L));
+        assertThrows(NullPointerException.class, () -> alerts.getAlertsOrderByPairUserIdId(mock(), 0L, -1L));
         long user1 = 123L;
         long user2 = 222L;
         long user3 = 321L;
@@ -1135,26 +1142,26 @@ public abstract class AlertsDaoTest {
         alerts.addAlert(createTestAlertWithUserIdAndPairType(user2, "DOT/BTC", trend).withServerId(server1));
         alerts.addAlert(createTestAlertWithUserIdAndPairType(user3, "ETH/BTC", range).withServerId(server2));
 
-        assertEquals(2, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, null), 0, 1000).size());
-        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, trend), 0, 1000).size());
-        assertEquals(0, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, remainder), 0, 1000).size());
-        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, range), 0, 1000).size());
+        assertEquals(2, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, null), 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, trend), 0, 1000).size());
+        assertEquals(0, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, remainder), 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, range), 0, 1000).size());
 
-        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, null).withTickerOrPair( "ETH/BTC"), 0, 1000).size());
-        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, range).withTickerOrPair( "ETH/BTC"), 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, null).withTickerOrPair( "ETH/BTC"), 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, range).withTickerOrPair( "ETH/BTC"), 0, 1000).size());
 
-        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, null).withTickerOrPair( "ETH"), 0, 1000).size());
-        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, range).withTickerOrPair( "ETH"), 0, 1000).size());
-        assertEquals(0, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, remainder).withTickerOrPair( "ETH"), 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, null).withTickerOrPair( "ETH"), 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, range).withTickerOrPair( "ETH"), 0, 1000).size());
+        assertEquals(0, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, remainder).withTickerOrPair( "ETH"), 0, 1000).size());
 
-        assertEquals(2, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, null).withTickerOrPair("BTC"), 0, 1000)).size());
-        assertEquals(1, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, trend).withTickerOrPair("BTC"), 0, 1000)).size());
-        assertEquals(0, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, remainder).withTickerOrPair("BTC"), 0, 1000).size());
+        assertEquals(2, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, null).withTickerOrPair("BTC"), 0, 1000)).size());
+        assertEquals(1, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, trend).withTickerOrPair("BTC"), 0, 1000)).size());
+        assertEquals(0, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, remainder).withTickerOrPair("BTC"), 0, 1000).size());
 
-        assertEquals(3, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server2, null), 0, 1000).size());
-        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server2, trend), 0, 1000).size());
-        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server2, remainder), 0, 1000).size());
-        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server2, range), 0, 1000).size());
+        assertEquals(3, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, null), 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, trend), 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, remainder), 0, 1000).size());
+        assertEquals(1, alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, range), 0, 1000).size());
     }
 
     @ParameterizedTest
@@ -1174,7 +1181,7 @@ public abstract class AlertsDaoTest {
         alerts.addAlert(createTestAlertWithUserIdAndPair(user2, "DOT/BTC").withServerId(server1));
         alerts.addAlert(createTestAlertWithUserIdAndPair(user3, "ETH/BTC").withServerId(server2));
 
-        var filterUser1 = SelectionFilter.ofUser(user1, null);
+        var filterUser1 = SelectionFilter.ofUser(TEST_CLIENT_TYPE, user1, null);
         assertEquals(3, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(filterUser1, 0, 1000)).size());
         assertEquals(3, alerts.getAlertsOrderByPairUserIdId(filterUser1, 0, 1000).stream().filter(alert -> alert.userId == user1).count());
         assertEquals(3, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(filterUser1, 0, 3)).size());
@@ -1184,8 +1191,8 @@ public abstract class AlertsDaoTest {
         assertEquals(0, alerts.getAlertsOrderByPairUserIdId(filterUser1, 3, 3).size());
         assertEquals(0, alerts.getAlertsOrderByPairUserIdId(filterUser1, 30, 3).size());
 
-        var filterUser2 = SelectionFilter.ofUser(user2, null);
-        var filterUser3 = SelectionFilter.ofUser(user3, null);
+        var filterUser2 = SelectionFilter.ofUser(TEST_CLIENT_TYPE, user2, null);
+        var filterUser3 = SelectionFilter.ofUser(TEST_CLIENT_TYPE, user3, null);
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(filterUser2, 0, 1000).size());
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(filterUser2, 0, 1000).stream().filter(alert -> alert.userId == user2).count());
         assertEquals(0, alerts.getAlertsOrderByPairUserIdId(filterUser2, 1, 1000).size());
@@ -1282,7 +1289,7 @@ public abstract class AlertsDaoTest {
         alerts.addAlert(createTestAlertWithUserIdAndPair(user2, "ADA/BTC").withServerId(server1));
         alerts.addAlert(createTestAlertWithUserIdAndPair(user3, "ETH/BTC").withServerId(server2));
 
-        var filterServer1 = SelectionFilter.ofServer(server1, null);
+        var filterServer1 = SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, null);
         assertEquals(9, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(filterServer1, 0, 1000)).size());
         assertEquals(9, alerts.getAlertsOrderByPairUserIdId(filterServer1, 0, 1000).stream()
                 .filter(alert -> alert.serverId == server1).count());
@@ -1294,7 +1301,7 @@ public abstract class AlertsDaoTest {
         assertEquals(0, alerts.getAlertsOrderByPairUserIdId(filterServer1, 9, 7).size());
         assertEquals(0, alerts.getAlertsOrderByPairUserIdId(filterServer1, 20, 3).size());
 
-        var filterServer2 = SelectionFilter.ofServer(server2, null);
+        var filterServer2 = SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, null);
         assertEquals(3, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(filterServer2, 0, 1000)).size());
         assertEquals(3, alerts.getAlertsOrderByPairUserIdId(filterServer2, 0, 1000).stream()
                 .filter(alert -> alert.serverId == server2).count());
@@ -1324,7 +1331,7 @@ public abstract class AlertsDaoTest {
         alerts.addAlert(createTestAlertWithUserIdAndPair(user2, "DOT/BTC").withServerId(server1));
         alerts.addAlert(createTestAlertWithUserIdAndPair(user3, "ETH/BTC").withServerId(server2));
 
-        var filterServer1User1 = SelectionFilter.of(server1, user1, null);
+        var filterServer1User1 = SelectionFilter.of(TEST_CLIENT_TYPE, server1, user1, null);
         assertEquals(3, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(filterServer1User1, 0, 1000)).size());
         assertEquals(3, alerts.getAlertsOrderByPairUserIdId(filterServer1User1, 0, 1000).stream()
                 .filter(alert -> alert.serverId == server1)
@@ -1332,7 +1339,7 @@ public abstract class AlertsDaoTest {
                 .count());
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(filterServer1User1, 0, 1).size());
 
-        var filterServer1User2 = SelectionFilter.of(server1, user2, null);
+        var filterServer1User2 = SelectionFilter.of(TEST_CLIENT_TYPE, server1, user2, null);
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(filterServer1User2, 0, 1000).size());
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(filterServer1User2, 0, 1000).stream()
                 .filter(alert -> alert.serverId == server1)
@@ -1340,10 +1347,10 @@ public abstract class AlertsDaoTest {
                 .count());
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(filterServer1User2, 0, 1).size());
 
-        var filterServer1User3 = SelectionFilter.of(server1, user3, null);
+        var filterServer1User3 = SelectionFilter.of(TEST_CLIENT_TYPE, server1, user3, null);
         assertEquals(0, alerts.getAlertsOrderByPairUserIdId(filterServer1User3, 0, 1000).size());
 
-        var filterServer2User1 = SelectionFilter.of(server2, user1, null);
+        var filterServer2User1 = SelectionFilter.of(TEST_CLIENT_TYPE, server2, user1, null);
         assertEquals(2, assertSortedByPairUserIdId(alerts.getAlertsOrderByPairUserIdId(filterServer2User1, 0, 1000)).size());
         assertEquals(2, alerts.getAlertsOrderByPairUserIdId(filterServer2User1, 0, 1000).stream()
                 .filter(alert -> alert.serverId == server2)
@@ -1355,9 +1362,9 @@ public abstract class AlertsDaoTest {
         assertEquals(0, alerts.getAlertsOrderByPairUserIdId(filterServer2User1, 2, 3).size());
         assertEquals(0, alerts.getAlertsOrderByPairUserIdId(filterServer2User1, 20, 3).size());
 
-        var filterServer2User2 = SelectionFilter.of(server2, user2, null);
+        var filterServer2User2 = SelectionFilter.of(TEST_CLIENT_TYPE, server2, user2, null);
         assertEquals(0, alerts.getAlertsOrderByPairUserIdId(filterServer2User2, 0, 1000).size());
-        var filterServer2User3 = SelectionFilter.of(server2, user3, null);
+        var filterServer2User3 = SelectionFilter.of(TEST_CLIENT_TYPE, server2, user3, null);
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(filterServer2User3, 0, 1000).size());
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(filterServer2User3, 0, 1000).stream()
                 .filter(alert -> alert.serverId == server2)
@@ -1671,12 +1678,12 @@ public abstract class AlertsDaoTest {
         setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert();
         long alertId = alerts.addAlert(alert);
-        assertTrue(alerts.getAlert(alertId).isPresent());
-        assertDeepEquals(alert.withId(() -> alertId), alerts.getAlert(alertId).get());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId).isPresent());
+        assertDeepEquals(alert.withId(() -> alertId), alerts.getAlert(TEST_CLIENT_TYPE, alertId).get());
         // check id strictly increments
         for(long i = alertId; i++ < alertId + 1000;) {
             if(i > 3)
-                alerts.delete(i - 3);
+                alerts.delete(TEST_CLIENT_TYPE, i - 3);
             assertEquals(i, alerts.addAlert(createTestAlert()));
         }
         var finalAlert = setId(alert, alerts.addAlert(alert));
@@ -1705,26 +1712,26 @@ public abstract class AlertsDaoTest {
         Alert alertU3S2 = createTestAlertWithUserIdAndPairType(user3, "ETH/BTC", remainder).withServerId(server2);
         alertU3S2 = setId(alertU3S2, alerts.addAlert(alertU3S2));
 
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user1, null).withTickerOrPair("ETH/BTC"), 0, 1000).contains(alertU1S1));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user1, range).withTickerOrPair("ETH/BTC"), 0, 1000).contains(alertU1S1));
-        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user1, trend).withTickerOrPair("ETH/BTC"), 0, 1000).contains(alertU1S1));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user2, null).withTickerOrPair("BTC"), 0, 1000).contains(alertU2S1));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user2, trend).withTickerOrPair("BTC"), 0, 1000).contains(alertU2S1));
-        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user2, range).withTickerOrPair("BTC"), 0, 1000).contains(alertU2S1));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user2, null).withTickerOrPair("DOT"), 0, 1000).contains(alertU2S1));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user2, trend).withTickerOrPair("DOT"), 0, 1000).contains(alertU2S1));
-        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server1, user2, remainder).withTickerOrPair("DOT"), 0, 1000).contains(alertU2S1));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server1, user1, null).withTickerOrPair("ETH/BTC"), 0, 1000).contains(alertU1S1));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server1, user1, range).withTickerOrPair("ETH/BTC"), 0, 1000).contains(alertU1S1));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server1, user1, trend).withTickerOrPair("ETH/BTC"), 0, 1000).contains(alertU1S1));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server1, user2, null).withTickerOrPair("BTC"), 0, 1000).contains(alertU2S1));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server1, user2, trend).withTickerOrPair("BTC"), 0, 1000).contains(alertU2S1));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server1, user2, range).withTickerOrPair("BTC"), 0, 1000).contains(alertU2S1));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server1, user2, null).withTickerOrPair("DOT"), 0, 1000).contains(alertU2S1));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server1, user2, trend).withTickerOrPair("DOT"), 0, 1000).contains(alertU2S1));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server1, user2, remainder).withTickerOrPair("DOT"), 0, 1000).contains(alertU2S1));
 
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user1, null).withTickerOrPair("ETH"), 0, 1000).contains(alertU1S2));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user1, trend).withTickerOrPair("ETH"), 0, 1000).contains(alertU1S2));
-        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user1, remainder).withTickerOrPair("ETH"), 0, 1000).contains(alertU1S2));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user1, null).withTickerOrPair("USD"), 0, 1000).contains(alertU1S2));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user1, trend).withTickerOrPair("USD"), 0, 1000).contains(alertU1S2));
-        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user1, range).withTickerOrPair("USD"), 0, 1000).contains(alertU1S2));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user3, null).withTickerOrPair("ETH"), 0, 1000).contains(alertU3S2));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user3, remainder).withTickerOrPair("ETH"), 0, 1000).contains(alertU3S2));
-        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user3, range).withTickerOrPair("ETH"), 0, 1000).contains(alertU3S2));
-        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(server2, user3, trend).withTickerOrPair("ETH"), 0, 1000).contains(alertU3S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server2, user1, null).withTickerOrPair("ETH"), 0, 1000).contains(alertU1S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server2, user1, trend).withTickerOrPair("ETH"), 0, 1000).contains(alertU1S2));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server2, user1, remainder).withTickerOrPair("ETH"), 0, 1000).contains(alertU1S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server2, user1, null).withTickerOrPair("USD"), 0, 1000).contains(alertU1S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server2, user1, trend).withTickerOrPair("USD"), 0, 1000).contains(alertU1S2));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server2, user1, range).withTickerOrPair("USD"), 0, 1000).contains(alertU1S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server2, user3, null).withTickerOrPair("ETH"), 0, 1000).contains(alertU3S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server2, user3, remainder).withTickerOrPair("ETH"), 0, 1000).contains(alertU3S2));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server2, user3, range).withTickerOrPair("ETH"), 0, 1000).contains(alertU3S2));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.of(TEST_CLIENT_TYPE, server2, user3, trend).withTickerOrPair("ETH"), 0, 1000).contains(alertU3S2));
     }
 
     @ParameterizedTest
@@ -1749,34 +1756,34 @@ public abstract class AlertsDaoTest {
         Alert alertU3S2 = createTestAlertWithUserId(user3).withServerId(server2);
         alertU3S2 = setId(alertU3S2, alerts.addAlert(alertU3S2));
 
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, null), 0, 1000).contains(alertU1S1));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server2, null), 0, 1000).contains(alertU1S2));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server2, null), 0, 1000).contains(alert2U1S2));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, null), 0, 1000).contains(alertU2S1));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server2, null), 0, 1000).contains(alertU3S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, null), 0, 1000).contains(alertU1S1));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, null), 0, 1000).contains(alertU1S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, null), 0, 1000).contains(alert2U1S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, null), 0, 1000).contains(alertU2S1));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, null), 0, 1000).contains(alertU3S2));
 
         long newServerId = 987654321L;
-        var filterServer1User1 = SelectionFilter.of(server1, user1, null);
-        var filterServer1User2 = SelectionFilter.of(server1, user2, null);
-        var filterServer2User1 = SelectionFilter.of(server2, user1, null);
-        var filterServer2User3 = SelectionFilter.of(server2, user3, null);
+        var filterServer1User1 = SelectionFilter.of(TEST_CLIENT_TYPE, server1, user1, null);
+        var filterServer1User2 = SelectionFilter.of(TEST_CLIENT_TYPE, server1, user2, null);
+        var filterServer2User1 = SelectionFilter.of(TEST_CLIENT_TYPE, server2, user1, null);
+        var filterServer2User3 = SelectionFilter.of(TEST_CLIENT_TYPE, server2, user3, null);
 
         assertEquals(1, alerts.updateServerIdOf(filterServer1User1, newServerId));
-        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, null), 0, 1000).contains(alertU1S1));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(newServerId, null), 0, 1000).contains(alertU1S1));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, null), 0, 1000).contains(alertU1S1));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, newServerId, null), 0, 1000).contains(alertU1S1));
         assertEquals(0, alerts.updateServerIdOf(filterServer1User1, newServerId));
         assertEquals(1, alerts.updateServerIdOf(filterServer2User3, newServerId));
-        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, null), 0, 1000).contains(alertU3S2));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(newServerId, null), 0, 1000).contains(alertU3S2));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(newServerId, null), 0, 1000).contains(alertU1S1));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, null), 0, 1000).contains(alertU3S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, newServerId, null), 0, 1000).contains(alertU3S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, newServerId, null), 0, 1000).contains(alertU1S1));
         assertEquals(2, alerts.updateServerIdOf(filterServer2User1, newServerId));
-        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server2, null), 0, 1000).contains(alertU1S2));
-        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server2, null), 0, 1000).contains(alert2U1S2));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(newServerId, null), 0, 1000).contains(alertU1S2));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(newServerId, null), 0, 1000).contains(alert2U1S2));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, null), 0, 1000).contains(alertU1S2));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, null), 0, 1000).contains(alert2U1S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, newServerId, null), 0, 1000).contains(alertU1S2));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, newServerId, null), 0, 1000).contains(alert2U1S2));
         assertEquals(1, alerts.updateServerIdOf(filterServer1User2, newServerId));
-        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(server1, null), 0, 1000).contains(alertU2S1));
-        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(newServerId, null), 0, 1000).contains(alertU2S1));
+        assertFalse(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server1, null), 0, 1000).contains(alertU2S1));
+        assertTrue(alerts.getAlertsOrderByPairUserIdId(SelectionFilter.ofServer(TEST_CLIENT_TYPE, newServerId, null), 0, 1000).contains(alertU2S1));
     }
 
     @ParameterizedTest
@@ -1851,8 +1858,8 @@ public abstract class AlertsDaoTest {
         Alert alert = createTestAlert().withServerId(123L);
         alert = setId(alert, alerts.addAlert(alert));
         alerts.update(alert, EnumSet.allOf(AlertsDao.UpdateField.class));
-        assertTrue(alerts.getAlert(alert.id).isPresent());
-        assertDeepEquals(alert, alerts.getAlert(alert.id).get());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert.id).isPresent());
+        assertDeepEquals(alert, alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get());
 
         ZonedDateTime date = DatesTest.nowUtc().truncatedTo(MILLIS) // clear the nanoseconds as sqlite save milliseconds
                 .plusHours(1L);
@@ -1868,8 +1875,8 @@ public abstract class AlertsDaoTest {
                 .withSnooze((short) 11);
 
         alerts.update(alert, EnumSet.allOf(AlertsDao.UpdateField.class));
-        assertTrue(alerts.getAlert(alert.id).isPresent());
-        assertDeepEquals(alert, alerts.getAlert(alert.id).get());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert.id).isPresent());
+        assertDeepEquals(alert, alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get());
     }
 
     @ParameterizedTest
@@ -1878,10 +1885,10 @@ public abstract class AlertsDaoTest {
         setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert().withServerId(123L);
         alert = setId(alert, alerts.addAlert(alert));
-        assertTrue(alerts.getAlert(alert.id).isPresent());
-        assertEquals(123L, alerts.getAlert(alert.id).get().serverId);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert.id).isPresent());
+        assertEquals(123L, alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().serverId);
         alerts.update(alert.withServerId(321L), Set.of(SERVER_ID));
-        assertEquals(321L, alerts.getAlert(alert.id).get().serverId);
+        assertEquals(321L, alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().serverId);
     }
 
     @ParameterizedTest
@@ -1892,10 +1899,10 @@ public abstract class AlertsDaoTest {
                 .minusMonths(1L);
         Alert alert = createTestAlert().withToDate(date.plusYears(33L)).withListeningDateFromDate(date, date.plusMinutes(37L));
         alert = setId(alert, alerts.addAlert(alert));
-        assertTrue(alerts.getAlert(alert.id).isPresent());
-        assertEquals(date, alerts.getAlert(alert.id).get().listeningDate);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert.id).isPresent());
+        assertEquals(date, alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().listeningDate);
         alerts.update(alert.withListeningDateRepeat(date.plusDays(3L), alert.repeat), Set.of(LISTENING_DATE));
-        assertEquals(date.plusDays(3L), alerts.getAlert(alert.id).get().listeningDate);
+        assertEquals(date.plusDays(3L), alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().listeningDate);
     }
 
     @ParameterizedTest
@@ -1904,10 +1911,10 @@ public abstract class AlertsDaoTest {
         setUser(users, TEST_USER_ID);
         Alert alert = createTestRangeAlert().withFromPrice(ONE);
         alert = setId(alert, alerts.addAlert(alert));
-        assertTrue(alerts.getAlert(alert.id).isPresent());
-        assertEquals(ONE, alerts.getAlert(alert.id).get().fromPrice);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert.id).isPresent());
+        assertEquals(ONE, alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().fromPrice);
         alerts.update(alert.withFromPrice(TWO), Set.of(FROM_PRICE));
-        assertEquals(TWO, alerts.getAlert(alert.id).get().fromPrice);
+        assertEquals(TWO, alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().fromPrice);
     }
 
     @ParameterizedTest
@@ -1916,10 +1923,10 @@ public abstract class AlertsDaoTest {
         setUser(users, TEST_USER_ID);
         Alert alert = createTestRangeAlert().withToPrice(BigDecimal.valueOf(100L));
         alert = setId(alert, alerts.addAlert(alert));
-        assertTrue(alerts.getAlert(alert.id).isPresent());
-        assertEquals(BigDecimal.valueOf(100L), alerts.getAlert(alert.id).get().toPrice);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert.id).isPresent());
+        assertEquals(BigDecimal.valueOf(100L), alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().toPrice);
         alerts.update(alert.withToPrice(BigDecimal.valueOf(30L)), Set.of(TO_PRICE));
-        assertEquals(BigDecimal.valueOf(30L), alerts.getAlert(alert.id).get().toPrice);
+        assertEquals(BigDecimal.valueOf(30L), alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().toPrice);
     }
 
     @ParameterizedTest
@@ -1929,10 +1936,10 @@ public abstract class AlertsDaoTest {
         ZonedDateTime date = TEST_FROM_DATE.minusWeeks(2L).truncatedTo(MILLIS); // clear the nanoseconds as sqlite save milliseconds
         Alert alert = createTestAlert().withFromDate(date);
         alert = setId(alert, alerts.addAlert(alert));
-        assertTrue(alerts.getAlert(alert.id).isPresent());
-        assertEquals(date, alerts.getAlert(alert.id).get().fromDate);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert.id).isPresent());
+        assertEquals(date, alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().fromDate);
         alerts.update(alert.withFromDate(date.plusHours(3L)), Set.of(FROM_DATE));
-        assertEquals(date.plusHours(3L), alerts.getAlert(alert.id).get().fromDate);
+        assertEquals(date.plusHours(3L), alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().fromDate);
     }
 
     @ParameterizedTest
@@ -1942,10 +1949,10 @@ public abstract class AlertsDaoTest {
         ZonedDateTime date = DatesTest.nowUtc().truncatedTo(MILLIS); // clear the nanoseconds as sqlite save milliseconds
         Alert alert = createTestAlert().withToDate(date);
         alert = setId(alert, alerts.addAlert(alert));
-        assertTrue(alerts.getAlert(alert.id).isPresent());
-        assertEquals(date, alerts.getAlert(alert.id).get().toDate);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert.id).isPresent());
+        assertEquals(date, alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().toDate);
         alerts.update(alert.withToDate(date.plusHours(3L)), Set.of(TO_DATE));
-        assertEquals(date.plusHours(3L), alerts.getAlert(alert.id).get().toDate);
+        assertEquals(date.plusHours(3L), alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().toDate);
     }
 
     @ParameterizedTest
@@ -1954,10 +1961,10 @@ public abstract class AlertsDaoTest {
         setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert().withMessage("message");
         alert = setId(alert, alerts.addAlert(alert));
-        assertTrue(alerts.getAlert(alert.id).isPresent());
-        assertEquals("message", alerts.getAlert(alert.id).get().message);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert.id).isPresent());
+        assertEquals("message", alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().message);
         alerts.update(alert.withMessage("new message"), Set.of(MESSAGE));
-        assertEquals("new message", alerts.getAlert(alert.id).get().message);
+        assertEquals("new message", alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().message);
     }
 
     @ParameterizedTest
@@ -1966,10 +1973,10 @@ public abstract class AlertsDaoTest {
         setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert().withMargin(ONE);
         alert = setId(alert, alerts.addAlert(alert));
-        assertTrue(alerts.getAlert(alert.id).isPresent());
-        assertEquals(ONE, alerts.getAlert(alert.id).get().margin);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert.id).isPresent());
+        assertEquals(ONE, alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().margin);
         alerts.update(alert.withMargin(TWO), Set.of(MARGIN));
-        assertEquals(TWO, alerts.getAlert(alert.id).get().margin);
+        assertEquals(TWO, alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().margin);
     }
 
     @ParameterizedTest
@@ -1978,10 +1985,10 @@ public abstract class AlertsDaoTest {
         setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert().withListeningDateRepeat(DatesTest.nowUtc(), (short) 13);
         alert = setId(alert, alerts.addAlert(alert));
-        assertTrue(alerts.getAlert(alert.id).isPresent());
-        assertEquals(13, alerts.getAlert(alert.id).get().repeat);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert.id).isPresent());
+        assertEquals(13, alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().repeat);
         alerts.update(alert.withListeningDateRepeat(alert.listeningDate, (short) 7), Set.of(REPEAT));
-        assertEquals(7, alerts.getAlert(alert.id).get().repeat);
+        assertEquals(7, alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().repeat);
     }
 
     @ParameterizedTest
@@ -1990,21 +1997,22 @@ public abstract class AlertsDaoTest {
         setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert().withSnooze((short) 51);
         alert = setId(alert, alerts.addAlert(alert));
-        assertTrue(alerts.getAlert(alert.id).isPresent());
-        assertEquals(51, alerts.getAlert(alert.id).get().snooze);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert.id).isPresent());
+        assertEquals(51, alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().snooze);
         alerts.update(alert.withSnooze((short) 77), Set.of(SNOOZE));
-        assertEquals(77, alerts.getAlert(alert.id).get().snooze);
+        assertEquals(77, alerts.getAlert(TEST_CLIENT_TYPE, alert.id).get().snooze);
     }
 
     @ParameterizedTest
     @MethodSource("provideDao")
     void deleteAlert(AlertsDao alerts, UsersDao users) {
+        assertThrows(NullPointerException.class, () -> alerts.delete(null, 1L));
         setUser(users, TEST_USER_ID);
         Alert alert = createTestAlert();
         long alertId = alerts.addAlert(alert);
-        assertTrue(alerts.getAlert(alertId).isPresent());
-        alerts.delete(alertId);
-        assertTrue(alerts.getAlert(alertId).isEmpty());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId).isPresent());
+        alerts.delete(TEST_CLIENT_TYPE, alertId);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId).isEmpty());
     }
 
     @ParameterizedTest
@@ -2026,17 +2034,17 @@ public abstract class AlertsDaoTest {
         alerts.addAlert(createTestAlertWithUserIdAndPairType(user2, "DOT/BTC", trend).withServerId(server1));
         alerts.addAlert(createTestAlertWithUserIdAndPairType(user3, "ETH/BTC", remainder).withServerId(server2));
 
-        assertEquals(0, alerts.delete(SelectionFilter.of(server1, user1, trend).withTickerOrPair( "ETH/BTC")));
-        assertEquals(1, alerts.delete(SelectionFilter.of(server1, user1, range).withTickerOrPair( "ETH/BTC")));
+        assertEquals(0, alerts.delete(SelectionFilter.of(TEST_CLIENT_TYPE, server1, user1, trend).withTickerOrPair( "ETH/BTC")));
+        assertEquals(1, alerts.delete(SelectionFilter.of(TEST_CLIENT_TYPE, server1, user1, range).withTickerOrPair( "ETH/BTC")));
 
-        assertEquals(0, alerts.delete(SelectionFilter.ofServer(server2, range).withTickerOrPair("ETH")));
-        assertEquals(1, alerts.delete(SelectionFilter.ofServer(server2, remainder).withTickerOrPair("ETH")));
-        assertEquals(0, alerts.delete(SelectionFilter.ofServer(server2, remainder).withTickerOrPair("ETH")));
-        assertEquals(1, alerts.delete(SelectionFilter.ofServer(server2, null).withTickerOrPair("ETH")));
-        assertEquals(0, alerts.delete(SelectionFilter.ofServer(server2, null).withTickerOrPair("ETH")));
+        assertEquals(0, alerts.delete(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, range).withTickerOrPair("ETH")));
+        assertEquals(1, alerts.delete(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, remainder).withTickerOrPair("ETH")));
+        assertEquals(0, alerts.delete(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, remainder).withTickerOrPair("ETH")));
+        assertEquals(1, alerts.delete(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, null).withTickerOrPair("ETH")));
+        assertEquals(0, alerts.delete(SelectionFilter.ofServer(TEST_CLIENT_TYPE, server2, null).withTickerOrPair("ETH")));
 
-        assertEquals(0, alerts.delete(SelectionFilter.ofUser(user2, remainder)));
-        assertEquals(1, alerts.delete(SelectionFilter.ofUser(user2, null)));
+        assertEquals(0, alerts.delete(SelectionFilter.ofUser(TEST_CLIENT_TYPE, user2, remainder)));
+        assertEquals(1, alerts.delete(SelectionFilter.ofUser(TEST_CLIENT_TYPE, user2, null)));
     }
 
     @ParameterizedTest
@@ -2057,10 +2065,10 @@ public abstract class AlertsDaoTest {
         alerts.addAlert(createTestAlertWithUserId(user2).withServerId(server1));
         alerts.addAlert(createTestAlertWithUserId(user3).withServerId(server2));
 
-        var filterServer1User1 = SelectionFilter.of(server1, user1, null);
-        var filterServer1User2 = SelectionFilter.of(server1, user2, null);
-        var filterServer2User1 = SelectionFilter.of(server2, user1, null);
-        var filterServer2User3 = SelectionFilter.of(server2, user3, null);
+        var filterServer1User1 = SelectionFilter.of(TEST_CLIENT_TYPE, server1, user1, null);
+        var filterServer1User2 = SelectionFilter.of(TEST_CLIENT_TYPE, server1, user2, null);
+        var filterServer2User1 = SelectionFilter.of(TEST_CLIENT_TYPE, server2, user1, null);
+        var filterServer2User3 = SelectionFilter.of(TEST_CLIENT_TYPE, server2, user3, null);
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(filterServer1User1, 0, 1000).size());
         assertEquals(2, alerts.getAlertsOrderByPairUserIdId(filterServer2User1, 0, 1000).size());
         assertEquals(1, alerts.getAlertsOrderByPairUserIdId(filterServer1User2, 0, 1000).size());
@@ -2155,49 +2163,49 @@ public abstract class AlertsDaoTest {
         Alert alert4 = createTestAlert().withListeningDateLastTriggerMarginRepeat(null, lastTrigger, TEN, (short) 21);
         alert4 = setId(alert4, alerts.addAlert(alert4));
 
-        assertTrue(alerts.getAlert(alert1.id).isPresent());
-        assertNull(alerts.getAlert(alert1.id).get().listeningDate);
-        assertEquals(lastTrigger, alerts.getAlert(alert1.id).get().lastTrigger);
-        assertEquals(ONE, alerts.getAlert(alert1.id).get().margin);
-        assertEquals(0, alerts.getAlert(alert1.id).get().repeat);
-        assertTrue(alerts.getAlert(alert2.id).isPresent());
-        assertNull(alerts.getAlert(alert2.id).get().listeningDate);
-        assertEquals(lastTrigger, alerts.getAlert(alert2.id).get().lastTrigger);
-        assertEquals(TEN, alerts.getAlert(alert2.id).get().margin);
-        assertEquals(1, alerts.getAlert(alert2.id).get().repeat);
-        assertTrue(alerts.getAlert(alert3.id).isPresent());
-        assertNull(alerts.getAlert(alert3.id).get().listeningDate);
-        assertEquals(lastTrigger, alerts.getAlert(alert3.id).get().lastTrigger);
-        assertEquals(TWO, alerts.getAlert(alert3.id).get().margin);
-        assertEquals(-1, alerts.getAlert(alert3.id).get().repeat);
-        assertTrue(alerts.getAlert(alert4.id).isPresent());
-        assertNull(alerts.getAlert(alert4.id).get().listeningDate);
-        assertEquals(lastTrigger, alerts.getAlert(alert4.id).get().lastTrigger);
-        assertEquals(TEN, alerts.getAlert(alert4.id).get().margin);
-        assertEquals(21, alerts.getAlert(alert4.id).get().repeat);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).isPresent());
+        assertNull(alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().listeningDate);
+        assertEquals(lastTrigger, alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().lastTrigger);
+        assertEquals(ONE, alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().margin);
+        assertEquals(0, alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().repeat);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).isPresent());
+        assertNull(alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).get().listeningDate);
+        assertEquals(lastTrigger, alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).get().lastTrigger);
+        assertEquals(TEN, alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).get().margin);
+        assertEquals(1, alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).get().repeat);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).isPresent());
+        assertNull(alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).get().listeningDate);
+        assertEquals(lastTrigger, alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).get().lastTrigger);
+        assertEquals(TWO, alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).get().margin);
+        assertEquals(-1, alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).get().repeat);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).isPresent());
+        assertNull(alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).get().listeningDate);
+        assertEquals(lastTrigger, alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).get().lastTrigger);
+        assertEquals(TEN, alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).get().margin);
+        assertEquals(21, alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).get().repeat);
 
         var alertIds = List.of(alert2.id, alert3.id, alert4.id);
         alerts.matchedAlertBatchUpdates(now, updater -> alertIds.forEach(updater::batchId));
 
-        assertNull(alerts.getAlert(alert1.id).get().listeningDate);
-        assertEquals(lastTrigger, alerts.getAlert(alert1.id).get().lastTrigger);
-        assertEquals(ONE, alerts.getAlert(alert1.id).get().margin);
-        assertEquals(0, alerts.getAlert(alert1.id).get().repeat);
+        assertNull(alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().listeningDate);
+        assertEquals(lastTrigger, alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().lastTrigger);
+        assertEquals(ONE, alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().margin);
+        assertEquals(0, alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().repeat);
 
-        assertEquals(now.plusHours(DEFAULT_SNOOZE_HOURS), alerts.getAlert(alert2.id).get().listeningDate);
-        assertEquals(now, alerts.getAlert(alert2.id).get().lastTrigger);
-        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert2.id).get().margin);
-        assertEquals(0, alerts.getAlert(alert2.id).get().repeat);
+        assertEquals(now.plusHours(DEFAULT_SNOOZE_HOURS), alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).get().listeningDate);
+        assertEquals(now, alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).get().margin);
+        assertEquals(0, alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).get().repeat);
 
-        assertNull(alerts.getAlert(alert3.id).get().listeningDate);
-        assertEquals(now, alerts.getAlert(alert3.id).get().lastTrigger);
-        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert3.id).get().margin);
-        assertEquals(-2, alerts.getAlert(alert3.id).get().repeat);
+        assertNull(alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).get().listeningDate);
+        assertEquals(now, alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).get().margin);
+        assertEquals(-2, alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).get().repeat);
 
-        assertEquals(now.plusHours(DEFAULT_SNOOZE_HOURS), alerts.getAlert(alert4.id).get().listeningDate);
-        assertEquals(now, alerts.getAlert(alert4.id).get().lastTrigger);
-        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert4.id).get().margin);
-        assertEquals(21-1, alerts.getAlert(alert4.id).get().repeat);
+        assertEquals(now.plusHours(DEFAULT_SNOOZE_HOURS), alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).get().listeningDate);
+        assertEquals(now, alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).get().margin);
+        assertEquals(21-1, alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).get().repeat);
 
         long alertId1 = alert1.id;
         long alertId2 = alert2.id;
@@ -2207,25 +2215,25 @@ public abstract class AlertsDaoTest {
             updater.batchId(alertId2);
         });
 
-        assertNull(alerts.getAlert(alert1.id).get().listeningDate);
-        assertEquals(now.plusMinutes(3L), alerts.getAlert(alert1.id).get().lastTrigger);
-        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert1.id).get().margin);
-        assertEquals(-1, alerts.getAlert(alert1.id).get().repeat);
+        assertNull(alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().listeningDate);
+        assertEquals(now.plusMinutes(3L), alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().margin);
+        assertEquals(-1, alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().repeat);
 
-        assertNull(alerts.getAlert(alert2.id).get().listeningDate);
-        assertEquals(now.plusMinutes(3L), alerts.getAlert(alert2.id).get().lastTrigger);
-        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert2.id).get().margin);
-        assertEquals(-1, alerts.getAlert(alert2.id).get().repeat);
+        assertNull(alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).get().listeningDate);
+        assertEquals(now.plusMinutes(3L), alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).get().margin);
+        assertEquals(-1, alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).get().repeat);
 
-        assertNull(alerts.getAlert(alert3.id).get().listeningDate);
-        assertEquals(now, alerts.getAlert(alert3.id).get().lastTrigger);
-        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert3.id).get().margin);
-        assertEquals(-2, alerts.getAlert(alert3.id).get().repeat);
+        assertNull(alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).get().listeningDate);
+        assertEquals(now, alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).get().margin);
+        assertEquals(-2, alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).get().repeat);
 
-        assertEquals(now.plusHours(DEFAULT_SNOOZE_HOURS), alerts.getAlert(alert4.id).get().listeningDate);
-        assertEquals(now, alerts.getAlert(alert4.id).get().lastTrigger);
-        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert4.id).get().margin);
-        assertEquals(21-1, alerts.getAlert(alert4.id).get().repeat);
+        assertEquals(now.plusHours(DEFAULT_SNOOZE_HOURS), alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).get().listeningDate);
+        assertEquals(now, alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).get().margin);
+        assertEquals(21-1, alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).get().repeat);
     }
 
     @ParameterizedTest
@@ -2245,40 +2253,40 @@ public abstract class AlertsDaoTest {
         Alert alert4 = createTestAlert().withLastTriggerMargin(null, TEN);
         alert4 = setId(alert4, alerts.addAlert(alert4));
 
-        assertTrue(alerts.getAlert(alert1.id).isPresent());
-        assertEquals(ONE, alerts.getAlert(alert1.id).get().margin);
-        assertNull(alerts.getAlert(alert1.id).get().lastTrigger);
-        assertTrue(alerts.getAlert(alert2.id).isPresent());
-        assertEquals(TWO, alerts.getAlert(alert2.id).get().margin);
-        assertNull(alerts.getAlert(alert2.id).get().lastTrigger);
-        assertTrue(alerts.getAlert(alert3.id).isPresent());
-        assertEquals(TEN, alerts.getAlert(alert3.id).get().margin);
-        assertNull(alerts.getAlert(alert3.id).get().lastTrigger);
-        assertTrue(alerts.getAlert(alert4.id).isPresent());
-        assertEquals(TEN, alerts.getAlert(alert4.id).get().margin);
-        assertNull(alerts.getAlert(alert4.id).get().lastTrigger);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).isPresent());
+        assertEquals(ONE, alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().margin);
+        assertNull(alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().lastTrigger);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).isPresent());
+        assertEquals(TWO, alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).get().margin);
+        assertNull(alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).get().lastTrigger);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).isPresent());
+        assertEquals(TEN, alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).get().margin);
+        assertNull(alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).get().lastTrigger);
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).isPresent());
+        assertEquals(TEN, alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).get().margin);
+        assertNull(alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).get().lastTrigger);
 
         var alertIds = List.of(alert2.id, alert3.id, alert4.id);
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(MILLIS); // clear the nanoseconds as sqlite save milliseconds
         alerts.marginAlertBatchUpdates(now, updater -> alertIds.forEach(updater::batchId));
 
-        assertEquals(ONE, alerts.getAlert(alert1.id).get().margin);
-        assertNull(alerts.getAlert(alert1.id).get().lastTrigger);
-        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert2.id).get().margin);
-        assertEquals(now, alerts.getAlert(alert2.id).get().lastTrigger);
-        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert3.id).get().margin);
-        assertEquals(now, alerts.getAlert(alert3.id).get().lastTrigger);
-        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert4.id).get().margin);
-        assertEquals(now, alerts.getAlert(alert4.id).get().lastTrigger);
+        assertEquals(ONE, alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().margin);
+        assertNull(alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).get().margin);
+        assertEquals(now, alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).get().margin);
+        assertEquals(now, alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).get().margin);
+        assertEquals(now, alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).get().lastTrigger);
 
         long alertId1 = alert1.id;
         alerts.marginAlertBatchUpdates(now.minusMinutes(3L), updater -> updater.batchId(alertId1));
-        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert1.id).get().margin);
-        assertEquals(now.minusMinutes(3L), alerts.getAlert(alert1.id).get().lastTrigger);
-        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert1.id).get().margin);
-        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert2.id).get().margin);
-        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert3.id).get().margin);
-        assertEquals(MARGIN_DISABLED, alerts.getAlert(alert4.id).get().margin);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().margin);
+        assertEquals(now.minusMinutes(3L), alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().lastTrigger);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(TEST_CLIENT_TYPE, alert1.id).get().margin);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(TEST_CLIENT_TYPE, alert2.id).get().margin);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(TEST_CLIENT_TYPE, alert3.id).get().margin);
+        assertEquals(MARGIN_DISABLED, alerts.getAlert(TEST_CLIENT_TYPE, alert4.id).get().margin);
     }
 
     @ParameterizedTest
@@ -2293,29 +2301,29 @@ public abstract class AlertsDaoTest {
         long alertId3 = alerts.addAlert(createTestAlert());
         long alertId4 = alerts.addAlert(createTestAlert());
 
-        assertTrue(alerts.getAlert(alertId1).isPresent());
-        assertTrue(alerts.getAlert(alertId2).isPresent());
-        assertTrue(alerts.getAlert(alertId3).isPresent());
-        assertTrue(alerts.getAlert(alertId4).isPresent());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId1).isPresent());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId2).isPresent());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId3).isPresent());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId4).isPresent());
 
         alerts.delete(deleter -> deleter.batchId(alertId2));
-        assertTrue(alerts.getAlert(alertId2).isEmpty());
-        assertTrue(alerts.getAlert(alertId1).isPresent());
-        assertFalse(alerts.getAlert(alertId2).isPresent());
-        assertTrue(alerts.getAlert(alertId3).isPresent());
-        assertTrue(alerts.getAlert(alertId4).isPresent());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId2).isEmpty());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId1).isPresent());
+        assertFalse(alerts.getAlert(TEST_CLIENT_TYPE, alertId2).isPresent());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId3).isPresent());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId4).isPresent());
 
         alerts.delete(deleter -> {
             deleter.batchId(alertId1);
             deleter.batchId(alertId3);
             deleter.batchId(alertId4);
         });
-        assertTrue(alerts.getAlert(alertId1).isEmpty());
-        assertTrue(alerts.getAlert(alertId3).isEmpty());
-        assertTrue(alerts.getAlert(alertId4).isEmpty());
-        assertFalse(alerts.getAlert(alertId1).isPresent());
-        assertFalse(alerts.getAlert(alertId2).isPresent());
-        assertFalse(alerts.getAlert(alertId3).isPresent());
-        assertFalse(alerts.getAlert(alertId4).isPresent());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId1).isEmpty());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId3).isEmpty());
+        assertTrue(alerts.getAlert(TEST_CLIENT_TYPE, alertId4).isEmpty());
+        assertFalse(alerts.getAlert(TEST_CLIENT_TYPE, alertId1).isPresent());
+        assertFalse(alerts.getAlert(TEST_CLIENT_TYPE, alertId2).isPresent());
+        assertFalse(alerts.getAlert(TEST_CLIENT_TYPE, alertId3).isPresent());
+        assertFalse(alerts.getAlert(TEST_CLIENT_TYPE, alertId4).isPresent());
     }
 }

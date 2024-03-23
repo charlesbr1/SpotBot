@@ -27,14 +27,14 @@ import static org.sbot.utils.Dates.formatDiscordRelative;
 
 public final class TrendAlert extends Alert {
 
-    public TrendAlert(long id, long userId, long serverId,
+    public TrendAlert(long id, @NotNull ClientType clientType, long userId, long serverId,
                       @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
                       @NotNull String exchange, @NotNull String pair, @NotNull String message,
                       @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
                       @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate,
                       @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin,
                       short repeat, short snooze) {
-        super(id, Type.trend, userId, serverId, creationDate, listeningDate, exchange, pair, message, requireNonNull(fromPrice), requireNonNull(toPrice),
+        super(id, Type.trend, clientType, userId, serverId, creationDate, listeningDate, exchange, pair, message, requireNonNull(fromPrice), requireNonNull(toPrice),
                 fromDate, toDate, lastTrigger, margin, repeat, snooze);
         checkArguments(fromDate, toDate);
     }
@@ -54,13 +54,13 @@ public final class TrendAlert extends Alert {
 
     @Override
     @NotNull
-    protected TrendAlert build(long id, long userId, long serverId,
+    protected TrendAlert build(long id, @NotNull ClientType clientType, long userId, long serverId,
                             @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
                             @NotNull String exchange, @NotNull String pair, @NotNull String message,
                             @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
                             @NotNull ZonedDateTime fromDate, @NotNull ZonedDateTime toDate,
                             @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short snooze) {
-        return new TrendAlert(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        return new TrendAlert(id, clientType, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull

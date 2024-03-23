@@ -3,6 +3,7 @@ package org.sbot.entities;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.alerts.Alert;
+import org.sbot.entities.alerts.ClientType;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -19,6 +20,13 @@ public interface FieldParser {
             @Override
             public Object parse(@NotNull String value) {
                 return Alert.Type.valueOf(value);
+            }
+        },
+        ALERT_CLIENT_TYPE {
+            @NotNull
+            @Override
+            public Object parse(@NotNull String value) {
+                return requireNonNull(ClientType.SHORTNAMES.get(value));
             }
         },
         STRING {
@@ -65,6 +73,7 @@ public interface FieldParser {
     static String format(@Nullable Object value) {
         return switch (value) {
             case null -> "";
+            case ClientType ct -> ct.shortName;
             case BigDecimal bd -> bd.toPlainString();
             case ZonedDateTime zdt -> String.valueOf(zdt.toInstant().toEpochMilli());
             default -> value.toString();

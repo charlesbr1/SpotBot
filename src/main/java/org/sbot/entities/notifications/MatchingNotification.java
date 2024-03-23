@@ -11,7 +11,7 @@ import org.sbot.services.MatchingService.MatchingAlert.MatchingStatus;
 import org.sbot.services.context.Context;
 import org.sbot.services.discord.Discord;
 
-import java.awt.*;
+import java.awt.Color;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -26,8 +26,8 @@ import static org.sbot.entities.alerts.Alert.Type.remainder;
 import static org.sbot.entities.alerts.Alert.isPrivate;
 import static org.sbot.entities.notifications.MatchingNotification.Field.*;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.NEW;
-import static org.sbot.entities.notifications.Notification.RecipientType.DISCORD_SERVER;
-import static org.sbot.entities.notifications.Notification.RecipientType.DISCORD_USER;
+import static org.sbot.entities.notifications.RecipientType.DISCORD_SERVER;
+import static org.sbot.entities.notifications.RecipientType.DISCORD_USER;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.MARGIN;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.MATCHED;
 
@@ -71,14 +71,14 @@ public final class MatchingNotification extends Notification {
         }
         fields.put(LAST_TRIGGER, requireNonNullElse(alert.lastTrigger, now));
         fields.putAll(alert.fieldsMap());
-        var recipientType = isPrivate(alert.serverId) ? DISCORD_USER : DISCORD_SERVER;
+        var recipientType = switch (alert.clientType) { case DISCORD -> isPrivate(alert.serverId) ? DISCORD_USER : DISCORD_SERVER; };
         var recipientId = DISCORD_USER.equals(recipientType) ? alert.userId : alert.serverId;
         return new MatchingNotification(NEW_NOTIFICATION_ID, now, NEW, matchingStatus, recipientType, String.valueOf(recipientId), locale, fields);
     }
 
     @Override
     @NotNull
-    protected MatchingNotification build(long id, @NotNull ZonedDateTime creationDate, @NotNull NotificationStatus status, @NotNull NotificationType type, @NotNull Notification.RecipientType recipientType, @NotNull String recipientId, @NotNull Locale locale, @NotNull Map<FieldParser, Object> fields) {
+    protected MatchingNotification build(long id, @NotNull ZonedDateTime creationDate, @NotNull NotificationStatus status, @NotNull NotificationType type, @NotNull RecipientType recipientType, @NotNull String recipientId, @NotNull Locale locale, @NotNull Map<FieldParser, Object> fields) {
         return new MatchingNotification(id, creationDate, status, NotificationType.MATCHED == type ? MATCHED : MARGIN, recipientType, recipientId, locale, fields);
     }
 

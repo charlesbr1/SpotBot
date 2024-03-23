@@ -26,11 +26,11 @@ public final class RemainderAlert extends Alert {
     public static final String REMAINDER_VIRTUAL_EXCHANGE = "@r";
     public static final short REMAINDER_DEFAULT_REPEAT = 0;
 
-    public RemainderAlert(long id, long userId, long serverId,
+    public RemainderAlert(long id, @NotNull ClientType clientType, long userId, long serverId,
                           @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
                           @NotNull String pair, @NotNull String message,
                           @NotNull ZonedDateTime fromDate, @Nullable ZonedDateTime lastTrigger, short repeat, short snooze) {
-        super(id, Type.remainder, userId, serverId, creationDate, listeningDate, REMAINDER_VIRTUAL_EXCHANGE, pair, message, null, null,
+        super(id, Type.remainder, clientType, userId, serverId, creationDate, listeningDate, REMAINDER_VIRTUAL_EXCHANGE, pair, message, null, null,
                 requireNonNull(fromDate, "missing RemainderAlert fromDate"),
                 null, lastTrigger, MARGIN_DISABLED, repeat, snooze);
     }
@@ -41,7 +41,7 @@ public final class RemainderAlert extends Alert {
 
     @Override
     @NotNull
-    protected RemainderAlert build(long id, long userId, long serverId,
+    protected RemainderAlert build(long id, @NotNull ClientType clientType, long userId, long serverId,
                                 @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
                                 @NotNull String exchange, @NotNull String pair, @NotNull String message,
                                 @Nullable BigDecimal fromPrice, @Nullable BigDecimal toPrice,
@@ -51,7 +51,7 @@ public final class RemainderAlert extends Alert {
                 null != toDate|| null != fromPrice|| null != toPrice) {
             throw new IllegalArgumentException("Can't update such value in a Remainder Alert");
         }
-        return new RemainderAlert(id, userId, serverId, creationDate, listeningDate, pair, message, fromDate, lastTrigger, repeat, snooze);
+        return new RemainderAlert(id, clientType, userId, serverId, creationDate, listeningDate, pair, message, fromDate, lastTrigger, repeat, snooze);
     }
 
     public MatchingAlert match(@NotNull ZonedDateTime now, int checkPeriodMin) {

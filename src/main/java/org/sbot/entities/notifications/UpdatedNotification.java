@@ -4,6 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.FieldParser;
 import org.sbot.entities.Message;
+import org.sbot.entities.alerts.ClientType;
 import org.sbot.services.context.Context;
 
 import java.time.ZonedDateTime;
@@ -17,6 +18,7 @@ import static org.sbot.entities.FieldParser.Type.LONG;
 import static org.sbot.entities.FieldParser.Type.STRING;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.NEW;
 import static org.sbot.entities.notifications.Notification.NotificationType.UPDATED;
+import static org.sbot.entities.notifications.RecipientType.DISCORD_USER;
 import static org.sbot.entities.notifications.UpdatedNotification.Field.*;
 
 public final class UpdatedNotification extends Notification {
@@ -25,7 +27,7 @@ public final class UpdatedNotification extends Notification {
         ALERT_ID(LONG),
         FIELD(STRING),
         NEW_VALUE(STRING),
-        GUILD_NAME(STRING);
+        SERVER_NAME(STRING);
 
         private final Type type;
 
@@ -48,18 +50,19 @@ public final class UpdatedNotification extends Notification {
         this(id, creationDate, status, recipientType, recipientId, locale, fieldsOf(fields, Field.values(), false));
     }
 
-    public static UpdatedNotification of(@NotNull ZonedDateTime now, @NotNull Locale locale, long userId, @Nullable Long alertId, @NotNull String field, @NotNull String newValue, @NotNull String guildName) {
+    public static UpdatedNotification of(@NotNull ClientType clientType, @NotNull ZonedDateTime now, @NotNull Locale locale, long userId, @Nullable Long alertId, @NotNull String field, @NotNull String newValue, @NotNull String serverName) {
         Map<FieldParser, Object> fields = new HashMap<>();
         fields.put(ALERT_ID, requireNonNull(alertId));
         fields.put(FIELD, requireNonNull(field));
         fields.put(NEW_VALUE, requireNonNull(newValue));
-        fields.put(GUILD_NAME, requireNonNull(guildName));
-        return new UpdatedNotification(NEW_NOTIFICATION_ID, now, NEW, RecipientType.DISCORD_USER, String.valueOf(userId), locale, fields);
+        fields.put(SERVER_NAME, requireNonNull(serverName));
+        var recipientType = switch (clientType) { case DISCORD -> DISCORD_USER; };
+        return new UpdatedNotification(NEW_NOTIFICATION_ID, now, NEW, recipientType, String.valueOf(userId), locale, fields);
     }
 
     @Override
     @NotNull
-    protected UpdatedNotification build(long id, @NotNull ZonedDateTime creationDate, @NotNull NotificationStatus status, @NotNull NotificationType type, @NotNull Notification.RecipientType recipientType, @NotNull String recipientId, @NotNull Locale locale, @NotNull Map<FieldParser, Object> fields) {
+    protected UpdatedNotification build(long id, @NotNull ZonedDateTime creationDate, @NotNull NotificationStatus status, @NotNull NotificationType type, @NotNull RecipientType recipientType, @NotNull String recipientId, @NotNull Locale locale, @NotNull Map<FieldParser, Object> fields) {
         return new UpdatedNotification(id, creationDate, status, recipientType, recipientId, locale, fields);
     }
 
@@ -74,7 +77,7 @@ public final class UpdatedNotification extends Notification {
     public Message asMessage(@NotNull Context unused) {
         Long alertId = (Long) fields.get(ALERT_ID);
         return Message.of(embedBuilder("Notice of alert update", NOTIFICATION_COLOR,
-                "Your alert #" + alertId + " was updated on guild " + fields.get(GUILD_NAME) +
+                "Your alert #" + alertId + " was updated on server " + fields.get(SERVER_NAME) +
                         ", " + fields.get(FIELD) + " = " + fields.get(NEW_VALUE)));
     }
 }

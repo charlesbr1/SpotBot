@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.entities.notifications.Notification;
 import org.sbot.entities.notifications.Notification.NotificationStatus;
+import org.sbot.entities.notifications.RecipientType;
 import org.sbot.services.dao.BatchEntry;
 import org.sbot.services.dao.NotificationsDao;
 
@@ -17,7 +18,7 @@ import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.NEW;
-import static org.sbot.entities.notifications.Notification.RecipientType.DISCORD_USER;
+import static org.sbot.entities.notifications.RecipientType.DISCORD_USER;
 import static org.sbot.services.dao.BatchEntry.longId;
 import static org.sbot.utils.ArgumentValidator.requireStrictlyPositive;
 
@@ -61,7 +62,7 @@ public final class NotificationsMemory implements NotificationsDao {
     }
 
     @Override
-    public void statusRecipientBatchUpdate(@NotNull NotificationStatus status, @NotNull String recipientId, @NotNull Notification.RecipientType recipientType, @NotNull Consumer<BatchEntry> updater) {
+    public void statusRecipientBatchUpdate(@NotNull NotificationStatus status, @NotNull String recipientId, @NotNull RecipientType recipientType, @NotNull Consumer<BatchEntry> updater) {
         LOGGER.debug("statusRecipientBatchUpdate {} {} {}", status, recipientId, recipientType);
         requireNonNull(status);
         requireNonNull(recipientId);

@@ -11,6 +11,7 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
 import org.sbot.entities.alerts.Alert.Type;
+import org.sbot.entities.alerts.ClientType;
 import org.sbot.entities.notifications.MigratedNotification;
 import org.sbot.entities.notifications.MigratedNotification.Reason;
 import org.sbot.services.context.TransactionalContext;
@@ -38,13 +39,13 @@ import static org.sbot.utils.ArgumentValidator.*;
 public final class MigrateCommand extends CommandAdapter {
 
     static final String NAME = "migrate";
-    static final String DESCRIPTION = "migrate an alert to your private channel or on another guild that we have access to";
+    static final String DESCRIPTION = "migrate an alert to your private channel or on another server that we have access to";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
-    static final String GUILD_ARGUMENT = "guild_id";
+    static final String SERVER_ID_ARGUMENT = "server_id";
     public static final String MIGRATE_ALL = "all";
 
-    private static final OptionData SERVER_ID_OPTION = option(NUMBER, GUILD_ARGUMENT, PRIVATE_MESSAGES + " for private channel or id of a guild server whose alert owner is a member and this bot too", true)
+    private static final OptionData SERVER_ID_OPTION = option(NUMBER, SERVER_ID_ARGUMENT, PRIVATE_MESSAGES + " for private channel or id of a guild server whose alert owner is a member and this bot too", true)
             .setMaxValue((long) MAX_POSITIVE_NUMBER);
 
     private static final SlashCommandData options =
@@ -77,16 +78,16 @@ public final class MigrateCommand extends CommandAdapter {
     static Arguments arguments(@NotNull CommandContext context) {
         var alertId = context.args.getLong(ALERT_ID_ARGUMENT).map(ArgumentValidator::requirePositive);
         if(alertId.isPresent()) {
-            long serverId = context.args.getMandatoryLong(GUILD_ARGUMENT);
+            long serverId = context.args.getMandatoryLong(SERVER_ID_ARGUMENT);
             context.noMoreArgs();
             return new Arguments(alertId.get(), null, serverId, null, null);
         }
-        Long serverId = context.args.getLong(GUILD_ARGUMENT).orElse(null);
+        Long serverId = context.args.getLong(SERVER_ID_ARGUMENT).orElse(null);
         String tickerOrPair = requireTickerPairLength(context.args.getMandatoryString(TICKER_PAIR_ARGUMENT));
         // command filtered
-        serverId = null != serverId ? serverId : context.args.getLong(GUILD_ARGUMENT).orElse(null);
+        serverId = null != serverId ? serverId : context.args.getLong(SERVER_ID_ARGUMENT).orElse(null);
         Type type = context.args.getType(TYPE_ARGUMENT).orElse(null);
-        serverId = null != serverId ? serverId : context.args.getMandatoryLong(GUILD_ARGUMENT);
+        serverId = null != serverId ? serverId : context.args.getMandatoryLong(SERVER_ID_ARGUMENT);
         type = null != type ? type : context.args.getType(TYPE_ARGUMENT).orElse(null);
         Long ownerId = context.args.getUserId(OWNER_ARGUMENT).orElse(null);
         context.noMoreArgs();
@@ -94,7 +95,7 @@ public final class MigrateCommand extends CommandAdapter {
     }
 
     private Message migrate(@NotNull CommandContext context, @NotNull Arguments arguments) {
-        Guild server = getGuild(context, arguments.serverId);
+        Object server = getServer(context, arguments.serverId);
         if (null != arguments.alertId) { // command id
             return migrateById(context, server, arguments.alertId);
         } else if (null == arguments.ownerId || // command filter
@@ -106,28 +107,39 @@ public final class MigrateCommand extends CommandAdapter {
         }
     }
 
-    private Message migrateById(@NotNull CommandContext context, @Nullable Guild guild, long alertId) {
-        if(null == guild) {
+    private Message migrateById(@NotNull CommandContext context, @Nullable Object server, long alertId) {
+        if(null == server) {
             return migrateByIdToPrivate(context, alertId);
         }
-        Long[] userId = new Long[1]; // retrieve alertId first to avoid performing blocking call isGuildMember in a transaction
+        var toServer = switch (context.clientType) {
+            case DISCORD -> guildName((Guild) server);
+        };
+        Long[] userId = new Long[1]; // retrieve alertId first to avoid performing blocking call requireGuildMember in a transaction
         var answer = securedAlertUpdate(alertId, context, (alert, alertsDao, notificationsDao) -> {
-            if(sameId(guild, alert.serverId)) {
-                throw new IllegalArgumentException("Alert " + alert.id + " is already in guild " + guildName(guild));
+            if(sameId(context.clientType, server, alert.serverId)) {
+                throw new IllegalArgumentException("Alert " + alert.id + " is already in server " + toServer);
             }
             userId[0] = alert.userId;
             return Message.of(embedBuilder(""));
         });
         if(null != userId[0]) { // alert exists and update rights are ok
-            requireGuildMember(guild, userId[0]); // possibly blocking call
+            switch (context.clientType) {
+                case DISCORD -> requireGuildMember((Guild) server, userId[0]); // possibly blocking call
+            }
             answer = securedAlertUpdate(alertId, context, (alert, alertsDao, notificationsDao) -> {
-                if(!sameId(guild, alert.serverId)) { // this can have changed since above tx, unlikely but possible
-                    alertsDao.update(alert.withServerId(guild.getIdLong()), EnumSet.of(SERVER_ID));
+                if(!sameId(context.clientType, server, alert.serverId)) { // this can have changed since above tx, unlikely but possible
+                    var serverId = switch (context.clientType) {
+                        case DISCORD -> ((Guild) server).getIdLong();
+                    };
+                    alertsDao.update(alert.withServerId(serverId), EnumSet.of(SERVER_ID));
                     if(null != context.member && sendNotification(context, alert.userId, 1)) { // send notification once transaction is successful
-                        notificationsDao.get().addNotification(MigratedNotification.of(Dates.nowUtc(context.clock()), context.locale, alert.userId, alert.id, alert.type, alert.pair, guildName(context.member.getGuild()), guildName(guild), Reason.ADMIN, 1L));
+                        var fromServer = switch (context.clientType) {
+                            case DISCORD -> guildName(context.member.getGuild());
+                        };
+                        notificationsDao.get().addNotification(MigratedNotification.of(context.clientType, Dates.nowUtc(context.clock()), context.locale, alert.userId, alert.id, alert.type, alert.pair, fromServer, toServer, Reason.ADMIN, 1L));
                     }
                 }
-                return Message.of(embedBuilder("Alert migrated to guild " + guildName(guild)));
+                return Message.of(embedBuilder("Alert migrated to server " + toServer));
             });
         }
         return answer;
@@ -141,29 +153,41 @@ public final class MigrateCommand extends CommandAdapter {
             }
             alertsDao.update(alert.withServerId(PRIVATE_MESSAGES), EnumSet.of(SERVER_ID));
             if(null != context.member && sendNotification(context, alert.userId, 1)) { // send notification once transaction is successful
-                notificationsDao.get().addNotification(MigratedNotification.of(Dates.nowUtc(context.clock()), context.locale, alert.userId, alert.id, alert.type, alert.pair, guildName(context.member.getGuild()), null, Reason.ADMIN, 1L));
+                var serverName = switch (context.clientType) {
+                    case DISCORD -> guildName(context.member.getGuild());
+                };
+                notificationsDao.get().addNotification(MigratedNotification.of(context.clientType, Dates.nowUtc(context.clock()), context.locale, alert.userId, alert.id, alert.type, alert.pair, serverName, null, Reason.ADMIN, 1L));
             }
             return Message.of(embedBuilder("Alert migrated to <@" + context.user.getIdLong() + "> private channel"));
         });
     }
 
-    private Message migrateByTypeOwnerOrTickerPair(@NotNull CommandContext context, @Nullable Guild guild, @NotNull Arguments arguments) {
-        if(sameId(guild, context.serverId())) {
-            throw new IllegalArgumentException("Those alerts are already into " + (null == guild ? "the private channel" : "guild " + guildName(guild)));
+    private Message migrateByTypeOwnerOrTickerPair(@NotNull CommandContext context, @Nullable Object server, @NotNull Arguments arguments) {
+        String toServer = null != server ? switch (context.clientType) {
+            case DISCORD -> guildName((Guild) server);
+        } : null;
+        if(sameId(context.clientType, server, context.serverId())) {
+            throw new IllegalArgumentException("Those alerts are already into " + (null == toServer ? "the private channel" : "server " + toServer));
         }
 
         long userId = null != arguments.ownerId ? arguments.ownerId : context.user.getIdLong();
-        requireGuildMember(guild, userId);
+        switch (context.clientType) {
+            case DISCORD -> requireGuildMember((Guild) server, userId);
+        }
         String tickerOrPair = MIGRATE_ALL.equalsIgnoreCase(arguments.tickerOrPair) ? null : arguments.tickerOrPair.toUpperCase();
-        long serverId = null != guild ? guild.getIdLong() : PRIVATE_MESSAGES;
-        var filter = (isPrivateChannel(context) ? SelectionFilter.ofUser(userId, arguments.type) :
-                SelectionFilter.of(context.serverId(), userId, arguments.type))
+        long serverId = switch (context.clientType) {
+            case DISCORD -> null != server ? ((Guild) server).getIdLong() : PRIVATE_MESSAGES;
+        };
+        var filter = (isPrivateChannel(context) ? SelectionFilter.ofUser(context.clientType, userId, arguments.type) :
+                SelectionFilter.of(context.clientType, context.serverId(), userId, arguments.type))
                 .withTickerOrPair(tickerOrPair);
         long migrated = context.transactional(txCtx -> {
             long count = txCtx.alertsDao().updateServerIdOf(filter, serverId);
             if(null != context.member && sendNotification(context, userId, count)) {
-                String toGuild = null != guild ? guildName(guild) : null;
-                txCtx.notificationsDao().addNotification(MigratedNotification.of(Dates.nowUtc(context.clock()), context.locale, userId, null, arguments.type, arguments.tickerOrPair, guildName(context.member.getGuild()), toGuild, Reason.ADMIN, count));
+                var fromServer = switch (context.clientType) {
+                    case DISCORD -> guildName(context.member.getGuild());
+                };
+                txCtx.notificationsDao().addNotification(MigratedNotification.of(context.clientType, Dates.nowUtc(context.clock()), context.locale, userId, null, arguments.type, arguments.tickerOrPair, fromServer, toServer, Reason.ADMIN, count));
             }
             return count;
         });
@@ -171,44 +195,56 @@ public final class MigrateCommand extends CommandAdapter {
             context.notificationService().sendNotifications();
         }
         return Message.of(embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), OK_COLOR, migrated + (migrated > 1 ? " alerts" : " alert") +
-                " migrated to " + (null == guild ? "user private channel" : "guild " + guildName(guild))));
+                " migrated to " + (null == toServer ? "user private channel" : "server " + toServer)));
     }
 
-    static boolean sameId(@Nullable Guild guild, long serverId) {
-        return null != guild ? guild.getIdLong() == serverId : PRIVATE_MESSAGES == serverId;
+    static boolean sameId(@NotNull ClientType clientType, @Nullable Object server, long serverId) {
+        return switch (clientType) {
+            case DISCORD -> null != server ? ((Guild) server).getIdLong() == serverId : PRIVATE_MESSAGES == serverId;
+        };
     }
 
     @Nullable
-    private static Guild getGuild(@NotNull CommandContext context, long serverId) {
-        return isPrivate(serverId) ? null :
-                context.discord().guildServer(serverId)
-                        .orElseThrow(() -> new IllegalArgumentException("Bot is not supported on this guild : " + serverId));
+    private static Object getServer(@NotNull CommandContext context, long serverId) {
+        return switch (context.clientType) {
+            case DISCORD -> isPrivate(serverId) ? null :
+                    context.discord().guildServer(serverId)
+                            .orElseThrow(() -> new IllegalArgumentException("Bot is not supported on this guild : " + serverId));
+        };
     }
 
     // used by discord EventAdapter onGuildLeave
-    public static List<Long> migrateServerAlertsToPrivateChannel(@NotNull TransactionalContext txCtx, long guildId, @Nullable Guild guild) {
+    public static List<Long> migrateServerAlertsToPrivateChannel(@NotNull ClientType clientType, @NotNull TransactionalContext txCtx, long serverId, @Nullable Object server) {
         var alertsDao = txCtx.alertsDao();
-        var userIds = alertsDao.getUserIdsByServerId(guildId);
+        var userIds = alertsDao.getUserIdsByServerId(clientType, serverId);
         if(!userIds.isEmpty()) {
-            long totalMigrated = alertsDao.updateServerIdOf(SelectionFilter.ofServer(guildId, null), PRIVATE_MESSAGES);
-            LOGGER.debug("Migrated to private {} alerts on server {}, reason : {}", totalMigrated, guildId, Reason.SERVER_LEAVED);
+            long totalMigrated = alertsDao.updateServerIdOf(SelectionFilter.ofServer(clientType, serverId, null), PRIVATE_MESSAGES);
+            LOGGER.debug("Migrated to private {} alerts on server {}, reason : {}", totalMigrated, serverId, Reason.SERVER_LEAVED);
             var userLocales = txCtx.usersDao().getLocales(userIds);
             var now = Dates.nowUtc(txCtx.clock());
-            var guildName = Optional.ofNullable(guild).map(Discord::guildName).orElseGet(() -> String.valueOf(guildId));
+            var serverName = switch (clientType) {
+                case DISCORD -> Optional.ofNullable((Guild) server).map(Discord::guildName).orElseGet(() -> String.valueOf(serverId));
+            };
             userIds.forEach(userId -> txCtx.notificationsDao().addNotification(MigratedNotification
-                    .of(now, userLocales.getOrDefault(userId, DEFAULT_LOCALE), userId, null, null, MIGRATE_ALL, guildName, null, Reason.SERVER_LEAVED, 0L)));
+                    .of(clientType, now, userLocales.getOrDefault(userId, DEFAULT_LOCALE), userId, null, null, MIGRATE_ALL, serverName, null, Reason.SERVER_LEAVED, 0L)));
         }
         return userIds;
     }
 
     // used by NotificationsService and discord EventAdapter onGuildBan, onGuildMemberRemove
-    public static long migrateUserAlertsToPrivateChannel(@NotNull TransactionalContext txCtx, @NotNull Long userId, @Nullable Locale locale, @NotNull Guild guild, @NotNull Reason reason) {
-        long count = txCtx.alertsDao().updateServerIdOf(SelectionFilter.of(guild.getIdLong(), userId, null), PRIVATE_MESSAGES);
-        LOGGER.debug("Migrated to private {} alerts of user {} on server {}, reason : {}", count, userId, guild.getIdLong(), reason);
+    public static long migrateUserAlertsToPrivateChannel(@NotNull ClientType clientType, @NotNull TransactionalContext txCtx, @NotNull Long userId, @Nullable Locale locale, @NotNull Object server, @NotNull Reason reason) {
+        var serverId = switch (clientType) {
+            case DISCORD -> ((Guild) server).getIdLong();
+        };
+        long count = txCtx.alertsDao().updateServerIdOf(SelectionFilter.of(clientType, serverId, userId, null), PRIVATE_MESSAGES);
+        LOGGER.debug("Migrated to private {} alerts of user {} on server {}, reason : {}", count, userId, serverId, reason);
         if(count > 0) {
             locale = Optional.ofNullable(locale).orElseGet(() -> txCtx.usersDao().getUser(userId).map(org.sbot.entities.User::locale).orElse(DEFAULT_LOCALE));
-            txCtx.notificationsDao().addNotification(MigratedNotification.of(Dates.nowUtc(txCtx.clock()),
-                    locale, userId, null, null, MIGRATE_ALL, guildName(guild), null, reason, count));
+            var serverName = switch (clientType) {
+                case DISCORD -> guildName((Guild) server);
+            };
+            txCtx.notificationsDao().addNotification(MigratedNotification.of(clientType, Dates.nowUtc(txCtx.clock()),
+                    locale, userId, null, null, MIGRATE_ALL, serverName, null, reason, count));
         }
         return count;
     }

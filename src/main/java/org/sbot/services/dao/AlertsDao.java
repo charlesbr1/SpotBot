@@ -2,6 +2,7 @@ package org.sbot.services.dao;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.sbot.entities.alerts.ClientType;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.entities.alerts.Alert.Type;
 
@@ -10,6 +11,8 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
+
+import static java.util.Objects.requireNonNull;
 
 public interface AlertsDao {
 
@@ -26,20 +29,24 @@ public interface AlertsDao {
         SNOOZE
     }
 
-    record SelectionFilter(@Nullable Long serverId, @Nullable Long userId, @Nullable Type type, @Nullable String tickerOrPair) {
+    record SelectionFilter(@NotNull ClientType clientType, @Nullable Long serverId, @Nullable Long userId, @Nullable Type type, @Nullable String tickerOrPair) {
 
-        public static SelectionFilter ofUser(long userId, @Nullable Type type) {
-            return new SelectionFilter( null, userId, type, null);
+        public SelectionFilter {
+            requireNonNull(clientType, "missing SelectionFilter clientType");
         }
-        public static SelectionFilter ofServer(long serverId, @Nullable Type type) {
-            return new SelectionFilter(serverId, null, type, null);
+
+        public static SelectionFilter ofUser(@NotNull ClientType clientType, long userId, @Nullable Type type) {
+            return new SelectionFilter(clientType,  null, userId, type, null);
         }
-        public static SelectionFilter of(long serverId, long userId, @Nullable Type type) {
-            return new SelectionFilter(serverId, userId, type, null);
+        public static SelectionFilter ofServer(@NotNull ClientType clientType, long serverId, @Nullable Type type) {
+            return new SelectionFilter(clientType, serverId, null, type, null);
+        }
+        public static SelectionFilter of(@NotNull ClientType clientType, long serverId, long userId, @Nullable Type type) {
+            return new SelectionFilter(clientType, serverId, userId, type, null);
         }
 
         public SelectionFilter withTickerOrPair(@Nullable String tickerOrPair) {
-            return new SelectionFilter(serverId, userId, type, tickerOrPair);
+            return new SelectionFilter(clientType, serverId, userId, type, tickerOrPair);
         }
     }
 
@@ -51,11 +58,11 @@ public interface AlertsDao {
     Map<String, Set<String>> getPairsByExchangesHavingPastListeningDateWithActiveRange(@NotNull ZonedDateTime now, int checkPeriodMin);
 
     @NotNull
-    List<Long> getUserIdsByServerId(long serverId);
+    List<Long> getUserIdsByServerId(@NotNull ClientType clientType, long serverId);
 
-    Optional<Alert> getAlert(long id);
+    Optional<Alert> getAlert(@NotNull ClientType clientType, long id);
 
-    Optional<Alert> getAlertWithoutMessage(long alertId);
+    Optional<Alert> getAlertWithoutMessage(@NotNull ClientType clientType,long alertId);
 
     @NotNull
     Map<Long, String> getAlertMessages(@NotNull LongStream alertIds);
@@ -71,7 +78,7 @@ public interface AlertsDao {
 
     long updateServerIdOf(@NotNull SelectionFilter filter, long newServerId);
 
-    void delete(long alertId);
+    void delete(@NotNull ClientType clientType, long alertId);
 
     long delete(@NotNull SelectionFilter filter);
 

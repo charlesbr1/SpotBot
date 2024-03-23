@@ -16,8 +16,8 @@ import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.AlertTest.createTestAlert;
 import static org.sbot.entities.notifications.MatchingNotification.Field.*;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.*;
-import static org.sbot.entities.notifications.Notification.RecipientType.DISCORD_SERVER;
-import static org.sbot.entities.notifications.Notification.RecipientType.DISCORD_USER;
+import static org.sbot.entities.notifications.RecipientType.DISCORD_SERVER;
+import static org.sbot.entities.notifications.RecipientType.DISCORD_USER;
 import static org.sbot.entities.notifications.Notification.SOH;
 
 class NotificationTest {
@@ -76,6 +76,7 @@ class NotificationTest {
 
         fields += SOH + format(notification.fields.get(Alert.Field.ID)) + SOH;
         fields += format(notification.fields.get(Alert.Field.TYPE)) + SOH;
+        fields += format(notification.fields.get(Alert.Field.CLIENT_TYPE)) + SOH;
         fields += format(notification.fields.get(Alert.Field.USER_ID)) + SOH;
         fields += format(notification.fields.get(Alert.Field.SERVER_ID)) + SOH;
         fields += format(notification.fields.get(Alert.Field.CREATION_DATE)) + SOH;

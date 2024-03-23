@@ -3,7 +3,7 @@ package org.sbot.services.dao;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.entities.notifications.Notification;
 import org.sbot.entities.notifications.Notification.NotificationStatus;
-import org.sbot.entities.notifications.Notification.RecipientType;
+import org.sbot.entities.notifications.RecipientType;
 
 import java.time.ZonedDateTime;
 import java.util.List;

@@ -166,20 +166,28 @@ public final class SpotBotCommand extends CommandAdapter {
         };
     }
     private static Message doc(@NotNull CommandContext context) {
-        Guild guild = Optional.ofNullable(context.member).map(Member::getGuild).orElse(null);
-        String selfMention = context.discord().spotBotUserMention();
-        EmbedBuilder builder = embedBuilder(null, OK_COLOR, formattedContent(context, guild, selfMention));
+        Object server = switch (context.clientType) {
+            case DISCORD -> Optional.ofNullable(context.member).map(Member::getGuild).orElse(null);
+        };
+        String selfMention = switch (context.clientType) {
+            case DISCORD -> context.discord().spotBotUserMention();
+        };
+        EmbedBuilder builder = embedBuilder(null, OK_COLOR, formattedContent(context, server, selfMention));
         builder.addBlankField(false);
         builder.setImage("attachment://" + ALERTS_PICTURE_FILE);
         builder.setFooter(DOC_FOOTER);
         return Message.of(builder, File.of(alertsPicture, ALERTS_PICTURE_FILE));
     }
 
-    private static String formattedContent(@NotNull CommandContext context, @Nullable Guild guild, @NotNull String selfMention) {
-        String channel = Optional.ofNullable(guild).flatMap(Discord::spotBotChannel)
-                .map(Channel::getAsMention).orElse("**#" + DISCORD_BOT_CHANNEL + "** of your discord server");
-        String role = Optional.ofNullable(guild).flatMap(Discord::spotBotRole)
-                .map(Role::getAsMention).orElse("**@" + DISCORD_BOT_ROLE + "**");
+    private static String formattedContent(@NotNull CommandContext context, @Nullable Object server, @NotNull String selfMention) {
+        String channel = switch (context.clientType) {
+            case DISCORD -> Optional.ofNullable((Guild) server).flatMap(Discord::spotBotChannel)
+                    .map(Channel::getAsMention).orElse("**#" + DISCORD_BOT_CHANNEL + "** of your discord server");
+        };
+        String role = switch (context.clientType) {
+            case DISCORD -> Optional.ofNullable((Guild) server).flatMap(Discord::spotBotRole)
+                    .map(Role::getAsMention).orElse("**@" + DISCORD_BOT_ROLE + "**");
+        };
         return DOC_CONTENT.replace("{check-period}", "" + context.parameters().checkPeriodMin())
                 .replace("{date-format}", Dates.LocalePatterns.getOrDefault(context.locale, Dates.DATE_TIME_FORMAT))
                 .replace("{cmd-line-date-format}", Dates.LocalePatterns.getOrDefault(context.locale, Dates.DATE_TIME_FORMAT).replaceFirst(" ", "-").replaceFirst(" ", "-"))

@@ -160,8 +160,8 @@ public final class ListCommand extends CommandAdapter {
 
     private List<Message> listByTickerOrPair(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Arguments arguments) {
         var filter = isPrivateChannel(context) ?
-                SelectionFilter.ofUser(context.user.getIdLong(), arguments.type).withTickerOrPair(arguments.tickerOrPair) :
-                SelectionFilter.ofServer(context.serverId(), arguments.type).withTickerOrPair(arguments.tickerOrPair);
+                SelectionFilter.ofUser(context.clientType, context.user.getIdLong(), arguments.type).withTickerOrPair(arguments.tickerOrPair) :
+                SelectionFilter.ofServer(context.clientType, context.serverId(), arguments.type).withTickerOrPair(arguments.tickerOrPair);
         return listAlerts(context, now, filter, arguments);
     }
 
@@ -170,8 +170,8 @@ public final class ListCommand extends CommandAdapter {
             return List.of(Message.of(embedBuilder(NAME, DENIED_COLOR, "You are not allowed to see alerts of members in a private channel")));
         }
         var filter = isPrivateChannel(context) ?
-                SelectionFilter.ofUser(context.user.getIdLong(), arguments.type).withTickerOrPair(arguments.tickerOrPair) :
-                SelectionFilter.of(context.serverId(), arguments.ownerId, arguments.type).withTickerOrPair(arguments.tickerOrPair);
+                SelectionFilter.ofUser(context.clientType, context.user.getIdLong(), arguments.type).withTickerOrPair(arguments.tickerOrPair) :
+                SelectionFilter.of(context.clientType, context.serverId(), arguments.ownerId, arguments.type).withTickerOrPair(arguments.tickerOrPair);
         return listAlerts(context, now, filter, arguments);
     }
 

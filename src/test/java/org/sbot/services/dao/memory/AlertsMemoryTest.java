@@ -24,27 +24,27 @@ class AlertsMemoryTest extends AlertsDaoTest {
 
         long serverId = 1123L;
         long userId = 654L;
-        var predicate = AlertsMemory.asSearchFilter(SelectionFilter.ofServer(serverId, null));
+        var predicate = AlertsMemory.asSearchFilter(SelectionFilter.ofServer(TEST_CLIENT_TYPE, serverId, null));
         assertNotNull(predicate);
         assertFalse(predicate.test(createTestAlert()));
         assertTrue(predicate.test(createTestAlert().withServerId(serverId)));
 
-        predicate = AlertsMemory.asSearchFilter(SelectionFilter.ofUser(userId, null));
+        predicate = AlertsMemory.asSearchFilter(SelectionFilter.ofUser(TEST_CLIENT_TYPE, userId, null));
         assertNotNull(predicate);
         assertFalse(predicate.test(createTestAlert()));
         assertTrue(predicate.test(createTestAlertWithUserId(userId)));
 
-        predicate = AlertsMemory.asSearchFilter(SelectionFilter.of(serverId, userId, null));
+        predicate = AlertsMemory.asSearchFilter(SelectionFilter.of(TEST_CLIENT_TYPE, serverId, userId, null));
         assertNotNull(predicate);
         assertFalse(predicate.test(createTestAlertWithUserId(userId)));
         assertTrue(predicate.test(createTestAlertWithUserId(userId).withServerId(serverId)));
 
-        predicate = AlertsMemory.asSearchFilter(SelectionFilter.ofServer(serverId, trend));
+        predicate = AlertsMemory.asSearchFilter(SelectionFilter.ofServer(TEST_CLIENT_TYPE, serverId, trend));
         assertNotNull(predicate);
         assertFalse(predicate.test(createTestAlert().withServerId(serverId)));
         assertTrue(predicate.test(createTestAlertWithType(trend).withServerId(serverId)));
 
-        predicate = AlertsMemory.asSearchFilter(SelectionFilter.ofUser(userId, null).withTickerOrPair("XMR"));
+        predicate = AlertsMemory.asSearchFilter(SelectionFilter.ofUser(TEST_CLIENT_TYPE, userId, null).withTickerOrPair("XMR"));
         assertNotNull(predicate);
         assertFalse(predicate.test(createTestAlertWithUserId(userId)));
         assertTrue(predicate.test(createTestAlertWithUserIdAndPair(userId, "DOT/XMR")));

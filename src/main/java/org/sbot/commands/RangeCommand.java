@@ -111,7 +111,7 @@ public final class RangeCommand extends CommandAdapter {
             fromDate = toDate;
             toDate = arguments.fromDate;
         }
-        RangeAlert rangeAlert = new RangeAlert(NEW_ALERT_ID, context.user.getIdLong(),
+        RangeAlert rangeAlert = new RangeAlert(NEW_ALERT_ID, context.clientType, context.user.getIdLong(),
                 context.serverId(), now, // creation date
                 null != fromDate && fromDate.isAfter(now) ? fromDate : now, // listening date
                 arguments.exchange, arguments.pair, arguments.message, low, high, fromDate, toDate,

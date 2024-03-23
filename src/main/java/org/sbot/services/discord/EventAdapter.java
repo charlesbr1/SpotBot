@@ -36,6 +36,7 @@ import static org.sbot.commands.MigrateCommand.migrateServerAlertsToPrivateChann
 import static org.sbot.commands.MigrateCommand.migrateUserAlertsToPrivateChannel;
 import static org.sbot.entities.alerts.Alert.DISABLED_COLOR;
 import static org.sbot.entities.alerts.Alert.isPrivate;
+import static org.sbot.entities.alerts.ClientType.DISCORD;
 import static org.sbot.services.discord.CommandListener.optionsDescription;
 import static org.sbot.utils.ArgumentValidator.START_WITH_DISCORD_USER_ID_PATTERN;
 
@@ -56,7 +57,7 @@ final class EventAdapter extends ListenerAdapter {
     public void onGuildLeave(@NotNull GuildLeaveEvent event) {
         LOGGER.debug("onGuildLeave, event {}", event);
         // guild removed this bot, migrate each alert of this guild to private and notify each user
-        var ids = context.transactional(txCtx -> migrateServerAlertsToPrivateChannel(txCtx, event.getGuild().getIdLong(), event.getGuild()));
+        var ids = context.transactional(txCtx -> migrateServerAlertsToPrivateChannel(DISCORD, txCtx, event.getGuild().getIdLong(), event.getGuild()));
         if(!ids.isEmpty()) {
             context.notificationService().sendNotifications();
         }
@@ -65,7 +66,7 @@ final class EventAdapter extends ListenerAdapter {
     @Override
     public void onGuildBan(@NotNull GuildBanEvent event) {
         LOGGER.debug("onGuildBan, event {}", event);
-        var nbMigrated = context.transactional(txCtx -> migrateUserAlertsToPrivateChannel(txCtx, event.getUser().getIdLong(), null, event.getGuild(), Reason.BANNED));
+        var nbMigrated = context.transactional(txCtx -> migrateUserAlertsToPrivateChannel(DISCORD, txCtx, event.getUser().getIdLong(), null, event.getGuild(), Reason.BANNED));
         if(nbMigrated > 0) {
             context.notificationService().sendNotifications();
         }
@@ -74,7 +75,7 @@ final class EventAdapter extends ListenerAdapter {
     @Override
     public void onGuildMemberRemove(@NotNull GuildMemberRemoveEvent event) {
         LOGGER.debug("onGuildMemberRemove, event {}", event);
-        var nbMigrated = context.transactional(txCtx -> migrateUserAlertsToPrivateChannel(txCtx, event.getUser().getIdLong(), null, event.getGuild(), Reason.LEAVED));
+        var nbMigrated = context.transactional(txCtx -> migrateUserAlertsToPrivateChannel(DISCORD, txCtx, event.getUser().getIdLong(), null, event.getGuild(), Reason.LEAVED));
         if(nbMigrated > 0) {
             context.notificationService().sendNotifications();
         }

@@ -5,6 +5,7 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.FieldParser;
 import org.sbot.entities.Message;
 import org.sbot.entities.alerts.Alert;
+import org.sbot.entities.alerts.ClientType;
 import org.sbot.services.context.Context;
 
 import java.time.ZonedDateTime;
@@ -20,6 +21,7 @@ import static org.sbot.entities.FieldParser.Type.*;
 import static org.sbot.entities.notifications.MigratedNotification.Field.*;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.NEW;
 import static org.sbot.entities.notifications.Notification.NotificationType.MIGRATED;
+import static org.sbot.entities.notifications.RecipientType.DISCORD_USER;
 
 public final class MigratedNotification extends Notification {
 
@@ -28,8 +30,8 @@ public final class MigratedNotification extends Notification {
         TYPE(ALERT_TYPE),
         TICKER_OR_PAIR(STRING),
         REASON(SHORT),
-        GUILD_NAME(STRING),
-        TO_GUILD(STRING),
+        FROM_SERVER(STRING),
+        TO_SERVER(STRING),
         NB_MIGRATED(LONG);
 
         private final Type type;
@@ -57,7 +59,7 @@ public final class MigratedNotification extends Notification {
         this(id, creationDate, status, recipientType, recipientId, locale, fieldsOf(fields, Field.values(), false));
     }
 
-    public static MigratedNotification of(@NotNull ZonedDateTime now, @NotNull Locale locale, long userId, @Nullable Long alertId, @Nullable Alert.Type type, @NotNull String tickerOrPair, @NotNull String fromGuild, @Nullable String toGuild, @NotNull Reason reason, long nbMigrated) {
+    public static MigratedNotification of(@NotNull ClientType clientType, @NotNull ZonedDateTime now, @NotNull Locale locale, long userId, @Nullable Long alertId, @Nullable Alert.Type type, @NotNull String tickerOrPair, @NotNull String fromServer, @Nullable String toServer, @NotNull Reason reason, long nbMigrated) {
         Map<FieldParser, Object> fields = new HashMap<>();
         if(null != alertId) {
             fields.put(ALERT_ID, alertId);
@@ -67,19 +69,20 @@ public final class MigratedNotification extends Notification {
         }
         fields.put(TICKER_OR_PAIR, requireNonNull(tickerOrPair));
         fields.put(REASON, (short) reason.ordinal());
-        fields.put(GUILD_NAME, requireNonNull(fromGuild));
-        if(null != toGuild) {
-            fields.put(TO_GUILD, toGuild);
+        fields.put(FROM_SERVER, requireNonNull(fromServer));
+        if(null != toServer) {
+            fields.put(TO_SERVER, toServer);
         }
         if(nbMigrated > 0) {
             fields.put(NB_MIGRATED, nbMigrated);
         }
-        return new MigratedNotification(NEW_NOTIFICATION_ID, now, NEW, RecipientType.DISCORD_USER, String.valueOf(userId), locale, fields);
+        var recipientType = switch (clientType) { case DISCORD -> DISCORD_USER; };
+        return new MigratedNotification(NEW_NOTIFICATION_ID, now, NEW, recipientType, String.valueOf(userId), locale, fields);
     }
 
     @Override
     @NotNull
-    protected MigratedNotification build(long id, @NotNull ZonedDateTime creationDate, @NotNull NotificationStatus status, @NotNull NotificationType type, @NotNull Notification.RecipientType recipientType, @NotNull String recipientId, @NotNull Locale locale, @NotNull Map<FieldParser, Object> fields) {
+    protected MigratedNotification build(long id, @NotNull ZonedDateTime creationDate, @NotNull NotificationStatus status, @NotNull NotificationType type, @NotNull RecipientType recipientType, @NotNull String recipientId, @NotNull Locale locale, @NotNull Map<FieldParser, Object> fields) {
         return new MigratedNotification(id, creationDate, status, recipientType, recipientId, locale, fields);
     }
 
@@ -92,13 +95,13 @@ public final class MigratedNotification extends Notification {
     @Override
     @NotNull
     public Message asMessage(@NotNull Context unused) {
-        String fromGuild = (String) fields.get(GUILD_NAME);
+        String fromServer = (String) fields.get(FROM_SERVER);
         Reason reason = Reason.values()[(short) fields.get(REASON)];
         String header = switch (reason) {
-            case SERVER_LEAVED -> "Guild " + fromGuild + " removed this bot";
-            case LEAVED -> "You leaved guild " + fromGuild;
-            case BANNED -> "You were banned from guild " + fromGuild;
-            case ADMIN -> "An admin on guild " + fromGuild + " made a change";
+            case SERVER_LEAVED -> "Server " + fromServer + " removed this bot";
+            case LEAVED -> "You leaved server " + fromServer;
+            case BANNED -> "You were banned from server " + fromServer;
+            case ADMIN -> "An admin on server " + fromServer + " made a change";
         };
         Long alertId = (Long) fields.get(ALERT_ID);
         String type = Optional.ofNullable(fields.get(TYPE)).map(Object::toString).map(" "::concat).orElse("");
@@ -119,8 +122,8 @@ public final class MigratedNotification extends Notification {
                 it = "them";
             }
         }
-        String toGuild = (String) fields.get(TO_GUILD);
-        description += (null != toGuild ? "guild " + toGuild : "your private channel");
+        String toServer = (String) fields.get(TO_SERVER);
+        description += (null != toServer ? "server " + toServer : "your private channel");
         description += "\n\nuse /migrate command to migrate " + it + " back";
 
         return Message.of(embedBuilder("Notice of " + (null == nbMigrated || nbMigrated > 1 ? "alerts" : "alert") + " migration",

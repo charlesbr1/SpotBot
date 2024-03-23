@@ -36,6 +36,7 @@ import static java.util.function.Predicate.not;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
+import static org.sbot.entities.alerts.AlertTest.TEST_CLIENT_TYPE;
 
 class EventAdapterTest {
 
@@ -72,17 +73,17 @@ class EventAdapterTest {
         Discord discord = mock();
         when(context.discord()).thenReturn(discord);
 
-        when(alertsDao.getUserIdsByServerId(serverId)).thenReturn(List.of());
+        when(alertsDao.getUserIdsByServerId(TEST_CLIENT_TYPE, serverId)).thenReturn(List.of());
         adapter.onGuildLeave(event);
-        verify(alertsDao).getUserIdsByServerId(serverId);
+        verify(alertsDao).getUserIdsByServerId(TEST_CLIENT_TYPE, serverId);
         verify(alertsDao, never()).updateServerIdOf(any(), anyLong());
         verify(notificationsService, never()).sendNotifications();
 
-        when(alertsDao.getUserIdsByServerId(serverId)).thenReturn(List.of(123L));
-        when(alertsDao.updateServerIdOf(SelectionFilter.ofServer(serverId, null), PRIVATE_MESSAGES)).thenReturn(1L);
+        when(alertsDao.getUserIdsByServerId(TEST_CLIENT_TYPE, serverId)).thenReturn(List.of(123L));
+        when(alertsDao.updateServerIdOf(SelectionFilter.ofServer(TEST_CLIENT_TYPE, serverId, null), PRIVATE_MESSAGES)).thenReturn(1L);
         adapter.onGuildLeave(event);
-        verify(alertsDao, times(2)).getUserIdsByServerId(serverId);
-        verify(alertsDao).updateServerIdOf(SelectionFilter.ofServer(serverId, null), PRIVATE_MESSAGES);
+        verify(alertsDao, times(2)).getUserIdsByServerId(TEST_CLIENT_TYPE, serverId);
+        verify(alertsDao).updateServerIdOf(SelectionFilter.ofServer(TEST_CLIENT_TYPE, serverId, null), PRIVATE_MESSAGES);
         verify(notificationsService).sendNotifications();
     }
 
@@ -118,12 +119,12 @@ class EventAdapterTest {
         when(context.discord()).thenReturn(discord);
 
         adapter.onGuildBan(event);
-        verify(alertsDao).updateServerIdOf(SelectionFilter.of(serverId, userId, null), PRIVATE_MESSAGES);
+        verify(alertsDao).updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, serverId, userId, null), PRIVATE_MESSAGES);
         verify(notificationsService, never()).sendNotifications();
 
-        when(alertsDao.updateServerIdOf(SelectionFilter.of(serverId, userId, null), PRIVATE_MESSAGES)).thenReturn(1L);
+        when(alertsDao.updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, serverId, userId, null), PRIVATE_MESSAGES)).thenReturn(1L);
         adapter.onGuildBan(event);
-        verify(alertsDao, times(2)).updateServerIdOf(SelectionFilter.of(serverId, userId, null), PRIVATE_MESSAGES);
+        verify(alertsDao, times(2)).updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, serverId, userId, null), PRIVATE_MESSAGES);
         verify(notificationsService).sendNotifications();
     }
 
@@ -159,12 +160,12 @@ class EventAdapterTest {
         when(context.discord()).thenReturn(discord);
 
         adapter.onGuildMemberRemove(event);
-        verify(alertsDao).updateServerIdOf(SelectionFilter.of(serverId, userId, null), PRIVATE_MESSAGES);
+        verify(alertsDao).updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, serverId, userId, null), PRIVATE_MESSAGES);
         verify(notificationsService, never()).sendNotifications();
 
-        when(alertsDao.updateServerIdOf(SelectionFilter.of(serverId, userId, null), PRIVATE_MESSAGES)).thenReturn(1L);
+        when(alertsDao.updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, serverId, userId, null), PRIVATE_MESSAGES)).thenReturn(1L);
         adapter.onGuildMemberRemove(event);
-        verify(alertsDao, times(2)).updateServerIdOf(SelectionFilter.of(serverId, userId, null), PRIVATE_MESSAGES);
+        verify(alertsDao, times(2)).updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, serverId, userId, null), PRIVATE_MESSAGES);
         verify(notificationsService).sendNotifications();
     }
 

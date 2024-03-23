@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
+import static org.sbot.entities.alerts.ClientType.DISCORD;
 
 public class UsersMemory implements UsersDao {
 
@@ -83,7 +84,8 @@ public class UsersMemory implements UsersDao {
         LOGGER.debug("deleteHavingLastAccessBeforeAndNotInAlerts {}", expirationDate);
         requireNonNull(expirationDate);
         var toDelete = users.values().stream().filter(u -> u.lastAccess().isBefore(expirationDate) &&
-                alerts.getAlertsStream(SelectionFilter.ofUser(u.id(), null)).findFirst().isEmpty()).toList();
+                //TODO select clientType from user (settings) attribute discord_user_id if present
+                alerts.getAlertsStream(SelectionFilter.ofUser(DISCORD, u.id(), null)).findFirst().isEmpty()).toList();
         users.values().removeAll(toDelete);
         return toDelete.size();
     }

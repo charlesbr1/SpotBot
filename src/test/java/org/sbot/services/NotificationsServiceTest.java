@@ -35,9 +35,10 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
+import static org.sbot.entities.alerts.AlertTest.TEST_CLIENT_TYPE;
 import static org.sbot.entities.alerts.AlertTest.createTestAlertWithUserId;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.*;
-import static org.sbot.entities.notifications.Notification.RecipientType.DISCORD_USER;
+import static org.sbot.entities.notifications.RecipientType.DISCORD_USER;
 import static org.sbot.services.discord.Discord.DISCORD_BOT_CHANNEL;
 
 class NotificationsServiceTest {
@@ -163,13 +164,13 @@ class NotificationsServiceTest {
         assertThrows(NullPointerException.class, () -> notificationService.sendDiscordServerNotifications(new ThreadSafeTxContext(context, READ_COMMITTED, 2), "555", null));
 
         when(discord.guildServer("555")).thenReturn(Optional.empty());
-        when(alertsDao.getUserIdsByServerId(555L)).thenReturn(List.of(123L));
+        when(alertsDao.getUserIdsByServerId(TEST_CLIENT_TYPE, 555L)).thenReturn(List.of(123L));
         when(usersDao.getLocales(List.of(123L))).thenReturn(emptyMap());
 
         notificationService.sendDiscordServerNotifications(new ThreadSafeTxContext(context, READ_COMMITTED, 2), "555", List.of(notification1, notification2));
         // check server alerts are migrated to user private channel
         verify(discord).guildServer("555");
-        verify(alertsDao).getUserIdsByServerId(555L);
+        verify(alertsDao).getUserIdsByServerId(TEST_CLIENT_TYPE, 555L);
         verify(usersDao).getLocales(List.of(123L));
         verify(notificationsDao).addNotification(any());
 
@@ -182,7 +183,7 @@ class NotificationsServiceTest {
         notificationService.sendDiscordServerNotifications(new ThreadSafeTxContext(context, READ_COMMITTED, 2), "555", List.of(notification1, notification2));
 
         verify(discord, times(2)).guildServer("555");
-        verify(alertsDao).getUserIdsByServerId(555L);
+        verify(alertsDao).getUserIdsByServerId(TEST_CLIENT_TYPE, 555L);
         verify(usersDao).getLocales(List.of(123L));
         verify(notificationsDao).addNotification(any());
         verify(guild).retrieveMemberById(123L);
@@ -271,19 +272,19 @@ class NotificationsServiceTest {
         Notification notification = mock();
 
         var txContext = spy(txCtx.asThreadSafeTxContext(READ_UNCOMMITTED, 1));
-        notificationService.migrateUserNotifications(txContext, guild, 123L, List.of(notification));
+        notificationService.migrateUserNotifications(TEST_CLIENT_TYPE, txContext, guild, 123L, List.of(notification));
         verify(notificationsDao).statusRecipientBatchUpdate(eq(NEW), eq("123"), eq(DISCORD_USER), any());
         verify(alertsDao).updateServerIdOf(any(), eq(PRIVATE_MESSAGES));
         verify(txContext).commit(1);
 
         var ftx = spy(txCtx.asThreadSafeTxContext(READ_UNCOMMITTED, 1));
-        assertThrows(IllegalStateException.class, () -> notificationService.migrateUserNotifications(ftx, guild, 123L, List.of(notification, notification)));
+        assertThrows(IllegalStateException.class, () -> notificationService.migrateUserNotifications(TEST_CLIENT_TYPE, ftx, guild, 123L, List.of(notification, notification)));
         verify(notificationsDao, times(2)).statusRecipientBatchUpdate(eq(NEW), eq("123"), eq(DISCORD_USER), any());
         verify(alertsDao, times(2)).updateServerIdOf(any(), eq(PRIVATE_MESSAGES));
         verify(ftx).commit(2);
 
         txContext = spy(txCtx.asThreadSafeTxContext(READ_UNCOMMITTED, 2));
-        notificationService.migrateUserNotifications(txContext, guild, 123L, List.of(notification, notification));
+        notificationService.migrateUserNotifications(TEST_CLIENT_TYPE, txContext, guild, 123L, List.of(notification, notification));
         verify(notificationsDao, times(3)).statusRecipientBatchUpdate(eq(NEW), eq("123"), eq(DISCORD_USER), any());
         verify(alertsDao, times(3)).updateServerIdOf(any(), eq(PRIVATE_MESSAGES));
         verify(txContext).commit(2);

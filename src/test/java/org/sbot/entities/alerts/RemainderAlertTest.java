@@ -22,7 +22,7 @@ import static org.sbot.utils.DatesTest.nowUtc;
 class RemainderAlertTest {
 
     static RemainderAlert createTestRemainderAlert() {
-        return new RemainderAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(10L), TEST_FROM_DATE, TEST_PAIR, TEST_MESSAGE, TEST_FROM_DATE, TEST_LAST_TRIGGER, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
+        return new RemainderAlert(NEW_ALERT_ID, TEST_CLIENT_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(10L), TEST_FROM_DATE, TEST_PAIR, TEST_MESSAGE, TEST_FROM_DATE, TEST_LAST_TRIGGER, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);
     }
 
     @Test
@@ -44,47 +44,51 @@ class RemainderAlertTest {
 
     @Test
     void constructorCheck() {
-        assertDoesNotThrow(() -> new RemainderAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_PAIR, TEST_MESSAGE, TEST_FROM_DATE, TEST_LAST_TRIGGER, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        assertDoesNotThrow(() -> new RemainderAlert(NEW_ALERT_ID, TEST_CLIENT_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_PAIR, TEST_MESSAGE, TEST_FROM_DATE, TEST_LAST_TRIGGER, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // from date not null
-        assertThrows(NullPointerException.class, () -> new RemainderAlert(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_PAIR, TEST_MESSAGE, null, TEST_LAST_TRIGGER, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        assertThrows(NullPointerException.class, () -> new RemainderAlert(NEW_ALERT_ID, TEST_CLIENT_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, TEST_PAIR, TEST_MESSAGE, null, TEST_LAST_TRIGGER, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
     }
 
     @Test
     void build() {
         RemainderAlert alert = createTestRemainderAlert();
 
-        assertNotNull(alert.build(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertNotNull(alert.build(NEW_ALERT_ID, TEST_CLIENT_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+                null, null, TEST_FROM_DATE, null, null,
+                MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
+        // clientType not null
+        assertThrows(NullPointerException.class, () -> alert.build(NEW_ALERT_ID, null, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, null, TEST_FROM_DATE, null, null,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // from date not null
-        assertThrows(NullPointerException.class, () -> alert.build(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(NullPointerException.class, () -> alert.build(NEW_ALERT_ID, TEST_CLIENT_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, null, null, null, null,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // remainder exchange
-        assertThrows(IllegalArgumentException.class, () -> alert.build(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, "bad exchange", TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> alert.build(NEW_ALERT_ID, TEST_CLIENT_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, "bad exchange", TEST_PAIR, TEST_MESSAGE,
                 null, null, TEST_FROM_DATE, null, null,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // no margin
-        assertThrows(IllegalArgumentException.class, () -> alert.build(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> alert.build(NEW_ALERT_ID, TEST_CLIENT_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, null, TEST_FROM_DATE, null, null,
                 ONE, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // no prices
-        assertThrows(IllegalArgumentException.class, () -> alert.build(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> alert.build(NEW_ALERT_ID, TEST_CLIENT_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 ONE, null, TEST_FROM_DATE, null, null,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
-        assertThrows(IllegalArgumentException.class, () -> alert.build(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> alert.build(NEW_ALERT_ID, TEST_CLIENT_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, ONE, TEST_FROM_DATE, null, null,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // no to date
-        assertThrows(IllegalArgumentException.class, () -> alert.build(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> alert.build(NEW_ALERT_ID, TEST_CLIENT_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, null, TEST_FROM_DATE, nowUtc(), null,
                 MARGIN_DISABLED, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS));
         // snooze 0 -> ok
-        assertDoesNotThrow(() -> alert.build(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertDoesNotThrow(() -> alert.build(NEW_ALERT_ID, TEST_CLIENT_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, null, TEST_FROM_DATE, null, null,
                 MARGIN_DISABLED, (short) 0, (short) 12));
         // bad snooze
-        assertThrows(IllegalArgumentException.class, () -> alert.build(NEW_ALERT_ID, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
+        assertThrows(IllegalArgumentException.class, () -> alert.build(NEW_ALERT_ID, TEST_CLIENT_TYPE, TEST_USER_ID, TEST_SERVER_ID, TEST_FROM_DATE.minusMinutes(1L), TEST_FROM_DATE, REMAINDER_VIRTUAL_EXCHANGE, TEST_PAIR, TEST_MESSAGE,
                 null, null, TEST_FROM_DATE, null, null,
                 MARGIN_DISABLED, (short) (1 + REMAINDER_DEFAULT_REPEAT), (short) - 1));
     }

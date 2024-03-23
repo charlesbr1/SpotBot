@@ -212,7 +212,7 @@ class SelectEditInteractionTest {
         var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME +   " 123 invalidField"));
         assertExceptionContains(UnsupportedOperationException.class, "modal", () -> command.onInteraction(fc3));
 
-        when(alertsDao.getAlertWithoutMessage(123L)).thenReturn(Optional.of(createTestAlert()));
+        when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, 123L)).thenReturn(Optional.of(createTestAlert()));
         var fc4 = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME +   " 123 invalidField"));
         assertExceptionContains(UnsupportedOperationException.class, "modal", () -> command.onInteraction(fc4));
 

@@ -5,6 +5,7 @@ import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.FieldParser;
 import org.sbot.entities.Message;
 import org.sbot.entities.alerts.Alert;
+import org.sbot.entities.alerts.ClientType;
 import org.sbot.services.context.Context;
 
 import java.time.ZonedDateTime;
@@ -21,6 +22,7 @@ import static org.sbot.entities.FieldParser.Type.*;
 import static org.sbot.entities.notifications.DeletedNotification.Field.*;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.NEW;
 import static org.sbot.entities.notifications.Notification.NotificationType.DELETED;
+import static org.sbot.entities.notifications.RecipientType.DISCORD_USER;
 import static org.sbot.utils.ArgumentValidator.requireStrictlyPositive;
 
 public final class DeletedNotification extends Notification {
@@ -30,7 +32,7 @@ public final class DeletedNotification extends Notification {
         TYPE(ALERT_TYPE),
         TICKER_OR_PAIR(STRING),
         EXPIRED(SHORT),
-        GUILD_NAME(STRING),
+        SERVER_NAME(STRING),
         NB_DELETED(LONG);
 
         private final Type type;
@@ -54,7 +56,7 @@ public final class DeletedNotification extends Notification {
         this(id, creationDate, status, recipientType, recipientId, locale, fieldsOf(fields, Field.values(), false));
     }
 
-    public static DeletedNotification of(@NotNull ZonedDateTime now, @NotNull Locale locale, long userId, @Nullable Long alertId, @Nullable Alert.Type type, @NotNull String tickerOrPair, @Nullable String guildName, long nbDeleted, boolean expired) {
+    public static DeletedNotification of(@NotNull ClientType clientType, @NotNull ZonedDateTime now, @NotNull Locale locale, long userId, @Nullable Long alertId, @Nullable Alert.Type type, @NotNull String tickerOrPair, @Nullable String serverName, long nbDeleted, boolean expired) {
         Map<FieldParser, Object> fields = new HashMap<>();
         if(null != alertId) {
             fields.put(ALERT_ID, alertId);
@@ -66,16 +68,17 @@ public final class DeletedNotification extends Notification {
         if(expired) {
             fields.put(EXPIRED, (short) 1);
         }
-        if(null != guildName) {
-            fields.put(GUILD_NAME, guildName);
+        if(null != serverName) {
+            fields.put(SERVER_NAME, serverName);
         }
         fields.put(NB_DELETED, requireStrictlyPositive(nbDeleted));
-        return new DeletedNotification(NEW_NOTIFICATION_ID, now, NEW, RecipientType.DISCORD_USER, String.valueOf(userId), locale, fields);
+        var recipientType = switch (clientType) { case DISCORD -> DISCORD_USER; };
+        return new DeletedNotification(NEW_NOTIFICATION_ID, now, NEW, recipientType, String.valueOf(userId), locale, fields);
     }
 
     @Override
     @NotNull
-    protected DeletedNotification build(long id, @NotNull ZonedDateTime creationDate, @NotNull NotificationStatus status, @NotNull NotificationType type, @NotNull Notification.RecipientType recipientType, @NotNull String recipientId, @NotNull Locale locale, @NotNull Map<FieldParser, Object> fields) {
+    protected DeletedNotification build(long id, @NotNull ZonedDateTime creationDate, @NotNull NotificationStatus status, @NotNull NotificationType type, @NotNull RecipientType recipientType, @NotNull String recipientId, @NotNull Locale locale, @NotNull Map<FieldParser, Object> fields) {
         return new DeletedNotification(id, creationDate, status, recipientType, recipientId, locale, fields);
     }
 
@@ -91,12 +94,12 @@ public final class DeletedNotification extends Notification {
         Long alertId = (Long) fields.get(ALERT_ID);
         String type = Optional.ofNullable(fields.get(TYPE)).map(Object::toString).map(" "::concat).orElse("");
         String tickerOrPair = (String) fields.get(TICKER_OR_PAIR);
-        String guildName = Optional.ofNullable((String) fields.get(GUILD_NAME)).filter(not(String::isEmpty))
-                .map(" on guild "::concat).orElse("");
+        String serverName = Optional.ofNullable((String) fields.get(SERVER_NAME)).filter(not(String::isEmpty))
+                .map(" on server "::concat).orElse("");
         if(null != alertId) {
             boolean expired = Short.valueOf((short) 1).equals(fields.get(EXPIRED));
             return Message.of(embedBuilder("Notice of alert deletion", NOTIFICATION_COLOR,
-                            "Your" + type + " alert #" + alertId + " on " + tickerOrPair + (expired ? " has expired and" : "" ) + " was deleted" + guildName));
+                            "Your" + type + " alert #" + alertId + " on " + tickerOrPair + (expired ? " has expired and" : "" ) + " was deleted" + serverName));
         }
         Long nbDeleted = (Long) fields.get(NB_DELETED);
         String description;
@@ -108,6 +111,6 @@ public final class DeletedNotification extends Notification {
             description = "Your" + type + " alert was";
         }
         return Message.of(embedBuilder("Notice of " + (nbDeleted > 1 ? "alerts" : "alert") + " deletion", NOTIFICATION_COLOR,
-                description + " deleted" + guildName));
+                description + " deleted" + serverName));
     }
 }

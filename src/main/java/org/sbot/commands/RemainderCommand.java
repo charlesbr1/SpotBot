@@ -59,7 +59,7 @@ public final class RemainderCommand extends CommandAdapter {
     }
 
     private Message remainder(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull String pair, @NotNull ZonedDateTime fromDate, @NotNull String message) {
-        RemainderAlert remainderAlert = new RemainderAlert(NEW_ALERT_ID, context.user.getIdLong(),
+        RemainderAlert remainderAlert = new RemainderAlert(NEW_ALERT_ID, context.clientType, context.user.getIdLong(),
                 context.serverId(), now, // creation date
                 fromDate, // listening date
                 pair, message, fromDate, null, REMAINDER_DEFAULT_REPEAT, DEFAULT_SNOOZE_HOURS);

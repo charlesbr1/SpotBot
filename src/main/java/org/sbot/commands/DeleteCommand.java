@@ -84,9 +84,12 @@ public final class DeleteCommand extends CommandAdapter {
 
     private Message deleteById(@NotNull CommandContext context, long alertId) {
         return securedAlertUpdate(alertId, context, (alert, alertsDao, notificationsDao) -> {
-            alertsDao.delete(alertId);
+            alertsDao.delete(context.clientType, alertId);
             if(null != context.member && sendNotification(context, alert.userId, 1)) { // send notification once transaction is successful
-                notificationsDao.get().addNotification(DeletedNotification.of(Dates.nowUtc(context.clock()), context.locale, alert.userId, alertId, alert.type, alert.pair, guildName(context.member.getGuild()), 1L, false));
+                var serverName = switch (context.clientType) {
+                    case DISCORD -> guildName(context.member.getGuild());
+                };
+                notificationsDao.get().addNotification(DeletedNotification.of(context.clientType, Dates.nowUtc(context.clock()), context.locale, alert.userId, alertId, alert.type, alert.pair, serverName, 1L, false));
             }
             return Message.of(embedBuilder("Alert " + alertId + " deleted"));
         });
@@ -95,12 +98,15 @@ public final class DeleteCommand extends CommandAdapter {
     private Message deleteByTypeOwnerOrTickerPair(@NotNull CommandContext context, @NotNull Arguments arguments) {
         String tickerOrPair = DELETE_ALL.equalsIgnoreCase(arguments.tickerOrPair) ? null : arguments.tickerOrPair.toUpperCase();
         long userId = null != arguments.ownerId ? arguments.ownerId : context.user.getIdLong();
-        var filter = (isPrivateChannel(context) ? SelectionFilter.ofUser(userId, arguments.type) : SelectionFilter.of(context.serverId(), userId, arguments.type))
+        var filter = (isPrivateChannel(context) ? SelectionFilter.ofUser(context.clientType, userId, arguments.type) : SelectionFilter.of(context.clientType, context.serverId(), userId, arguments.type))
                 .withTickerOrPair(tickerOrPair);
         long deleted = context.transactional(txCtx -> {
             long count = txCtx.alertsDao().delete(filter);
             if(null != context.member && sendNotification(context, userId, count)) {
-                txCtx.notificationsDao().addNotification(DeletedNotification.of(Dates.nowUtc(context.clock()), context.locale, userId, null, arguments.type, arguments.tickerOrPair, guildName(context.member.getGuild()), count, false));
+                var serverName = switch (context.clientType) {
+                    case DISCORD -> guildName(context.member.getGuild());
+                };
+                txCtx.notificationsDao().addNotification(DeletedNotification.of(context.clientType, Dates.nowUtc(context.clock()), context.locale, userId, null, arguments.type, arguments.tickerOrPair, serverName, count, false));
             }
             return count;
         });

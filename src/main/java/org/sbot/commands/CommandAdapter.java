@@ -126,7 +126,7 @@ public abstract class CommandAdapter implements CommandListener {
         requireNonNull(readHandler);
         return context.transactional(txCtx -> {
             var alertsDao = txCtx.alertsDao();
-            Alert alert = alertsDao.getAlert(alertId).orElse(null);
+            Alert alert = alertsDao.getAlert(context.clientType, alertId).orElse(null);
             if(SecurityAccess.notFound(context, alert)) {
                 return Message.of(embedBuilder(":ghost: " + context.user.getEffectiveName(), NOT_FOUND_COLOR, "Alert " + alertId + " not found"));
             }
@@ -149,7 +149,7 @@ public abstract class CommandAdapter implements CommandListener {
         NotificationsDao[] sendNotifications = new NotificationsDao[1];
         var message = context.transactional(txCtx -> {
             var alertsDao = txCtx.alertsDao();
-            Alert alert = alertsDao.getAlertWithoutMessage(alertId).orElse(null);
+            Alert alert = alertsDao.getAlertWithoutMessage(context.clientType, alertId).orElse(null);
             if(SecurityAccess.notFound(context, alert)) {
                 return Message.of(embedBuilder(":ghost: " + context.user.getEffectiveName(), NOT_FOUND_COLOR, "Alert " + alertId + " not found"));
             } else if(SecurityAccess.isDenied(context, alert)) {
@@ -204,8 +204,11 @@ public abstract class CommandAdapter implements CommandListener {
     }
 
     static EmbedBuilder alertEmbed(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert) {
-        return alert.descriptionMessage(requireNonNull(now), isPrivateChannel(context) && !isPrivate(alert.serverId) ?
-                context.discord().guildServer(alert.serverId).map(Discord::guildName).orElse("unknown") : null);
+        var serverName = switch (alert.clientType) {
+            case DISCORD -> isPrivateChannel(context) && !isPrivate(alert.serverId) ?
+                    context.discord().guildServer(alert.serverId).map(Discord::guildName).orElse("unknown") : null;
+        };
+        return alert.descriptionMessage(requireNonNull(now), serverName);
     }
 
     protected static Message userSetupNeeded(@NotNull String title, @NotNull String message) {

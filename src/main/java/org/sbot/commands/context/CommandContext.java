@@ -18,6 +18,7 @@ import org.sbot.commands.reader.ArgumentReader;
 import org.sbot.commands.reader.SlashArgumentReader;
 import org.sbot.commands.reader.StringArgumentReader;
 import org.sbot.entities.Message;
+import org.sbot.entities.alerts.ClientType;
 import org.sbot.exchanges.Exchanges;
 import org.sbot.services.context.Context;
 import org.sbot.services.discord.Discord;
@@ -39,6 +40,7 @@ import static org.sbot.commands.CommandAdapter.isPrivateChannel;
 import static org.sbot.commands.interactions.Interactions.*;
 import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
+import static org.sbot.entities.alerts.ClientType.DISCORD;
 import static org.sbot.utils.ArgumentValidator.requireNotBlank;
 
 public abstract class CommandContext implements Context {
@@ -48,16 +50,18 @@ public abstract class CommandContext implements Context {
     public static final String TOO_MANY_ARGUMENTS = "Too many arguments provided";
 
     private final @NotNull Context context;
+    public final @NotNull ClientType clientType;
     public final @NotNull String name;
-    public final @NotNull User user;
+    public final @NotNull User user; // TODO long id
     public final @NotNull Locale locale;
     public final @Nullable ZoneId timezone;
     public final @NotNull ArgumentReader args;
-    public final @Nullable Member member;
+    public final @Nullable Member member; // rename clientMember, Object
 
 
-    private CommandContext(@NotNull Context context, @NotNull Locale locale, @Nullable ZoneId timezone, @NotNull MessageReceivedEvent event, @NotNull String command) {
+    private CommandContext(@NotNull Context context, @NotNull ClientType clientType, @NotNull Locale locale, @Nullable ZoneId timezone, @NotNull MessageReceivedEvent event, @NotNull String command) {
         this.context = requireNonNull(context);
+        this.clientType = requireNonNull(clientType);
         this.args = new StringArgumentReader(command);
         this.name = args.getMandatoryString("command");
         this.user = requireNonNull(event.getAuthor());
@@ -66,8 +70,9 @@ public abstract class CommandContext implements Context {
         this.member = event.getMember();
     }
 
-    private CommandContext(@NotNull Context context, @NotNull Locale locale, @Nullable ZoneId timezone, @NotNull SlashCommandInteractionEvent event) {
+    private CommandContext(@NotNull Context context, @NotNull ClientType clientType, @NotNull Locale locale, @Nullable ZoneId timezone, @NotNull SlashCommandInteractionEvent event) {
         this.context = requireNonNull(context);
+        this.clientType = requireNonNull(clientType);
         this.args = new SlashArgumentReader(event);
         this.name = requireNotBlank(event.getName(), "command");
         this.user = requireNonNull(event.getUser());
@@ -76,8 +81,9 @@ public abstract class CommandContext implements Context {
         this.member = event.getMember();
     }
 
-    private CommandContext(@NotNull Context context, @NotNull Locale locale, @Nullable ZoneId timezone, @NotNull GenericInteractionCreateEvent event, @NotNull String interactionId, @NotNull String args) {
+    private CommandContext(@NotNull Context context, @NotNull ClientType clientType, @NotNull Locale locale, @Nullable ZoneId timezone, @NotNull GenericInteractionCreateEvent event, @NotNull String interactionId, @NotNull String args) {
         this.context = requireNonNull(context);
+        this.clientType = requireNonNull(clientType);
         this.args = new StringArgumentReader(alertIdOf(interactionId) + ' ' + requireNonNull(args));
         this.name = componentIdOf(interactionId);
         this.user = requireNonNull(event.getUser());
@@ -88,6 +94,7 @@ public abstract class CommandContext implements Context {
 
     private CommandContext(@NotNull CommandContext commandContext, @NotNull String arguments) {
         this.context = commandContext.context;
+        this.clientType = commandContext.clientType;
         this.args = new StringArgumentReader(arguments);
         this.name = commandContext.name;
         this.user = commandContext.user;
@@ -136,7 +143,7 @@ public abstract class CommandContext implements Context {
 
     public static CommandContext of(@NotNull Context context, @Nullable org.sbot.entities.User user, @NotNull MessageReceivedEvent event, @NotNull String command) {
         requireNonNull(event.getMessage());
-        return new CommandContext(context, null != user ? user.locale() : DEFAULT_LOCALE, null != user ? user.timeZone() : null, event, command) {
+        return new CommandContext(context, DISCORD, null != user ? user.locale() : DEFAULT_LOCALE, null != user ? user.timeZone() : null, event, command) {
             boolean firstReply = !isPrivateChannel(this); // this set a "reply to" once on the first message
             @Override
             public void reply(@NotNull List<Message> messages, int ttlSeconds) {
@@ -149,7 +156,7 @@ public abstract class CommandContext implements Context {
     }
 
     public static CommandContext of(@NotNull Context context, @NotNull org.sbot.entities.User user, @NotNull SlashCommandInteractionEvent event) {
-        return new CommandContext(context, user.locale(), user.timeZone(), event) {
+        return new CommandContext(context, DISCORD, user.locale(), user.timeZone(), event) {
             @Override
             public void reply(@NotNull List<Message> messages, int ttlSeconds) {
                 reply(messages, modal -> event.replyModal(modal).queue(),
@@ -162,7 +169,7 @@ public abstract class CommandContext implements Context {
     }
 
     public static CommandContext of(@NotNull Context context, @NotNull org.sbot.entities.User user, @NotNull StringSelectInteractionEvent event) {
-        return new CommandContext(context, user.locale(), user.timeZone(), event, event.getComponentId(), String.join(" ", event.getValues())) {
+        return new CommandContext(context, DISCORD, user.locale(), user.timeZone(), event, event.getComponentId(), String.join(" ", event.getValues())) {
             @Override
             public void reply(@NotNull List<Message> messages, int ttlSeconds) {
                 reply(messages, modal -> event.replyModal(modal).queue(),
@@ -173,14 +180,14 @@ public abstract class CommandContext implements Context {
     }
 
     public static CommandContext of(@NotNull Context context, @NotNull org.sbot.entities.User user, @NotNull ModalInteractionEvent event) {
-        return new CommandContext(context, user.locale(), user.timeZone(), event, event.getModalId(), event.getValues().stream()
+        return new CommandContext(context, DISCORD, user.locale(), user.timeZone(), event, event.getModalId(), event.getValues().stream()
                 .map(m -> m.getId() + " " + m.getAsString()).collect(joining(" "))) {
             @Override
             public void reply(@NotNull List<Message> messages, int ttlSeconds) {
                 reply(messages, modal -> { throw new UnsupportedOperationException("No modal on modal command reply"); },
                         msg -> Discord.replyMessages(messages, event.getHook().setEphemeral(true), ttlSeconds),
                         null == event.getMessage() ? editMapper -> { throw new UnsupportedOperationException("This modal have no message"); } :
-                        editMapper -> event.editMessage(editMapper.apply(MessageEditBuilder.fromMessage(event.getMessage()))).queue());
+                                editMapper -> event.editMessage(editMapper.apply(MessageEditBuilder.fromMessage(event.getMessage()))).queue());
             }
         };
     }
@@ -195,7 +202,9 @@ public abstract class CommandContext implements Context {
     }
 
     public final long serverId() {
-        return null != member ? member.getGuild().getIdLong() : PRIVATE_MESSAGES;
+        return switch (clientType) {
+            case DISCORD -> null != member ? member.getGuild().getIdLong() : PRIVATE_MESSAGES;
+        };
     }
 
     public final CommandContext noMoreArgs() {

@@ -22,13 +22,13 @@ import static org.sbot.utils.Dates.formatDiscordRelative;
 
 public final class RangeAlert extends Alert {
 
-    public RangeAlert(long id, long userId, long serverId,
+    public RangeAlert(long id, @NotNull ClientType clientType, long userId, long serverId,
                       @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
                       @NotNull String exchange, @NotNull String pair, @NotNull String message,
                       @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
                       @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate,
                       @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short snooze) {
-        super(id, Type.range, userId, serverId, creationDate, listeningDate, exchange, pair, message, requireNonNull(fromPrice), requireNonNull(toPrice),
+        super(id, Type.range, clientType, userId, serverId, creationDate, listeningDate, exchange, pair, message, requireNonNull(fromPrice), requireNonNull(toPrice),
                 fromDate, toDate, lastTrigger, margin, repeat, snooze);
         checkArguments(fromPrice, toPrice, fromDate, toDate);
     }
@@ -53,13 +53,13 @@ public final class RangeAlert extends Alert {
 
     @Override
     @NotNull
-    protected RangeAlert build(long id, long userId, long serverId,
+    protected RangeAlert build(long id, @NotNull ClientType clientType, long userId, long serverId,
                             @NotNull ZonedDateTime creationDate, @Nullable ZonedDateTime listeningDate,
                             @NotNull String exchange, @NotNull String pair, @NotNull String message,
                             @NotNull BigDecimal fromPrice, @NotNull BigDecimal toPrice,
                             @Nullable ZonedDateTime fromDate, @Nullable ZonedDateTime toDate,
                             @Nullable ZonedDateTime lastTrigger, @NotNull BigDecimal margin, short repeat, short snooze) {
-        return new RangeAlert(id, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
+        return new RangeAlert(id, clientType, userId, serverId, creationDate, listeningDate, exchange, pair, message, fromPrice, toPrice, fromDate, toDate, lastTrigger, margin, repeat, snooze);
     }
 
     @NotNull

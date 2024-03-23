@@ -142,8 +142,10 @@ public final class AlertsWatcher {
         return alerts -> alertsDao.delete(deleter ->
                         alerts.forEach(alert -> {
                             var locale = userLocales.computeIfAbsent(alert.userId, userLocale);
-                            var serverName =  isPrivate(alert.serverId) ? null : guildNames.computeIfAbsent(alert.serverId, guildName);
-                            notificationsDao.addNotification(DeletedNotification.of(now, locale, alert.userId, alert.id, alert.type, alert.pair, serverName, 1L, true));
+                            var serverName = switch (alert.clientType) {
+                                case DISCORD -> isPrivate(alert.serverId) ? null : guildNames.computeIfAbsent(alert.serverId, guildName);
+                            };
+                            notificationsDao.addNotification(DeletedNotification.of(alert.clientType, now, locale, alert.userId, alert.id, alert.type, alert.pair, serverName, 1L, true));
                             deleter.batchId(alert.id);
                         }));
     }

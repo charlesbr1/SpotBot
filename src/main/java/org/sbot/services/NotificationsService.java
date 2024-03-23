@@ -6,10 +6,11 @@ import net.dv8tion.jda.api.exceptions.ErrorHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.sbot.entities.alerts.ClientType;
 import org.sbot.entities.notifications.MatchingNotification;
 import org.sbot.entities.notifications.MigratedNotification.Reason;
 import org.sbot.entities.notifications.Notification;
-import org.sbot.entities.notifications.Notification.RecipientType;
+import org.sbot.entities.notifications.RecipientType;
 import org.sbot.services.context.Context;
 import org.sbot.services.context.ThreadSafeTxContext;
 import org.sbot.services.discord.Discord;
@@ -31,7 +32,9 @@ import static org.sbot.SpotBot.appProperties;
 import static org.sbot.commands.MigrateCommand.migrateServerAlertsToPrivateChannel;
 import static org.sbot.commands.MigrateCommand.migrateUserAlertsToPrivateChannel;
 import static org.sbot.entities.alerts.Alert.Field.USER_ID;
+import static org.sbot.entities.alerts.ClientType.DISCORD;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.*;
+import static org.sbot.entities.notifications.RecipientType.DISCORD_USER;
 
 public final class NotificationsService {
 
@@ -141,7 +144,7 @@ public final class NotificationsService {
         } else { // server does not exist, migrate server alerts to private messages
             try {
                 LOGGER.info("Unable to retrieve guild channel {}, migrating user alerts to private channel", recipientId);
-                migrateServerAlertsToPrivateChannel(txContext, Long.parseLong(recipientId), guild.orElse(null));
+                migrateServerAlertsToPrivateChannel(DISCORD, txContext, Long.parseLong(recipientId), guild.orElse(null));
             } finally {
                 txContext.commit(notifications.size());
             }
@@ -185,15 +188,16 @@ public final class NotificationsService {
         requireNonNull(notifications);
         return errorHandler(txContext, String.valueOf(userId), notifications).handle(List.of(UNKNOWN_MEMBER), e -> {
             LOGGER.info("User {} is no more a member of guild {}, migrating alerts to its private channel", userId, guild.getIdLong());
-            migrateUserNotifications(txContext, guild, userId, notifications);
+            migrateUserNotifications(DISCORD, txContext, guild, userId, notifications);
         });
     }
 
-    void migrateUserNotifications(@NotNull ThreadSafeTxContext txContext, @NotNull Guild guild, long userId, @NotNull List<Notification> notifications) {
+    void migrateUserNotifications(@NotNull ClientType clientType, @NotNull ThreadSafeTxContext txContext, @NotNull Object server, long userId, @NotNull List<Notification> notifications) {
         try {
-            txContext.notificationsDao.statusRecipientBatchUpdate(NEW, String.valueOf(userId), RecipientType.DISCORD_USER,
+            var recipientType = switch (clientType) { case DISCORD -> DISCORD_USER; };
+            txContext.notificationsDao.statusRecipientBatchUpdate(NEW, String.valueOf(userId), recipientType,
                     updater -> notifications.forEach(notification -> updater.batchId(notification.id)));
-            migrateUserAlertsToPrivateChannel(txContext, userId, notifications.getFirst().locale, guild, Reason.LEAVED);
+            migrateUserAlertsToPrivateChannel(clientType, txContext, userId, notifications.getFirst().locale, server, Reason.LEAVED);
             txContext.afterCommit(this::sendNotifications);
         } finally {
             if(!notifications.isEmpty()) {

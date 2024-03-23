@@ -41,11 +41,6 @@ public abstract class Notification {
         MIGRATED
     }
 
-    public enum RecipientType {
-        DISCORD_USER,
-        DISCORD_SERVER
-    }
-
     public final long id;
     public final ZonedDateTime creationDate;
     public final NotificationStatus status; // technical field
@@ -56,7 +51,7 @@ public abstract class Notification {
     public final Map<FieldParser, Object> fields;
 
 
-    protected Notification(long id, @NotNull ZonedDateTime creationDate, @NotNull NotificationStatus status, @NotNull NotificationType type, @NotNull Notification.RecipientType recipientType, @NotNull String recipientId, @NotNull Locale locale, @NotNull Map<FieldParser, Object> fields) {
+    protected Notification(long id, @NotNull ZonedDateTime creationDate, @NotNull NotificationStatus status, @NotNull NotificationType type, @NotNull RecipientType recipientType, @NotNull String recipientId, @NotNull Locale locale, @NotNull Map<FieldParser, Object> fields) {
         this.id = id;
         this.creationDate = requireNonNull(creationDate);
         this.status = requireNonNull(status);
@@ -68,7 +63,7 @@ public abstract class Notification {
     }
 
     @NotNull
-    protected abstract Notification build(long id, @NotNull ZonedDateTime creationDate, @NotNull NotificationStatus status, @NotNull NotificationType type, @NotNull Notification.RecipientType recipientType, @NotNull String recipientId, @NotNull Locale locale, @NotNull Map<FieldParser, Object> fields);
+    protected abstract Notification build(long id, @NotNull ZonedDateTime creationDate, @NotNull NotificationStatus status, @NotNull NotificationType type, @NotNull RecipientType recipientType, @NotNull String recipientId, @NotNull Locale locale, @NotNull Map<FieldParser, Object> fields);
 
     @NotNull
     public abstract CharSequence serializedFields();

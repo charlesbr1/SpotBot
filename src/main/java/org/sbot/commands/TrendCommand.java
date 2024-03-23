@@ -107,7 +107,7 @@ public final class TrendCommand extends CommandAdapter {
             toPrice = arguments.fromPrice;
         }
         var now = Dates.nowUtc(context.clock());
-        TrendAlert trendAlert = new TrendAlert(NEW_ALERT_ID, context.user.getIdLong(),
+        TrendAlert trendAlert = new TrendAlert(NEW_ALERT_ID, context.clientType, context.user.getIdLong(),
                 context.serverId(), now, // creation date
                 now, // listening date
                 arguments.exchange, arguments.pair, arguments.message, fromPrice, toPrice, fromDate, toDate,

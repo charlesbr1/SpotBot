@@ -164,13 +164,13 @@ class TrendCommandTest {
         assertTrue(message.getDescriptionBuilder().toString().equals("Alert " + alertId + " not found"));
 
         commandContext[0] = spy(CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + "   " + alertId + " " + dateFrom));
-        when(alertsDao.getAlert(alertId)).thenReturn(Optional.of(createTestAlert()
+        when(alertsDao.getAlert(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlert()
                 .withServerId(PRIVATE_MESSAGES)));
         assertThrows(IllegalArgumentException.class, () -> command.onCommand(commandContext[0]));
 
         commandContext[0] = spy(CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + "   " + alertId + " " + dateFrom));
         doNothing().when(commandContext[0]).reply(anyList(), eq(command.responseTtlSeconds));
-        when(alertsDao.getAlert(alertId)).thenReturn(Optional.of(createTestAlertWithType(trend)
+        when(alertsDao.getAlert(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithType(trend)
                 .withServerId(PRIVATE_MESSAGES))); // switch alert as private to get security grant
         command.onCommand(commandContext[0]);
 

@@ -10,7 +10,7 @@ import org.mockito.ArgumentCaptor;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
 import org.sbot.entities.alerts.Alert;
-import org.sbot.entities.notifications.MigratedNotification;
+import org.sbot.entities.notifications.MigratedNotification.Reason;
 import org.sbot.services.NotificationsService;
 import org.sbot.services.context.Context;
 import org.sbot.services.context.TransactionalContext;
@@ -34,12 +34,13 @@ import static org.mockito.Mockito.*;
 import static org.sbot.commands.CommandAdapter.PAIR_ARGUMENT;
 import static org.sbot.commands.CommandAdapter.TICKER_PAIR_ARGUMENT;
 import static org.sbot.commands.CommandAdapterTest.assertExceptionContains;
-import static org.sbot.commands.MigrateCommand.GUILD_ARGUMENT;
+import static org.sbot.commands.MigrateCommand.SERVER_ID_ARGUMENT;
 import static org.sbot.commands.MigrateCommand.MIGRATE_ALL;
 import static org.sbot.commands.context.CommandContext.TOO_MANY_ARGUMENTS;
 import static org.sbot.entities.User.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
 import static org.sbot.entities.alerts.Alert.Type.*;
+import static org.sbot.entities.alerts.AlertTest.TEST_CLIENT_TYPE;
 import static org.sbot.entities.alerts.AlertTest.createTestAlertWithUserId;
 import static org.sbot.services.dao.AlertsDao.UpdateField.SERVER_ID;
 import static org.sbot.services.dao.AlertsDaoTest.assertDeepEquals;
@@ -85,7 +86,7 @@ class MigrateCommandTest {
         var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " 0"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).getAlertWithoutMessage(alertId);
+        verify(alertsDao).getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId);
         verify(alertsDao, never()).update(any(), any());
         verify(alertsDao, never()).updateServerIdOf(any(), anyLong());
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
@@ -97,12 +98,12 @@ class MigrateCommandTest {
 
         // migrate by id, alert exists, not same user, private channel, not found
         alertId++;
-        when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(serverId)));
+        when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(serverId)));
         when(messageReceivedEvent.getMember()).thenReturn(null);
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " 0"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).getAlertWithoutMessage(alertId);
+        verify(alertsDao).getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId);
         verify(alertsDao, never()).update(any(), any());
         verify(alertsDao, never()).updateServerIdOf(any(), anyLong());
         verify(commandContext).reply(messagesReply.capture(), anyInt());
@@ -114,12 +115,12 @@ class MigrateCommandTest {
         // migrate by id, alert exists, same user, private channel, alert server, to private -> ok
         alertId++;
         var alert = createTestAlertWithUserId(userId).withServerId(serverId);
-        when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(alert));
+        when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(alert));
         when(messageReceivedEvent.getMember()).thenReturn(null);
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " 0"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao).getAlertWithoutMessage(alertId);
+        verify(alertsDao).getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId);
         var alertCaptor = ArgumentCaptor.forClass(Alert.class);
         verify(alertsDao).update(alertCaptor.capture(), eq(Set.of(SERVER_ID)));
         var alertArg = alertCaptor.getValue();
@@ -134,7 +135,7 @@ class MigrateCommandTest {
         // migrate by id, alert exists, same user, private channel, alert private, to private -> ko
         alertId++;
         alert = createTestAlertWithUserId(userId).withServerId(PRIVATE_MESSAGES);
-        when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(alert));
+        when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(alert));
         when(messageReceivedEvent.getMember()).thenReturn(null);
         var finalCommandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " 0"));
         assertExceptionContains(IllegalArgumentException.class, "already in this private channel", () -> command.onCommand(finalCommandContext));
@@ -144,13 +145,13 @@ class MigrateCommandTest {
         // migrate by id, alert exists, same user, private channel, alert server, to same server -> ko
         alertId++;
         alert = createTestAlertWithUserId(userId).withServerId(serverId);
-        when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(alert));
+        when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(alert));
         when(messageReceivedEvent.getMember()).thenReturn(null);
         var finalCommandContext2 = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " " + serverId));
         assertExceptionContains(IllegalArgumentException.class, "Bot is not supported on this guild", () -> command.onCommand(finalCommandContext2));
         when(discord.guildServer(serverId)).thenReturn(Optional.of(guild));
         var finalCommandContext3 = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " " + serverId));
-        assertExceptionContains(IllegalArgumentException.class, "already in guild", () -> command.onCommand(finalCommandContext3));
+        assertExceptionContains(IllegalArgumentException.class, "already in server", () -> command.onCommand(finalCommandContext3));
         verify(alertsDao).update(alert.withServerId(serverId), Set.of(SERVER_ID));
         verify(alertsDao, never()).updateServerIdOf(any(), anyLong());
 
@@ -158,7 +159,7 @@ class MigrateCommandTest {
         alertId++;
         var fid = alertId;
         alert = createTestAlertWithUserId(userId).withServerId(serverId).withId(() -> fid);
-        when(alertsDao.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(alert));
+        when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(alert));
         when(messageReceivedEvent.getMember()).thenReturn(null);
         Guild guild2 = mock();
         when(guild2.getIdLong()).thenReturn(serverId + 1);
@@ -169,14 +170,14 @@ class MigrateCommandTest {
         var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " " + (serverId + 1)));
         doNothing().when(fc1).reply(anyList(), anyInt());
         assertExceptionContains(IllegalArgumentException.class, "not a member of guild", () -> command.onCommand(fc1));
-        verify(alertsDao).getAlertWithoutMessage(alertId);
+        verify(alertsDao).getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId);
 
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " " + (serverId + 1)));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         when(restAction.complete()).thenReturn(mock());
 
         command.onCommand(commandContext);
-        verify(alertsDao, times(3)).getAlertWithoutMessage(alertId);
+        verify(alertsDao, times(3)).getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId);
         verify(alertsDao, times(2)).update(alertCaptor.capture(), eq(Set.of(SERVER_ID)));
         alertArg = alertCaptor.getValue();
         assertDeepEquals(alert.withServerId(serverId + 1), alertArg);
@@ -194,11 +195,11 @@ class MigrateCommandTest {
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao2);
         when(messageReceivedEvent.getMember()).thenReturn(member);
         alertId++;
-        when(alertsDao2.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(serverId + 1)));
+        when(alertsDao2.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(serverId + 1)));
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " 0"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao2).getAlertWithoutMessage(alertId);
+        verify(alertsDao2).getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId);
         verify(alertsDao2, never()).update(any(), any());
         verify(alertsDao2, never()).updateServerIdOf(any(), anyLong());
         verify(commandContext).reply(messagesReply.capture(), anyInt());
@@ -209,11 +210,11 @@ class MigrateCommandTest {
 
         // migrate by id, alert exists, same user, not same channel, not found
         alertId++;
-        when(alertsDao2.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(serverId + 1)));
+        when(alertsDao2.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(serverId + 1)));
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " 0"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao2).getAlertWithoutMessage(alertId);
+        verify(alertsDao2).getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId);
         verify(alertsDao2, never()).update(any(), any());
         verify(alertsDao2, never()).updateServerIdOf(any(), anyLong());
         verify(commandContext).reply(messagesReply.capture(), anyInt());
@@ -224,11 +225,11 @@ class MigrateCommandTest {
 
         // migrate by id, alert exists, not same user, same channel, access denied
         alertId++;
-        when(alertsDao2.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(serverId)));
+        when(alertsDao2.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(serverId)));
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " 0"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao2).getAlertWithoutMessage(alertId);
+        verify(alertsDao2).getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId);
         verify(alertsDao2, never()).update(any(), any());
         verify(alertsDao2, never()).updateServerIdOf(any(), anyLong());
         verify(commandContext).reply(messagesReply.capture(), anyInt());
@@ -241,12 +242,12 @@ class MigrateCommandTest {
         alertId++;
         var fid2 = alertId;
         alert = createTestAlertWithUserId(userId + 1).withServerId(serverId).withId(() -> fid2);
-        when(alertsDao2.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(alert));
+        when(alertsDao2.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(alert));
         when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " 0"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao2).getAlertWithoutMessage(alertId);
+        verify(alertsDao2).getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId);
         verify(alertsDao2).update(alertCaptor.capture(), eq(Set.of(SERVER_ID)));
         alertArg = alertCaptor.getValue();
         assertDeepEquals(alert.withServerId(PRIVATE_MESSAGES), alertArg);
@@ -261,7 +262,7 @@ class MigrateCommandTest {
         alertId++;
         var fid22 = alertId;
         alert = createTestAlertWithUserId(userId + 1).withServerId(serverId).withId(() -> fid22);
-        when(alertsDao2.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(alert));
+        when(alertsDao2.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(alert));
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " " + (serverId + 1)));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         Guild guild3 = mock();
@@ -272,7 +273,7 @@ class MigrateCommandTest {
         when(restAction.complete()).thenReturn(mock());
 
         command.onCommand(commandContext);
-        verify(alertsDao2, times(2)).getAlertWithoutMessage(alertId);
+        verify(alertsDao2, times(2)).getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId);
         verify(alertsDao2, times(2)).update(alertCaptor.capture(), eq(Set.of(SERVER_ID)));
         alertArg = alertCaptor.getValue();
         assertDeepEquals(alert.withServerId(serverId + 1), alertArg);
@@ -289,11 +290,11 @@ class MigrateCommandTest {
         alertId++;
         var fid3 = alertId;
         alert = createTestAlertWithUserId(userId).withServerId(serverId).withId(() -> fid3);
-        when(alertsDao2.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(alert));
+        when(alertsDao2.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(alert));
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " 0"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
-        verify(alertsDao2).getAlertWithoutMessage(alertId);
+        verify(alertsDao2).getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId);
         verify(alertsDao2, times(3)).update(alertCaptor.capture(), eq(Set.of(SERVER_ID)));
         alertArg = alertCaptor.getValue();
         assertDeepEquals(alert.withServerId(PRIVATE_MESSAGES), alertArg);
@@ -308,7 +309,7 @@ class MigrateCommandTest {
         alertId++;
         var fid4 = alertId;
         alert = createTestAlertWithUserId(userId).withServerId(serverId).withId(() -> fid4);
-        when(alertsDao2.getAlertWithoutMessage(alertId)).thenReturn(Optional.of(alert));
+        when(alertsDao2.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(alert));
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  " + alertId + " " + (serverId + 2)));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         when(guild3.getIdLong()).thenReturn(serverId + 2);
@@ -318,7 +319,7 @@ class MigrateCommandTest {
         when(restAction.complete()).thenReturn(mock());
 
         command.onCommand(commandContext);
-        verify(alertsDao2, times(2)).getAlertWithoutMessage(alertId);
+        verify(alertsDao2, times(2)).getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId);
         verify(alertsDao2, times(4)).update(alertCaptor.capture(), eq(Set.of(SERVER_ID)));
         alertArg = alertCaptor.getValue();
         assertDeepEquals(alert.withServerId(serverId + 2), alertArg);
@@ -414,7 +415,7 @@ class MigrateCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao, never()).update(any(), any());
-        verify(alertsDao).updateServerIdOf(SelectionFilter.ofUser(userId, null).withTickerOrPair("ETH/USD"), serverId);
+        verify(alertsDao).updateServerIdOf(SelectionFilter.ofUser(TEST_CLIENT_TYPE, userId, null).withTickerOrPair("ETH/USD"), serverId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(notificationsService, never()).sendNotifications();
         messages = messagesReply.getValue();
@@ -426,7 +427,7 @@ class MigrateCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao, never()).update(any(), any());
-        verify(alertsDao).updateServerIdOf(SelectionFilter.ofUser(userId, trend).withTickerOrPair("BTC/USD"), serverId);
+        verify(alertsDao).updateServerIdOf(SelectionFilter.ofUser(TEST_CLIENT_TYPE, userId, trend).withTickerOrPair("BTC/USD"), serverId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(notificationsService, never()).sendNotifications();
         messages = messagesReply.getValue();
@@ -438,7 +439,7 @@ class MigrateCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao, never()).update(any(), any());
-        verify(alertsDao).updateServerIdOf(SelectionFilter.ofUser(userId, remainder).withTickerOrPair("ETH/XRP"), serverId);
+        verify(alertsDao).updateServerIdOf(SelectionFilter.ofUser(TEST_CLIENT_TYPE, userId, remainder).withTickerOrPair("ETH/XRP"), serverId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(notificationsService, never()).sendNotifications();
         messages = messagesReply.getValue();
@@ -451,7 +452,7 @@ class MigrateCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao, never()).update(any(), any());
-        verify(alertsDao, never()).updateServerIdOf(SelectionFilter.ofUser(userId + 2, null).withTickerOrPair("ETH/USD"), serverId);
+        verify(alertsDao, never()).updateServerIdOf(SelectionFilter.ofUser(TEST_CLIENT_TYPE, userId + 2, null).withTickerOrPair("ETH/USD"), serverId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(notificationsService, never()).sendNotifications();
         messages = messagesReply.getValue();
@@ -471,7 +472,7 @@ class MigrateCommandTest {
 
         command.onCommand(commandContext);
         verify(alertsDao, never()).update(any(), any());
-        verify(alertsDao, never()).updateServerIdOf(SelectionFilter.of(serverId, userId, null), serverId);
+        verify(alertsDao, never()).updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, serverId, userId, null), serverId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(notificationsService, never()).sendNotifications();
         messages = messagesReply.getValue();
@@ -484,7 +485,7 @@ class MigrateCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao, never()).update(any(), any());
-        verify(alertsDao, never()).updateServerIdOf(SelectionFilter.of(serverId, userId + 1, null), serverId);
+        verify(alertsDao, never()).updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, serverId, userId + 1, null), serverId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(notificationsService, never()).sendNotifications();
         messages = messagesReply.getValue();
@@ -499,7 +500,7 @@ class MigrateCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao, never()).update(any(), any());
-        verify(alertsDao).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 1, null), serverId);
+        verify(alertsDao).updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, member.getGuild().getIdLong(), userId + 1, null), serverId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(notificationsService, never()).sendNotifications();
         messages = messagesReply.getValue();
@@ -508,13 +509,13 @@ class MigrateCommandTest {
         assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert migrated"));
         when(member.hasPermission(ADMINISTRATOR)).thenReturn(false);
 
-        when(alertsDao.updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 1, null), serverId)).thenReturn(3L);
+        when(alertsDao.updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, member.getGuild().getIdLong(), userId + 1, null), serverId)).thenReturn(3L);
         when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " all " + serverId + " <@" + (userId + 1) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao, never()).update(any(), any());
-        verify(alertsDao, times(2)).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 1, null), serverId);
+        verify(alertsDao, times(2)).updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, member.getGuild().getIdLong(), userId + 1, null), serverId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(notificationsService).sendNotifications();
         messages = messagesReply.getValue();
@@ -528,7 +529,7 @@ class MigrateCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao, never()).update(any(), any());
-        verify(alertsDao).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId, null).withTickerOrPair("ETH/USD"), serverId);
+        verify(alertsDao).updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, member.getGuild().getIdLong(), userId, null).withTickerOrPair("ETH/USD"), serverId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(notificationsService).sendNotifications();
         messages = messagesReply.getValue();
@@ -540,7 +541,7 @@ class MigrateCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao, never()).update(any(), any());
-        verify(alertsDao).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId, remainder).withTickerOrPair("BTC/USD"), serverId);
+        verify(alertsDao).updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, member.getGuild().getIdLong(), userId, remainder).withTickerOrPair("BTC/USD"), serverId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(notificationsService).sendNotifications();
         messages = messagesReply.getValue();
@@ -552,7 +553,7 @@ class MigrateCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao, never()).update(any(), any());
-        verify(alertsDao).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId, range).withTickerOrPair("BTC/USD"), serverId);
+        verify(alertsDao).updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, member.getGuild().getIdLong(), userId, range).withTickerOrPair("BTC/USD"), serverId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(notificationsService).sendNotifications();
         messages = messagesReply.getValue();
@@ -565,7 +566,7 @@ class MigrateCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao, never()).update(any(), any());
-        verify(alertsDao, never()).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 3, null).withTickerOrPair("ETH/USD"), serverId);
+        verify(alertsDao, never()).updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, member.getGuild().getIdLong(), userId + 3, null).withTickerOrPair("ETH/USD"), serverId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(notificationsService).sendNotifications();
         messages = messagesReply.getValue();
@@ -577,7 +578,7 @@ class MigrateCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao, never()).update(any(), any());
-        verify(alertsDao, never()).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 3, trend).withTickerOrPair("ETH/USD"), serverId);
+        verify(alertsDao, never()).updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, member.getGuild().getIdLong(), userId + 3, trend).withTickerOrPair("ETH/USD"), serverId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(notificationsService).sendNotifications();
         messages = messagesReply.getValue();
@@ -592,7 +593,7 @@ class MigrateCommandTest {
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao, never()).update(any(), any());
-        verify(alertsDao).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 3, null).withTickerOrPair("ETH/USD"), serverId);
+        verify(alertsDao).updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, member.getGuild().getIdLong(), userId + 3, null).withTickerOrPair("ETH/USD"), serverId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(notificationsService).sendNotifications();
         messages = messagesReply.getValue();
@@ -600,13 +601,13 @@ class MigrateCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("0 alert migrated"));
 
-        when(alertsDao.updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 3, null).withTickerOrPair("ETH/USD"), serverId)).thenReturn(1L);
+        when(alertsDao.updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, member.getGuild().getIdLong(), userId + 3, null).withTickerOrPair("ETH/USD"), serverId)).thenReturn(1L);
         when(member.hasPermission(ADMINISTRATOR)).thenReturn(true);
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " eth/usd " + serverId + " <@" + (userId + 3) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao, never()).update(any(), any());
-        verify(alertsDao, times(2)).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 3, null).withTickerOrPair("ETH/USD"), serverId);
+        verify(alertsDao, times(2)).updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, member.getGuild().getIdLong(), userId + 3, null).withTickerOrPair("ETH/USD"), serverId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(notificationsService, times(2)).sendNotifications();
         messages = messagesReply.getValue();
@@ -615,12 +616,12 @@ class MigrateCommandTest {
         assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("1 alert migrated"));
 
         when(guild2.retrieveMemberById(userId + 5)).thenReturn(restAction);
-        when(alertsDao.updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 5, trend).withTickerOrPair("ETH/USD"), serverId)).thenReturn(7L);
+        when(alertsDao.updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, member.getGuild().getIdLong(), userId + 5, trend).withTickerOrPair("ETH/USD"), serverId)).thenReturn(7L);
         commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + " eth/usd trend " + serverId + " <@" + (userId + 5) + "> " ));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         verify(alertsDao, never()).update(any(), any());
-        verify(alertsDao).updateServerIdOf(SelectionFilter.of(member.getGuild().getIdLong(), userId + 5, trend).withTickerOrPair("ETH/USD"), serverId);
+        verify(alertsDao).updateServerIdOf(SelectionFilter.of(TEST_CLIENT_TYPE, member.getGuild().getIdLong(), userId + 5, trend).withTickerOrPair("ETH/USD"), serverId);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
         verify(notificationsService, times(3)).sendNotifications();
         messages = messagesReply.getValue();
@@ -644,7 +645,7 @@ class MigrateCommandTest {
 
         // id command
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  123 az");
-        assertExceptionContains(IllegalArgumentException.class, GUILD_ARGUMENT,
+        assertExceptionContains(IllegalArgumentException.class, SERVER_ID_ARGUMENT,
                 () -> MigrateCommand.arguments(commandContext[0]));
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  123 45 az");
@@ -675,7 +676,7 @@ class MigrateCommandTest {
                 () -> MigrateCommand.arguments(commandContext[0]));
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  azef efefe");
-        assertExceptionContains(IllegalArgumentException.class, GUILD_ARGUMENT,
+        assertExceptionContains(IllegalArgumentException.class, SERVER_ID_ARGUMENT,
                 () -> MigrateCommand.arguments(commandContext[0]));
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  azefefefel/lklk");
@@ -687,19 +688,19 @@ class MigrateCommandTest {
                 () -> MigrateCommand.arguments(commandContext[0]));
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  ETH/USD badType");
-        assertExceptionContains(IllegalArgumentException.class, GUILD_ARGUMENT,
+        assertExceptionContains(IllegalArgumentException.class, SERVER_ID_ARGUMENT,
                 () -> MigrateCommand.arguments(commandContext[0]));
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  all ");
-        assertExceptionContains(IllegalArgumentException.class, GUILD_ARGUMENT,
+        assertExceptionContains(IllegalArgumentException.class, SERVER_ID_ARGUMENT,
                 () -> MigrateCommand.arguments(commandContext[0]));
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  all range");
-        assertExceptionContains(IllegalArgumentException.class, GUILD_ARGUMENT,
+        assertExceptionContains(IllegalArgumentException.class, SERVER_ID_ARGUMENT,
                 () -> MigrateCommand.arguments(commandContext[0]));
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  all range <@123>");
-        assertExceptionContains(IllegalArgumentException.class, GUILD_ARGUMENT,
+        assertExceptionContains(IllegalArgumentException.class, SERVER_ID_ARGUMENT,
                 () -> MigrateCommand.arguments(commandContext[0]));
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  all 12 <@123> range");
@@ -707,7 +708,7 @@ class MigrateCommandTest {
                 () -> MigrateCommand.arguments(commandContext[0]));
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  ETH/USD range ");
-        assertExceptionContains(IllegalArgumentException.class, GUILD_ARGUMENT,
+        assertExceptionContains(IllegalArgumentException.class, SERVER_ID_ARGUMENT,
                 () -> MigrateCommand.arguments(commandContext[0]));
 
         commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, MigrateCommand.NAME + "  ETH/USD  12 lm");
@@ -835,19 +836,19 @@ class MigrateCommandTest {
 
     @Test
     void sameId() {
-        assertFalse(MigrateCommand.sameId(null, 1L));
-        assertTrue(MigrateCommand.sameId(null, PRIVATE_MESSAGES));
+        assertThrows(NullPointerException.class, () -> MigrateCommand.sameId(null, null, 1L));
+
+        assertFalse(MigrateCommand.sameId(TEST_CLIENT_TYPE, null, 1L));
+        assertTrue(MigrateCommand.sameId(TEST_CLIENT_TYPE, null, PRIVATE_MESSAGES));
         Guild guild = mock();
         when(guild.getIdLong()).thenReturn(123L);
-        assertFalse(MigrateCommand.sameId(guild, 1L));
-        assertFalse(MigrateCommand.sameId(guild, PRIVATE_MESSAGES));
-        assertTrue(MigrateCommand.sameId(guild, 123L));
+        assertFalse(MigrateCommand.sameId(TEST_CLIENT_TYPE, guild, 1L));
+        assertFalse(MigrateCommand.sameId(TEST_CLIENT_TYPE, guild, PRIVATE_MESSAGES));
+        assertTrue(MigrateCommand.sameId(TEST_CLIENT_TYPE, guild, 123L));
     }
 
     @Test
     void migrateServerAlertsToPrivateChannel() {
-        assertThrows(NullPointerException.class, () -> MigrateCommand.migrateServerAlertsToPrivateChannel(null, 123L, mock()));
-
         TransactionalContext txCtx = mock();
         when(txCtx.clock()).thenReturn(Clock.systemUTC());
         UsersDao usersDao = mock();
@@ -859,20 +860,22 @@ class MigrateCommandTest {
         Guild guild = mock();
         when(guild.getIdLong()).thenReturn(123L);
 
-        when(alertsDao.getUserIdsByServerId(123L)).thenReturn(List.of());
-        assertTrue(MigrateCommand.migrateServerAlertsToPrivateChannel(txCtx, 123L, guild).isEmpty());
-        verify(alertsDao).getUserIdsByServerId(123L);
+        assertThrows(NullPointerException.class, () -> MigrateCommand.migrateServerAlertsToPrivateChannel(TEST_CLIENT_TYPE, null, 123L, mock()));
+
+        when(alertsDao.getUserIdsByServerId(TEST_CLIENT_TYPE, 123L)).thenReturn(List.of());
+        assertTrue(MigrateCommand.migrateServerAlertsToPrivateChannel(TEST_CLIENT_TYPE, txCtx, 123L, guild).isEmpty());
+        verify(alertsDao).getUserIdsByServerId(TEST_CLIENT_TYPE, 123L);
         verify(alertsDao, never()).updateServerIdOf(any(), anyLong());
         verify(usersDao, never()).getLocales(anyList());
         verify(notificationsDao, never()).addNotification(any());
 
         when(guild.getIdLong()).thenReturn(321L);
-        when(alertsDao.getUserIdsByServerId(321L)).thenReturn(List.of(11L));
-        when(alertsDao.updateServerIdOf(SelectionFilter.ofServer(321L, null), PRIVATE_MESSAGES)).thenReturn(3L);
+        when(alertsDao.getUserIdsByServerId(TEST_CLIENT_TYPE, 321L)).thenReturn(List.of(11L));
+        when(alertsDao.updateServerIdOf(SelectionFilter.ofServer(TEST_CLIENT_TYPE, 321L, null), PRIVATE_MESSAGES)).thenReturn(3L);
         when(usersDao.getLocales(List.of(11L))).thenReturn(emptyMap());
-        assertEquals(1L, MigrateCommand.migrateServerAlertsToPrivateChannel(txCtx, 321L, guild).size());
-        verify(alertsDao).getUserIdsByServerId(321L);
-        verify(alertsDao).updateServerIdOf(SelectionFilter.ofServer(321L, null), PRIVATE_MESSAGES);
+        assertEquals(1L, MigrateCommand.migrateServerAlertsToPrivateChannel(TEST_CLIENT_TYPE, txCtx, 321L, guild).size());
+        verify(alertsDao).getUserIdsByServerId(TEST_CLIENT_TYPE, 321L);
+        verify(alertsDao).updateServerIdOf(SelectionFilter.ofServer(TEST_CLIENT_TYPE, 321L, null), PRIVATE_MESSAGES);
         verify(usersDao).getLocales(List.of(11L));
         verify(notificationsDao).addNotification(any());
     }
@@ -890,20 +893,23 @@ class MigrateCommandTest {
         Guild guild = mock();
         when(guild.getIdLong()).thenReturn(123L);
 
+        assertThrows(NullPointerException.class, () -> MigrateCommand.migrateUserAlertsToPrivateChannel(null, txCtx, 111L, DEFAULT_LOCALE, guild, Reason.ADMIN));
+        assertThrows(NullPointerException.class, () -> MigrateCommand.migrateUserAlertsToPrivateChannel(TEST_CLIENT_TYPE, null, 111L, DEFAULT_LOCALE, guild, Reason.ADMIN));
+
         when(alertsDao.updateServerIdOf(any(), anyLong())).thenReturn(0L);
-        assertEquals(0L, MigrateCommand.migrateUserAlertsToPrivateChannel(txCtx, 111L, DEFAULT_LOCALE, guild, MigratedNotification.Reason.ADMIN));
+        assertEquals(0L, MigrateCommand.migrateUserAlertsToPrivateChannel(TEST_CLIENT_TYPE, txCtx, 111L, DEFAULT_LOCALE, guild, Reason.ADMIN));
         verify(alertsDao).updateServerIdOf(any(), anyLong());
         verify(usersDao, never()).getUser(anyLong());
         verify(notificationsDao, never()).addNotification(any());
 
         when(alertsDao.updateServerIdOf(any(), anyLong())).thenReturn(3L);
         when(usersDao.getUser(111L)).thenReturn(Optional.of(mock()));
-        assertEquals(3L, MigrateCommand.migrateUserAlertsToPrivateChannel(txCtx, 111L, DEFAULT_LOCALE, guild, MigratedNotification.Reason.ADMIN));
+        assertEquals(3L, MigrateCommand.migrateUserAlertsToPrivateChannel(TEST_CLIENT_TYPE, txCtx, 111L, DEFAULT_LOCALE, guild, Reason.ADMIN));
         verify(alertsDao, times(2)).updateServerIdOf(any(), anyLong());
         verify(usersDao, never()).getUser(anyLong());
         verify(notificationsDao).addNotification(any());
 
-        assertEquals(3L, MigrateCommand.migrateUserAlertsToPrivateChannel(txCtx, 111L, null, guild, MigratedNotification.Reason.ADMIN));
+        assertEquals(3L, MigrateCommand.migrateUserAlertsToPrivateChannel(TEST_CLIENT_TYPE, txCtx, 111L, null, guild, Reason.ADMIN));
         verify(alertsDao, times(3)).updateServerIdOf(any(), anyLong());
         verify(usersDao).getUser(111L);
         verify(notificationsDao, times(2)).addNotification(any());

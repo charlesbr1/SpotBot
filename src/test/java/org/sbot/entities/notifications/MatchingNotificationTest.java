@@ -28,8 +28,8 @@ import static org.sbot.entities.notifications.MatchingNotification.MATCHED_COLOR
 import static org.sbot.entities.notifications.Notification.NEW_NOTIFICATION_ID;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.NEW;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.SENDING;
-import static org.sbot.entities.notifications.Notification.RecipientType.DISCORD_SERVER;
-import static org.sbot.entities.notifications.Notification.RecipientType.DISCORD_USER;
+import static org.sbot.entities.notifications.RecipientType.DISCORD_SERVER;
+import static org.sbot.entities.notifications.RecipientType.DISCORD_USER;
 import static org.sbot.entities.notifications.Notification.SOH;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.MARGIN;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.MATCHED;
@@ -88,6 +88,7 @@ class MatchingNotificationTest {
         fields += format(notification.fields.get(LAST_TRIGGER)) + SOH;
         fields += format(notification.fields.get(Alert.Field.ID)) + SOH;
         fields += format(notification.fields.get(Alert.Field.TYPE)) + SOH;
+        fields += format(notification.fields.get(Alert.Field.CLIENT_TYPE)) + SOH;
         fields += format(notification.fields.get(Alert.Field.USER_ID)) + SOH;
         fields += format(notification.fields.get(Alert.Field.SERVER_ID)) + SOH;
         fields += format(notification.fields.get(Alert.Field.CREATION_DATE)) + SOH;

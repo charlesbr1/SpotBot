@@ -9,13 +9,20 @@ import java.time.temporal.ChronoUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.sbot.entities.alerts.Alert.Type.range;
+import static org.sbot.entities.alerts.ClientType.DISCORD;
 
 class FieldParserTest {
 
     @Test
     void parseALERT_TYPE() {
         assertThrows(NullPointerException.class, () -> FieldParser.Type.ALERT_TYPE.parse(null));
-        assertEquals(range, FieldParser.Type.ALERT_TYPE.parse("range"));
+        assertEquals(range, FieldParser.Type.ALERT_TYPE.parse(range.toString()));
+    }
+
+    @Test
+    void parseALERT_CLIENT_TYPE() {
+        assertThrows(NullPointerException.class, () -> FieldParser.Type.ALERT_CLIENT_TYPE.parse(null));
+        assertEquals(DISCORD, FieldParser.Type.ALERT_CLIENT_TYPE.parse(DISCORD.shortName));
     }
 
     @Test

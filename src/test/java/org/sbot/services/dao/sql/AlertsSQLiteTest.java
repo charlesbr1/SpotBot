@@ -22,6 +22,7 @@ import static java.util.Collections.emptyList;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.sbot.entities.alerts.Alert.Type.*;
+import static org.sbot.entities.alerts.AlertTest.TEST_CLIENT_TYPE;
 import static org.sbot.entities.alerts.AlertTest.createTestAlert;
 import static org.sbot.services.dao.sql.AlertsSQLite.SQL.Fields.*;
 import static org.sbot.services.dao.sql.AlertsSQLite.SQL.TICKER_OR_PAIR_ARGUMENT;
@@ -71,35 +72,35 @@ class AlertsSQLiteTest extends AlertsDaoTest {
         long serverId = 123L;
         long userId = 654L;
 
-        var selection = SelectionFilter.ofServer(serverId, null);
+        var selection = SelectionFilter.ofServer(TEST_CLIENT_TYPE, serverId, null);
         var map = AlertsSQLite.parametersOf(selection);
         assertEquals(serverId, map.get(SERVER_ID));
         assertNull(map.get(USER_ID));
         assertNull(map.get(TICKER_OR_PAIR_ARGUMENT));
         assertNull(map.get(TYPE));
 
-        selection = SelectionFilter.ofUser(userId, null);
+        selection = SelectionFilter.ofUser(TEST_CLIENT_TYPE, userId, null);
         map = AlertsSQLite.parametersOf(selection);
         assertNull(map.get(SERVER_ID));
         assertEquals(userId, map.get(USER_ID));
         assertNull(map.get(TICKER_OR_PAIR_ARGUMENT));
         assertNull(map.get(TYPE));
 
-        selection = SelectionFilter.of(serverId, userId, null);
+        selection = SelectionFilter.of(TEST_CLIENT_TYPE, serverId, userId, null);
         map = AlertsSQLite.parametersOf(selection);
         assertEquals(serverId, map.get(SERVER_ID));
         assertEquals(userId, map.get(USER_ID));
         assertNull(map.get(TICKER_OR_PAIR_ARGUMENT));
         assertNull(map.get(TYPE));
 
-        selection = SelectionFilter.of(serverId, userId, range);
+        selection = SelectionFilter.of(TEST_CLIENT_TYPE, serverId, userId, range);
         map = AlertsSQLite.parametersOf(selection);
         assertEquals(serverId, map.get(SERVER_ID));
         assertEquals(userId, map.get(USER_ID));
         assertNull(map.get(TICKER_OR_PAIR_ARGUMENT));
         assertEquals(range.name(), map.get(TYPE));
 
-        selection = SelectionFilter.of(serverId, userId, remainder).withTickerOrPair("DOT/FTT");
+        selection = SelectionFilter.of(TEST_CLIENT_TYPE, serverId, userId, remainder).withTickerOrPair("DOT/FTT");
         map = AlertsSQLite.parametersOf(selection);
         assertEquals(serverId, map.get(SERVER_ID));
         assertEquals(userId, map.get(USER_ID));
@@ -111,27 +112,27 @@ class AlertsSQLiteTest extends AlertsDaoTest {
     @Test
     void asSearchFilter() {
         assertThrows(NullPointerException.class, () -> AlertsSQLite.asSearchFilter(null));
-        assertEquals("1 = 1", AlertsSQLite.asSearchFilter(new SelectionFilter(null, null, null, null)));
+        assertEquals(CLIENT_TYPE + "=:" + CLIENT_TYPE, AlertsSQLite.asSearchFilter(new SelectionFilter(TEST_CLIENT_TYPE, null, null, null, null)).toString());
 
         long serverId = 123L;
         long userId = 654L;
 
-        var selection = SelectionFilter.ofServer(serverId, null);
+        var selection = SelectionFilter.ofServer(TEST_CLIENT_TYPE, serverId, null);
         assertInstanceOf(CharSequence.class, AlertsSQLite.asSearchFilter(selection));
-        assertNotEquals(SERVER_ID + "=:" + SERVER_ID, AlertsSQLite.asSearchFilter(selection));
-        assertEquals(SERVER_ID + "=:" + SERVER_ID, AlertsSQLite.asSearchFilter(selection).toString());
+        assertNotEquals(CLIENT_TYPE + "=:" + CLIENT_TYPE + " AND " + SERVER_ID + "=:" + SERVER_ID, AlertsSQLite.asSearchFilter(selection));
+        assertEquals(CLIENT_TYPE + "=:" + CLIENT_TYPE + " AND " + SERVER_ID + "=:" + SERVER_ID, AlertsSQLite.asSearchFilter(selection).toString());
 
-        selection = SelectionFilter.ofUser(userId, null);
-        assertEquals(USER_ID + "=:" + USER_ID, AlertsSQLite.asSearchFilter(selection).toString());
+        selection = SelectionFilter.ofUser(TEST_CLIENT_TYPE, userId, null);
+        assertEquals(CLIENT_TYPE + "=:" + CLIENT_TYPE + " AND " + USER_ID + "=:" + USER_ID, AlertsSQLite.asSearchFilter(selection).toString());
 
-        selection = SelectionFilter.of(serverId, userId, null);
-        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID, AlertsSQLite.asSearchFilter(selection).toString());
+        selection = SelectionFilter.of(TEST_CLIENT_TYPE, serverId, userId, null);
+        assertEquals(CLIENT_TYPE + "=:" + CLIENT_TYPE + " AND " + SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID, AlertsSQLite.asSearchFilter(selection).toString());
 
-        selection = SelectionFilter.of(serverId, userId, trend);
-        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID + " AND " + TYPE + "=:" + TYPE, AlertsSQLite.asSearchFilter(selection).toString());
+        selection = SelectionFilter.of(TEST_CLIENT_TYPE, serverId, userId, trend);
+        assertEquals(CLIENT_TYPE + "=:" + CLIENT_TYPE + " AND " + SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID + " AND " + TYPE + "=:" + TYPE, AlertsSQLite.asSearchFilter(selection).toString());
 
-        selection = SelectionFilter.of(serverId, userId, remainder).withTickerOrPair("SOL/EUR");
-        assertEquals(SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID + " AND " + TYPE + "=:" + TYPE + " AND " + PAIR + " LIKE '%'||:" + TICKER_OR_PAIR_ARGUMENT + "||'%'", AlertsSQLite.asSearchFilter(selection).toString());
+        selection = SelectionFilter.of(TEST_CLIENT_TYPE, serverId, userId, remainder).withTickerOrPair("SOL/EUR");
+        assertEquals(CLIENT_TYPE + "=:" + CLIENT_TYPE + " AND " + SERVER_ID + "=:" + SERVER_ID + " AND " + USER_ID + "=:" + USER_ID + " AND " + TYPE + "=:" + TYPE + " AND " + PAIR + " LIKE '%'||:" + TICKER_OR_PAIR_ARGUMENT + "||'%'", AlertsSQLite.asSearchFilter(selection).toString());
     }
 
     @Test

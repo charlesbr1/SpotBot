@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.entities.alerts.Alert;
+import org.sbot.entities.alerts.ClientType;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.BatchEntry;
 import org.sbot.services.dao.UsersDao;
@@ -46,6 +47,7 @@ public final class AlertsMemory implements AlertsDao {
     @NotNull
     static Predicate<Alert> asSearchFilter(@NotNull SelectionFilter filter) {
         return Stream.<Optional<Predicate<Alert>>>of(
+                        Optional.of(filter.clientType()).map(clientType -> alert -> alert.clientType == clientType),
                         Optional.ofNullable(filter.serverId()).map(serverId -> alert -> alert.serverId == serverId),
                         Optional.ofNullable(filter.userId()).map(userId -> alert -> alert.userId == userId),
                         Optional.ofNullable(filter.type()).map(type -> alert -> alert.type == type),
@@ -108,23 +110,28 @@ public final class AlertsMemory implements AlertsDao {
 
     @Override
     @NotNull
-    public List<Long> getUserIdsByServerId(long serverId) {
-        LOGGER.debug("getUserIdsByServerId {}", serverId);
+    public List<Long> getUserIdsByServerId(@NotNull ClientType clientType, long serverId) {
+        LOGGER.debug("getUserIdsByServerId {} {}", clientType, serverId);
+        requireNonNull(clientType);
         return alerts.values().stream()
-                .filter(alert -> alert.serverId == serverId)
+                .filter(alert -> alert.clientType == clientType && alert.serverId == serverId)
                 .map(Alert::getUserId).toList();
     }
 
     @Override
-    public Optional<Alert> getAlert(long alertId) {
-        LOGGER.debug("getAlert {}", alertId);
-        return Optional.ofNullable(alerts.get(alertId));
+    public Optional<Alert> getAlert(@NotNull ClientType clientType, long alertId) {
+        LOGGER.debug("getAlert {} {}", clientType, alertId);
+        requireNonNull(clientType);
+        return Optional.ofNullable(alerts.get(alertId))
+                .filter(a -> clientType == a.clientType);
     }
 
     @Override
-    public Optional<Alert> getAlertWithoutMessage(long alertId) {
-        LOGGER.debug("getAlertWithoutMessage {}", alertId);
+    public Optional<Alert> getAlertWithoutMessage(@NotNull ClientType clientType, long alertId) {
+        LOGGER.debug("getAlertWithoutMessage {} {}", clientType, alertId);
+        requireNonNull(clientType);
         return Optional.ofNullable(alerts.get(alertId))
+                .filter(a -> clientType == a.clientType)
                 .map(alert -> alert.withMessage("")); // erase the message to simulate the SQL layer
     }
 
@@ -189,9 +196,10 @@ public final class AlertsMemory implements AlertsDao {
     }
 
     @Override
-    public void delete(long alertId) {
-        LOGGER.debug("delete {}", alertId);
-        alerts.remove(alertId);
+    public void delete(@NotNull ClientType clientType, long alertId) {
+        LOGGER.debug("delete {} {}", clientType, alertId);
+        requireNonNull(clientType);
+        alerts.computeIfPresent(alertId, (id, alert) -> clientType == alert.clientType ? null : alert);
     }
 
     @Override
