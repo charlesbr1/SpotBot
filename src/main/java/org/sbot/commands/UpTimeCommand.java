@@ -30,7 +30,7 @@ public final class UpTimeCommand extends CommandAdapter {
 
     @Override
     public void onCommand(@NotNull CommandContext context) {
-        LOGGER.debug("uptime command - user {}, server {}", context.user.getIdLong(), context.serverId());
+        LOGGER.debug("uptime command - user {}, server {}", context.userId, context.serverId());
         context.noMoreArgs().reply(uptime(), responseTtlSeconds);
     }
     private Message uptime() {

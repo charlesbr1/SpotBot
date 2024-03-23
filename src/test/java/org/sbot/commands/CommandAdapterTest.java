@@ -163,6 +163,7 @@ public class CommandAdapterTest {
         when(alertsDao.getAlert(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(alert));
         when(commandContext.serverId()).thenReturn(PRIVATE_MESSAGES);
         when(user.getIdLong()).thenReturn(alert.userId);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, "name"));
         message = CommandAdapter.securedAlertAccess(alertId, commandContext, (a, dao) -> Message.of(CommandAdapter.embedBuilder("test")));
         verify(alertsDao, times(2)).getAlert(TEST_CLIENT_TYPE, alertId);
         assertNotNull(message);
@@ -173,6 +174,7 @@ public class CommandAdapterTest {
 
         // private channel, not same user -> not found
         when(user.getIdLong()).thenReturn(alert.userId + 3L);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, "name"));
         message = CommandAdapter.securedAlertAccess(alertId, commandContext, (a, dao) -> Message.of(CommandAdapter.embedBuilder("test")));
         verify(alertsDao, times(3)).getAlert(TEST_CLIENT_TYPE, alertId);
         assertNotNull(message);
@@ -244,8 +246,9 @@ public class CommandAdapterTest {
 
         // private channel, same user -> found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(alert));
-        when(commandContext.serverId()).thenReturn(PRIVATE_MESSAGES);
         when(user.getIdLong()).thenReturn(alert.userId);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, "name"));
+        when(commandContext.serverId()).thenReturn(PRIVATE_MESSAGES);
         message = CommandAdapter.securedAlertUpdate(alertId, commandContext, (a, alerts, notifications) -> Message.of(CommandAdapter.embedBuilder("test")));
         verify(alertsDao, times(2)).getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId);
         verify(notificationsService, never()).sendNotifications();
@@ -255,6 +258,7 @@ public class CommandAdapterTest {
 
         // private channel, not same user -> not found
         when(user.getIdLong()).thenReturn(alert.userId + 3L);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, "name"));
         message = CommandAdapter.securedAlertUpdate(alertId, commandContext, (a, alerts, notifications) -> Message.of(CommandAdapter.embedBuilder("test")));
         verify(alertsDao, times(3)).getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId);
         verify(notificationsService, never()).sendNotifications();
@@ -265,8 +269,9 @@ public class CommandAdapterTest {
         // public channel, same server, same user -> found
         assertNotEquals(PRIVATE_MESSAGES, alert.serverId);
         when(guild.getIdLong()).thenReturn(alert.serverId);
-        when(commandContext.serverId()).thenReturn(alert.serverId);
         when(user.getIdLong()).thenReturn(alert.userId);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, "name"));
+        when(commandContext.serverId()).thenReturn(alert.serverId);
 
         message = CommandAdapter.securedAlertUpdate(alertId, commandContext, (a, alerts, notifications) -> Message.of(CommandAdapter.embedBuilder("test")));
         verify(alertsDao, times(4)).getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId);
@@ -277,6 +282,7 @@ public class CommandAdapterTest {
 
         // public channel, same server, not same user -> denied
         when(user.getIdLong()).thenReturn(alert.userId + 1);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, "name"));
         message = CommandAdapter.securedAlertUpdate(alertId, commandContext, (a, alerts, notifications) -> Message.of(CommandAdapter.embedBuilder("test")));
         verify(alertsDao, times(5)).getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId);
         verify(notificationsService, never()).sendNotifications();
@@ -305,8 +311,9 @@ public class CommandAdapterTest {
         verify(alertsDao, never()).getAlert(any(), anyLong());
 
         // test notifications
-        when(commandContext.serverId()).thenReturn(PRIVATE_MESSAGES);
         when(user.getIdLong()).thenReturn(alert.userId);
+        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, "name"));
+        when(commandContext.serverId()).thenReturn(PRIVATE_MESSAGES);
         message = CommandAdapter.securedAlertUpdate(alertId, commandContext, (a, alerts, notifications) -> {
             var notificationDao = notifications.get();
             notificationDao.addNotification(mock());
@@ -468,6 +475,7 @@ public class CommandAdapterTest {
         assertFalse(CommandAdapter.sendNotification(commandContext, 123L, 0L));
         assertFalse(CommandAdapter.sendNotification(commandContext, 123L, -1L));
         when(user.getIdLong()).thenReturn(123L);
+        commandContext = CommandContext.of(context, null, messageReceivedEvent, "name");
         assertFalse(CommandAdapter.sendNotification(commandContext, 123L, 1L));
         assertFalse(CommandAdapter.sendNotification(commandContext, 123L, 11L));
         assertFalse(CommandAdapter.sendNotification(commandContext, 123L, 0L));

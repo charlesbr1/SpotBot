@@ -108,7 +108,7 @@ public final class UpdateCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         var arguments = arguments(context);
         if(LOGGER.isDebugEnabled()) {
-            LOGGER.debug("update command - user {}, server {}, arguments {}, last args : {}", context.user.getIdLong(), context.serverId(), arguments, context.args.getLastArgs(VALUE_ARGUMENT).orElse(""));
+            LOGGER.debug("update command - user {}, server {}, arguments {}, last args : {}", context.userId, context.serverId(), arguments, context.args.getLastArgs(VALUE_ARGUMENT).orElse(""));
         }
         switch (arguments.selection) {
             case CHOICE_LOCALE -> context.reply(locale(context, arguments.value), responseTtlSeconds);
@@ -131,8 +131,8 @@ public final class UpdateCommand extends CommandAdapter {
     private Message locale(@NotNull CommandContext context, @NotNull String value) {
         var locale = requireSupportedLocale(value);
         return context.transactional(txCtx -> {
-            if(txCtx.usersDao().userExists(context.user.getIdLong())) {
-                txCtx.usersDao().updateLocale(context.user.getIdLong(), locale);
+            if(txCtx.usersDao().userExists(context.userId)) {
+                txCtx.usersDao().updateLocale(context.userId, locale);
                 return Message.of(embedBuilder(NAME, OK_COLOR, "Your locale is set to " + locale.toLanguageTag()));
             }
             return userSetupNeeded("Update locale", "Unable to save your locale :");
@@ -142,8 +142,8 @@ public final class UpdateCommand extends CommandAdapter {
     private Message timezone(@NotNull CommandContext context, @NotNull String value) {
         var timezone = ZoneId.of(value, ZoneId.SHORT_IDS);
         return context.transactional(txCtx -> {
-            if(txCtx.usersDao().userExists(context.user.getIdLong())) {
-                txCtx.usersDao().updateTimezone(context.user.getIdLong(), timezone);
+            if(txCtx.usersDao().userExists(context.userId)) {
+                txCtx.usersDao().updateTimezone(context.userId, timezone);
                 return Message.of(embedBuilder(NAME, OK_COLOR, "Your timezone is set to " + timezone.getId()));
             }
             return userSetupNeeded("Update timezone", "Unable to save your timezone :");
@@ -334,12 +334,12 @@ public final class UpdateCommand extends CommandAdapter {
     private Message updateNotifyMessage(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert, @Nullable String altFieldName, @NotNull String displayName, @NotNull String newValue, @NotNull Supplier<NotificationsDao> notificationsDao) {
         ownerUpdateNotification(context, now, alert, displayName, newValue, notificationsDao);
         var embed = alertEmbed(context, now, alert);
-        var updatedBy = sameUser(context.user, alert.userId) ? UPDATE_SUCCESS_FOOTER_NO_AUTHOR : UPDATE_SUCCESS_FOOTER.replace("{author}", context.user.getAsMention());
+        var updatedBy = sameUser(context, alert.userId) ? UPDATE_SUCCESS_FOOTER_NO_AUTHOR : UPDATE_SUCCESS_FOOTER.replace("{author}", "<@" + context.userId + ">");
         return Message.of(embed.setDescription((null != altFieldName ? altFieldName : "Field **" + requireNonNull(displayName) + updatedBy) + embed.getDescriptionBuilder()), ActionRow.of(updateMenuOf(alert)));
     }
 
     private void ownerUpdateNotification(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Alert alert, @NotNull String field, @NotNull String newValue, @NotNull Supplier<NotificationsDao> notificationsDao) {
-        if(!sameUser(context.user, alert.userId)) {
+        if(!sameUser(context, alert.userId)) {
             var serverName = switch (context.clientType) {
                 case DISCORD -> guildName(requireNonNull(context.member).getGuild());
             };

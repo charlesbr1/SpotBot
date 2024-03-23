@@ -71,7 +71,7 @@ public final class MigrateCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         var arguments = arguments(context);
-        LOGGER.debug("{} command - user {}, server {}, arguments {}", NAME, context.user.getIdLong(), context.serverId(), arguments);
+        LOGGER.debug("{} command - user {}, server {}, arguments {}", NAME, context.userId, context.serverId(), arguments);
         context.reply(migrate(context, arguments), responseTtlSeconds);
     }
 
@@ -102,7 +102,7 @@ public final class MigrateCommand extends CommandAdapter {
                 sameUserOrAdmin(context, arguments.ownerId)) {
             return migrateByTypeOwnerOrTickerPair(context, server, arguments);
         } else {
-            return Message.of(embedBuilder(":clown:" + ' ' + context.user.getEffectiveName(), DENIED_COLOR, "You are not allowed to migrate your mates alerts" +
+            return Message.of(embedBuilder(":clown:" + ' ' + context.userName, DENIED_COLOR, "You are not allowed to migrate your mates alerts" +
                     (isPrivateChannel(context) ? ", you are on a private channel." : "")));
         }
     }
@@ -158,7 +158,7 @@ public final class MigrateCommand extends CommandAdapter {
                 };
                 notificationsDao.get().addNotification(MigratedNotification.of(context.clientType, Dates.nowUtc(context.clock()), context.locale, alert.userId, alert.id, alert.type, alert.pair, serverName, null, Reason.ADMIN, 1L));
             }
-            return Message.of(embedBuilder("Alert migrated to <@" + context.user.getIdLong() + "> private channel"));
+            return Message.of(embedBuilder("Alert migrated to <@" + context.userId + "> private channel"));
         });
     }
 
@@ -170,7 +170,7 @@ public final class MigrateCommand extends CommandAdapter {
             throw new IllegalArgumentException("Those alerts are already into " + (null == toServer ? "the private channel" : "server " + toServer));
         }
 
-        long userId = null != arguments.ownerId ? arguments.ownerId : context.user.getIdLong();
+        long userId = null != arguments.ownerId ? arguments.ownerId : context.userId;
         switch (context.clientType) {
             case DISCORD -> requireGuildMember((Guild) server, userId);
         }
@@ -194,7 +194,7 @@ public final class MigrateCommand extends CommandAdapter {
         if(sendNotification(context, userId, migrated)) {
             context.notificationService().sendNotifications();
         }
-        return Message.of(embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), OK_COLOR, migrated + (migrated > 1 ? " alerts" : " alert") +
+        return Message.of(embedBuilder(":+1:" + ' ' + context.userName, OK_COLOR, migrated + (migrated > 1 ? " alerts" : " alert") +
                 " migrated to " + (null == toServer ? "user private channel" : "server " + toServer)));
     }
 

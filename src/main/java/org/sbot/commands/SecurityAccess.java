@@ -1,7 +1,6 @@
 package org.sbot.commands;
 
 import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.User;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
@@ -14,21 +13,21 @@ interface SecurityAccess {
 
     static boolean notFound(@NotNull CommandContext context, @Nullable Alert alert) {
         return null == alert ||
-                (isPrivateChannel(context) && !sameUser(context.user, alert.userId)) ||
+                (isPrivateChannel(context) && !sameUser(context, alert.userId)) ||
                 (!isPrivateChannel(context) && !sameServer(context.member, alert.serverId));
     }
 
     static boolean isDenied(@NotNull CommandContext context, @NotNull Alert alert) {
-        return !(sameUser(context.user, alert.userId) ||
+        return !(sameUser(context, alert.userId) ||
                 (sameServer(context.member, alert.serverId) && isAdminMember(context.member)));
     }
 
     static boolean sameUserOrAdmin(@NotNull CommandContext context, long userId) {
-        return sameUser(context.user, userId) || isAdminMember(context.member);
+        return sameUser(context, userId) || isAdminMember(context.member);
     }
 
-    static boolean sameUser(@NotNull User user, long userId) {
-        return user.getIdLong() == userId;
+    static boolean sameUser(@NotNull CommandContext context, long userId) {
+        return context.userId == userId;
     }
 
     static boolean sameServer(@Nullable Member member, long serverId) {

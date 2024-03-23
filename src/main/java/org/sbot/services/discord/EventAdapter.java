@@ -167,6 +167,7 @@ final class EventAdapter extends ListenerAdapter {
     }
 
     private void onCommand(@NotNull CommandContext command) {
+        requireNonNull(command);
         Thread.ofVirtual().name("Discord command handler").start(() -> processCommand(command));
     }
 
@@ -180,7 +181,7 @@ final class EventAdapter extends ListenerAdapter {
                 throw new UnsupportedOperationException();
             }
         } catch (Exception e) {
-            String error = command.isStringReader() && !isPrivate(command.serverId()) ? command.user.getAsMention() + ' ' : "";
+            String error = command.isStringReader() && !isPrivate(command.serverId()) ? "<@" + command.userId + "> " : "";
             var footer = "";
             if(e instanceof UnsupportedOperationException) {
                 error += "I don't know this command : " + command.name;

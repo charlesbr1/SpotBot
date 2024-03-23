@@ -1,7 +1,6 @@
 package org.sbot.commands.context;
 
 import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -52,7 +51,8 @@ public abstract class CommandContext implements Context {
     private final @NotNull Context context;
     public final @NotNull ClientType clientType;
     public final @NotNull String name;
-    public final @NotNull User user; // TODO long id
+    public final long userId;
+    public final String userName;
     public final @NotNull Locale locale;
     public final @Nullable ZoneId timezone;
     public final @NotNull ArgumentReader args;
@@ -64,7 +64,8 @@ public abstract class CommandContext implements Context {
         this.clientType = requireNonNull(clientType);
         this.args = new StringArgumentReader(command);
         this.name = args.getMandatoryString("command");
-        this.user = requireNonNull(event.getAuthor());
+        this.userId = event.getAuthor().getIdLong();
+        this.userName = event.getAuthor().getEffectiveName();
         this.locale = requireNonNull(locale);
         this.timezone = timezone;
         this.member = event.getMember();
@@ -75,7 +76,8 @@ public abstract class CommandContext implements Context {
         this.clientType = requireNonNull(clientType);
         this.args = new SlashArgumentReader(event);
         this.name = requireNotBlank(event.getName(), "command");
-        this.user = requireNonNull(event.getUser());
+        this.userId = event.getUser().getIdLong();
+        this.userName = event.getUser().getEffectiveName();
         this.locale = requireNonNull(locale);
         this.timezone = timezone;
         this.member = event.getMember();
@@ -86,7 +88,8 @@ public abstract class CommandContext implements Context {
         this.clientType = requireNonNull(clientType);
         this.args = new StringArgumentReader(alertIdOf(interactionId) + ' ' + requireNonNull(args));
         this.name = componentIdOf(interactionId);
-        this.user = requireNonNull(event.getUser());
+        this.userId = event.getUser().getIdLong();
+        this.userName = event.getUser().getEffectiveName();
         this.locale = requireNonNull(locale);
         this.timezone = timezone;
         this.member = event.getMember();
@@ -97,7 +100,8 @@ public abstract class CommandContext implements Context {
         this.clientType = commandContext.clientType;
         this.args = new StringArgumentReader(arguments);
         this.name = commandContext.name;
-        this.user = commandContext.user;
+        this.userId = commandContext.userId;
+        this.userName = commandContext.userName;
         this.locale = commandContext.locale;
         this.timezone = commandContext.timezone;
         this.member = commandContext.member;

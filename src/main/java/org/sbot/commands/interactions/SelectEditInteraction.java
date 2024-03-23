@@ -94,7 +94,7 @@ public class SelectEditInteraction implements InteractionListener {
     public void onInteraction(@NotNull CommandContext context) {
         // this will open a Modal to get a new value from the user
         var arguments = arguments(context);
-        LOGGER.debug("select {} interaction - user {}, server {}, arguments {}", NAME, context.user.getIdLong(), context.serverId(), arguments);
+        LOGGER.debug("select {} interaction - user {}, server {}, arguments {}", NAME, context.userId, context.serverId(), arguments);
 
         //check alert access, as string commands can not return an ephemeral message, all user can see the alerts and edit menu
         var accessColor = requireOneItem(securedAlertUpdate(arguments.alertId(), context, (alert, alertsDao, notificationsDao) -> Message.of(embedBuilder(""))).embeds()).build().getColor();

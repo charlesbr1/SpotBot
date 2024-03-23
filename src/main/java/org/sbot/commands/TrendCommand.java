@@ -68,7 +68,7 @@ public final class TrendCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         var arguments = arguments(context);
-        LOGGER.debug("{} command - user {}, server {}, arguments {}", NAME, context.user.getIdLong(), context.serverId(), arguments);
+        LOGGER.debug("{} command - user {}, server {}, arguments {}", NAME, context.userId, context.serverId(), arguments);
         if(null != arguments.alertId) {
             context.noMoreArgs().reply(trendPrice(context, arguments.fromDate, arguments.alertId), responseTtlSeconds);
             return;
@@ -107,7 +107,7 @@ public final class TrendCommand extends CommandAdapter {
             toPrice = arguments.fromPrice;
         }
         var now = Dates.nowUtc(context.clock());
-        TrendAlert trendAlert = new TrendAlert(NEW_ALERT_ID, context.clientType, context.user.getIdLong(),
+        TrendAlert trendAlert = new TrendAlert(NEW_ALERT_ID, context.clientType, context.userId,
                 context.serverId(), now, // creation date
                 now, // listening date
                 arguments.exchange, arguments.pair, arguments.message, fromPrice, toPrice, fromDate, toDate,

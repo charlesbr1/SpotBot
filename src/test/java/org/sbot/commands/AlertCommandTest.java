@@ -1,6 +1,5 @@
 package org.sbot.commands;
 
-import net.dv8tion.jda.api.entities.User;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.sbot.commands.context.CommandContext;
@@ -16,6 +15,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.sbot.commands.AlertCommand.TYPE_ARGUMENT;
 import static org.sbot.entities.alerts.Alert.Type.*;
+import static org.sbot.entities.alerts.AlertTest.TEST_USER_ID;
 
 class AlertCommandTest {
 
@@ -32,9 +32,9 @@ class AlertCommandTest {
             var field = CommandContext.class.getField("args");
             field.setAccessible(true);
             field.set(context, argumentReader);
-            field = CommandContext.class.getField("user");
+            field = CommandContext.class.getField("userId");
             field.setAccessible(true);
-            field.set(context, mock(User.class));
+            field.set(context, TEST_USER_ID);
             when(argumentReader.getMandatoryType(TYPE_ARGUMENT)).thenReturn(range);
             alertCommand.onCommand(context);
             Assertions.fail();

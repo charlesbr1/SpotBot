@@ -122,13 +122,13 @@ public abstract class CommandAdapter implements CommandListener {
     }
 
     protected static Message securedAlertAccess(long alertId, @NotNull CommandContext context, @NotNull BiFunction<Alert, AlertsDao, Message> readHandler) {
-        LOGGER.debug("securedAlertAccess, alertId : {}, user : {}, server : {}", alertId, context.user.getIdLong(), context.serverId());
+        LOGGER.debug("securedAlertAccess, alertId : {}, user : {}, server : {}", alertId, context.userId, context.serverId());
         requireNonNull(readHandler);
         return context.transactional(txCtx -> {
             var alertsDao = txCtx.alertsDao();
             Alert alert = alertsDao.getAlert(context.clientType, alertId).orElse(null);
             if(SecurityAccess.notFound(context, alert)) {
-                return Message.of(embedBuilder(":ghost: " + context.user.getEffectiveName(), NOT_FOUND_COLOR, "Alert " + alertId + " not found"));
+                return Message.of(embedBuilder(":ghost: " + context.userName, NOT_FOUND_COLOR, "Alert " + alertId + " not found"));
             }
             var message = readHandler.apply(alert, alertsDao);
             var embed = requireOneItem(message.embeds()).build();
@@ -144,22 +144,22 @@ public abstract class CommandAdapter implements CommandListener {
     }
 
     public static Message securedAlertUpdate(long alertId, @NotNull CommandContext context, @NotNull UpdateHandler updateHandler) {
-        LOGGER.debug("securedAlertUpdate, alertId : {}, user : {}, server : {}", alertId, context.user.getIdLong(), context.serverId());
+        LOGGER.debug("securedAlertUpdate, alertId : {}, user : {}, server : {}", alertId, context.userId, context.serverId());
         requireNonNull(updateHandler);
         NotificationsDao[] sendNotifications = new NotificationsDao[1];
         var message = context.transactional(txCtx -> {
             var alertsDao = txCtx.alertsDao();
             Alert alert = alertsDao.getAlertWithoutMessage(context.clientType, alertId).orElse(null);
             if(SecurityAccess.notFound(context, alert)) {
-                return Message.of(embedBuilder(":ghost: " + context.user.getEffectiveName(), NOT_FOUND_COLOR, "Alert " + alertId + " not found"));
+                return Message.of(embedBuilder(":ghost: " + context.userName, NOT_FOUND_COLOR, "Alert " + alertId + " not found"));
             } else if(SecurityAccess.isDenied(context, alert)) {
-                return Message.of(embedBuilder(":clown: " + context.user.getEffectiveName(), DENIED_COLOR, "You are not allowed to modify alert " + alertId));
+                return Message.of(embedBuilder(":clown: " + context.userName, DENIED_COLOR, "You are not allowed to modify alert " + alertId));
             }
             var notificationsDao = txCtx.notificationsDao();
             Supplier<NotificationsDao> notificationsDaoSupplier = () -> sendNotifications[0] = notificationsDao;
             var update = updateHandler.update(alert, alertsDao, notificationsDaoSupplier);
             var embedBuilder = requireOneItem(update.embeds());
-            embedBuilder.setTitle(":+1: " + context.user.getEffectiveName())
+            embedBuilder.setTitle(":+1: " + context.userName)
                     .setColor(Optional.ofNullable(embedBuilder.build().getColor()).orElse(OK_COLOR));
             return update;
         });
@@ -169,17 +169,17 @@ public abstract class CommandAdapter implements CommandListener {
     }
 
     protected static boolean sendNotification(@NotNull CommandContext context, long userId, long count) {
-        return count > 0 && !sameUser(context.user, userId);
+        return count > 0 && !sameUser(context, userId);
     }
 
     protected static Optional<Alert> saveAlert(@NotNull CommandContext context, @NotNull Alert alert) {
         return context.transactional(txCtx -> {
             if (txCtx.usersDao().userExists(alert.userId)) { // enforce foreign key constraint on user_id
                 var newAlert = alert.withId(() -> txCtx.alertsDao().addAlert(alert));
-                LOGGER.debug("saveAlert, alertId : {}, user : {}, server : {}", newAlert.id, context.user.getIdLong(), context.serverId());
+                LOGGER.debug("saveAlert, alertId : {}, user : {}, server : {}", newAlert.id, context.userId, context.serverId());
                 return Optional.of(newAlert);
             }
-            LOGGER.debug("saveAlert skipped, missing user setup, user : {}, server : {}", context.user.getIdLong(), context.serverId());
+            LOGGER.debug("saveAlert skipped, missing user setup, user : {}, server : {}", context.userId, context.serverId());
             return empty();
         });
     }

@@ -26,7 +26,7 @@ import org.sbot.services.dao.AlertsDao.SelectionFilter;
 import org.sbot.services.dao.NotificationsDao;
 import org.sbot.services.dao.UsersDao;
 
-import java.awt.*;
+import java.awt.Color;
 import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
@@ -243,7 +243,7 @@ class EventAdapterTest {
     }
 
     @Test
-    void processCommand() throws NoSuchFieldException, IllegalAccessException {
+    void processCommand() {
         CommandContext context = mock();
         Discord discord = mock();
         when(context.discord()).thenReturn(discord);
@@ -251,14 +251,13 @@ class EventAdapterTest {
         when(discord.getCommandListener(any())).thenReturn(listener);
 
         EventAdapter adapter = new EventAdapter(context);
+        assertThrows(NullPointerException.class, () -> adapter.processCommand(null));
+
         adapter.processCommand(context);
         verify(listener).onCommand(context);
         verify(context, never()).reply(any(org.sbot.entities.Message.class), anyInt());
 
         when(discord.getCommandListener(any())).thenReturn(null);
-        var field = CommandContext.class.getDeclaredField("user");
-        field.setAccessible(true);
-        field.set(context, mock(User.class));
         adapter.processCommand(context);
         verify(context).reply(any(org.sbot.entities.Message.class), anyInt());
     }

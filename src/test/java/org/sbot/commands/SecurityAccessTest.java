@@ -2,7 +2,6 @@ package org.sbot.commands;
 
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.User;
 import org.junit.jupiter.api.Test;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.alerts.Alert;
@@ -16,19 +15,19 @@ import static org.sbot.entities.alerts.AlertTest.createTestAlertWithUserId;
 
 class SecurityAccessTest {
 
-    private static CommandContext contextOf(User user, Member member) {
+    private static CommandContext contextOf(long userId, Member member) {
         CommandContext context = mock(CommandContext.class);
         try {
-            var field = CommandContext.class.getDeclaredField("user");
+            var field = CommandContext.class.getDeclaredField("userId");
             field.setAccessible(true);
-            field.set(context, user);
+            field.set(context, userId);
             field = CommandContext.class.getDeclaredField("member");
             field.setAccessible(true);
             field.set(context, member);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        assertEquals(user, context.user);
+        assertEquals(userId, context.userId);
         assertEquals(member, context.member);
         return context;
     }
@@ -42,9 +41,7 @@ class SecurityAccessTest {
         assertTrue(SecurityAccess.notFound(mock(), null));
 
         // same user, private channel -> KO
-        User user = mock();
-        when(user.getIdLong()).thenReturn(userId);
-        var context = contextOf(user, null);
+        var context = contextOf(userId, null);
         when(context.serverId()).thenReturn(PRIVATE_MESSAGES);
         Alert alert = createTestAlertWithUserId(userId);
         assertFalse(SecurityAccess.notFound(context, alert));
@@ -59,7 +56,7 @@ class SecurityAccessTest {
         Guild guild = mock();
         when(guild.getIdLong()).thenReturn(serverId);
         when(member.getGuild()).thenReturn(guild);
-        context = contextOf(user, member);
+        context = contextOf(userId, member);
         when(context.serverId()).thenReturn(serverId);
         assertFalse(SecurityAccess.notFound(context, alert.withServerId(serverId)));
 
@@ -82,9 +79,7 @@ class SecurityAccessTest {
         assertThrows(NullPointerException.class, () -> SecurityAccess.isDenied(mock(), null));
 
         // same user, private channel -> KO
-        User user = mock();
-        when(user.getIdLong()).thenReturn(userId);
-        var context = contextOf(user, null);
+        var context = contextOf(userId, null);
         Alert alert = createTestAlertWithUserId(userId);
         assertFalse(SecurityAccess.isDenied(context, alert));
 
@@ -94,7 +89,7 @@ class SecurityAccessTest {
 
         // same user, same server channel  -> KO
         Member member = mock();
-        context = contextOf(user, member);
+        context = contextOf(userId, member);
         assertFalse(SecurityAccess.isDenied(context, alert));
 
         // not same user, server channel, not admin -> OK
@@ -122,9 +117,7 @@ class SecurityAccessTest {
         assertThrows(NullPointerException.class, () -> SecurityAccess.sameUserOrAdmin(null, userId));
 
         // same user, private channel -> OK
-        User user = mock();
-        when(user.getIdLong()).thenReturn(userId);
-        var context = contextOf(user, null);
+        var context = contextOf(userId, null);
         assertTrue(SecurityAccess.sameUserOrAdmin(context, userId));
 
         // not same user, private channel -> KO
@@ -132,7 +125,7 @@ class SecurityAccessTest {
 
         // same user, server channel -> OK
         Member member = mock();
-        context = contextOf(user, member);
+        context = contextOf(userId, member);
         assertTrue(SecurityAccess.sameUserOrAdmin(context, userId));
 
         // not same user, server channel, not admin -> KO
@@ -147,11 +140,11 @@ class SecurityAccessTest {
     void sameUser() {
         long userId = 123L;
         assertThrows(NullPointerException.class, () -> SecurityAccess.sameUser(null, userId));
-        User user = mock();
-        assertFalse(SecurityAccess.sameUser(user, userId));
-        when(user.getIdLong()).thenReturn(userId);
-        assertTrue(SecurityAccess.sameUser(user, userId));
-        assertFalse(SecurityAccess.sameUser(user, 543L));
+        CommandContext context = contextOf(33L, null);
+        assertFalse(SecurityAccess.sameUser(context, userId));
+        context = contextOf(userId, null);
+        assertTrue(SecurityAccess.sameUser(context, userId));
+        assertFalse(SecurityAccess.sameUser(context, 543L));
     }
 
     @Test

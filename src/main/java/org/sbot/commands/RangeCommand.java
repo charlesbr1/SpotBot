@@ -57,7 +57,7 @@ public final class RangeCommand extends CommandAdapter {
     public void onCommand(@NotNull CommandContext context) {
         ZonedDateTime now = Dates.nowUtc(context.clock());
         var arguments = arguments(context, now);
-        LOGGER.debug("{} command - user {}, server {}, arguments {}", NAME, context.user.getIdLong(), context.serverId(), arguments);
+        LOGGER.debug("{} command - user {}, server {}, arguments {}", NAME, context.userId, context.serverId(), arguments);
         context.reply(range(context, now, arguments), responseTtlSeconds);
     }
 
@@ -111,7 +111,7 @@ public final class RangeCommand extends CommandAdapter {
             fromDate = toDate;
             toDate = arguments.fromDate;
         }
-        RangeAlert rangeAlert = new RangeAlert(NEW_ALERT_ID, context.clientType, context.user.getIdLong(),
+        RangeAlert rangeAlert = new RangeAlert(NEW_ALERT_ID, context.clientType, context.userId,
                 context.serverId(), now, // creation date
                 null != fromDate && fromDate.isAfter(now) ? fromDate : now, // listening date
                 arguments.exchange, arguments.pair, arguments.message, low, high, fromDate, toDate,

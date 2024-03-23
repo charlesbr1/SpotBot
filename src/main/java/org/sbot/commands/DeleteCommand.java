@@ -50,7 +50,7 @@ public final class DeleteCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         var arguments = arguments(context);
-        LOGGER.debug("{} command - user {}, server {}, arguments {}", NAME, context.user.getIdLong(), context.serverId(), arguments);
+        LOGGER.debug("{} command - user {}, server {}, arguments {}", NAME, context.userId, context.serverId(), arguments);
         context.reply(delete(context, arguments), responseTtlSeconds);
     }
 
@@ -77,7 +77,7 @@ public final class DeleteCommand extends CommandAdapter {
                 sameUserOrAdmin(context, arguments.ownerId)) { // ownerId != null -> only an admin can delete other users alerts on his server
             return deleteByTypeOwnerOrTickerPair(context, arguments);
         } else {
-            return Message.of(embedBuilder(":clown:" + ' ' + context.user.getEffectiveName(), DENIED_COLOR, "You are not allowed to delete your mates alerts" +
+            return Message.of(embedBuilder(":clown:" + ' ' + context.userName, DENIED_COLOR, "You are not allowed to delete your mates alerts" +
                     (isPrivateChannel(context) ? ", you are on a private channel." : "")));
         }
     }
@@ -97,7 +97,7 @@ public final class DeleteCommand extends CommandAdapter {
 
     private Message deleteByTypeOwnerOrTickerPair(@NotNull CommandContext context, @NotNull Arguments arguments) {
         String tickerOrPair = DELETE_ALL.equalsIgnoreCase(arguments.tickerOrPair) ? null : arguments.tickerOrPair.toUpperCase();
-        long userId = null != arguments.ownerId ? arguments.ownerId : context.user.getIdLong();
+        long userId = null != arguments.ownerId ? arguments.ownerId : context.userId;
         var filter = (isPrivateChannel(context) ? SelectionFilter.ofUser(context.clientType, userId, arguments.type) : SelectionFilter.of(context.clientType, context.serverId(), userId, arguments.type))
                 .withTickerOrPair(tickerOrPair);
         long deleted = context.transactional(txCtx -> {
@@ -113,6 +113,6 @@ public final class DeleteCommand extends CommandAdapter {
         if(sendNotification(context, userId, deleted)) {
             context.notificationService().sendNotifications();
         }
-        return Message.of(embedBuilder(":+1:" + ' ' + context.user.getEffectiveName(), OK_COLOR, deleted + (deleted > 1 ? " alerts" : " alert") + " deleted"));
+        return Message.of(embedBuilder(":+1:" + ' ' + context.userName, OK_COLOR, deleted + (deleted > 1 ? " alerts" : " alert") + " deleted"));
     }
 }

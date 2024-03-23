@@ -83,7 +83,7 @@ public final class ListCommand extends CommandAdapter {
     @Override
     public void onCommand(@NotNull CommandContext context) {
         var arguments = arguments(context);
-        LOGGER.debug("{} command - user {}, server {}, arguments {}", NAME, context.user.getIdLong(), context.serverId(), arguments);
+        LOGGER.debug("{} command - user {}, server {}, arguments {}", NAME, context.userId, context.serverId(), arguments);
         ZonedDateTime now = Dates.nowUtc(context.clock());
 
         if(null != arguments.alertIds) {
@@ -160,17 +160,17 @@ public final class ListCommand extends CommandAdapter {
 
     private List<Message> listByTickerOrPair(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Arguments arguments) {
         var filter = isPrivateChannel(context) ?
-                SelectionFilter.ofUser(context.clientType, context.user.getIdLong(), arguments.type).withTickerOrPair(arguments.tickerOrPair) :
+                SelectionFilter.ofUser(context.clientType, context.userId, arguments.type).withTickerOrPair(arguments.tickerOrPair) :
                 SelectionFilter.ofServer(context.clientType, context.serverId(), arguments.type).withTickerOrPair(arguments.tickerOrPair);
         return listAlerts(context, now, filter, arguments);
     }
 
     private List<Message> listByOwnerAndPair(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Arguments arguments) {
-        if(isPrivateChannel(context) && !sameUser(context.user, arguments.ownerId)) {
+        if(isPrivateChannel(context) && !sameUser(context, arguments.ownerId)) {
             return List.of(Message.of(embedBuilder(NAME, DENIED_COLOR, "You are not allowed to see alerts of members in a private channel")));
         }
         var filter = isPrivateChannel(context) ?
-                SelectionFilter.ofUser(context.clientType, context.user.getIdLong(), arguments.type).withTickerOrPair(arguments.tickerOrPair) :
+                SelectionFilter.ofUser(context.clientType, context.userId, arguments.type).withTickerOrPair(arguments.tickerOrPair) :
                 SelectionFilter.of(context.clientType, context.serverId(), arguments.ownerId, arguments.type).withTickerOrPair(arguments.tickerOrPair);
         return listAlerts(context, now, filter, arguments);
     }
@@ -191,12 +191,11 @@ public final class ListCommand extends CommandAdapter {
     private static ArrayList<Message> alertMessages(@NotNull CommandContext context, @NotNull ZonedDateTime now, @NotNull Arguments arguments, @NotNull List<Alert> alerts, long total) {
         boolean adminEditable = null != arguments.ownerId && isAdminMember(context.member);
         boolean editable = null != arguments.tickerOrPair || null != arguments.type;
-        long userId = context.user.getIdLong();
         var messages = new ArrayList<Message>();
         int i = 0;
         while (i < alerts.size()) {
             int nextEditableIndex = i;
-            while (!adminEditable && nextEditableIndex < alerts.size() && (!editable || alerts.get(nextEditableIndex).userId != userId)) {
+            while (!adminEditable && nextEditableIndex < alerts.size() && (!editable || alerts.get(nextEditableIndex).userId != context.userId)) {
                 nextEditableIndex++;
             }
             if(i == nextEditableIndex) {

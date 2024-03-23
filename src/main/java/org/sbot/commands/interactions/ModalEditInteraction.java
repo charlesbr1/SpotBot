@@ -92,7 +92,7 @@ public final class ModalEditInteraction implements InteractionListener {
     @Override
     public void onInteraction(@NotNull CommandContext context) {
         var arguments = arguments(context);
-        LOGGER.debug("{} interaction - user {}, server {}, arguments {}", NAME, context.user.getIdLong(), context.serverId(), arguments);
+        LOGGER.debug("{} interaction - user {}, server {}, arguments {}", NAME, context.userId, context.serverId(), arguments);
         try {
             CommandListener command;
             CommandContext commandContext;
