@@ -6,10 +6,12 @@ import org.sbot.exchanges.Exchanges;
 import org.sbot.services.context.Context.Parameters;
 import org.sbot.services.dao.memory.AlertsMemory;
 import org.sbot.services.dao.memory.LastCandlesticksMemory;
-import org.sbot.services.dao.memory.UsersMemory;
+import org.sbot.services.dao.memory.ServerSettingsMemory;
+import org.sbot.services.dao.memory.UserSettingsMemory;
 import org.sbot.services.dao.sql.AlertsSQLite;
 import org.sbot.services.dao.sql.LastCandlesticksSQLite;
-import org.sbot.services.dao.sql.UsersSQLite;
+import org.sbot.services.dao.sql.ServerSettingsSQLite;
+import org.sbot.services.dao.sql.UserSettingsSQLite;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository;
 import org.sbot.services.dao.sql.jdbi.JDBITransactionHandler;
 import org.sbot.services.discord.Discord;
@@ -41,8 +43,10 @@ class ContextTest {
         Parameters parameters = Parameters.of(null, "discordTokenFile", 1, 1);
         var context = Context.of(Clock.systemUTC(), parameters, null, ctx -> mock(Discord.class));
         assertNotNull(context.dataServices());
-        assertNotNull(context.dataServices().usersDao());
-        assertInstanceOf(UsersMemory.class, context.dataServices().usersDao().apply(null));
+        assertNotNull(context.dataServices().userSettingsDao());
+        assertNotNull(context.dataServices().serverSettingsDao());
+        assertInstanceOf(UserSettingsMemory.class, context.dataServices().userSettingsDao().apply(null));
+        assertInstanceOf(ServerSettingsMemory.class, context.dataServices().serverSettingsDao().apply(null));
         assertNotNull(context.dataServices().alertsDao());
         assertInstanceOf(AlertsMemory.class, context.dataServices().alertsDao().apply(null));
         assertNotNull(context.dataServices().lastCandlesticksDao());
@@ -54,9 +58,12 @@ class ContextTest {
             sqlContext = Context.of(Clock.systemUTC(), parameters, new JDBIRepository(SQLITE_MEMORY_PERSISTENT), ctx -> mock(Discord.class));
         }
         assertNotNull(sqlContext.dataServices());
-        assertNotNull(sqlContext.dataServices().usersDao());
-        assertThrows(NullPointerException.class, () -> sqlContext.dataServices().usersDao().apply(null));
-        assertInstanceOf(UsersSQLite.class, sqlContext.dataServices().usersDao().apply(mock(JDBITransactionHandler.class)));
+        assertNotNull(sqlContext.dataServices().userSettingsDao());
+        assertNotNull(sqlContext.dataServices().serverSettingsDao());
+        assertThrows(NullPointerException.class, () -> sqlContext.dataServices().userSettingsDao().apply(null));
+        assertThrows(NullPointerException.class, () -> sqlContext.dataServices().serverSettingsDao().apply(null));
+        assertInstanceOf(UserSettingsSQLite.class, sqlContext.dataServices().userSettingsDao().apply(mock(JDBITransactionHandler.class)));
+        assertInstanceOf(ServerSettingsSQLite.class, sqlContext.dataServices().serverSettingsDao().apply(mock(JDBITransactionHandler.class)));
         assertNotNull(sqlContext.dataServices().alertsDao());
         assertThrows(NullPointerException.class, () -> sqlContext.dataServices().alertsDao().apply(null));
         assertInstanceOf(AlertsSQLite.class, sqlContext.dataServices().alertsDao().apply(mock(JDBITransactionHandler.class)));
@@ -110,6 +117,13 @@ class ContextTest {
         var context = Context.of(Clock.systemUTC(), parameters, null, ctx -> mock(Discord.class));
         assertEquals(parameters, context.parameters());
         assertThrows(NullPointerException.class, () -> Context.of(Clock.systemUTC(), null, null, ctx -> mock(Discord.class)));
+    }
+
+    @Test
+    void settingsService() {
+        Parameters parameters = Parameters.of(null, "discordTokenFile", 1, 1);
+        var context = Context.of(Clock.systemUTC(), parameters, null, ctx -> mock(Discord.class));
+        assertNotNull(context.settingsService());
     }
 
     @Test

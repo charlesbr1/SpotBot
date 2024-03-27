@@ -5,21 +5,13 @@ import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.exchanges.Exchanges;
-import org.sbot.services.AlertsWatcher;
-import org.sbot.services.LastCandlesticksService;
-import org.sbot.services.MatchingService;
-import org.sbot.services.NotificationsService;
-import org.sbot.services.dao.AlertsDao;
-import org.sbot.services.dao.LastCandlesticksDao;
-import org.sbot.services.dao.NotificationsDao;
-import org.sbot.services.dao.UsersDao;
+import org.sbot.services.*;
+import org.sbot.services.dao.*;
 import org.sbot.services.dao.memory.AlertsMemory;
 import org.sbot.services.dao.memory.LastCandlesticksMemory;
 import org.sbot.services.dao.memory.NotificationsMemory;
-import org.sbot.services.dao.sql.AlertsSQLite;
-import org.sbot.services.dao.sql.LastCandlesticksSQLite;
-import org.sbot.services.dao.sql.NotificationsSQLite;
-import org.sbot.services.dao.sql.UsersSQLite;
+import org.sbot.services.dao.memory.ServerSettingsMemory;
+import org.sbot.services.dao.sql.*;
 import org.sbot.services.dao.sql.jdbi.JDBIRepository;
 import org.sbot.services.dao.sql.jdbi.JDBITransactionHandler;
 import org.sbot.services.discord.Discord;
@@ -38,7 +30,8 @@ import static org.sbot.utils.ArgumentValidator.requireStrictlyPositive;
 public interface Context {
 
     // register new data service here
-    record DataServices(@NotNull Function<JDBITransactionHandler, UsersDao> usersDao,
+    record DataServices(@NotNull Function<JDBITransactionHandler, UserSettingsDao> userSettingsDao,
+                        @NotNull Function<JDBITransactionHandler, ServerSettingsDao> serverSettingsDao,
                         @NotNull Function<JDBITransactionHandler, AlertsDao> alertsDao,
                         @NotNull Function<JDBITransactionHandler, NotificationsDao> notificationsDao,
                         @NotNull Function<JDBITransactionHandler, LastCandlesticksDao> lastCandlesticksDao) {
@@ -46,13 +39,16 @@ public interface Context {
         static DataServices load(@Nullable JDBIRepository repository) {
             if(null == repository) {
                 LogManager.getLogger(DataServices.class).info("Loading data services in memory");
-                var alertsDao = new AlertsMemory();
+                var alertsDao = new AlertsMemory(); // this load UserSettingsMemory
+                var serverSettingsDao = new ServerSettingsMemory(alertsDao);
                 var notificationsDao = new NotificationsMemory();
                 var lastCandlesticksDao = new LastCandlesticksMemory();
-                return new DataServices(v -> alertsDao.usersDao, v -> alertsDao, v -> notificationsDao, v -> lastCandlesticksDao);
+                return new DataServices(v -> alertsDao.userSettingsDao, v -> serverSettingsDao, v -> alertsDao, v -> notificationsDao, v -> lastCandlesticksDao);
             }
             LogManager.getLogger(DataServices.class).info("Loading data services SQLite");
-            return new DataServices(new UsersSQLite(repository)::withHandler,
+            return new DataServices(
+                    new UserSettingsSQLite(repository)::withHandler,
+                    new ServerSettingsSQLite(repository)::withHandler,
                     new AlertsSQLite(repository)::withHandler,
                     new NotificationsSQLite(repository)::withHandler,
                     new LastCandlesticksSQLite(repository)::withHandler);
@@ -60,7 +56,8 @@ public interface Context {
     }
 
     // register new service here
-    record Services(@NotNull Discord discord,
+    record Services(@NotNull SettingsService settingsService,
+                    @NotNull Discord discord,
                     @NotNull MatchingService matchingService,
                     @NotNull NotificationsService notificationService,
                     @NotNull AlertsWatcher alertsWatcher,
@@ -68,7 +65,9 @@ public interface Context {
         @NotNull
         static Services load(@NotNull Context context, @NotNull Function<Context, Discord> discordLoader) {
             LogManager.getLogger(Services.class).info("Loading services Discord, MatchingService, AlertsWatcher, LastCandlesticksService");
-            return new Services(requireNonNull(discordLoader.apply(context)),
+            return new Services(
+                    new SettingsService(context),
+                    requireNonNull(discordLoader.apply(context)),
                     new MatchingService(context),
                     new NotificationsService(context),
                     new AlertsWatcher(context),
@@ -110,6 +109,11 @@ public interface Context {
     Exchanges exchanges();
     @NotNull
     Parameters parameters();
+
+    @NotNull
+    default SettingsService settingsService() {
+        return services().settingsService();
+    }
 
     @NotNull
     default Discord discord() {
