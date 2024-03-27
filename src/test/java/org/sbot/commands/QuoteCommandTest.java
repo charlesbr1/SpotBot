@@ -6,6 +6,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
+import org.sbot.entities.ServerSettings;
+import org.sbot.entities.Settings;
+import org.sbot.entities.UserSettings;
 import org.sbot.entities.chart.TimeFrame;
 import org.sbot.exchanges.Exchange;
 import org.sbot.exchanges.Exchanges;
@@ -40,6 +43,7 @@ class QuoteCommandTest {
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(ChronoUnit.MINUTES);
         Context context = mock(Context.class);
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
+        var settings = new Settings(UserSettings.NO_USER, ServerSettings.PRIVATE_SERVER);
 
         var command = new QuoteCommand();
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
@@ -48,12 +52,12 @@ class QuoteCommandTest {
         when(context.exchanges()).thenReturn(exchanges);
         when(exchanges.get(BinanceClient.NAME)).thenReturn(Optional.empty());
 
-        var finalCommandContext = spy(CommandContext.of(context, null, messageReceivedEvent, QuoteCommand.NAME + "  " + BinanceClient.NAME + " btc/usd"));
+        var finalCommandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, QuoteCommand.NAME + "  " + BinanceClient.NAME + " btc/usd"));
         assertExceptionContains(IllegalArgumentException.class, BinanceClient.NAME, () -> command.onCommand(finalCommandContext));
 
         Exchange binance = mock();
         when(exchanges.get(BinanceClient.NAME)).thenReturn(Optional.of(binance));
-        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, QuoteCommand.NAME + "  " + BinanceClient.NAME + " btc/usd"));
+        var commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, QuoteCommand.NAME + "  " + BinanceClient.NAME + " btc/usd"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -73,32 +77,33 @@ class QuoteCommandTest {
         when(messageReceivedEvent.getMessage()).thenReturn(mock());
         when(messageReceivedEvent.getAuthor()).thenReturn(mock());
         Context context = mock(Context.class);
+        var settings = new Settings(UserSettings.NO_USER, ServerSettings.PRIVATE_SERVER);
 
         CommandContext[] commandContext = new CommandContext[1];
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, QuoteCommand.NAME);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, QuoteCommand.NAME);
         assertExceptionContains(IllegalArgumentException.class, EXCHANGE_ARGUMENT,
                 () -> QuoteCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, QuoteCommand.NAME + "  a message fe fe fe");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, QuoteCommand.NAME + "  a message fe fe fe");
         assertExceptionContains(IllegalArgumentException.class, EXCHANGE_ARGUMENT,
                 () -> QuoteCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, QuoteCommand.NAME + "  " + BinanceClient.NAME);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, QuoteCommand.NAME + "  " + BinanceClient.NAME);
         assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
                 () -> QuoteCommand.arguments(commandContext[0]));
 
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, QuoteCommand.NAME + "  " + BinanceClient.NAME + " feefefefefefefe");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, QuoteCommand.NAME + "  " + BinanceClient.NAME + " feefefefefefefe");
         assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
                 () -> QuoteCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, QuoteCommand.NAME + "  " + BinanceClient.NAME + " eth/ada too");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, QuoteCommand.NAME + "  " + BinanceClient.NAME + " eth/ada too");
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS,
                 () -> QuoteCommand.arguments(commandContext[0]));
 
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, QuoteCommand.NAME + "  " + BinanceClient.NAME + " eth/usd   " );
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, QuoteCommand.NAME + "  " + BinanceClient.NAME + " eth/usd   " );
         var arguments = QuoteCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
         assertEquals("ETH/USD", arguments.pair());

@@ -6,6 +6,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
+import org.sbot.entities.ServerSettings;
+import org.sbot.entities.Settings;
+import org.sbot.entities.UserSettings;
 import org.sbot.services.context.Context;
 
 import java.util.List;
@@ -28,12 +31,13 @@ class UpTimeCommandTest {
         when(event.getMessage()).thenReturn(mock(net.dv8tion.jda.api.entities.Message.class));
         when(event.getAuthor()).thenReturn(mock(User.class));
         Context context = mock(Context.class);
+        var settings = new Settings(UserSettings.NO_USER, ServerSettings.PRIVATE_SERVER);
 
-        var fc1 = CommandContext.of(context, null, event, "uptime a");
+        var fc1 = CommandContext.of(context, settings, event, "uptime a");
         assertThrows(IllegalArgumentException.class, () -> upTimeCommand.onCommand(fc1));
         verify(context, never()).clock();
 
-        CommandContext commandContext = spy(CommandContext.of(context, null, event, "uptime"));
+        CommandContext commandContext = spy(CommandContext.of(context, settings, event, "uptime"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         ArgumentCaptor<List<Message>> argumentCaptor = ArgumentCaptor.forClass(List.class);
 
