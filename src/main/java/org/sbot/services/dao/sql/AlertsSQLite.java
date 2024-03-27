@@ -99,9 +99,14 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
                 """;
 
         String CREATE_USER_ID_INDEX = "CREATE INDEX IF NOT EXISTS alerts_user_id_index ON alerts (user_id)";
+        String CREATE_CLIENT_TYPE_INDEX = "CREATE INDEX IF NOT EXISTS alerts_client_type_index ON alerts (client_type)";
         String CREATE_SERVER_ID_INDEX = "CREATE INDEX IF NOT EXISTS alerts_server_id_index ON alerts (server_id)";
         String CREATE_EXCHANGE_INDEX = "CREATE INDEX IF NOT EXISTS alerts_exchange_index ON alerts (exchange)";
         String CREATE_PAIR_INDEX = "CREATE INDEX IF NOT EXISTS alerts_pair_index ON alerts (pair)";
+        String CREATE_TYPE_INDEX = "CREATE INDEX IF NOT EXISTS alerts_type_index ON alerts (type)";
+        String CREATE_REPEAT_INDEX = "CREATE INDEX IF NOT EXISTS alerts_repeat_index ON alerts (repeat)";
+        String CREATE_LISTENING_DATE_INDEX = "CREATE INDEX IF NOT EXISTS alerts_listening_date_index ON alerts (listening_date)";
+        String CREATE_TO_DATE_INDEX = "CREATE INDEX IF NOT EXISTS alerts_to_date_index ON alerts (to_date)";
 
         String SELECT_MAX_ID = "SELECT MAX(id) FROM alerts";
         String SELECT_BY_ID_AND_CLIENT_TYPE = "SELECT * FROM alerts WHERE id=:id AND client_type=:client_type";
@@ -199,9 +204,14 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     protected void setupTable(@NotNull Handle handle) {
         handle.execute(SQL.CREATE_TABLE);
         handle.execute(SQL.CREATE_USER_ID_INDEX);
+        handle.execute(SQL.CREATE_CLIENT_TYPE_INDEX);
         handle.execute(SQL.CREATE_SERVER_ID_INDEX);
         handle.execute(SQL.CREATE_EXCHANGE_INDEX);
         handle.execute(SQL.CREATE_PAIR_INDEX);
+        handle.execute(SQL.CREATE_TYPE_INDEX);
+        handle.execute(SQL.CREATE_REPEAT_INDEX);
+        handle.execute(SQL.CREATE_LISTENING_DATE_INDEX);
+        handle.execute(SQL.CREATE_TO_DATE_INDEX);
     }
 
     long getMaxId(@NotNull Handle handle) {
