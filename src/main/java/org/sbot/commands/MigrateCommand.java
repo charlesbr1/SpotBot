@@ -10,12 +10,14 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
+import org.sbot.entities.UserSettings;
 import org.sbot.entities.alerts.Alert.Type;
 import org.sbot.entities.alerts.ClientType;
 import org.sbot.entities.notifications.MigratedNotification;
 import org.sbot.entities.notifications.MigratedNotification.Reason;
 import org.sbot.services.context.TransactionalContext;
 import org.sbot.services.dao.AlertsDao.SelectionFilter;
+import org.sbot.services.dao.UserSettingsDao.ClientTypeUserId;
 import org.sbot.services.discord.Discord;
 import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
@@ -30,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.*;
 import static net.dv8tion.jda.api.interactions.commands.build.OptionData.MAX_POSITIVE_NUMBER;
 import static org.sbot.commands.SecurityAccess.sameUserOrAdmin;
-import static org.sbot.entities.User.DEFAULT_LOCALE;
+import static org.sbot.entities.UserSettings.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
 import static org.sbot.entities.alerts.Alert.isPrivate;
 import static org.sbot.services.dao.AlertsDao.UpdateField.SERVER_ID;
@@ -90,7 +92,7 @@ public final class MigrateCommand extends CommandAdapter {
         Type type = context.args.getType(TYPE_ARGUMENT).orElse(null);
         serverId = null != serverId ? serverId : context.args.getMandatoryLong(SERVER_ID_ARGUMENT);
         type = null != type ? type : context.args.getType(TYPE_ARGUMENT).orElse(null);
-        Long ownerId = context.args.getUserId(OWNER_ARGUMENT).orElse(null);
+        Long ownerId = context.args.getUserId(context.clientType, OWNER_ARGUMENT).orElse(null);
         context.noMoreArgs();
         return new Arguments(null, type, serverId, tickerOrPair, ownerId);
     }
@@ -103,7 +105,7 @@ public final class MigrateCommand extends CommandAdapter {
                 sameUserOrAdmin(context, arguments.ownerId)) {
             return migrateByTypeOwnerOrTickerPair(context, server, arguments);
         } else {
-            return Message.of(embedBuilder(":clown:" + ' ' + context.userName, DENIED_COLOR, "You are not allowed to migrate your mates alerts" +
+            return Message.of(embedBuilder(":clown:  " + context.userName, DENIED_COLOR, "You are not allowed to migrate your mates alerts" +
                     (isPrivateChannel(context) ? ", you are on a private channel." : "")));
         }
     }
@@ -195,7 +197,7 @@ public final class MigrateCommand extends CommandAdapter {
         if(sendNotification(context, userId, migrated)) {
             context.notificationService().sendNotifications();
         }
-        return Message.of(embedBuilder(":+1:" + ' ' + context.userName, OK_COLOR, migrated + (migrated > 1 ? " alerts" : " alert") +
+        return Message.of(embedBuilder(":+1:  " + context.userName, OK_COLOR, migrated + (migrated > 1 ? " alerts" : " alert") +
                 " migrated to " + (null == toServer ? "user private channel" : "server " + toServer)));
     }
 
@@ -221,13 +223,13 @@ public final class MigrateCommand extends CommandAdapter {
         if(!userIds.isEmpty()) {
             long totalMigrated = alertsDao.updateServerIdOf(SelectionFilter.ofServer(clientType, serverId, null), PRIVATE_MESSAGES);
             LOGGER.debug("Migrated to private {} alerts on server {}, reason : {}", totalMigrated, serverId, Reason.SERVER_LEAVED);
-            var userLocales = txCtx.usersDao().getLocales(userIds);
+            var userLocales = txCtx.userSettingsDao().getLocales(userIds.stream().map(uid -> ClientTypeUserId.of(clientType, uid)).toList());
             var now = Dates.nowUtc(txCtx.clock());
             var serverName = switch (clientType) {
                 case DISCORD -> Optional.ofNullable((Guild) server).map(Discord::guildName).orElseGet(() -> String.valueOf(serverId));
             };
             userIds.forEach(userId -> txCtx.notificationsDao().addNotification(MigratedNotification
-                    .of(clientType, now, userLocales.getOrDefault(userId, DEFAULT_LOCALE), userId, null, null, MIGRATE_ALL, serverName, null, Reason.SERVER_LEAVED, 0L)));
+                    .of(clientType, now, userLocales.getOrDefault(ClientTypeUserId.of(clientType, userId), DEFAULT_LOCALE), userId, null, null, MIGRATE_ALL, serverName, null, Reason.SERVER_LEAVED, 0L)));
         }
         return userIds;
     }
@@ -240,7 +242,9 @@ public final class MigrateCommand extends CommandAdapter {
         long count = txCtx.alertsDao().updateServerIdOf(SelectionFilter.of(clientType, serverId, userId, null), PRIVATE_MESSAGES);
         LOGGER.debug("Migrated to private {} alerts of user {} on server {}, reason : {}", count, userId, serverId, reason);
         if(count > 0) {
-            locale = Optional.ofNullable(locale).orElseGet(() -> txCtx.usersDao().getUser(userId).map(org.sbot.entities.User::locale).orElse(DEFAULT_LOCALE));
+            locale = Optional.ofNullable(locale).orElseGet(() -> txCtx.userSettingsDao()
+                    .getUserSettings(clientType, userId)
+                    .map(UserSettings::locale).orElse(DEFAULT_LOCALE));
             var serverName = switch (clientType) {
                 case DISCORD -> guildName((Guild) server);
             };
