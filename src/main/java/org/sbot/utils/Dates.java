@@ -118,9 +118,12 @@ public interface Dates {
         return TimeFormat.RELATIVE.format(dateTime);
     }
 
-    static String formatUTC(@NotNull Locale locale, @NotNull ZonedDateTime dateTime) {
-        dateTime = dateTime.withZoneSameInstant(Dates.UTC);
+    static String format(@NotNull Locale locale, @NotNull ZonedDateTime dateTime) {
         return dateTime.format(LOCALIZED_DATE_FORMATTER.withLocale(locale)) + '-' + dateTime.format(TIME_FORMATTER);
+    }
+
+    static String formatUTC(@NotNull Locale locale, @NotNull ZonedDateTime dateTime) {
+        return format(locale, dateTime.withZoneSameInstant(Dates.UTC));
     }
 
     static ZonedDateTime nowUtc(@NotNull Clock clock) {

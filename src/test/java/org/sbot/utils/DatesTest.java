@@ -327,6 +327,24 @@ public class DatesTest {
     }
 
     @Test
+    void format() {
+        assertThrows(NullPointerException.class, () -> Dates.format(Locale.FRENCH, null));
+        assertThrows(NullPointerException.class, () -> Dates.format(null, ZonedDateTime.now()));
+        ZonedDateTime date = LocalDateTime.parse("01/01/2000 00:00", DATE_TIME_FORMATTER).atZone(ZoneId.of("Asia/Tokyo"));
+        assertEquals("1/1/2000-00:00", Dates.format(Locale.US, date));
+        assertEquals("01/01/2000-00:00", Dates.format(Locale.FRENCH, date));
+        ZonedDateTime utcDate = LocalDateTime.parse("01/01/2000 00:00", DATE_TIME_FORMATTER).atZone(ZoneId.of("Europe/Paris"));
+        assertEquals("1/1/2000-00:00", Dates.format(Locale.US, utcDate));
+        assertEquals("01/01/2000-00:00", Dates.format(Locale.FRENCH, utcDate));
+        utcDate = LocalDateTime.parse("28/01/2000 00:00", DATE_TIME_FORMATTER).atZone(Dates.UTC);
+        assertEquals("1/28/2000-00:00", Dates.format(Locale.US, utcDate));
+        assertEquals("28/01/2000-00:00", Dates.format(Locale.FRENCH, utcDate));
+        utcDate = LocalDateTime.parse("09/01/2000 00:00", DATE_TIME_FORMATTER).atZone(ZoneId.of("GMT"));
+        assertEquals("1/9/2000-00:00", Dates.format(Locale.US, utcDate));
+        assertEquals("09/01/2000-00:00", Dates.format(Locale.FRENCH, utcDate));
+    }
+
+    @Test
     void formatUTC() {
         assertThrows(NullPointerException.class, () -> Dates.formatUTC(Locale.FRENCH, null));
         assertThrows(NullPointerException.class, () -> Dates.formatUTC(null, ZonedDateTime.now()));
