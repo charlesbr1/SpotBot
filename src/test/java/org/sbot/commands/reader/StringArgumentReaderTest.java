@@ -13,6 +13,7 @@ import java.util.Locale;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.sbot.entities.alerts.Alert.Type.*;
+import static org.sbot.entities.alerts.ClientType.DISCORD;
 import static org.sbot.utils.Dates.UTC;
 
 class StringArgumentReaderTest {
@@ -174,16 +175,16 @@ class StringArgumentReaderTest {
     @Test
     void getUserId() {
         StringArgumentReader reader = new StringArgumentReader("test");
-        assertTrue(reader.getUserId("").isEmpty());
+        assertTrue(reader.getUserId(DISCORD, "").isEmpty());
         assertEquals("test", reader.getLastArgs("").get());
 
         reader = new StringArgumentReader(" <@321>");
-        assertEquals(321L, reader.getUserId("").get());
+        assertEquals(321L, reader.getUserId(DISCORD, "").get());
 
         reader = new StringArgumentReader(" <@21> <@33> @<345> ");
-        assertEquals(21L, reader.getUserId("").get());
-        assertEquals(33L, reader.getUserId("").get());
-        assertTrue(reader.getUserId("").isEmpty());
+        assertEquals(21L, reader.getUserId(DISCORD, "").get());
+        assertEquals(33L, reader.getUserId(DISCORD, "").get());
+        assertTrue(reader.getUserId(DISCORD, "").isEmpty());
         assertEquals("@<345>", reader.getLastArgs("").get());
     }
 
@@ -202,11 +203,11 @@ class StringArgumentReaderTest {
         assertEquals("123 <@21> 456 <@33>  12/11/2200-00:00 and the last  args", reader.getLastArgs("").get());
         assertEquals(123L, reader.getLong("").get());
         assertEquals("<@21> 456 <@33>  12/11/2200-00:00 and the last  args", reader.getLastArgs("").get());
-        assertEquals(21L, reader.getUserId("").get());
+        assertEquals(21L, reader.getUserId(DISCORD, "").get());
         assertEquals("456 <@33>  12/11/2200-00:00 and the last  args", reader.getLastArgs("").get());
         assertEquals(new BigDecimal("456"), reader.getNumber("").get());
         assertEquals("<@33>  12/11/2200-00:00 and the last  args", reader.getLastArgs("").get());
-        assertEquals(33L, reader.getUserId("").get());
+        assertEquals(33L, reader.getUserId(DISCORD, "").get());
         assertEquals("12/11/2200-00:00 and the last  args", reader.getLastArgs("").get());
         assertEquals(Dates.parse(Locale.US, null, mock(), "12/11/2200-00:00"), reader.getDateTime(Locale.US, null, mock(), "").get());
         assertEquals("and the last  args", reader.getLastArgs("").get());

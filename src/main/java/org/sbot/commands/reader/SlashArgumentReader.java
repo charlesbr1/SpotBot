@@ -6,6 +6,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.alerts.Alert.Type;
+import org.sbot.entities.alerts.ClientType;
 import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
 
@@ -63,9 +64,10 @@ public final class SlashArgumentReader implements ArgumentReader {
     }
 
     @Override
-    public Optional<Long> getUserId(@NotNull String fieldName) {
+    public Optional<Long> getUserId(@NotNull ClientType clientType, @NotNull String fieldName) {
         return getValue(fieldName, OptionMapping::getAsUser, User::getIdLong)
-                .or(() -> getValue(fieldName, OptionMapping::getAsString, ArgumentValidator::requireUser)); // needed if the field is declared as STRING (list command)
+                .or(() -> getValue(fieldName, OptionMapping::getAsString, // needed if the field is declared as STRING (list command)
+                        u -> ArgumentValidator.requireUser(clientType, u)));
     }
 
     @Override

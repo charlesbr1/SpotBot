@@ -3,6 +3,7 @@ package org.sbot.commands.reader;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.alerts.Alert.Type;
+import org.sbot.entities.alerts.ClientType;
 import org.sbot.utils.ArgumentValidator;
 import org.sbot.utils.Dates;
 
@@ -76,8 +77,8 @@ public final class StringArgumentReader implements ArgumentReader {
     }
 
     @Override
-    public Optional<Long> getUserId(@NotNull String unused) {
-        return getNext(ArgumentValidator::requireUser);
+    public Optional<Long> getUserId(@NotNull ClientType clientType, @NotNull String unused) {
+        return getNext(u -> ArgumentValidator.requireUser(clientType, u));
     }
 
     @Override
