@@ -6,19 +6,14 @@ import org.sbot.entities.alerts.Alert;
 import org.sbot.entities.chart.DatedPrice;
 import org.sbot.entities.notifications.Notification.NotificationType;
 import org.sbot.services.MatchingService.MatchingAlert.MatchingStatus;
-import org.sbot.services.context.Context;
-import org.sbot.services.discord.Discord;
 import org.sbot.utils.DatesTest;
 
-import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static java.math.BigDecimal.ONE;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 import static org.sbot.entities.FieldParser.format;
-import static org.sbot.entities.User.DEFAULT_LOCALE;
+import static org.sbot.entities.UserSettings.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
 import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.entities.alerts.AlertTest.*;
@@ -28,9 +23,9 @@ import static org.sbot.entities.notifications.MatchingNotification.MATCHED_COLOR
 import static org.sbot.entities.notifications.Notification.NEW_NOTIFICATION_ID;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.NEW;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.SENDING;
+import static org.sbot.entities.notifications.Notification.SOH;
 import static org.sbot.entities.notifications.RecipientType.DISCORD_SERVER;
 import static org.sbot.entities.notifications.RecipientType.DISCORD_USER;
-import static org.sbot.entities.notifications.Notification.SOH;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.MARGIN;
 import static org.sbot.services.MatchingService.MatchingAlert.MatchingStatus.MATCHED;
 import static org.sbot.utils.ArgumentValidator.requireOneItem;
@@ -110,30 +105,22 @@ class MatchingNotificationTest {
     @Test
     void asMessage() {
         var alert = createTestAlert();
-        Context context = mock();
-        Discord discord = mock();
-        when(context.discord()).thenReturn(discord);
-        when(discord.guildServer(alert.serverId)).thenReturn(Optional.empty());
 
         var notification = MatchingNotification.of(DatesTest.nowUtc(), DEFAULT_LOCALE, MatchingStatus.MARGIN, alert, new DatedPrice(ONE, DatesTest.nowUtc()));
-        var message = notification.asMessage(context);
+        var message = notification.asMessage();
         var embed = requireOneItem(message.embeds()).build();
         assertEquals("!!! MARGIN Range ALERT !!! - [BTC/USD] test message", embed.getTitle());
         assertTrue(embed.getDescription().startsWith("<@1234>\nYour range set on binance BTC/USD reached **margin** threshold"));
         assertEquals(MARGIN_COLOR, embed.getColor());
-        verify(context).discord();
-        verify(discord).guildServer(alert.serverId);
-        assertEquals(List.of(String.valueOf(alert.userId)), message.mentionUsers());
-        assertEquals(List.of(), message.mentionRoles());
+        assertNull(message.mentionUsers());
+        assertNull(message.mentionRoles());
 
         notification = MatchingNotification.of(DatesTest.nowUtc(), DEFAULT_LOCALE, MATCHED, alert.withServerId(PRIVATE_MESSAGES), new DatedPrice(ONE, DatesTest.nowUtc()));
-        message = notification.asMessage(context);
+        message = notification.asMessage();
         embed = requireOneItem(message.embeds()).build();
         assertEquals("!!! Range ALERT !!! - [BTC/USD] test message", embed.getTitle());
         assertTrue(embed.getDescription().startsWith("<@1234>\nYour range set on binance BTC/USD was **tested !**"));
         assertEquals(MATCHED_COLOR, embed.getColor());
-        verify(context).discord();
-        verify(discord).guildServer(alert.serverId);
         assertNull(message.mentionUsers());
         assertNull(message.mentionRoles());
     }

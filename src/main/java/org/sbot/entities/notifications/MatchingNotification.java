@@ -1,6 +1,5 @@
 package org.sbot.entities.notifications;
 
-import net.dv8tion.jda.api.entities.Role;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.FieldParser;
@@ -8,14 +7,14 @@ import org.sbot.entities.Message;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.entities.chart.DatedPrice;
 import org.sbot.services.MatchingService.MatchingAlert.MatchingStatus;
-import org.sbot.services.context.Context;
-import org.sbot.services.discord.Discord;
 
-import java.awt.Color;
+import java.awt.*;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
-import java.util.List;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -90,7 +89,7 @@ public final class MatchingNotification extends Notification {
 
     @Override
     @NotNull
-    public Message asMessage(@NotNull Context context) {
+    public Message asMessage() {
         Alert alert = Alert.of(fields);
         var matchingType = NotificationType.MATCHED == type ? MATCHED : MARGIN;
         var lastClose = (BigDecimal) fields.get(LAST_CLOSE);
@@ -99,12 +98,6 @@ public final class MatchingNotification extends Notification {
         var embed = alert.asMessage(matchingType, previousClose, (ZonedDateTime) fields.get(LAST_TRIGGER))
                 .setTitle(raiseTitle(alert, matchingType))
                 .setColor(NotificationType.MATCHED == type ? MATCHED_COLOR : MARGIN_COLOR);
-
-        if(DISCORD_SERVER.equals(recipientType)) {
-            List<String> roles = context.discord().guildServer(alert.serverId).flatMap(Discord::spotBotRole).map(Role::getId).stream().toList();
-            var users = List.of(String.valueOf(alert.userId));
-            return Message.of(List.of(embed), roles, users);
-        }
         return Message.of(embed);
     }
 
