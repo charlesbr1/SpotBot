@@ -3,6 +3,7 @@ package org.sbot.commands;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.interactions.commands.Command.Choice;
@@ -30,9 +31,6 @@ import static org.sbot.entities.alerts.Alert.DEFAULT_REPEAT;
 import static org.sbot.entities.alerts.Alert.DEFAULT_SNOOZE_HOURS;
 import static org.sbot.services.AlertsWatcher.DONE_ALERTS_DELAY_WEEKS;
 import static org.sbot.services.discord.CommandListener.optionsDescription;
-import static org.sbot.services.discord.Discord.DISCORD_BOT_CHANNEL;
-import static org.sbot.services.discord.Discord.DISCORD_BOT_ROLE;
-import static org.sbot.utils.Dates.UTC;
 import static org.sbot.utils.PartitionSpliterator.split;
 
 public final class SpotBotCommand extends CommandAdapter {
@@ -72,64 +70,68 @@ public final class SpotBotCommand extends CommandAdapter {
             
             **remainder**
             
-            This third kind of alert let you receive a notification at a specified date in the future, with a message you can prepare in advance. This allows to you to set a remainder for events you don't want to miss.
+            This third kind of alert let you receive a notification at a specified date in the future, with a message you prepare in advance. This allows to you to set a remainder for events you don't want to miss.
 
 
             > Use **range**, **trend**, or **remainder** commands to set new alerts, this bot will check every {check-period} minutes for a price change then you'll get notified when your asset reach your price !
             
             
-            A price can use a comma or a dot separator and is expected to be positive : 23.6 or 38,2 are ok.
+            A price can use a comma or a dot separator and must be positive : 23.6 or 38,2 are ok.
             
             **dates**
 
-            Any date time should be provided as UTC unless you specify or set your default timezone. Discord can't provide your timezone so you have to think about it !
+            Any date time should be provided as '{timezone}' timezone unless you set your default timezone. Discord do not provide your actual timezone so you have to think about it !
 
             The expected date time format is :``` {date-format}```
             * you can optionally specify a timezone
-            * range alerts accepts 'null' as a date time, as their date are optionals
-            * you can also use 'now' shortcut to get actual date time, with + or - hours : now+1.5 means in 1h30
+            * a range alert accepts 'null' as a date time, as its dates are optionals
+            * you can also use 'now' shortcut to get the actual date time, with + or - hours : now+1.5 means in 1h30
             * using command line and not slash command, you should use a dash '-' instead of a space between the date and time or zone : {cmd-line-date-format}
             
-            For instance now it's {date-now} UTC
-            and now+2 is {date-now+2} UTC
+            For instance now it's {date-now} {timezone}
+            and now+2 is {date-now+2} {timezone}
             
-            You can list available timezone and locales using **list** command, then set your default timezone and locale (for day months order) using **update**.
+            List available timezone and locales using **list** command, then set your default timezone and locale (for day months order) using **update**.
 
             **margin**
 
-            Both ranges and trend alerts can have a *margin*, this is a value in currency of the watched asset, like 1000$ on the BTC/USD pair.
+            Both ranges and trend alerts can have a *margin*, its a value in currency of the watched asset, like 1000$ on the BTC/USD pair.
 
             The margin is added on both sides of a range or a trend, as to extend them, then a pre alert will notify you when the price reach this zone (if it ever happens).
 
-            Initially a new alert has no margin set, it should be added using the **update** command.
+            Initially a new alert has no margin set, it may be set using the **update** command.
 
-            Once raised (either a margin pre alert or an alert) the alert's margin is reset, that is no more margin.
+            Once raised (either a margin pre alert or an alert) the alert's margin is disabled.
             
             **snooze**
 
-            Range and margin alerts also have two parameters, *repeat* and *snooze*, that can be set using the commands of their respective names.
+            Range and margin alerts also have two parameters, *repeat* and *snooze*, they can be set using the commands of their respective names.
             * **repeat** : the number of times an alert will be raise (default : {repeat})
             * **snooze** : the time in hours to wait before the alert can be raise again (default : {snooze} hours)
 
             Once an alert was raised, it decreases in number of *repeat* and becomes ignored during *snooze* hours.
-            If it's number of repeat was 0, the alert is disabled and will be deleted {done-delay-weeks} weeks later, this let you time to enable it again, if needed.
+            If there is no more repeat, the alert is disabled and will be deleted {done-delay-weeks} later, this let you time to enable it again, if needed.
 
             
-            For all theses alerts, including remainders, the accuracy of updates is {check-period} minutes, so do not expect a notification in the micro second after the event occurred.
+            For all theses alerts the accuracy of updates is {check-period} minutes, so do not expect a notification in the second after the event occurred.
             
             The others commands let you do some searches about current alerts defined, as well as updating or deleting them.
             
-            This bot works exclusively into the channel {channel}, you can also use it from your private channel. When an alert occurs, the owner is notified on the channel where he created it.
+            You can also use this bot on your private channel and be notified there.
             
-            **The alerts you set using your private channel remains confidential.**
+            **The alerts you set on your private channel remains confidential.**
 
-            You may also want to join role {role} to get notified of each alert occurring on the channel {channel}.
-
-            Now type **/** to use a command, or type it prefixed with my name {spotBot}
-            
-            For a description of each available commands use :
-            ``` /spotbot commands```
+            On a guild, this bot works exclusively into the channel {channel}, you may want to join role {role} to get notified of each alert occurring.
+            Administrators and members having role {admin-role} can update, migrate or delete member alerts, you'll get notified if this happens.
             """;
+
+    static final String END_DOC_CONTENT = """
+    
+    Now type **/** to use a command, or type it prefixed with {spotBot}
+    
+    For a description of each available commands :
+    ``` /spotbot commands```
+    """;
 
     private static final byte[] alertsPicture;
 
@@ -176,28 +178,37 @@ public final class SpotBotCommand extends CommandAdapter {
         builder.addBlankField(false);
         builder.setImage("attachment://" + ALERTS_PICTURE_FILE);
         builder.setFooter(DOC_FOOTER);
-        return Message.of(builder, File.of(alertsPicture, ALERTS_PICTURE_FILE));
+        return Message.of(builder, File.of(ALERTS_PICTURE_FILE, alertsPicture));
     }
 
     private static String formattedContent(@NotNull CommandContext context, @Nullable Object server, @NotNull String selfMention) {
         String channel = switch (context.clientType) {
-            case DISCORD -> Optional.ofNullable((Guild) server).flatMap(Discord::spotBotChannel)
-                    .map(Channel::getAsMention).orElse("**#" + DISCORD_BOT_CHANNEL + "** of your discord server");
+            case DISCORD -> Discord.spotBotChannel((Guild) server, context.serverSettings.spotBotChannel())
+                    .map(Channel::getAsMention).orElse(MarkdownUtil.bold('#' + context.serverSettings.spotBotChannel()));
         };
         String role = switch (context.clientType) {
-            case DISCORD -> Optional.ofNullable((Guild) server).flatMap(Discord::spotBotRole)
-                    .map(Role::getAsMention).orElse("**@" + DISCORD_BOT_ROLE + "**");
+            case DISCORD -> Discord.spotBotRole((Guild) server, context.serverSettings.spotBotRole())
+                    .map(Role::getAsMention).orElse(MarkdownUtil.bold('@' + context.serverSettings.spotBotRole()));
         };
-        return DOC_CONTENT.replace("{check-period}", "" + context.parameters().checkPeriodMin())
+        String adminRole = switch (context.clientType) {
+            case DISCORD -> Discord.spotBotRole((Guild) server, context.serverSettings.spotBotAdminRole())
+                    .map(Role::getAsMention).orElse(MarkdownUtil.bold('@' + context.serverSettings.spotBotAdminRole()));
+        };
+        var doc = DOC_CONTENT.replace("{check-period}", "" + context.parameters().checkPeriodMin())
                 .replace("{date-format}", Dates.LocalePatterns.getOrDefault(context.locale, Dates.DATE_TIME_FORMAT))
                 .replace("{cmd-line-date-format}", Dates.LocalePatterns.getOrDefault(context.locale, Dates.DATE_TIME_FORMAT).replaceFirst(" ", "-").replaceFirst(" ", "-"))
-                .replace("{date-now}", Dates.formatUTC(context.locale, Dates.parse(Locale.UK, UTC, context.clock(), "now")).replace('-', ' '))
-                .replace("{date-now+2}", Dates.formatUTC(context.locale, Dates.parse(Locale.UK, UTC, context.clock(), "now+2")).replace('-', ' '))
+                .replace("{timezone}", context.timezone.getId())
+                .replace("{date-now}", Dates.format(context.locale, Dates.parse(Locale.UK, context.timezone, context.clock(), "now")).replace('-', ' '))
+                .replace("{date-now+2}", Dates.format(context.locale, Dates.parse(Locale.UK, context.timezone, context.clock(), "now+2")).replace('-', ' '))
                 .replace("{repeat}", "" + DEFAULT_REPEAT)
                 .replace("{snooze}", "" + DEFAULT_SNOOZE_HOURS)
-                .replace("{done-delay-weeks}", "" + DONE_ALERTS_DELAY_WEEKS)
-                .replace("{channel}", channel).replace("{role}", role)
-                .replace("{spotBot}", selfMention);
+                .replace("{done-delay-weeks}", DONE_ALERTS_DELAY_WEEKS + (DONE_ALERTS_DELAY_WEEKS > 1 ? " weeks" : " week"))
+                .replace("{channel}", channel)
+                .replace("{role}", role)
+                .replace("{admin-role}", adminRole);
+        var endDoc = END_DOC_CONTENT.replace("{spotBot}", selfMention);
+        return doc.length() + endDoc.length() <= MessageEmbed.DESCRIPTION_MAX_LENGTH ?
+                doc + endDoc : doc;
     }
 
     private static List<Message> commands() {
@@ -209,7 +220,7 @@ public final class SpotBotCommand extends CommandAdapter {
         return split(5, commands)
                 .map(cmdList -> Message.of(embedBuilder(null, OK_COLOR, cmdList.stream()
                         .map(cmd -> ' ' + MarkdownUtil.bold(cmd.name) + "\n\n" + MarkdownUtil.quote(cmd.description +
-                                Optional.ofNullable(optionsDescription(cmd.options, true)).map("\n\n"::concat).orElse("")))
+                                Optional.ofNullable(optionsDescription(cmd.options, true)).map("\n"::concat).orElse("")))
                         .collect(joining("\n\n\n"))))).toList();
     }
 }
