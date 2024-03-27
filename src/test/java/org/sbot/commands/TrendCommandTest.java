@@ -9,11 +9,15 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
+import org.sbot.entities.ServerSettings;
+import org.sbot.entities.Settings;
 import org.sbot.entities.alerts.Alert;
+import org.sbot.entities.alerts.ClientType;
 import org.sbot.exchanges.binance.BinanceClient;
 import org.sbot.services.context.Context;
 import org.sbot.services.dao.AlertsDao;
-import org.sbot.services.dao.UsersDao;
+import org.sbot.services.dao.ServerSettingsDao;
+import org.sbot.services.dao.UserSettingsDao;
 import org.sbot.utils.Dates;
 import org.sbot.utils.DatesTest;
 
@@ -31,10 +35,12 @@ import static org.sbot.commands.CommandAdapter.*;
 import static org.sbot.commands.CommandAdapterTest.assertExceptionContains;
 import static org.sbot.commands.UpdateCommand.CHOICE_MESSAGE;
 import static org.sbot.commands.context.CommandContext.TOO_MANY_ARGUMENTS;
-import static org.sbot.entities.User.DEFAULT_LOCALE;
+import static org.sbot.entities.UserSettings.DEFAULT_LOCALE;
+import static org.sbot.entities.UserSettings.NO_USER;
 import static org.sbot.entities.alerts.Alert.*;
 import static org.sbot.entities.alerts.Alert.Type.trend;
 import static org.sbot.entities.alerts.AlertTest.*;
+import static org.sbot.entities.alerts.ClientType.DISCORD;
 import static org.sbot.utils.ArgumentValidator.MESSAGE_MAX_LENGTH;
 import static org.sbot.utils.Dates.UTC;
 
@@ -57,29 +63,30 @@ class TrendCommandTest {
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(ChronoUnit.MINUTES);
         Context context = mock(Context.class);
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
-        UsersDao usersDao = mock();
+        UserSettingsDao settingsDao = mock();
         AlertsDao alertsDao = mock();
         Context.DataServices dataServices = mock();
-        when(dataServices.usersDao()).thenReturn(v -> usersDao);
+        when(dataServices.userSettingsDao()).thenReturn(v -> settingsDao);
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
         when(context.dataServices()).thenReturn(dataServices);
 
         String dateFrom = Dates.formatUTC(DEFAULT_LOCALE, now.plusHours(3L).plusDays(2L));
         String dateTo = Dates.formatUTC(DEFAULT_LOCALE, now.plusHours(9L).plusDays(2L));
+        var settings = new Settings(NO_USER, ServerSettings.PRIVATE_SERVER);
 
         var command = new TrendCommand();
 
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
 
-        var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp    \t 12,45 " + dateFrom + " 23232.6 " + dateTo));
+        var fc1 = spy(CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp    \t 12,45 " + dateFrom + " 23232.6 " + dateTo));
         doNothing().when(fc1).reply(anyList(), anyInt());
         assertExceptionContains(IllegalArgumentException.class, CHOICE_MESSAGE, () -> command.onCommand(fc1));
 
-        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo));
+        var commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
-        verify(usersDao).userExists(userId);
+        verify(settingsDao).userExists(DISCORD, userId);
         verify(alertsDao, never()).addAlert(any());
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
@@ -88,12 +95,12 @@ class TrendCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("Missing user account setup"));
 
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo));
         doNothing().when(commandContext).reply(anyList(), eq(command.responseTtlSeconds));
-        when(usersDao.userExists(userId)).thenReturn(true);
+        when(settingsDao.userExists(DISCORD, userId)).thenReturn(true);
         command.onCommand(commandContext);
 
-        verify(usersDao, times(2)).userExists(userId);
+        verify(settingsDao, times(2)).userExists(DISCORD, userId);
         var alertReply = ArgumentCaptor.forClass(Alert.class);
         verify(alertsDao).addAlert(alertReply.capture());
         var alert = alertReply.getValue();
@@ -144,6 +151,7 @@ class TrendCommandTest {
         Context.DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
         when(context.dataServices()).thenReturn(dataServices);
+        var settings = new Settings(NO_USER, ServerSettings.PRIVATE_SERVER);
 
         String dateFrom = Dates.formatUTC(DEFAULT_LOCALE, now.plusHours(3L).plusDays(2L));
 
@@ -151,7 +159,7 @@ class TrendCommandTest {
 
         CommandContext[] commandContext = new CommandContext[1];
         when(user.getIdLong()).thenReturn(TEST_USER_ID);
-        commandContext[0] = spy(CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + "   " + alertId + " " + dateFrom));
+        commandContext[0] = spy(CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + "   " + alertId + " " + dateFrom));
         doNothing().when(commandContext[0]).reply(anyList(), eq(command.responseTtlSeconds));
         command.onCommand(commandContext[0]);
 
@@ -163,12 +171,12 @@ class TrendCommandTest {
         var message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().equals("Alert " + alertId + " not found"));
 
-        commandContext[0] = spy(CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + "   " + alertId + " " + dateFrom));
+        commandContext[0] = spy(CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + "   " + alertId + " " + dateFrom));
         when(alertsDao.getAlert(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlert()
                 .withServerId(PRIVATE_MESSAGES)));
         assertThrows(IllegalArgumentException.class, () -> command.onCommand(commandContext[0]));
 
-        commandContext[0] = spy(CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + "   " + alertId + " " + dateFrom));
+        commandContext[0] = spy(CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + "   " + alertId + " " + dateFrom));
         doNothing().when(commandContext[0]).reply(anyList(), eq(command.responseTtlSeconds));
         when(alertsDao.getAlert(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithType(trend)
                 .withServerId(PRIVATE_MESSAGES))); // switch alert as private to get security grant
@@ -197,23 +205,24 @@ class TrendCommandTest {
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         String dateFrom = Dates.formatUTC(DEFAULT_LOCALE, now.plusHours(3L).plusDays(2L));
         String dateTo = Dates.formatUTC(DEFAULT_LOCALE, now.plusHours(9L).plusDays(2L));
+        var settings = new Settings(NO_USER, ServerSettings.PRIVATE_SERVER);
 
         CommandContext[] commandContext = new CommandContext[1];
 
         // test alert id arguments (to show estimated price at a date)
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + alertId);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + alertId);
         assertExceptionContains(IllegalArgumentException.class, DATE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + alertId + " " + dateFrom + " other");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + alertId + " " + dateFrom + " other");
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + alertId + " " + dateFrom + " " + dateTo);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + alertId + " " + dateFrom + " " + dateTo);
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + "   " + alertId + " " + dateFrom);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + "   " + alertId + " " + dateFrom);
         var arguments = TrendCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
         assertEquals(alertId, arguments.alertId());
@@ -226,81 +235,81 @@ class TrendCommandTest {
         assertNull(arguments.message());
 
         // test trend creation arguments
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME);
         assertExceptionContains(IllegalArgumentException.class, EXCHANGE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + "  a message fe fe fe");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + "  a message fe fe fe");
         assertExceptionContains(IllegalArgumentException.class, EXCHANGE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + dateFrom);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + dateFrom);
         assertExceptionContains(IllegalArgumentException.class, EXCHANGE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " eth/usd");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " eth/usd");
         assertExceptionContains(IllegalArgumentException.class, EXCHANGE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME);
         assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dotxrp");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dotxrp");
         assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp");
         assertExceptionContains(IllegalArgumentException.class, TO_DATE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + "123");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + "123");
         assertExceptionContains(IllegalArgumentException.class, TO_DATE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + dateFrom);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + dateFrom);
         assertExceptionContains(IllegalArgumentException.class, TO_PRICE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + dateFrom + " 12,6");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + dateFrom + " 12,6");
         assertExceptionContains(IllegalArgumentException.class, TO_DATE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp  12,6 " + dateFrom);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp  12,6 " + dateFrom);
         assertExceptionContains(IllegalArgumentException.class, FROM_DATE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + dateFrom + " 12,6 " + dateTo);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + dateFrom + " 12,6 " + dateTo);
         assertExceptionContains(IllegalArgumentException.class, FROM_PRICE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp 12,2 " + dateFrom + "  " + dateTo);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp 12,2 " + dateFrom + "  " + dateTo);
         assertExceptionContains(IllegalArgumentException.class, TO_PRICE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + dateFrom + " 12,6 " + dateTo + " 123.334 ");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + dateFrom + " 12,6 " + dateTo + " 123.334 ");
         assertExceptionContains(IllegalArgumentException.class, TO_DATE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp 12,45 " + dateFrom + " 23232.6 " + dateTo);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp 12,45 " + dateFrom + " 23232.6 " + dateTo);
         assertExceptionContains(IllegalArgumentException.class, MESSAGE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo + " to");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo + " to");
         assertExceptionContains(IllegalArgumentException.class, TO_DATE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo + " tr ud");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo + " tr ud");
         assertExceptionContains(IllegalArgumentException.class, TO_DATE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
         // use dash for date time separator in string commands
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6   10/10/3010 20:01");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6   10/10/3010 20:01");
         assertExceptionContains(IllegalArgumentException.class, TO_DATE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo);
         arguments = TrendCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
         assertNull(arguments.alertId());
@@ -314,48 +323,48 @@ class TrendCommandTest {
         assertEquals("this is the message !!", arguments.message());
 
         // alert id negative
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + "  -1 " + dateFrom);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + "  -1 " + dateFrom);
         assertExceptionContains(IllegalArgumentException.class, "Negative",
                 () -> TrendCommand.arguments(commandContext[0]));
 
         // bad exchange
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " badExchange dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " badExchange dot/xrp this is the message !! 12,45 " + dateFrom + " 23232.6 " + dateTo);
         assertExceptionContains(IllegalArgumentException.class, EXCHANGE_ARGUMENT,
                 () -> TrendCommand.arguments(commandContext[0]));
 
         // negative prices
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! -12,45 " + dateFrom + " 23232.6 " + dateTo);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! -12,45 " + dateFrom + " 23232.6 " + dateTo);
         assertExceptionContains(IllegalArgumentException.class, "Negative",
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " -23232.6 " + dateTo);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " -23232.6 " + dateTo);
         assertExceptionContains(IllegalArgumentException.class, "Negative",
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! -12,45 " + dateFrom + " -23232.6 " + dateTo);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! -12,45 " + dateFrom + " -23232.6 " + dateTo);
         assertExceptionContains(IllegalArgumentException.class, "Negative",
                 () -> TrendCommand.arguments(commandContext[0]));
 
         // prices too long
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 123456789012345678901 " + dateTo);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 " + dateFrom + " 123456789012345678901 " + dateTo);
         assertExceptionContains(IllegalArgumentException.class, "too long",
                 () -> TrendCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 123456789012345678901 " + dateFrom + " 123 " + dateTo);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 123456789012345678901 " + dateFrom + " 123 " + dateTo);
         assertExceptionContains(IllegalArgumentException.class, "too long",
                 () -> TrendCommand.arguments(commandContext[0]));
 
         // dates in past OK
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 10/10/1010-20:01 23232.6 10/10/1810-20:01");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp this is the message !! 12,45 10/10/1010-20:01 23232.6 10/10/1810-20:01");
         assertDoesNotThrow(() -> TrendCommand.arguments(commandContext[0]));
 
         // message too long
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + "aa".repeat(MESSAGE_MAX_LENGTH) + " 12,45 " + dateFrom + " 23232.6 " + dateTo);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp " + "aa".repeat(MESSAGE_MAX_LENGTH) + " 12,45 " + dateFrom + " 23232.6 " + dateTo);
         assertExceptionContains(IllegalArgumentException.class, "too long",
                 () -> TrendCommand.arguments(commandContext[0]));
 
         // missing message
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp    \t 12,45 " + dateFrom + " 23232.6 " + dateTo);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, TrendCommand.NAME + " " + BinanceClient.NAME + " dot/xrp    \t 12,45 " + dateFrom + " 23232.6 " + dateTo);
         assertExceptionContains(IllegalArgumentException.class, CHOICE_MESSAGE,
                 () -> TrendCommand.arguments(commandContext[0]));
     }

@@ -40,13 +40,13 @@ public final class TrendCommand extends CommandAdapter {
                     .setMinLength(PAIR_MIN_LENGTH).setMaxLength(PAIR_MAX_LENGTH),
             option(STRING, MESSAGE_ARGUMENT, "a message to show when the alert is raised : add a link to your AT ! (" + MESSAGE_MAX_LENGTH + " chars max)", true)
                     .setMaxLength(MESSAGE_MAX_LENGTH),
-            option(NUMBER, FROM_PRICE_ARGUMENT, "the first price", true)
+            option(NUMBER, FROM_PRICE_ARGUMENT, "the 1st price", true)
                     .setMinValue(0d),
-            option(STRING, FROM_DATE_ARGUMENT, "date of first price, expected format : '" + Dates.DATE_TIME_FORMAT.toLowerCase() + "' or 'now[+-]h'", true)
+            option(STRING, FROM_DATE_ARGUMENT, "date of 1st price, expected format : '" + Dates.DATE_TIME_FORMAT.toLowerCase() + "' or 'now[+-]h'", true)
                     .setMinLength(NOW_ARGUMENT.length()),
-            option(NUMBER, TO_PRICE_ARGUMENT, "the second price", true)
+            option(NUMBER, TO_PRICE_ARGUMENT, "the 2nd price", true)
                     .setMinValue(0d),
-            option(STRING, TO_DATE_ARGUMENT, "date of second price, expected format : '" + Dates.DATE_TIME_FORMAT.toLowerCase() + "' or 'now[+-]h'", true)
+            option(STRING, TO_DATE_ARGUMENT, "date of 2nd price, expected format : '" + Dates.DATE_TIME_FORMAT.toLowerCase() + "' or 'now[+-]h'", true)
                     .setMinLength(NOW_ARGUMENT.length()));
 
     private static final SlashCommandData options =

@@ -8,11 +8,13 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
+import org.sbot.entities.ServerSettings;
+import org.sbot.entities.Settings;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.services.context.Context;
 import org.sbot.services.context.Context.DataServices;
 import org.sbot.services.dao.AlertsDao;
-import org.sbot.services.dao.UsersDao;
+import org.sbot.services.dao.UserSettingsDao;
 import org.sbot.utils.Dates;
 import org.sbot.utils.DatesTest;
 
@@ -27,10 +29,12 @@ import static org.mockito.Mockito.*;
 import static org.sbot.commands.CommandAdapter.*;
 import static org.sbot.commands.CommandAdapterTest.assertExceptionContains;
 import static org.sbot.commands.UpdateCommand.CHOICE_MESSAGE;
-import static org.sbot.entities.User.DEFAULT_LOCALE;
+import static org.sbot.entities.UserSettings.DEFAULT_LOCALE;
+import static org.sbot.entities.UserSettings.NO_USER;
 import static org.sbot.entities.alerts.Alert.DEFAULT_SNOOZE_HOURS;
 import static org.sbot.entities.alerts.Alert.MARGIN_DISABLED;
 import static org.sbot.entities.alerts.Alert.Type.remainder;
+import static org.sbot.entities.alerts.ClientType.DISCORD;
 import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
 import static org.sbot.utils.ArgumentValidator.MESSAGE_MAX_LENGTH;
 import static org.sbot.utils.Dates.UTC;
@@ -55,23 +59,24 @@ class RemainderCommandTest {
         String date = Dates.formatUTC(DEFAULT_LOCALE, now.plusHours(3L).plusDays(2L));
         Context context = mock(Context.class);
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
-        UsersDao usersDao = mock();
+        UserSettingsDao settingsDao = mock();
         AlertsDao alertsDao = mock();
         DataServices dataServices = mock();
-        when(dataServices.usersDao()).thenReturn(v -> usersDao);
+        when(dataServices.userSettingsDao()).thenReturn(v -> settingsDao);
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
         when(context.dataServices()).thenReturn(dataServices);
+        var settings = new Settings(NO_USER, ServerSettings.PRIVATE_SERVER);
 
 
         var command = new RemainderCommand();
 
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
 
-        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message fe fe  " + date));
+        var commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message fe fe  " + date));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
-        verify(usersDao).userExists(userId);
+        verify(settingsDao).userExists(DISCORD, userId);
         verify(alertsDao, never()).addAlert(any());
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
@@ -80,12 +85,12 @@ class RemainderCommandTest {
         assertEquals(1, messages.get(0).embeds().size());
         assertTrue(messages.get(0).embeds().get(0).getDescriptionBuilder().toString().contains("Missing user account setup"));
 
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message fe fe  " + date));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message fe fe  " + date));
         doNothing().when(commandContext).reply(anyList(), eq(command.responseTtlSeconds));
-        when(usersDao.userExists(userId)).thenReturn(true);
+        when(settingsDao.userExists(DISCORD, userId)).thenReturn(true);
         command.onCommand(commandContext);
 
-        verify(usersDao, times(2)).userExists(userId);
+        verify(settingsDao, times(2)).userExists(DISCORD, userId);
         var alertReply = ArgumentCaptor.forClass(Alert.class);
         verify(alertsDao).addAlert(alertReply.capture());
         var alert = alertReply.getValue();
@@ -123,56 +128,57 @@ class RemainderCommandTest {
         when(messageReceivedEvent.getAuthor()).thenReturn(mock());
         ZonedDateTime now = DatesTest.nowUtc().truncatedTo(ChronoUnit.MINUTES);
         Context context = mock(Context.class);
+        var settings = new Settings(NO_USER, ServerSettings.PRIVATE_SERVER);
 
         CommandContext[] commandContext = new CommandContext[1];
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME);
         assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
                 () -> RemainderCommand.arguments(commandContext[0], now));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + "  a message fe fe fe");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + "  a message fe fe fe");
         assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
                 () -> RemainderCommand.arguments(commandContext[0], now));
 
         String date = Dates.formatUTC(commandContext[0].locale, now.plusHours(3L).plusDays(2L));
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " " + date);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + " " + date);
         assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
                 () -> RemainderCommand.arguments(commandContext[0], now));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " ethusd");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + " ethusd");
         assertExceptionContains(IllegalArgumentException.class, PAIR_ARGUMENT,
                 () -> RemainderCommand.arguments(commandContext[0], now));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + " eth/usd");
         assertExceptionContains(IllegalArgumentException.class, DATE_ARGUMENT,
                 () -> RemainderCommand.arguments(commandContext[0], now));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd a message fe fe fe");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + " eth/usd a message fe fe fe");
         assertExceptionContains(IllegalArgumentException.class, DATE_ARGUMENT,
                 () -> RemainderCommand.arguments(commandContext[0], now));
 
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd " + date);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + " eth/usd " + date);
         assertExceptionContains(IllegalArgumentException.class, MESSAGE_ARGUMENT,
                 () -> RemainderCommand.arguments(commandContext[0], now));
 
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd " + date + " to");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + " eth/usd " + date + " to");
         assertExceptionContains(IllegalArgumentException.class, DATE_ARGUMENT,
                 () -> RemainderCommand.arguments(commandContext[0], now));
 
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message fe fe  " + date + " too mu");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message fe fe  " + date + " too mu");
         assertExceptionContains(IllegalArgumentException.class, DATE_ARGUMENT,
                 () -> RemainderCommand.arguments(commandContext[0], now));
 
         // use dash for date time separator in string commands
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message 10/10/3010 20:01");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message 10/10/3010 20:01");
         assertExceptionContains(IllegalArgumentException.class, DATE_ARGUMENT,
                 () -> RemainderCommand.arguments(commandContext[0], now));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message fe fe  " + date);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message fe fe  " + date);
         var arguments = RemainderCommand.arguments(commandContext[0], now);
         assertNotNull(arguments);
         assertEquals("ETH/USD", arguments.pair());
@@ -180,30 +186,30 @@ class RemainderCommandTest {
         assertEquals("a  message fe fe", arguments.message());
 
         // test date in past
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message 10/10/1010-20:01");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message 10/10/1010-20:01");
         assertExceptionContains(IllegalArgumentException.class, "date",
                 () -> RemainderCommand.arguments(commandContext[0], now));
 
         // test date now ko
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message " + Dates.formatUTC(Locale.UK, now));
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message " + Dates.formatUTC(Locale.UK, now));
         assertExceptionContains(IllegalArgumentException.class, "date",
                 () -> RemainderCommand.arguments(commandContext[0], now));
 
         // test date now + 1h ok
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message " + Dates.formatUTC(Locale.UK, now.plusHours(1L).minusSeconds(1L)));
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message " + Dates.formatUTC(Locale.UK, now.plusHours(1L).minusSeconds(1L)));
         assertExceptionContains(IllegalArgumentException.class, "date",
                 () -> RemainderCommand.arguments(commandContext[0], now));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message " + Dates.formatUTC(Locale.UK, now.plusHours(1L)));
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + " eth/usd   a  message " + Dates.formatUTC(Locale.UK, now.plusHours(1L)));
         assertDoesNotThrow(() -> RemainderCommand.arguments(commandContext[0], now));
 
         // message too long
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd " + "aa".repeat(MESSAGE_MAX_LENGTH) + " 10/10/2210-20:01");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + " eth/usd " + "aa".repeat(MESSAGE_MAX_LENGTH) + " 10/10/2210-20:01");
         assertExceptionContains(IllegalArgumentException.class, "too long",
                 () -> RemainderCommand.arguments(commandContext[0], now));
 
         // missing message
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, RemainderCommand.NAME + " eth/usd    10/10/2210-20:01");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, RemainderCommand.NAME + " eth/usd    10/10/2210-20:01");
         assertExceptionContains(IllegalArgumentException.class, CHOICE_MESSAGE,
                 () -> RemainderCommand.arguments(commandContext[0], now));
     }
