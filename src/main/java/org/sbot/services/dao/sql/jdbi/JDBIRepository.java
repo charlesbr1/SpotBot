@@ -62,7 +62,7 @@ public final class JDBIRepository {
         jdbi.registerArgument(new LocaleArgumentFactory())
                 .registerArgument(new ZoneIdArgumentFactory());
         jdbi.registerColumnMapper(Locale.class, (rs, col, ctx) -> Locale.forLanguageTag(rs.getString(col)))
-                .registerColumnMapper(ZoneId.class, (rs, col, ctx) -> ZoneId.of(rs.getString(col)));
+                .registerColumnMapper(ZoneId.class, (rs, col, ctx) -> ZoneId.of(rs.getString(col), ZoneId.SHORT_IDS));
     }
 
     public void registerRowMapper(@NotNull RowMapper<?> rowMapper) {

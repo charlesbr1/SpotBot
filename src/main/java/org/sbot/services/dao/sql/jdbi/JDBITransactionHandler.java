@@ -37,9 +37,11 @@ public class JDBITransactionHandler {
 
     private <T> T sync(@NotNull Supplier<T> synchronizedAccess) {
         lock.lock();
+        long start = System.nanoTime();
         try {
             return synchronizedAccess.get();
         } finally {
+            LOGGER.info("inner tx done in {} μs.", (System.nanoTime() - start) / 1000);
             lock.unlock();
         }
     }
