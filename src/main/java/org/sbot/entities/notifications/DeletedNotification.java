@@ -6,7 +6,6 @@ import org.sbot.entities.FieldParser;
 import org.sbot.entities.Message;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.entities.alerts.ClientType;
-import org.sbot.services.context.Context;
 
 import java.time.ZonedDateTime;
 import java.util.HashMap;
@@ -90,7 +89,7 @@ public final class DeletedNotification extends Notification {
 
     @Override
     @NotNull
-    public Message asMessage(@NotNull Context unused) {
+    public Message asMessage() {
         Long alertId = (Long) fields.get(ALERT_ID);
         String type = Optional.ofNullable(fields.get(TYPE)).map(Object::toString).map(" "::concat).orElse("");
         String tickerOrPair = (String) fields.get(TICKER_OR_PAIR);

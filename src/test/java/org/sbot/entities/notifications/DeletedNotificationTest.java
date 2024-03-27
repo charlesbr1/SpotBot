@@ -6,7 +6,7 @@ import org.sbot.utils.DatesTest;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.commands.DeleteCommand.DELETE_ALL;
 import static org.sbot.entities.FieldParser.format;
-import static org.sbot.entities.User.DEFAULT_LOCALE;
+import static org.sbot.entities.UserSettings.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.Type.range;
 import static org.sbot.entities.alerts.AlertTest.TEST_CLIENT_TYPE;
 import static org.sbot.entities.notifications.DeletedNotification.Field.*;
@@ -62,35 +62,35 @@ class DeletedNotificationTest {
     @Test
     void asMessage() {
         var notification = DeletedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "serverName", 1L, true);
-        var message = notification.asMessage(null);
+        var message = notification.asMessage();
         var embed = requireOneItem(message.embeds()).build();
         assertEquals("Notice of alert deletion", embed.getTitle());
         assertEquals("Your range alert #321 on tickerOrPair has expired and was deleted on server serverName", embed.getDescription());
         assertEquals(NOTIFICATION_COLOR, embed.getColor());
 
         notification = DeletedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "serverName", 1L, false);
-        message = notification.asMessage(null);
+        message = notification.asMessage();
         embed = requireOneItem(message.embeds()).build();
         assertEquals("Notice of alert deletion", embed.getTitle());
         assertEquals("Your range alert #321 on tickerOrPair was deleted on server serverName", embed.getDescription());
         assertEquals(NOTIFICATION_COLOR, embed.getColor());
 
         notification = DeletedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, null, range, "tickerOrPair", "serverName", 1L, false);
-        message = notification.asMessage(null);
+        message = notification.asMessage();
         embed = requireOneItem(message.embeds()).build();
         assertEquals("Notice of alert deletion", embed.getTitle());
         assertEquals("Your range alert was deleted on server serverName", embed.getDescription());
         assertEquals(NOTIFICATION_COLOR, embed.getColor());
 
         notification = DeletedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, null, range, "tickerOrPair", "serverName", 2L, false);
-        message = notification.asMessage(null);
+        message = notification.asMessage();
         embed = requireOneItem(message.embeds()).build();
         assertEquals("Notice of alerts deletion", embed.getTitle());
         assertEquals("2 of your range alerts having pair or ticker 'tickerOrPair' were deleted on server serverName", embed.getDescription());
         assertEquals(NOTIFICATION_COLOR, embed.getColor());
 
         notification = DeletedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, null, range, DELETE_ALL, "serverName", 2L, false);
-        message = notification.asMessage(null);
+        message = notification.asMessage();
         embed = requireOneItem(message.embeds()).build();
         assertEquals("Notice of alerts deletion", embed.getTitle());
         assertEquals("All your range alerts were deleted on server serverName", embed.getDescription());

@@ -25,7 +25,7 @@ import static org.sbot.utils.ArgumentValidator.*;
 public final class DeleteCommand extends CommandAdapter {
 
     static final String NAME = "delete";
-    static final String DESCRIPTION = "delete one or many alerts (only your alerts, but an admin is allowed to do delete any user alerts)";
+    static final String DESCRIPTION = "delete one or many alerts (admins are allowed to delete member alerts)";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
     public static final String DELETE_ALL = "all";
@@ -63,7 +63,7 @@ public final class DeleteCommand extends CommandAdapter {
         }
         String tickerOrPair = requireTickerPairLength(context.args.getMandatoryString(TICKER_PAIR_ARGUMENT));
         Type type = context.args.getType(TYPE_ARGUMENT).orElse(null);
-        Long ownerId = context.args.getUserId(OWNER_ARGUMENT).orElse(null);
+        Long ownerId = context.args.getUserId(context.clientType, OWNER_ARGUMENT).orElse(null);
         if(null == type && context.args.getLastArgs(TYPE_ARGUMENT).isPresent()) {
             type = context.args.getMandatoryType(TYPE_ARGUMENT); // string command flexible on argument order
         }
@@ -78,7 +78,7 @@ public final class DeleteCommand extends CommandAdapter {
                 sameUserOrAdmin(context, arguments.ownerId)) { // ownerId != null -> only an admin can delete other users alerts on his server
             return deleteByTypeOwnerOrTickerPair(context, arguments);
         } else {
-            return Message.of(embedBuilder(":clown:" + ' ' + context.userName, DENIED_COLOR, "You are not allowed to delete your mates alerts" +
+            return Message.of(embedBuilder(":clown:  " + context.userName, DENIED_COLOR, "You are not allowed to delete your mates alerts" +
                     (isPrivateChannel(context) ? ", you are on a private channel." : "")));
         }
     }
@@ -114,6 +114,6 @@ public final class DeleteCommand extends CommandAdapter {
         if(sendNotification(context, userId, deleted)) {
             context.notificationService().sendNotifications();
         }
-        return Message.of(embedBuilder(":+1:" + ' ' + context.userName, OK_COLOR, deleted + (deleted > 1 ? " alerts" : " alert") + " deleted"));
+        return Message.of(embedBuilder(":+1:  " + context.userName, OK_COLOR, deleted + (deleted > 1 ? " alerts" : " alert") + " deleted"));
     }
 }
