@@ -6,7 +6,6 @@ import org.jetbrains.annotations.NotNull;
 import org.sbot.entities.FieldParser;
 import org.sbot.entities.Message;
 import org.sbot.entities.alerts.Alert;
-import org.sbot.services.context.Context;
 
 import java.awt.Color;
 import java.time.ZonedDateTime;
@@ -69,7 +68,7 @@ public abstract class Notification {
     public abstract CharSequence serializedFields();
 
     @NotNull
-    public abstract Message asMessage(@NotNull Context context);
+    public abstract Message asMessage();
 
     public final boolean isNew() {
         return NEW == status;

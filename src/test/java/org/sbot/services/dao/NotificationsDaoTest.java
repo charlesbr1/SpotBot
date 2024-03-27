@@ -15,7 +15,7 @@ import java.util.Set;
 
 import static java.util.stream.Collectors.toSet;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.sbot.entities.User.DEFAULT_LOCALE;
+import static org.sbot.entities.UserSettings.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.Type.range;
 import static org.sbot.entities.alerts.AlertTest.TEST_CLIENT_TYPE;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.*;
