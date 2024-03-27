@@ -3,7 +3,6 @@ package org.sbot.commands.interactions;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.interactions.components.selections.SelectOption;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
 import net.dv8tion.jda.api.utils.MarkdownUtil;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
@@ -11,12 +10,13 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
-import org.sbot.entities.User;
+import org.sbot.entities.Settings;
+import org.sbot.entities.UserSettings;
 import org.sbot.services.context.Context;
 import org.sbot.utils.Dates;
 import org.sbot.utils.DatesTest;
 
-import java.awt.*;
+import java.awt.Color;
 import java.util.List;
 import java.util.Locale;
 
@@ -35,8 +35,9 @@ import static org.sbot.commands.interactions.Interactions.INTERACTION_ID_SEPARAT
 import static org.sbot.commands.interactions.Interactions.interactionId;
 import static org.sbot.commands.interactions.ModalEditInteraction.CHOICE_DENIED;
 import static org.sbot.commands.interactions.ModalEditInteraction.UPDATE_FAILED_FOOTER;
-import static org.sbot.commands.interactions.SelectEditInteraction.*;
-import static org.sbot.entities.alerts.AlertTest.createTestAlert;
+import static org.sbot.commands.interactions.SelectEditInteraction.CHOICE_DELETE;
+import static org.sbot.commands.interactions.SelectEditInteraction.CHOICE_MIGRATE;
+import static org.sbot.entities.ServerSettings.PRIVATE_SERVER;
 
 class ModalEditInteractionTest {
 
@@ -92,20 +93,21 @@ class ModalEditInteractionTest {
         when(messageReceivedEvent.getMessage()).thenReturn(mock());
         when(messageReceivedEvent.getAuthor()).thenReturn(mock());
         Context context = mock(Context.class);
+        var settings = new Settings(UserSettings.NO_USER, PRIVATE_SERVER);
 
         var command = new ModalEditInteraction();
         assertThrows(NullPointerException.class, () -> command.onInteraction(null));
 
-        var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, ModalEditInteraction.NAME +   " invalidarg"));
+        var fc1 = spy(CommandContext.of(context, settings, messageReceivedEvent, ModalEditInteraction.NAME +   " invalidarg"));
         assertExceptionContains(IllegalArgumentException.class, ALERT_ID_ARGUMENT, () -> command.onInteraction(fc1));
 
-        var fc2 = spy(CommandContext.of(context, null, messageReceivedEvent, ModalEditInteraction.NAME +   " 123 delete value too"));
+        var fc2 = spy(CommandContext.of(context, settings, messageReceivedEvent, ModalEditInteraction.NAME +   " 123 delete value too"));
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onInteraction(fc2));
 
-        var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, ModalEditInteraction.NAME +   " 123 invalidField"));
+        var fc3 = spy(CommandContext.of(context, settings, messageReceivedEvent, ModalEditInteraction.NAME +   " 123 invalidField"));
         assertExceptionContains(IllegalArgumentException.class, "Missing", () -> command.onInteraction(fc3));
 
-        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ModalEditInteraction.NAME + " 123 " + CHOICE_DELETE + " ok"));
+        var commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, ModalEditInteraction.NAME + " 123 " + CHOICE_DELETE + " ok"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onInteraction(commandContext);
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
@@ -117,7 +119,7 @@ class ModalEditInteractionTest {
         assertNull(messages.get(0).component());
         assertNotNull(messages.get(0).editMapper());
 
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ModalEditInteraction.NAME + " 123 " + CHOICE_DENIED + " ko"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, ModalEditInteraction.NAME + " 123 " + CHOICE_DENIED + " ko"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onInteraction(commandContext);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
@@ -128,7 +130,7 @@ class ModalEditInteractionTest {
         assertNull(messages.get(0).component());
         assertNotNull(messages.get(0).editMapper());
 
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ModalEditInteraction.NAME + " 123 " + CHOICE_MIGRATE + " 0"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, ModalEditInteraction.NAME + " 123 " + CHOICE_MIGRATE + " 0"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onInteraction(commandContext);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
@@ -139,7 +141,7 @@ class ModalEditInteractionTest {
         assertNull(messages.get(0).component());
         assertNotNull(messages.get(0).editMapper());
 
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, ModalEditInteraction.NAME + " 123 " + CHOICE_DATE + " now"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, ModalEditInteraction.NAME + " 123 " + CHOICE_DATE + " now"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onInteraction(commandContext);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
@@ -291,7 +293,7 @@ class ModalEditInteractionTest {
 
         CommandContext[] commandContext = new CommandContext[1];
 
-        User user = new User(123L, Locale.JAPAN, Dates.UTC, DatesTest.nowUtc());
+        Settings user = new Settings(UserSettings.ofDiscordUser(123L, Locale.JAPAN, Dates.UTC, DatesTest.nowUtc()), PRIVATE_SERVER);
 
         when(modalInteractionEvent.getModalId()).thenReturn("");
         assertExceptionContains(IllegalArgumentException.class, "interactionId",
