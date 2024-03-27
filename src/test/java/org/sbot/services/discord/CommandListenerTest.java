@@ -1,25 +1,23 @@
 package org.sbot.services.discord;
 
 import org.junit.jupiter.api.Test;
-import org.sbot.SpotBot;
 import org.sbot.commands.DeleteCommand;
 import org.sbot.commands.SpotBotCommand;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class CommandListenerTest {
 
     @Test
     void optionsDescription() {
-        assertEquals("*parameter :*\n\n" +
+        assertEquals("\n*parameter :*\n\n" +
                 "- **selection** (_string, optional_) which help to show : 'doc' or 'commands', default to 'doc' if omitted",
                 CommandListener.optionsDescription(new SpotBotCommand().options(), true));
         assertEquals("*parameter :*\n\n" +
                 "- **selection** (_string, optional_) which help to show : 'doc' or 'commands', default to 'doc' if omitted",
                 CommandListener.optionsDescription(new SpotBotCommand().options(), false));
 
-        assertEquals("\n\n" +
-                        "**id** : _delete an alert by id_\n" +
+        assertEquals("\n**id** : _delete an alert by id_\n" +
                         "\n" +
                         "- **alert_id** (_integer_) id of the alert to delete\n" +
                         "\n" +
@@ -31,11 +29,9 @@ class CommandListenerTest {
                         "- **owner** (_user, optional_) for admin only, an user whose alerts will be deleted",
                 CommandListener.optionsDescription(new DeleteCommand().options(), true));
 
-        assertEquals("\n\n" +
-                        "> _delete an alert by id_\n" +
+        assertEquals("> _delete an alert by id_\n" +
                         "\n" +
                         "- **alert_id** (_integer_) id of the alert to delete\n" +
-                        "\n" +
                         "\n" +
                         "> _delete all your alerts or filtered by pair or ticker or type_\n" +
                         "\n" +

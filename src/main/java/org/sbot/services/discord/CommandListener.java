@@ -33,11 +33,12 @@ public interface CommandListener {
     static String optionsDescription(@NotNull SlashCommandData slashCommand, boolean withSubCommandName) {
         if(!slashCommand.getSubcommands().isEmpty()) {
             return slashCommand.getSubcommands().stream()
-                    .map(command -> "\n\n" + (withSubCommandName ? MarkdownUtil.bold(command.getName()) + " : " : "> ") +
-                            MarkdownUtil.italics(command.getDescription()) + "\n\n" + optionsDescription(command.getOptions(), false))
-                    .collect(joining("\n"));
+                    .map(command -> (withSubCommandName ? "\n" + MarkdownUtil.bold(command.getName()) + " : " : "> ") +
+                            MarkdownUtil.italics(command.getDescription()) +
+                            (command.getOptions().isEmpty() ? "\n\n(no parameter)" : "\n\n" + optionsDescription(command.getOptions(), false)))
+                    .collect(joining("\n\n"));
         } else if(!slashCommand.getOptions().isEmpty()) {
-            return optionsDescription(slashCommand.getOptions(), true);
+            return (withSubCommandName ? "\n" : "") + optionsDescription(slashCommand.getOptions(), true);
         }
         return null;
     }
