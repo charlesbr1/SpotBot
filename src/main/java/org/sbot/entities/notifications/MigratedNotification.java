@@ -6,7 +6,6 @@ import org.sbot.entities.FieldParser;
 import org.sbot.entities.Message;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.entities.alerts.ClientType;
-import org.sbot.services.context.Context;
 
 import java.time.ZonedDateTime;
 import java.util.HashMap;
@@ -94,7 +93,7 @@ public final class MigratedNotification extends Notification {
 
     @Override
     @NotNull
-    public Message asMessage(@NotNull Context unused) {
+    public Message asMessage() {
         String fromServer = (String) fields.get(FROM_SERVER);
         Reason reason = Reason.values()[(short) fields.get(REASON)];
         String header = switch (reason) {

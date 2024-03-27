@@ -7,7 +7,7 @@ import org.sbot.utils.DatesTest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.sbot.entities.FieldParser.format;
-import static org.sbot.entities.User.DEFAULT_LOCALE;
+import static org.sbot.entities.UserSettings.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.Type.range;
 import static org.sbot.entities.alerts.AlertTest.TEST_CLIENT_TYPE;
 import static org.sbot.entities.notifications.MigratedNotification.Field.*;
@@ -68,42 +68,42 @@ class MigratedNotificationTest {
     @Test
     void asMessage() {
         var notification = MigratedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromServer", "toServer", Reason.ADMIN, 1L);
-        var message = notification.asMessage(null);
+        var message = notification.asMessage();
         var embed = requireOneItem(message.embeds()).build();
         assertEquals("Notice of alert migration", embed.getTitle());
         assertEquals("An admin on server fromServer made a change, your range alert #321 on tickerOrPair was migrated to server toServer\n\nuse /migrate command to migrate it back", embed.getDescription());
         assertEquals(NOTIFICATION_COLOR, embed.getColor());
 
         notification = MigratedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromServer", null, Reason.SERVER_LEAVED, 1L);
-        message = notification.asMessage(null);
+        message = notification.asMessage();
         embed = requireOneItem(message.embeds()).build();
         assertEquals("Notice of alert migration", embed.getTitle());
         assertEquals("Server fromServer removed this bot, your range alert #321 on tickerOrPair was migrated to your private channel\n\nuse /migrate command to migrate it back", embed.getDescription());
         assertEquals(NOTIFICATION_COLOR, embed.getColor());
 
         notification = MigratedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromServer", "toServer", Reason.LEAVED, 1L);
-        message = notification.asMessage(null);
+        message = notification.asMessage();
         embed = requireOneItem(message.embeds()).build();
         assertEquals("Notice of alert migration", embed.getTitle());
         assertEquals("You leaved server fromServer, your range alert #321 on tickerOrPair was migrated to server toServer\n\nuse /migrate command to migrate it back", embed.getDescription());
         assertEquals(NOTIFICATION_COLOR, embed.getColor());
 
         notification = MigratedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromServer", "toServer", Reason.BANNED, 1L);
-        message = notification.asMessage(null);
+        message = notification.asMessage();
         embed = requireOneItem(message.embeds()).build();
         assertEquals("Notice of alert migration", embed.getTitle());
         assertEquals("You were banned from server fromServer, your range alert #321 on tickerOrPair was migrated to server toServer\n\nuse /migrate command to migrate it back", embed.getDescription());
         assertEquals(NOTIFICATION_COLOR, embed.getColor());
 
         notification = MigratedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, null, range, "all", "fromServer", "toServer", Reason.BANNED, 3L);
-        message = notification.asMessage(null);
+        message = notification.asMessage();
         embed = requireOneItem(message.embeds()).build();
         assertEquals("Notice of alerts migration", embed.getTitle());
         assertEquals("You were banned from server fromServer, all your range alerts were migrated to server toServer\n\nuse /migrate command to migrate them back", embed.getDescription());
         assertEquals(NOTIFICATION_COLOR, embed.getColor());
 
         notification = MigratedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, null, range, "eth", "fromServer", "toServer", Reason.BANNED, 3L);
-        message = notification.asMessage(null);
+        message = notification.asMessage();
         embed = requireOneItem(message.embeds()).build();
         assertEquals("Notice of alerts migration", embed.getTitle());
         assertEquals("You were banned from server fromServer, 3 of your range alerts having pair or ticker 'eth' were migrated to server toServer\n\nuse /migrate command to migrate them back", embed.getDescription());
