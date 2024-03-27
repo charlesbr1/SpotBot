@@ -18,7 +18,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.sbot.SpotBot;
 import org.sbot.entities.Message;
 import org.sbot.services.context.Context;
 
@@ -46,9 +45,6 @@ public final class Discord {
 
     public static final int MESSAGE_PAGE_SIZE = 1001; // this limit the number of messages that can be sent in bulk, 1000 + 1 for the next command message
 
-    public static final String DISCORD_BOT_CHANNEL = SpotBot.appProperties.get("discord.bot.channel");
-    public static final String DISCORD_BOT_ROLE = SpotBot.appProperties.get("discord.bot.role");
-
     private final JDA jda;
     private final Map<String, CommandListener> commands = new ConcurrentHashMap<>();
     private final Map<String, InteractionListener> interactions = new ConcurrentHashMap<>();
@@ -62,8 +58,8 @@ public final class Discord {
     }
 
     // notifications service
-    public static void sendMessages(@NotNull MessageChannel channel, @NotNull List<Message> messages, @NotNull Runnable onSuccess, @NotNull Consumer<Boolean> onFailure) {
-        sendMessages(messages, channel::sendMessageEmbeds, onSuccess, onFailure, 0);
+    public static void sendMessage(@NotNull MessageChannel channel, @NotNull Message message, @NotNull Runnable onSuccess, @NotNull Consumer<Boolean> onFailure) {
+        sendMessages(List.of(message), channel::sendMessageEmbeds, onSuccess, onFailure, 0);
     }
 
     // CommandContext responses
@@ -114,7 +110,7 @@ public final class Discord {
         return new ErrorHandler(ex -> {
             LOGGER.info("Exception occurred while sending discord message", ex);
             onFailure.accept(false); // network error, will try to send the message again
-        }).handle(List.of(UNKNOWN_USER, UNKNOWN_GUILD, UNKNOWN_CHANNEL, MESSAGE_BLOCKED_BY_HARMFUL_LINK_FILTER, MESSAGE_BLOCKED_BY_AUTOMOD), e -> {
+        }).handle(List.of(UNKNOWN_USER, UNKNOWN_GUILD, UNKNOWN_CHANNEL, NO_USER_WITH_TAG_EXISTS, REQUEST_ENTITY_TOO_LARGE, EMPTY_MESSAGE, MESSAGE_BLOCKED_BY_HARMFUL_LINK_FILTER, MESSAGE_BLOCKED_BY_AUTOMOD, TITLE_BLOCKED_BY_AUTOMOD), e -> {
             LOGGER.info("Failed to send message, user or server deleted, or message has unsafe content", e);
             onSuccess.run(); // this will consider the message sent and delete it
         }).handle(List.of(CANNOT_SEND_TO_USER), e -> {
@@ -138,6 +134,9 @@ public final class Discord {
                     .build()
                     .awaitReady();
         } catch (Exception e) {
+            if(e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             LOGGER.error("Unable to establish discord connection");
             throw new IllegalStateException(e);
         }
@@ -149,8 +148,9 @@ public final class Discord {
                 .queue(onSuccess, onFailure);
     }
 
-    public Optional<Guild> guildServer(@NotNull String guildServerId) {
-        return guildServer(Long.parseLong(guildServerId));
+    @Nullable
+    public Guild guildServer(@NotNull String guildServerId) {
+        return guildServer(Long.parseLong(guildServerId)).orElse(null);
     }
 
     public Optional<Guild> guildServer(long guildServerId) {
@@ -158,10 +158,15 @@ public final class Discord {
         return Optional.ofNullable(jda.getGuildById(guildServerId));
     }
 
-    @NotNull
-    public static Optional<TextChannel> spotBotChannel(@NotNull Guild guild) {
-        return guild.getTextChannelsByName(DISCORD_BOT_CHANNEL, true)
-                .stream().findFirst();
+    public static Optional<TextChannel> spotBotChannel(@Nullable Guild guild, @NotNull String spotBotChannel) {
+        return null != guild ? guild.getTextChannelsByName(spotBotChannel, false)
+                .stream().findFirst() : Optional.empty();
+    }
+
+    public static Optional<Role> spotBotRole(@Nullable Guild guild, @NotNull String spotBotRole) {
+        return null != guild ? guild.getRolesByName(spotBotRole, false).stream()
+                .filter(not(Role::isManaged))
+                .max(comparing(Role::getPositionRaw)) : Optional.empty();
     }
 
     @NotNull
@@ -172,12 +177,6 @@ public final class Discord {
     @NotNull
     public String spotBotUserMention() {
         return jda.getSelfUser().getAsMention();
-    }
-
-    public static Optional<Role> spotBotRole(@NotNull Guild guild) {
-        return guild.getRolesByName(DISCORD_BOT_ROLE, true).stream()
-                .filter(not(Role::isManaged))
-                .max(comparing(Role::getPositionRaw));
     }
 
     public CommandListener getCommandListener(@NotNull String command) {

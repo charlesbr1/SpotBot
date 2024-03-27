@@ -26,8 +26,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
-import static org.sbot.services.discord.Discord.DISCORD_BOT_CHANNEL;
-import static org.sbot.services.discord.Discord.DISCORD_BOT_ROLE;
+import static org.sbot.entities.ServerSettings.DEFAULT_BOT_CHANNEL;
+import static org.sbot.entities.ServerSettings.DEFAULT_BOT_ROLE;
 
 class DiscordTest {
 
@@ -58,7 +58,7 @@ class DiscordTest {
         assertFalse(onSuccess.get());
 
         ErrorResponseException error = mock();
-        for(var err : List.of(UNKNOWN_USER, UNKNOWN_GUILD, UNKNOWN_CHANNEL, MESSAGE_BLOCKED_BY_HARMFUL_LINK_FILTER, MESSAGE_BLOCKED_BY_AUTOMOD)) {
+        for(var err : List.of(UNKNOWN_USER, UNKNOWN_GUILD, UNKNOWN_CHANNEL, NO_USER_WITH_TAG_EXISTS, REQUEST_ENTITY_TOO_LARGE, EMPTY_MESSAGE, MESSAGE_BLOCKED_BY_HARMFUL_LINK_FILTER, MESSAGE_BLOCKED_BY_AUTOMOD, TITLE_BLOCKED_BY_AUTOMOD)) {
             when(error.getErrorResponse()).thenReturn(err);
             onSuccess.set(false);
             onFailure.set(null);
@@ -96,7 +96,7 @@ class DiscordTest {
         assertEquals(request, results.getFirst());
         verify(request).setComponents(List.of(component));
 
-        Message.File file = Message.File.of("test".getBytes(), "name");
+        Message.File file = Message.File.of("name", "test".getBytes());
         message = Message.of(embedBuilder("test"), file);
         results = Discord.asMessageRequests(message, mapper).toList();
         assertEquals(1, results.size());
@@ -127,15 +127,33 @@ class DiscordTest {
         when(discord.guildServer(123L)).thenCallRealMethod();
         when(discord.guildServer("123")).thenCallRealMethod();
         assertEquals(Optional.of(guild), discord.guildServer(123L));
-        assertEquals(Optional.of(guild), discord.guildServer("123"));
+        assertEquals(guild, discord.guildServer("123"));
+        when(jda.getGuildById(123L)).thenReturn(null);
+        assertEquals(Optional.empty(), discord.guildServer(123L));
+        assertNull(discord.guildServer("123"));
     }
 
     @Test
     void spotBotChannel() {
         Guild guild = mock();
         TextChannel textChannel = mock();
-        when(guild.getTextChannelsByName(DISCORD_BOT_CHANNEL, true)).thenReturn(List.of(textChannel));
-        assertEquals(Optional.of(textChannel), Discord.spotBotChannel(guild));
+        when(guild.getTextChannelsByName(DEFAULT_BOT_CHANNEL, false)).thenReturn(List.of(textChannel));
+        assertEquals(Optional.of(textChannel), Discord.spotBotChannel(guild, DEFAULT_BOT_CHANNEL));
+        when(guild.getTextChannelsByName(DEFAULT_BOT_CHANNEL, false)).thenReturn(List.of());
+        assertEquals(Optional.empty(), Discord.spotBotChannel(guild, DEFAULT_BOT_CHANNEL));
+    }
+
+    @Test
+    void spotBotRole() {
+        JDA jda = mock();
+        Discord discord = mock();
+        setJDA(discord, jda);
+        Guild guild = mock();
+        Role role = mock();
+        when(guild.getRolesByName(DEFAULT_BOT_ROLE, false)).thenReturn(List.of(role));
+        assertEquals(Optional.of(role), Discord.spotBotRole(guild, DEFAULT_BOT_ROLE));
+        when(guild.getRolesByName(DEFAULT_BOT_ROLE, false)).thenReturn(List.of());
+        assertEquals(Optional.empty(), Discord.spotBotRole(guild, DEFAULT_BOT_ROLE));
     }
 
     @Test
@@ -156,17 +174,6 @@ class DiscordTest {
         when(user.getAsMention()).thenReturn("selfmention");
         when(discord.spotBotUserMention()).thenCallRealMethod();
         assertEquals("selfmention", discord.spotBotUserMention());
-    }
-
-    @Test
-    void spotBotRole() {
-        JDA jda = mock();
-        Discord discord = mock();
-        setJDA(discord, jda);
-        Guild guild = mock();
-        Role role = mock();
-        when(guild.getRolesByName(DISCORD_BOT_ROLE, true)).thenReturn(List.of(role));
-        assertEquals(Optional.of(role), Discord.spotBotRole(guild));
     }
 
     @Test
