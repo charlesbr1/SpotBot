@@ -152,7 +152,7 @@ public abstract class CommandAdapter implements CommandListener {
             Alert alert = alertsDao.getAlertWithoutMessage(context.clientType, alertId).orElse(null);
             if(SecurityAccess.notFound(context, alert)) {
                 return Message.of(embedBuilder(":ghost:  " + context.userName, NOT_FOUND_COLOR, "Alert " + alertId + " not found"));
-            } else if(SecurityAccess.isDenied(context, alert)) {
+            } else if(!SecurityAccess.canUpdate(context, alert)) {
                 return Message.of(embedBuilder(":clown:  " + context.userName, DENIED_COLOR, "You are not allowed to modify alert " + alertId));
             }
             var notificationsDao = txCtx.notificationsDao();
