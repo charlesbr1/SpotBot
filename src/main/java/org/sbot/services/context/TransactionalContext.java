@@ -4,10 +4,7 @@ import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jetbrains.annotations.NotNull;
 import org.sbot.exchanges.Exchanges;
 import org.sbot.services.LastCandlesticksService;
-import org.sbot.services.dao.AlertsDao;
-import org.sbot.services.dao.LastCandlesticksDao;
-import org.sbot.services.dao.NotificationsDao;
-import org.sbot.services.dao.UsersDao;
+import org.sbot.services.dao.*;
 import org.sbot.services.dao.sql.jdbi.JDBITransactionHandler;
 
 import java.time.Clock;
@@ -43,8 +40,13 @@ public class TransactionalContext implements Context {
     }
 
     @NotNull
-    public UsersDao usersDao() {
-        return dataServices().usersDao().apply(transactionHandler);
+    public UserSettingsDao userSettingsDao() {
+        return dataServices().userSettingsDao().apply(transactionHandler);
+    }
+
+    @NotNull
+    public ServerSettingsDao serverSettingsDao() {
+        return dataServices().serverSettingsDao().apply(transactionHandler);
     }
 
     @NotNull
