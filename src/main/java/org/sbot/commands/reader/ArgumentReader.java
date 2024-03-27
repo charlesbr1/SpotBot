@@ -3,6 +3,7 @@ package org.sbot.commands.reader;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.alerts.Alert.Type;
+import org.sbot.entities.alerts.ClientType;
 import org.sbot.utils.Dates;
 
 import java.math.BigDecimal;
@@ -56,7 +57,7 @@ public interface ArgumentReader {
 
     Optional<LocalDateTime> getLocalDateTime(@NotNull Locale locale, @NotNull String fieldName);
 
-    Optional<Long> getUserId(@NotNull String fieldName);
+    Optional<Long> getUserId(@NotNull ClientType clientType, @NotNull String fieldName);
 
     Optional<Type> getType(@NotNull String fieldName);
 

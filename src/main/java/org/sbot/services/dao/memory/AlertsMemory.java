@@ -7,10 +7,13 @@ import org.sbot.entities.alerts.Alert;
 import org.sbot.entities.alerts.ClientType;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.BatchEntry;
-import org.sbot.services.dao.UsersDao;
+import org.sbot.services.dao.UserSettingsDao;
 
 import java.time.ZonedDateTime;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -37,11 +40,11 @@ public final class AlertsMemory implements AlertsDao {
 
     private final AtomicLong idGenerator = new AtomicLong(1L);
 
-    public final UsersDao usersDao;
+    public final UserSettingsDao userSettingsDao;
 
     public AlertsMemory() {
         LOGGER.debug("Loading memory storage for alerts");
-        this.usersDao = new UsersMemory(this);
+        this.userSettingsDao = new UserSettingsMemory(this);
     }
 
     @NotNull
@@ -168,8 +171,8 @@ public final class AlertsMemory implements AlertsDao {
     public long addAlert(@NotNull Alert alert) {
         if(NEW_ALERT_ID != alert.id) {
             throw new IllegalArgumentException("Alert id is not new : " + alert);
-        } else if(!usersDao.userExists(alert.userId)) {
-            throw new IllegalArgumentException("Alert reference an user not found in userDao : " + alert);
+        } else if(!userSettingsDao.userExists(alert.clientType, alert.userId)) {
+            throw new IllegalArgumentException("Alert reference an user not found in userSettings : " + alert);
         }
         alert = alert.withId(idGenerator::getAndIncrement);
         LOGGER.debug("addAlert {}", alert);

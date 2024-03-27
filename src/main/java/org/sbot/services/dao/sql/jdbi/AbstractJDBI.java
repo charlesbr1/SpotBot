@@ -1,5 +1,6 @@
 package org.sbot.services.dao.sql.jdbi;
 
+import org.apache.logging.log4j.LogManager;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.HandleCallback;
 import org.jdbi.v3.core.generic.GenericType;
@@ -56,7 +57,12 @@ public abstract class AbstractJDBI {
     }
 
     private <T> T sync(@NotNull Function<Handle, T> synchronizedAccess) {
-        return transactionHandler.sync(repository.jdbi, synchronizedAccess);
+        long start = System.nanoTime();
+        try {
+            return transactionHandler.sync(repository.jdbi, synchronizedAccess);
+        } finally {
+            LogManager.getLogger(AbstractJDBI.class).info("tx done in {} μs.", (System.nanoTime() - start) / 1000);
+        }
     }
 
     protected int update(@NotNull String sql, @NotNull Map<String, ?> parameters) {

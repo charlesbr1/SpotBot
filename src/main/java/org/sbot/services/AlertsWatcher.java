@@ -4,8 +4,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.sbot.entities.User;
+import org.sbot.entities.UserSettings;
 import org.sbot.entities.alerts.Alert;
+import org.sbot.entities.alerts.ClientType;
 import org.sbot.entities.chart.Candlestick;
 import org.sbot.entities.chart.Candlestick.CandlestickPeriod;
 import org.sbot.entities.chart.TimeFrame;
@@ -15,10 +16,8 @@ import org.sbot.exchanges.Exchange;
 import org.sbot.services.MatchingService.MatchingAlert;
 import org.sbot.services.context.Context;
 import org.sbot.services.context.TransactionalContext;
-import org.sbot.services.dao.AlertsDao;
-import org.sbot.services.dao.BatchEntry;
-import org.sbot.services.dao.NotificationsDao;
-import org.sbot.services.dao.UsersDao;
+import org.sbot.services.dao.*;
+import org.sbot.services.dao.UserSettingsDao.ClientTypeUserId;
 import org.sbot.services.discord.Discord;
 import org.sbot.utils.Dates;
 
@@ -39,7 +38,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.groupingBy;
 import static org.sbot.SpotBot.appProperties;
-import static org.sbot.entities.User.DEFAULT_LOCALE;
+import static org.sbot.entities.UserSettings.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.Type.range;
 import static org.sbot.entities.alerts.Alert.Type.trend;
 import static org.sbot.entities.alerts.Alert.isPrivate;
@@ -58,7 +57,8 @@ public final class AlertsWatcher {
     public static final int DONE_ALERTS_DELAY_WEEKS = Math.max(1, appProperties.getIntOr("alerts.done.drop.delay.weeks", 1));
     public static final int EXPIRED_ALERTS_DELAY_WEEKS = Math.max(1, appProperties.getIntOr("alerts.expired.drop.delay.weeks", 2));
     private static final int NOTIFICATIONS_DELETE_DELAY_MONTHS = Math.max(1, appProperties.getIntOr("notifications.delete.delay.months", 6));
-    private static final int USERS_LAST_ACCESS_DELAY_MONTHS = Math.max(1, appProperties.getIntOr("users.last-access.drop.delay.months", 6));
+    private static final int USERS_LAST_ACCESS_DELAY_MONTHS = Math.max(1, appProperties.getIntOr("settings.users.last-access.drop.delay.months", 6));
+    private static final int SERVERS_LAST_ACCESS_DELAY_MONTHS = Math.max(1, appProperties.getIntOr("settings.servers.last-access.drop.delay.months", 12));
 
     private final Context context;
 
@@ -72,12 +72,11 @@ public final class AlertsWatcher {
         try {
             ZonedDateTime now = Dates.nowUtc(context.clock());
             context.transaction(txCtx -> expiredNotificationsCleanup(txCtx.notificationsDao(), now));
-            context.transaction(txCtx -> expiredUsersCleanup(txCtx.usersDao(), now));
+            context.transaction(txCtx -> expiredSettingsCleanup(txCtx.userSettingsDao(), txCtx.serverSettingsDao(), now));
             if(context.transactional(txCtx -> expiredAlertsCleanup(txCtx, now)) > 0) {
                 context.notificationService().sendNotifications();
             }
 
-            //TODO check user not on server anymore
             var exchangePairs = context.transactional(txCtx -> {
                 var pairs = pairsToCheck(txCtx.alertsDao(), now);
                 removeUnusedLastCandlestick(txCtx, pairs);
@@ -111,15 +110,21 @@ public final class AlertsWatcher {
         LOGGER.debug("Deleting {} notifications with creation date < {}", deleted, expirationDate);
     }
 
-    void expiredUsersCleanup(@NotNull UsersDao usersDao, @NotNull ZonedDateTime now) {
-        ZonedDateTime expirationDate = now.minusMonths(USERS_LAST_ACCESS_DELAY_MONTHS);
-        long deleted = usersDao.deleteHavingLastAccessBeforeAndNotInAlerts(expirationDate);
-        LOGGER.debug("Deleting {} users with last access < {}", deleted, expirationDate);
+    void expiredSettingsCleanup(@NotNull UserSettingsDao userSettingsDao, @NotNull ServerSettingsDao serverSettingsDao, @NotNull ZonedDateTime now) {
+        ZonedDateTime usersExpirationDate = now.minusMonths(USERS_LAST_ACCESS_DELAY_MONTHS);
+        ZonedDateTime serversExpirationDate = now.minusMonths(SERVERS_LAST_ACCESS_DELAY_MONTHS);
+        long usersDeleted = 0L;
+        long serversDeleted = 0L;
+        for (var clientType : ClientType.values()) {
+            usersDeleted += userSettingsDao.deleteHavingLastAccessBeforeAndNotInAlerts(clientType, usersExpirationDate);
+            serversDeleted += serverSettingsDao.deleteHavingLastAccessBeforeAndNotInAlerts(clientType, serversExpirationDate);
+        }
+        LOGGER.debug("Deleting {} users with last access < {}, and {} servers with last access < {}", usersDeleted, usersExpirationDate, serversDeleted, serversExpirationDate);
     }
 
     long expiredAlertsCleanup(@NotNull TransactionalContext txCtx, @NotNull ZonedDateTime now) {
         var alertsDao = txCtx.alertsDao();
-        Consumer<Stream<Alert>> alertsDeleter = alertDeleter(now, alertsDao, txCtx.notificationsDao(), txCtx.usersDao());
+        Consumer<Stream<Alert>> alertsDeleter = alertDeleter(now, alertsDao, txCtx.notificationsDao(), txCtx.userSettingsDao());
         ZonedDateTime expirationDate = now.minusWeeks(DONE_ALERTS_DELAY_WEEKS);
         // filter by repeat < 0 instead of listeningDate null to distinguish case where user disabled the alert but want to keep it
         long total;
@@ -134,14 +139,15 @@ public final class AlertsWatcher {
     }
 
     @NotNull
-    private Consumer<Stream<Alert>> alertDeleter(@NotNull ZonedDateTime now, @NotNull AlertsDao alertsDao, @NotNull NotificationsDao notificationsDao, @NotNull UsersDao usersDao) {
-        var userLocales = new HashMap<Long, Locale>();
+    private Consumer<Stream<Alert>> alertDeleter(@NotNull ZonedDateTime now, @NotNull AlertsDao alertsDao, @NotNull NotificationsDao notificationsDao, @NotNull UserSettingsDao userSettingsDao) {
+        var userLocales = new HashMap<ClientTypeUserId, Locale>();
         var guildNames = new HashMap<Long, String>();
-        Function<Long, Locale> userLocale = id -> usersDao.getUser(id).map(User::locale).orElse(DEFAULT_LOCALE);
+        Function<ClientTypeUserId, Locale> userLocale = id -> userSettingsDao.getUserSettings(id.clientType(), id.userId())
+                .map(UserSettings::locale).orElse(DEFAULT_LOCALE);
         Function<Long, String> guildName = id -> context.discord().guildServer(id).map(Discord::guildName).orElse("unknown");
         return alerts -> alertsDao.delete(deleter ->
                         alerts.forEach(alert -> {
-                            var locale = userLocales.computeIfAbsent(alert.userId, userLocale);
+                            var locale = userLocales.computeIfAbsent(ClientTypeUserId.of(alert.clientType, alert.userId), userLocale);
                             var serverName = switch (alert.clientType) {
                                 case DISCORD -> isPrivate(alert.serverId) ? null : guildNames.computeIfAbsent(alert.serverId, guildName);
                             };
@@ -251,7 +257,7 @@ public final class AlertsWatcher {
     private long processMatchingAlerts(@NotNull TransactionalContext context, @NotNull ZonedDateTime now, @NotNull Exchange exchange, @NotNull String pair, @NotNull List<Candlestick> prices, @Nullable Candlestick previousPrice) {
         var alertsDao = context.alertsDao();
         var notificationsDao = context.notificationsDao();
-        var usersDao = context.usersDao();
+        var userSettingsDao = context.userSettingsDao();
         var matchingService = context.matchingService();
         long[] matching = new long[1];
         long read = alertsDao.fetchAlertsWithoutMessageByExchangeAndPairHavingPastListeningDateWithActiveRange(exchange.name(), pair, now, context.parameters().checkPeriodMin(),
@@ -260,7 +266,7 @@ public final class AlertsWatcher {
                                 .map(alert -> matchingService.match(now, alert, prices, previousPrice))
                                 .filter(alert -> alert.hasMatch() && ++matching[0] != 0))
                         .map(matchingAlerts -> fetchAlertsMessage(alertsDao, matchingAlerts))
-                        .flatMap(matchingAlerts -> sendNotifications(now, notificationsDao, usersDao, matchingAlerts))));
+                        .flatMap(matchingAlerts -> sendNotifications(now, notificationsDao, userSettingsDao, matchingAlerts))));
         LOGGER.debug("Processed {} alerts on exchange {} and pair {}, found {} matching", read, exchange.name(), pair, matching[0]);
         return matching[0];
     }
@@ -287,20 +293,21 @@ public final class AlertsWatcher {
                 .toList();
     }
 
-    private Stream<MatchingAlert> sendNotifications(@NotNull ZonedDateTime now, @NotNull NotificationsDao notificationsDao, @NotNull UsersDao usersDao, @NotNull List<MatchingAlert> matchingAlerts) {
-        var userIds = matchingAlerts.stream().map(MatchingAlert::alert).map(Alert::getUserId).toList();
-        var userLocales = usersDao.getLocales(userIds);
+    private Stream<MatchingAlert> sendNotifications(@NotNull ZonedDateTime now, @NotNull NotificationsDao notificationsDao, @NotNull UserSettingsDao userSettingsDao, @NotNull List<MatchingAlert> matchingAlerts) {
+        var userIds = matchingAlerts.stream().map(MatchingAlert::alert).map(a -> ClientTypeUserId.of(a.clientType, a.userId)).toList();
+        var userLocales = userSettingsDao.getLocales(userIds);
         matchingAlerts.stream().collect(groupingBy(matchingAlert -> matchingAlert.alert().serverId))
                 .forEach((serverId, alertsList) -> // group by serverId
                         alertsList.stream().collect(groupingBy(matchingAlert -> matchingAlert.alert().userId))
                                 .forEach((userId, alerts) -> // then group by userId
-                                        sendNotifications(now, notificationsDao, userLocales.getOrDefault(userId, DEFAULT_LOCALE), alerts)));
+                                        sendNotifications(now, notificationsDao, userLocales, alerts)));
         return matchingAlerts.stream();
     }
 
-    private void sendNotifications(@NotNull ZonedDateTime now, @NotNull NotificationsDao notificationsDao, @NotNull Locale locale, @NotNull List<MatchingAlert> matchingAlerts) {
+    private void sendNotifications(@NotNull ZonedDateTime now, @NotNull NotificationsDao notificationsDao, @NotNull Map<ClientTypeUserId, Locale> locales, @NotNull List<MatchingAlert> matchingAlerts) {
         matchingAlerts.forEach(matchingAlert -> notificationsDao.addNotification(
-                MatchingNotification.of(now, locale, matchingAlert.status(), matchingAlert.alert(),
+                MatchingNotification.of(now, locales.getOrDefault(ClientTypeUserId.of(matchingAlert.alert().clientType, matchingAlert.alert().userId), DEFAULT_LOCALE),
+                        matchingAlert.status(), matchingAlert.alert(),
                         Optional.ofNullable(matchingAlert.matchingCandlestick()).map(Candlestick::datedClose).orElse(null))));
     }
 }

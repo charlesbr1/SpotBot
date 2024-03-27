@@ -22,6 +22,7 @@ import java.util.function.LongSupplier;
 
 import static java.util.Objects.requireNonNull;
 import static org.sbot.entities.FieldParser.Type.*;
+import static org.sbot.entities.UserSettings.NO_ID;
 import static org.sbot.entities.alerts.Alert.Field.*;
 import static org.sbot.entities.alerts.Alert.Type.trend;
 import static org.sbot.services.AlertsWatcher.DONE_ALERTS_DELAY_WEEKS;
@@ -48,8 +49,8 @@ public abstract class Alert {
     public static final BigDecimal MARGIN_DISABLED = BigDecimal.ZERO;
     public static final short DEFAULT_REPEAT = 10;
     public static final short DEFAULT_SNOOZE_HOURS = 8;
-    public static final long PRIVATE_MESSAGES = 0L;
-    public static final long NEW_ALERT_ID = 0L;
+    public static final long PRIVATE_MESSAGES = NO_ID;
+    public static final long NEW_ALERT_ID = NO_ID;
 
     public static final Color DISABLED_COLOR = Color.black;
     public static final Color PRIVATE_COLOR = Color.blue;

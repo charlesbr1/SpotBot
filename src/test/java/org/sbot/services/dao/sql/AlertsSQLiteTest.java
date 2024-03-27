@@ -35,24 +35,24 @@ class AlertsSQLiteTest extends AlertsDaoTest {
         return provideDao(null);
     }
 
-    public static Stream<Arguments> provideDao(Consumer<JDBIRepository> usersDaoConstructor) {
+    public static Stream<Arguments> provideDao(Consumer<JDBIRepository> settingsDaoConstructor) {
         var initConstructors = new ArrayList<Consumer<JDBIRepository>>();
-        Optional.ofNullable(usersDaoConstructor).ifPresent(initConstructors::add);
+        Optional.ofNullable(settingsDaoConstructor).ifPresent(initConstructors::add);
         initConstructors.add(AlertsSQLite::new);
-        UsersSQLite[] userDao = new UsersSQLite[1];
+        UserSettingsSQLite[] settingsDao = new UserSettingsSQLite[1];
         return Stream.of(Arguments.of(loadTransactionalDao((dao, handle) -> {
             try {
                 var field = AbstractJDBI.class.getDeclaredField("transactionHandler");
                 field.setAccessible(true);
                 JDBITransactionHandler txHandler = (JDBITransactionHandler) field.get(dao);
-                userDao[0] = new UsersSQLite(dao, txHandler);
-                userDao[0].setupTable(handle);
-                handle.execute(UsersSQLite.SQL.CREATE_TABLE);
+                settingsDao[0] = new UserSettingsSQLite(dao, txHandler);
+                settingsDao[0].setupTable(handle);
+                handle.execute(UserSettingsSQLite.SQL.CREATE_TABLE);
                 dao.setupTable(handle);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        }, (jdbi, txHandler) -> new AlertsSQLite(jdbi, txHandler, new AtomicLong(1)), initConstructors), userDao[0]));
+        }, (jdbi, txHandler) -> new AlertsSQLite(jdbi, txHandler, new AtomicLong(1)), initConstructors), settingsDao[0]));
     }
 
     @Test

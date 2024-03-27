@@ -94,7 +94,8 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
                 to_price TEXT,
                 from_date INTEGER,
                 to_date INTEGER,
-                FOREIGN KEY(user_id) REFERENCES users(id)) STRICT
+                FOREIGN KEY(user_id) REFERENCES user_settings(discord_user_id),
+                FOREIGN KEY(server_id) REFERENCES server_settings(discord_server_id)) STRICT
                 """;
 
         String CREATE_USER_ID_INDEX = "CREATE INDEX IF NOT EXISTS alerts_user_id_index ON alerts (user_id)";
