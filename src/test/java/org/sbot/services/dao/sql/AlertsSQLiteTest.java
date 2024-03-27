@@ -39,20 +39,22 @@ class AlertsSQLiteTest extends AlertsDaoTest {
         var initConstructors = new ArrayList<Consumer<JDBIRepository>>();
         Optional.ofNullable(settingsDaoConstructor).ifPresent(initConstructors::add);
         initConstructors.add(AlertsSQLite::new);
-        UserSettingsSQLite[] settingsDao = new UserSettingsSQLite[1];
+        UserSettingsSQLite[] userSettingsDao = new UserSettingsSQLite[1];
+        ServerSettingsSQLite[] serverSettingsDao = new ServerSettingsSQLite[1];
         return Stream.of(Arguments.of(loadTransactionalDao((dao, handle) -> {
             try {
                 var field = AbstractJDBI.class.getDeclaredField("transactionHandler");
                 field.setAccessible(true);
                 JDBITransactionHandler txHandler = (JDBITransactionHandler) field.get(dao);
-                settingsDao[0] = new UserSettingsSQLite(dao, txHandler);
-                settingsDao[0].setupTable(handle);
-                handle.execute(UserSettingsSQLite.SQL.CREATE_TABLE);
+                userSettingsDao[0] = new UserSettingsSQLite(dao, txHandler);
+                userSettingsDao[0].setupTable(handle);
+                serverSettingsDao[0] = new ServerSettingsSQLite(dao, txHandler);
+                serverSettingsDao[0].setupTable(handle);
                 dao.setupTable(handle);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        }, (jdbi, txHandler) -> new AlertsSQLite(jdbi, txHandler, new AtomicLong(1)), initConstructors), settingsDao[0]));
+        }, (jdbi, txHandler) -> new AlertsSQLite(jdbi, txHandler, new AtomicLong(1)), initConstructors), userSettingsDao[0], serverSettingsDao[0]));
     }
 
     @Test

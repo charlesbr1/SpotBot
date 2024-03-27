@@ -15,7 +15,7 @@ class AlertsMemoryTest extends AlertsDaoTest {
 
     public static Stream<Arguments> provideDao() {
         var alerts = new AlertsMemory();
-        return Stream.of(Arguments.of(alerts, alerts.userSettingsDao));
+        return Stream.of(Arguments.of(alerts, alerts.userSettingsDao, new ServerSettingsMemory(alerts)));
     }
 
     @Test
