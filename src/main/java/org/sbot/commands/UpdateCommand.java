@@ -8,6 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
+import org.sbot.entities.UserSettings;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.entities.notifications.UpdatedNotification;
 import org.sbot.services.dao.NotificationsDao;
@@ -41,7 +42,7 @@ import static org.sbot.utils.Dates.parse;
 public final class UpdateCommand extends CommandAdapter {
 
     static final String NAME = "update";
-    static final String DESCRIPTION = "update your settings or an alert";
+    static final String DESCRIPTION = "update your settings or an alert (admins are allowed to update member alerts)";
     private static final int RESPONSE_TTL_SECONDS = 30;
 
     // user settings
@@ -94,7 +95,7 @@ public final class UpdateCommand extends CommandAdapter {
                             .addChoice(CHOICE_ENABLE, CHOICE_ENABLE),
                     option(INTEGER, ALERT_ID_ARGUMENT, "id of the alert to update", true)
                             .setMinValue(0).setMaxValue((long) MAX_POSITIVE_NUMBER),
-                    option(STRING, VALUE_ARGUMENT, "a new value depending on the selected field : a price, a message, or a date (" + Dates.DATE_TIME_FORMAT + ')', true)
+                    option(STRING, VALUE_ARGUMENT, "a new value depending on the selected field : a price, a message, or a date (" + Dates.DATE_TIME_FORMAT + " now+h)", true)
                             .setMinLength(1)));
 
     record Arguments(String selection, String value, Long alertId) {}
@@ -131,20 +132,24 @@ public final class UpdateCommand extends CommandAdapter {
     private Message locale(@NotNull CommandContext context, @NotNull String value) {
         var locale = requireSupportedLocale(value);
         return context.transactional(txCtx -> {
-            if(txCtx.usersDao().userExists(context.userId)) {
-                txCtx.usersDao().updateLocale(context.userId, locale);
-                return Message.of(embedBuilder(NAME, OK_COLOR, "Your locale is set to " + locale.toLanguageTag()));
+            if (txCtx.userSettingsDao().userExists(context.clientType, context.userId)) {
+                txCtx.userSettingsDao().updateUserLocale(context.clientType, context.userId, locale);
+            } else { // string command does not provide user local and can't allow to setup an user account, excepted here where we got a locale
+                txCtx.userSettingsDao().addSettings(UserSettings.ofDiscordUser(context.userId, locale, context.serverSettings.timezone(), Dates.nowUtc(context.clock())));
             }
-            return userSetupNeeded("Update locale", "Unable to save your locale :");
+            return Message.of(embedBuilder(NAME, OK_COLOR, "Your locale is set to " + locale.toLanguageTag()));
         });
     }
 
     private Message timezone(@NotNull CommandContext context, @NotNull String value) {
         var timezone = ZoneId.of(value, ZoneId.SHORT_IDS);
         return context.transactional(txCtx -> {
-            if(txCtx.usersDao().userExists(context.userId)) {
-                txCtx.usersDao().updateTimezone(context.userId, timezone);
-                return Message.of(embedBuilder(NAME, OK_COLOR, "Your timezone is set to " + timezone.getId()));
+            switch (context.clientType) {
+                case DISCORD:
+                    if (txCtx.userSettingsDao().userExists(context.clientType, context.userId)) {
+                        txCtx.userSettingsDao().updateUserTimezone(context.clientType, context.userId, timezone);
+                        return Message.of(embedBuilder(NAME, OK_COLOR, "Your timezone is set to " + timezone.getId()));
+                    }
             }
             return userSetupNeeded("Update timezone", "Unable to save your timezone :");
         });

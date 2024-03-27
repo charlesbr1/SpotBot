@@ -10,13 +10,17 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
+import org.sbot.entities.ServerSettings;
+import org.sbot.entities.Settings;
+import org.sbot.entities.UserSettings;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.services.NotificationsService;
 import org.sbot.services.context.Context;
+import org.sbot.services.context.Context.DataServices;
 import org.sbot.services.context.Context.Services;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.NotificationsDao;
-import org.sbot.services.dao.UsersDao;
+import org.sbot.services.dao.UserSettingsDao;
 import org.sbot.services.discord.Discord;
 import org.sbot.utils.Dates;
 import org.sbot.utils.DatesTest;
@@ -47,6 +51,7 @@ import static org.sbot.entities.alerts.Alert.DEFAULT_REPEAT;
 import static org.sbot.entities.alerts.Alert.DEFAULT_SNOOZE_HOURS;
 import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.entities.alerts.AlertTest.*;
+import static org.sbot.entities.alerts.ClientType.DISCORD;
 import static org.sbot.entities.alerts.RemainderAlert.REMAINDER_DEFAULT_REPEAT;
 import static org.sbot.services.dao.AlertsDao.UpdateField.*;
 import static org.sbot.services.dao.AlertsDaoTest.assertDeepEquals;
@@ -54,6 +59,8 @@ import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.Dates.UTC;
 
 class UpdateCommandTest {
+
+    private final Settings settings = new Settings(UserSettings.NO_USER, ServerSettings.PRIVATE_SERVER);
 
     @Test
     void arguments() {
@@ -64,63 +71,63 @@ class UpdateCommandTest {
 
         CommandContext[] commandContext = new CommandContext[1];
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME);
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME);
         assertExceptionContains(IllegalArgumentException.class, SELECTION_ARGUMENT,
                 () -> UpdateCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + "  badSelection");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + "  badSelection");
         assertExceptionContains(IllegalArgumentException.class, ALERT_ID_ARGUMENT,
                 () -> UpdateCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + "  locale locale err");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + "  locale locale err");
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS,
                 () -> UpdateCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + "  timezone timezone err");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + "  timezone timezone err");
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS,
                 () -> UpdateCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + "  message");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + "  message");
         assertExceptionContains(IllegalArgumentException.class, ALERT_ID_ARGUMENT,
                 () -> UpdateCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + "  message err");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + "  message err");
         assertExceptionContains(IllegalArgumentException.class, ALERT_ID_ARGUMENT,
                 () -> UpdateCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + "  message  value 123");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + "  message  value 123");
         assertExceptionContains(IllegalArgumentException.class, ALERT_ID_ARGUMENT,
                 () -> UpdateCommand.arguments(commandContext[0]));
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + "  locale locale");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + "  locale locale");
         var arguments = UpdateCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
         assertEquals(CHOICE_LOCALE, arguments.selection());
         assertEquals("locale", arguments.value());
         assertNull(arguments.alertId());
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + "  timezone timezone");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + "  timezone timezone");
         arguments = UpdateCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
         assertEquals(CHOICE_TIMEZONE, arguments.selection());
         assertEquals("timezone", arguments.value());
         assertNull(arguments.alertId());
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + "  message 123 message");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + "  message 123 message");
         arguments = UpdateCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
         assertEquals(CHOICE_MESSAGE, arguments.selection());
         assertNull(arguments.value());
         assertEquals(123L, arguments.alertId());
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + "  from_date 123 message");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + "  from_date 123 message");
         arguments = UpdateCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
         assertEquals(CHOICE_FROM_DATE, arguments.selection());
         assertNull(arguments.value());
         assertEquals(123L, arguments.alertId());
 
-        commandContext[0] = CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + "  repeat 123 value");
+        commandContext[0] = CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + "  repeat 123 value");
         arguments = UpdateCommand.arguments(commandContext[0]);
         assertNotNull(arguments);
         assertEquals(CHOICE_REPEAT, arguments.selection());
@@ -137,65 +144,71 @@ class UpdateCommandTest {
         when(messageReceivedEvent.getAuthor()).thenReturn(user);
         when(user.getIdLong()).thenReturn(userId);
         Context context = mock(Context.class);
-        UsersDao usersDao = mock();
-        Context.DataServices dataServices = mock();
-        when(dataServices.usersDao()).thenReturn(v -> usersDao);
+        when(context.clock()).thenReturn(Clock.systemUTC());
+        UserSettingsDao settingsDao = mock();
+        DataServices dataServices = mock();
+        when(dataServices.userSettingsDao()).thenReturn(v -> settingsDao);
         when(context.dataServices()).thenReturn(dataServices);
 
         var command = new UpdateCommand();
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
 
-        var finalCommandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " locale invalidlocale"));
+        var finalCommandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " locale invalidlocale"));
         assertExceptionContains(IllegalArgumentException.class, "locale is not supported", () -> command.onCommand(finalCommandContext));
 
-        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " locale fr"));
+        var commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " locale fr"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(usersDao).userExists(userId);
-        verify(usersDao, never()).updateLocale(anyInt(), any());
+        verify(settingsDao).userExists(DISCORD, userId);
+        verify(settingsDao, never()).updateUserLocale(eq(DISCORD), anyInt(), any());
+        verify(settingsDao).addSettings(any());
         var messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
         var message = messages.get(0).embeds().get(0);
-        assertTrue(message.getDescriptionBuilder().toString().contains("Unable to save your locale"));
+        assertTrue(message.getDescriptionBuilder().toString().contains("locale is set to fr"));
+        assertFalse(message.getDescriptionBuilder().toString().contains("Unable to save"));
 
-        when(usersDao.userExists(userId)).thenReturn(true);
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " locale fr"));
+        when(settingsDao.userExists(DISCORD, userId)).thenReturn(true);
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " locale fr"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(usersDao, times(2)).userExists(userId);
-        verify(usersDao).updateLocale(userId, DiscordLocale.FRENCH.toLocale());
+        verify(settingsDao, times(2)).userExists(DISCORD, userId);
+        verify(settingsDao).updateUserLocale(DISCORD, userId, DiscordLocale.FRENCH.toLocale());
+        verify(settingsDao).addSettings(any());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("locale is set to fr"));
 
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " locale pt-BR"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " locale pt-BR"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(usersDao, times(3)).userExists(userId);
-        verify(usersDao).updateLocale(userId, DiscordLocale.PORTUGUESE_BRAZILIAN.toLocale());
+        verify(settingsDao, times(3)).userExists(DISCORD, userId);
+        verify(settingsDao).updateUserLocale(DISCORD, userId, DiscordLocale.PORTUGUESE_BRAZILIAN.toLocale());
+        verify(settingsDao).addSettings(any());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("locale is set to pt-BR"));
 
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " locale en-US"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " locale en-US"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(usersDao, times(4)).userExists(userId);
-        verify(usersDao).updateLocale(userId, DiscordLocale.ENGLISH_US.toLocale());
+        verify(settingsDao, times(4)).userExists(DISCORD, userId);
+        verify(settingsDao).updateUserLocale(DISCORD, userId, DiscordLocale.ENGLISH_US.toLocale());
+        verify(settingsDao).addSettings(any());
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -212,65 +225,65 @@ class UpdateCommandTest {
         when(messageReceivedEvent.getAuthor()).thenReturn(user);
         when(user.getIdLong()).thenReturn(userId);
         Context context = mock(Context.class);
-        UsersDao usersDao = mock();
-        Context.DataServices dataServices = mock();
-        when(dataServices.usersDao()).thenReturn(v -> usersDao);
+        UserSettingsDao settingsDao = mock();
+        DataServices dataServices = mock();
+        when(dataServices.userSettingsDao()).thenReturn(v -> settingsDao);
         when(context.dataServices()).thenReturn(dataServices);
 
         var command = new UpdateCommand();
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
 
-        var finalCommandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " timezone invalidtimezone"));
+        var finalCommandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " timezone invalidtimezone"));
         assertExceptionContains(ZoneRulesException.class, "Unknown time-zone ID", () -> command.onCommand(finalCommandContext));
 
-        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " timezone UTC"));
+        var commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " timezone UTC"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(usersDao).userExists(userId);
-        verify(usersDao, never()).updateTimezone(anyInt(), any());
+        verify(settingsDao).userExists(DISCORD, userId);
+        verify(settingsDao, never()).updateUserTimezone(eq(DISCORD), anyInt(), any());
         var messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
         var message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("Unable to save your timezone"));
 
-        when(usersDao.userExists(userId)).thenReturn(true);
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " timezone UTC"));
+        when(settingsDao.userExists(DISCORD, userId)).thenReturn(true);
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " timezone UTC"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(usersDao, times(2)).userExists(userId);
-        verify(usersDao).updateTimezone(userId, UTC);
+        verify(settingsDao, times(2)).userExists(DISCORD, userId);
+        verify(settingsDao).updateUserTimezone(DISCORD, userId, UTC);
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("timezone is set to UTC"));
 
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " timezone Europe/Paris"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " timezone Europe/Paris"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(usersDao, times(3)).userExists(userId);
-        verify(usersDao).updateTimezone(userId, ZoneId.of("Europe/Paris"));
+        verify(settingsDao, times(3)).userExists(DISCORD, userId);
+        verify(settingsDao).updateUserTimezone(DISCORD, userId, ZoneId.of("Europe/Paris"));
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
         message = messages.get(0).embeds().get(0);
         assertTrue(message.getDescriptionBuilder().toString().contains("timezone is set to Europe/Paris"));
 
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " timezone +02:20"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " timezone +02:20"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
         verify(commandContext).reply(messagesReply.capture(), anyInt());
-        verify(usersDao, times(4)).userExists(userId);
-        verify(usersDao).updateTimezone(userId, ZoneId.of("+02:20"));
+        verify(settingsDao, times(4)).userExists(DISCORD, userId);
+        verify(settingsDao).updateUserTimezone(DISCORD, userId, ZoneId.of("+02:20"));
         messages = messagesReply.getValue();
         assertEquals(1, messages.size());
         assertEquals(1, messages.get(0).embeds().size());
@@ -293,7 +306,7 @@ class UpdateCommandTest {
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
         NotificationsDao notificationsDao = mock();
-        Context.DataServices dataServices = mock();
+        DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
         when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
@@ -301,11 +314,11 @@ class UpdateCommandTest {
         var command = new UpdateCommand();
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
 
-        var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " message 123"));
+        var fc1 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " message 123"));
         assertExceptionContains(IllegalArgumentException.class, CHOICE_MESSAGE, () -> command.onCommand(fc1));
 
         // not found
-        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " message 123 new message"));
+        var commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " message 123 new message"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
@@ -331,7 +344,7 @@ class UpdateCommandTest {
         var newMessage = "new message";
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " message 123 " + newMessage));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " message 123 " + newMessage));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -354,7 +367,7 @@ class UpdateCommandTest {
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " message 123 " + newMessage));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " message 123 " + newMessage));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -378,7 +391,7 @@ class UpdateCommandTest {
         when(messageReceivedEvent.getMember()).thenReturn(member);
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " message 123 " + newMessage));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " message 123 " + newMessage));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -397,7 +410,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " message 123 " + newMessage));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " message 123 " + newMessage));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -416,7 +429,7 @@ class UpdateCommandTest {
 
         // server channel, same user, same server  ok
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " message 123 " + newMessage));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " message 123 " + newMessage));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -439,7 +452,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " message 123 " + newMessage));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " message 123 " + newMessage));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -460,7 +473,7 @@ class UpdateCommandTest {
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
         newMessage = newMessage + " zer ere 123.2  1 fd";
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " message 123 " + newMessage));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " message 123 " + newMessage));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -496,7 +509,7 @@ class UpdateCommandTest {
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
         NotificationsDao notificationsDao = mock();
-        Context.DataServices dataServices = mock();
+        DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
         when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
@@ -504,23 +517,23 @@ class UpdateCommandTest {
         var command = new UpdateCommand();
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
 
-        var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " from_price 123 invalid"));
+        var fc1 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " from_price 123 invalid"));
         assertExceptionContains(IllegalArgumentException.class, "value", () -> command.onCommand(fc1));
 
-        var fc2 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " from_price 123 -1"));
+        var fc2 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " from_price 123 -1"));
         assertExceptionContains(IllegalArgumentException.class, "Negative", () -> command.onCommand(fc2));
 
-        var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " from_price 123 123456789012345678901"));
+        var fc3 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " from_price 123 123456789012345678901"));
         assertExceptionContains(IllegalArgumentException.class, "too long", () -> command.onCommand(fc3));
 
-        var fc4 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " from_price 123 1 too"));
+        var fc4 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " from_price 123 1 too"));
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onCommand(fc4));
 
-        var fc5 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " from_price 123 1 23"));
+        var fc5 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " from_price 123 1 23"));
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onCommand(fc5));
 
         // not found
-        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_price 123 03"));
+        var commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_price 123 03"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
@@ -545,7 +558,7 @@ class UpdateCommandTest {
         when(guild.getName()).thenReturn("test server");
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_price 123 1"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_price 123 1"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -568,7 +581,7 @@ class UpdateCommandTest {
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_price 123 2"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_price 123 2"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -592,7 +605,7 @@ class UpdateCommandTest {
         when(messageReceivedEvent.getMember()).thenReturn(member);
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_price 123 3"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_price 123 3"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -611,7 +624,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_price 123 3"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_price 123 3"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -630,7 +643,7 @@ class UpdateCommandTest {
 
         // server channel, same user, same server  ok
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_price 123 77.1234567"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_price 123 77.1234567"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -653,7 +666,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_price 123 3"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_price 123 3"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -673,7 +686,7 @@ class UpdateCommandTest {
         // server channel, not same user, same server, admin,  ok, notification sent
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_price 123 7"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_price 123 7"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -709,7 +722,7 @@ class UpdateCommandTest {
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
         NotificationsDao notificationsDao = mock();
-        Context.DataServices dataServices = mock();
+        DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
         when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
@@ -717,23 +730,23 @@ class UpdateCommandTest {
         var command = new UpdateCommand();
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
 
-        var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " to_price 123 invalid"));
+        var fc1 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " to_price 123 invalid"));
         assertExceptionContains(IllegalArgumentException.class, "value", () -> command.onCommand(fc1));
 
-        var fc2 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " to_price 123 -1"));
+        var fc2 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " to_price 123 -1"));
         assertExceptionContains(IllegalArgumentException.class, "Negative", () -> command.onCommand(fc2));
 
-        var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " to_price 123 123456789012345678901"));
+        var fc3 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " to_price 123 123456789012345678901"));
         assertExceptionContains(IllegalArgumentException.class, "too long", () -> command.onCommand(fc3));
 
-        var fc4 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " to_price 123 1 too"));
+        var fc4 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " to_price 123 1 too"));
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onCommand(fc4));
 
-        var fc5 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " to_price 123 1 23"));
+        var fc5 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " to_price 123 1 23"));
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onCommand(fc5));
 
         // not found
-        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_price 123 03"));
+        var commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_price 123 03"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
@@ -758,7 +771,7 @@ class UpdateCommandTest {
         when(guild.getName()).thenReturn("test server");
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_price 123 1"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_price 123 1"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -781,7 +794,7 @@ class UpdateCommandTest {
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_price 123 2"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_price 123 2"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -805,7 +818,7 @@ class UpdateCommandTest {
         when(messageReceivedEvent.getMember()).thenReturn(member);
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_price 123 3"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_price 123 3"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -824,7 +837,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_price 123 3"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_price 123 3"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -843,7 +856,7 @@ class UpdateCommandTest {
 
         // server channel, same user, same server  ok
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_price 123 77.1234567"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_price 123 77.1234567"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -866,7 +879,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_price 123 3"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_price 123 3"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -886,7 +899,7 @@ class UpdateCommandTest {
         // server channel, not same user, same server, admin,  ok, notification sent
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_price 123 7"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_price 123 7"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -922,7 +935,7 @@ class UpdateCommandTest {
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
         NotificationsDao notificationsDao = mock();
-        Context.DataServices dataServices = mock();
+        DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
         when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
@@ -930,26 +943,26 @@ class UpdateCommandTest {
         var command = new UpdateCommand();
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
 
-        var fc0 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " from_date 123 "));
+        var fc0 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " from_date 123 "));
         assertExceptionContains(IllegalArgumentException.class, DISPLAY_FROM_DATE, () -> command.onCommand(fc0));
 
-        var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " from_date 123 invalid"));
+        var fc1 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " from_date 123 invalid"));
         assertExceptionContains(DateTimeParseException.class, "Malformed", () -> command.onCommand(fc1));
 
-        var fc2 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " from_date 123 1"));
+        var fc2 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " from_date 123 1"));
         assertExceptionContains(DateTimeParseException.class, "Malformed", () -> command.onCommand(fc2));
 
-        var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " from_date 123 now 123456789012345678901"));
+        var fc3 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " from_date 123 now 123456789012345678901"));
         assertExceptionContains(DateTimeParseException.class, "Malformed", () -> command.onCommand(fc3));
 
-        var fc4 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " from_date 123 12/12/2012-20:12 too"));
+        var fc4 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " from_date 123 12/12/2012-20:12 too"));
         assertExceptionContains(DateTimeParseException.class, "could not be parsed", () -> command.onCommand(fc4));
 
-        var fc5 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " from_date 123 12/12/2012-20:12 23 too"));
+        var fc5 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " from_date 123 12/12/2012-20:12 23 too"));
         assertExceptionContains(DateTimeParseException.class, "could not be parsed", () -> command.onCommand(fc5));
 
         // not found
-        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 12/12/2012 20:12"));
+        var commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 12/12/2012 20:12"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
@@ -974,18 +987,18 @@ class UpdateCommandTest {
         when(guild.getName()).thenReturn("test server");
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ETH/BTC", remainder)));
 
-        var fc6 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now"));
+        var fc6 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now"));
         assertExceptionContains(IllegalArgumentException.class, "future", () -> command.onCommand(fc6));
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ETH/BTC", range)));
-        var fc7 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now"));
+        var fc7 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now"));
         doNothing().when(fc7).reply(anyList(), anyInt());
         assertDoesNotThrow(() -> command.onCommand(fc7));
         verify(alertsDao).update(any(), eq(Set.of(LISTENING_DATE, FROM_DATE)));
-        var fc71 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now-0.1"));
+        var fc71 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now-0.1"));
         assertExceptionContains(IllegalArgumentException.class, "future", () -> command.onCommand(fc71));
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ETH/BTC", trend)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now +1"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now +1"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1010,7 +1023,7 @@ class UpdateCommandTest {
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1034,7 +1047,7 @@ class UpdateCommandTest {
         when(messageReceivedEvent.getMember()).thenReturn(member);
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1053,7 +1066,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1072,7 +1085,7 @@ class UpdateCommandTest {
 
         // server channel, same user, same server  ok
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "DOT/XRP", trend).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now-3"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now-3"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1096,7 +1109,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 12/12/2012-16:32-JST"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 12/12/2012-16:32-JST"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1116,7 +1129,7 @@ class UpdateCommandTest {
         // server channel, not same user, same server, admin,  ok, notification sent
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId + 1, "ETH/BTC", trend).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 12/12/2112 16:32 Europe/Paris"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 12/12/2112 16:32 Europe/Paris"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1140,7 +1153,7 @@ class UpdateCommandTest {
 
         // range, from date after now -> listening date = from_date
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ETH/USD", range).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now+14"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now+14"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1154,7 +1167,7 @@ class UpdateCommandTest {
 
         // parse null, range, listening date = now
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ETH/USD", range).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 null"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 null"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1168,7 +1181,7 @@ class UpdateCommandTest {
 
         // remainder, listening date = from_date
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ADA/USD", remainder).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now +1.5"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now +1.5"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1182,7 +1195,7 @@ class UpdateCommandTest {
 
         // remainder, disabled, listening date = from_date
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ADA/USD", remainder).withListeningDateRepeat(null, (short) -2).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now +1.5"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 now +1.5"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1195,11 +1208,11 @@ class UpdateCommandTest {
         verify(notificationsService).sendNotifications();
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ETH/USD", remainder).withServerId(TEST_SERVER_ID)));
-        var fc8 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 null"));
+        var fc8 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 null"));
         assertExceptionContains(IllegalArgumentException.class, "Missing", () -> command.onCommand(fc8));
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ETH/USD", trend).withServerId(TEST_SERVER_ID)));
-        var fc9 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 null"));
+        var fc9 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " from_date 123 null"));
         assertExceptionContains(IllegalArgumentException.class, "Missing", () -> command.onCommand(fc9));
     }
 
@@ -1218,7 +1231,7 @@ class UpdateCommandTest {
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
         NotificationsDao notificationsDao = mock();
-        Context.DataServices dataServices = mock();
+        DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
         when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
@@ -1226,26 +1239,26 @@ class UpdateCommandTest {
         var command = new UpdateCommand();
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
 
-        var fc0 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " to_date 123 "));
+        var fc0 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " to_date 123 "));
         assertExceptionContains(IllegalArgumentException.class, DISPLAY_TO_DATE, () -> command.onCommand(fc0));
 
-        var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " to_date 123 invalid"));
+        var fc1 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " to_date 123 invalid"));
         assertExceptionContains(DateTimeParseException.class, "Malformed", () -> command.onCommand(fc1));
 
-        var fc2 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " to_date 123 1"));
+        var fc2 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " to_date 123 1"));
         assertExceptionContains(DateTimeParseException.class, "Malformed", () -> command.onCommand(fc2));
 
-        var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " to_date 123 now 123456789012345678901"));
+        var fc3 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " to_date 123 now 123456789012345678901"));
         assertExceptionContains(DateTimeParseException.class, "Malformed", () -> command.onCommand(fc3));
 
-        var fc4 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " to_date 123 12/12/2012-20:12 too"));
+        var fc4 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " to_date 123 12/12/2012-20:12 too"));
         assertExceptionContains(DateTimeParseException.class, "could not be parsed", () -> command.onCommand(fc4));
 
-        var fc5 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " to_date 123 12/12/2012-20:12 23 too"));
+        var fc5 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " to_date 123 12/12/2012-20:12 23 too"));
         assertExceptionContains(DateTimeParseException.class, "could not be parsed", () -> command.onCommand(fc5));
 
         // not found
-        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 12/12/2012 20:12"));
+        var commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 12/12/2012 20:12"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
@@ -1270,9 +1283,9 @@ class UpdateCommandTest {
         when(guild.getName()).thenReturn("test server");
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId)));
 
-        var fc6 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 now"));
+        var fc6 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 now"));
         assertExceptionContains(IllegalArgumentException.class, "future", () -> command.onCommand(fc6));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 now +1"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 now +1"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1295,7 +1308,7 @@ class UpdateCommandTest {
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 now"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 now"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1319,7 +1332,7 @@ class UpdateCommandTest {
         when(messageReceivedEvent.getMember()).thenReturn(member);
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 now"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 now"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1338,7 +1351,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 now"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 now"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1357,7 +1370,7 @@ class UpdateCommandTest {
 
         // server channel, same user, same server  ok
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 null"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 null"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1380,7 +1393,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 12/12/2012-16:32-JST"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 12/12/2012-16:32-JST"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1400,7 +1413,7 @@ class UpdateCommandTest {
         // server channel, not same user, same server, admin,  ok, notification sent
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 12/12/2112 16:32 Europe/Paris"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 12/12/2112 16:32 Europe/Paris"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1423,7 +1436,7 @@ class UpdateCommandTest {
         // parse null, now
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(false);
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ETH/USD", trend).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 now"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 now"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1434,7 +1447,7 @@ class UpdateCommandTest {
         assertDeepEquals(createTestAlertWithUserIdAndPairType(userId, "ETH/USD", trend).withServerId(TEST_SERVER_ID).withToDate(now), alertArg);
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ETH/USD", range).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 null"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 null"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1445,11 +1458,11 @@ class UpdateCommandTest {
         assertDeepEquals(createTestAlertWithUserIdAndPairType(userId, "ETH/USD", range).withServerId(TEST_SERVER_ID).withToDate(null), alertArg);
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ETH/USD", remainder).withServerId(TEST_SERVER_ID)));
-        var fc7 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 now"));
+        var fc7 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 now"));
         assertExceptionContains(IllegalArgumentException.class, "future", () -> command.onCommand(fc7));
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserIdAndPairType(userId, "ETH/USD", trend).withServerId(TEST_SERVER_ID)));
-        var fc8 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 null"));
+        var fc8 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " to_date 123 null"));
         assertExceptionContains(IllegalArgumentException.class, "Missing", () -> command.onCommand(fc8));
     }
 
@@ -1468,7 +1481,7 @@ class UpdateCommandTest {
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
         NotificationsDao notificationsDao = mock();
-        Context.DataServices dataServices = mock();
+        DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
         when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
@@ -1476,23 +1489,23 @@ class UpdateCommandTest {
         var command = new UpdateCommand();
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
 
-        var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " margin 123 invalid"));
+        var fc1 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " margin 123 invalid"));
         assertExceptionContains(IllegalArgumentException.class, "value", () -> command.onCommand(fc1));
 
-        var fc2 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " margin 123 -1"));
+        var fc2 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " margin 123 -1"));
         assertExceptionContains(IllegalArgumentException.class, "Negative", () -> command.onCommand(fc2));
 
-        var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " margin 123 123456789012345678901"));
+        var fc3 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " margin 123 123456789012345678901"));
         assertExceptionContains(IllegalArgumentException.class, "too long", () -> command.onCommand(fc3));
 
-        var fc4 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " margin 123 1 too"));
+        var fc4 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " margin 123 1 too"));
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onCommand(fc4));
 
-        var fc5 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " margin 123 1 23"));
+        var fc5 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " margin 123 1 23"));
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onCommand(fc5));
 
         // not found
-        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " margin 123 03"));
+        var commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " margin 123 03"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
@@ -1517,7 +1530,7 @@ class UpdateCommandTest {
         when(guild.getName()).thenReturn("test server");
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " margin 123 1"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " margin 123 1"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1540,7 +1553,7 @@ class UpdateCommandTest {
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " margin 123 2"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " margin 123 2"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1564,7 +1577,7 @@ class UpdateCommandTest {
         when(messageReceivedEvent.getMember()).thenReturn(member);
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " margin 123 3"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " margin 123 3"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1583,7 +1596,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " margin 123 3"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " margin 123 3"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1602,7 +1615,7 @@ class UpdateCommandTest {
 
         // server channel, same user, same server  ok
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " margin 123 77.1234567"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " margin 123 77.1234567"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1625,7 +1638,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " margin 123 3"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " margin 123 3"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1645,7 +1658,7 @@ class UpdateCommandTest {
         // server channel, not same user, same server, admin,  ok, notification sent
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " margin 123 7"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " margin 123 7"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1681,7 +1694,7 @@ class UpdateCommandTest {
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
         NotificationsDao notificationsDao = mock();
-        Context.DataServices dataServices = mock();
+        DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
         when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
@@ -1689,23 +1702,23 @@ class UpdateCommandTest {
         var command = new UpdateCommand();
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
 
-        var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " repeat 123 invalid"));
+        var fc1 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " repeat 123 invalid"));
         assertExceptionContains(IllegalArgumentException.class, "value", () -> command.onCommand(fc1));
 
-        var fc2 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " repeat 123 " + (REPEAT_MIN - 1)));
+        var fc2 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " repeat 123 " + (REPEAT_MIN - 1)));
         assertExceptionContains(IllegalArgumentException.class, CHOICE_REPEAT, () -> command.onCommand(fc2));
 
-        var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " repeat 123 " + (REPEAT_MAX + 1)));
+        var fc3 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " repeat 123 " + (REPEAT_MAX + 1)));
         assertExceptionContains(IllegalArgumentException.class, CHOICE_REPEAT, () -> command.onCommand(fc3));
 
-        var fc4 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " repeat 123 1 too"));
+        var fc4 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " repeat 123 1 too"));
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onCommand(fc4));
 
-        var fc5 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " repeat 123 1 23"));
+        var fc5 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " repeat 123 1 23"));
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onCommand(fc5));
 
         // not found
-        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " repeat 123 0"));
+        var commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " repeat 123 0"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
@@ -1730,7 +1743,7 @@ class UpdateCommandTest {
         when(guild.getName()).thenReturn("test server");
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " repeat 123 0"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " repeat 123 0"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1753,7 +1766,7 @@ class UpdateCommandTest {
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " repeat 123 0"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " repeat 123 0"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1777,7 +1790,7 @@ class UpdateCommandTest {
         when(messageReceivedEvent.getMember()).thenReturn(member);
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " repeat 123 0"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " repeat 123 0"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1796,7 +1809,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " repeat 123 0"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " repeat 123 0"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1815,7 +1828,7 @@ class UpdateCommandTest {
 
         // server channel, same user, same server  ok
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " repeat 123 77"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " repeat 123 77"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1838,7 +1851,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " repeat 123 1"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " repeat 123 1"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1858,7 +1871,7 @@ class UpdateCommandTest {
         // server channel, not same user, same server, admin,  ok, notification sent
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " repeat 123 7"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " repeat 123 7"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1894,7 +1907,7 @@ class UpdateCommandTest {
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
         NotificationsDao notificationsDao = mock();
-        Context.DataServices dataServices = mock();
+        DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
         when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
@@ -1902,23 +1915,23 @@ class UpdateCommandTest {
         var command = new UpdateCommand();
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
 
-        var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " snooze 123 invalid"));
+        var fc1 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " snooze 123 invalid"));
         assertExceptionContains(IllegalArgumentException.class, "value", () -> command.onCommand(fc1));
 
-        var fc2 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " snooze 123 " + (SNOOZE_MIN - 1)));
+        var fc2 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " snooze 123 " + (SNOOZE_MIN - 1)));
         assertExceptionContains(IllegalArgumentException.class, CHOICE_SNOOZE, () -> command.onCommand(fc2));
 
-        var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " snooze 123 " + (SNOOZE_MAX + 1)));
+        var fc3 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " snooze 123 " + (SNOOZE_MAX + 1)));
         assertExceptionContains(IllegalArgumentException.class, CHOICE_SNOOZE, () -> command.onCommand(fc3));
 
-        var fc4 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " snooze 123 1 too"));
+        var fc4 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " snooze 123 1 too"));
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onCommand(fc4));
 
-        var fc5 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " snooze 123 1 23"));
+        var fc5 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " snooze 123 1 23"));
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onCommand(fc5));
 
         // not found
-        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 03"));
+        var commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 03"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
@@ -1944,7 +1957,7 @@ class UpdateCommandTest {
 
         var alert = createTestAlertWithUserId(userId);
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(alert));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 1"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 1"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1973,7 +1986,7 @@ class UpdateCommandTest {
         var newSnooze = (short) 3;
         assertNotEquals(newSnooze, alert.snooze);
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(alert));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 " + newSnooze));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 " + newSnooze));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -1997,7 +2010,7 @@ class UpdateCommandTest {
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 2"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 2"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -2021,7 +2034,7 @@ class UpdateCommandTest {
         when(messageReceivedEvent.getMember()).thenReturn(member);
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 3"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 3"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -2040,7 +2053,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 3"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 3"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -2059,7 +2072,7 @@ class UpdateCommandTest {
 
         // server channel, same user, same server  ok
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 77"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 77"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -2082,7 +2095,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 3"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 3"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -2102,7 +2115,7 @@ class UpdateCommandTest {
         // server channel, not same user, same server, admin,  ok, notification sent
         when(member.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 7"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " snooze 123 7"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -2139,7 +2152,7 @@ class UpdateCommandTest {
         when(context.clock()).thenReturn(Clock.fixed(now.toInstant(), UTC));
         AlertsDao alertsDao = mock();
         NotificationsDao notificationsDao = mock();
-        Context.DataServices dataServices = mock();
+        DataServices dataServices = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
         when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
         when(context.dataServices()).thenReturn(dataServices);
@@ -2147,23 +2160,23 @@ class UpdateCommandTest {
         var command = new UpdateCommand();
         assertThrows(NullPointerException.class, () -> command.onCommand(null));
 
-        var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " enable 123 invalid"));
+        var fc1 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " enable 123 invalid"));
         assertExceptionContains(IllegalArgumentException.class, CHOICE_ENABLE, () -> command.onCommand(fc1));
 
-        var fc2 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " enable 123 -1"));
+        var fc2 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " enable 123 -1"));
         assertExceptionContains(IllegalArgumentException.class, CHOICE_ENABLE, () -> command.onCommand(fc2));
 
-        var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " enable 123 "));
+        var fc3 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " enable 123 "));
         assertExceptionContains(IllegalArgumentException.class, "Missing", () -> command.onCommand(fc3));
 
-        var fc4 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " enable 123 false too"));
+        var fc4 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " enable 123 false too"));
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onCommand(fc4));
 
-        var fc5 = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME +   " enable 123 true 23"));
+        var fc5 = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME +   " enable 123 true 23"));
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onCommand(fc5));
 
         // not found
-        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " enable 123 true"));
+        var commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " enable 123 true"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
         ArgumentCaptor<List<Message>> messagesReply = ArgumentCaptor.forClass(List.class);
@@ -2188,7 +2201,7 @@ class UpdateCommandTest {
         when(guild.getName()).thenReturn("test server");
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " enable 123 0"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " enable 123 0"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -2210,7 +2223,7 @@ class UpdateCommandTest {
 
         // private channel, not same user, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " enable 123 false"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " enable 123 false"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -2234,7 +2247,7 @@ class UpdateCommandTest {
         when(messageReceivedEvent.getMember()).thenReturn(member);
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " enable 123 no"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " enable 123 no"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -2253,7 +2266,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, not same server, not found
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID + 1)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " enable 123 No"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " enable 123 No"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -2273,7 +2286,7 @@ class UpdateCommandTest {
         // server channel, same user, same server  ok
         var alert = createTestAlertWithUserId(userId).withServerId(TEST_SERVER_ID).withListeningDateRepeat(null, (short)-1);
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(alert));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " enable 123 true"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " enable 123 true"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -2295,7 +2308,7 @@ class UpdateCommandTest {
 
         // server channel, not same user, same server,  denied
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " enable 123 true"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " enable 123 true"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
@@ -2317,7 +2330,7 @@ class UpdateCommandTest {
         alert = createTestAlertWithUserId(userId + 1).withServerId(TEST_SERVER_ID)
                 .withListeningDateRepeat(null, (short) 2).withFromDate(null);
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, alertId)).thenReturn(Optional.of(alert));
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, UpdateCommand.NAME + " enable 123 1"));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, UpdateCommand.NAME + " enable 123 1"));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onCommand(commandContext);
 
