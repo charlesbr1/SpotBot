@@ -7,7 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
-import org.sbot.entities.User;
+import org.sbot.entities.Settings;
+import org.sbot.entities.UserSettings;
 import org.sbot.services.context.Context;
 import org.sbot.services.dao.AlertsDao;
 import org.sbot.services.dao.NotificationsDao;
@@ -32,6 +33,7 @@ import static org.sbot.commands.context.CommandContext.TOO_MANY_ARGUMENTS;
 import static org.sbot.commands.interactions.Interactions.INTERACTION_ID_SEPARATOR;
 import static org.sbot.commands.interactions.Interactions.interactionId;
 import static org.sbot.commands.interactions.SelectEditInteraction.*;
+import static org.sbot.entities.ServerSettings.PRIVATE_SERVER;
 import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.entities.alerts.AlertTest.*;
 
@@ -199,28 +201,29 @@ class SelectEditInteractionTest {
         NotificationsDao notificationsDao = mock();
         when(dataServices.alertsDao()).thenReturn(v -> alertsDao);
         when(dataServices.notificationsDao()).thenReturn(v -> notificationsDao);
+        var settings = new Settings(UserSettings.NO_USER, PRIVATE_SERVER);
 
         var command = new SelectEditInteraction();
         assertThrows(NullPointerException.class, () -> command.onInteraction(null));
 
-        var fc1 = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME +   " invalidarg"));
+        var fc1 = spy(CommandContext.of(context, settings, messageReceivedEvent, SelectEditInteraction.NAME +   " invalidarg"));
         assertExceptionContains(IllegalArgumentException.class, ALERT_ID_ARGUMENT, () -> command.onInteraction(fc1));
 
-        var fc2 = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME +   " 123 too much"));
+        var fc2 = spy(CommandContext.of(context, settings, messageReceivedEvent, SelectEditInteraction.NAME +   " 123 too much"));
         assertExceptionContains(IllegalArgumentException.class, TOO_MANY_ARGUMENTS, () -> command.onInteraction(fc2));
 
-        var fc3 = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME +   " 123 invalidField"));
+        var fc3 = spy(CommandContext.of(context, settings, messageReceivedEvent, SelectEditInteraction.NAME +   " 123 invalidField"));
         assertExceptionContains(UnsupportedOperationException.class, "modal", () -> command.onInteraction(fc3));
 
         when(alertsDao.getAlertWithoutMessage(TEST_CLIENT_TYPE, 123L)).thenReturn(Optional.of(createTestAlert()));
-        var fc4 = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME +   " 123 invalidField"));
+        var fc4 = spy(CommandContext.of(context, settings, messageReceivedEvent, SelectEditInteraction.NAME +   " 123 invalidField"));
         assertExceptionContains(UnsupportedOperationException.class, "modal", () -> command.onInteraction(fc4));
 
         when(user.getIdLong()).thenReturn(TEST_USER_ID);
-        var fc5 = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME +   " 123 invalidField"));
+        var fc5 = spy(CommandContext.of(context, settings, messageReceivedEvent, SelectEditInteraction.NAME +   " 123 invalidField"));
         assertExceptionContains(IllegalArgumentException.class, "Invalid field", () -> command.onInteraction(fc5));
 
-        var commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME + " 123 " + CHOICE_EDIT));
+        var commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, SelectEditInteraction.NAME + " 123 " + CHOICE_EDIT));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onInteraction(commandContext);
 
@@ -233,7 +236,7 @@ class SelectEditInteractionTest {
         assertNull(messages.get(0).component());
         assertNotNull(messages.get(0).editMapper());
 
-        commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME + " 123 " + CHOICE_DELETE));
+        commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, SelectEditInteraction.NAME + " 123 " + CHOICE_DELETE));
         doNothing().when(commandContext).reply(anyList(), anyInt());
         command.onInteraction(commandContext);
 
@@ -246,7 +249,7 @@ class SelectEditInteractionTest {
         assertNull(messages.get(0).editMapper());
 
         for(var field : List.of(CHOICE_ENABLE, CHOICE_DISABLE)) {
-            commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME + " 123 " + field));
+            commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, SelectEditInteraction.NAME + " 123 " + field));
             try {
                 command.onInteraction(commandContext);
                 Assertions.fail();
@@ -256,7 +259,7 @@ class SelectEditInteractionTest {
         }
 
         for(var field : List.of(CHOICE_MESSAGE, CHOICE_DATE, CHOICE_FROM_DATE, CHOICE_TO_DATE, CHOICE_MIGRATE, CHOICE_MARGIN, CHOICE_LOW, CHOICE_HIGH, CHOICE_FROM_PRICE, CHOICE_TO_PRICE, CHOICE_SNOOZE, CHOICE_REPEAT)) {
-            commandContext = spy(CommandContext.of(context, null, messageReceivedEvent, SelectEditInteraction.NAME + " 123 " + field));
+            commandContext = spy(CommandContext.of(context, settings, messageReceivedEvent, SelectEditInteraction.NAME + " 123 " + field));
             doNothing().when(commandContext).reply(anyList(), anyInt());
             command.onInteraction(commandContext);
 
@@ -279,7 +282,7 @@ class SelectEditInteractionTest {
 
         CommandContext[] commandContext = new CommandContext[1];
 
-        User user = new User(123L, Locale.JAPAN, Dates.UTC, DatesTest.nowUtc());
+        Settings user = new Settings(UserSettings.ofDiscordUser(123L, Locale.JAPAN, Dates.UTC, DatesTest.nowUtc()), PRIVATE_SERVER);
 
         when(stringSelectInteractionEvent.getComponentId()).thenReturn("");
         assertExceptionContains(IllegalArgumentException.class, "interactionId",
