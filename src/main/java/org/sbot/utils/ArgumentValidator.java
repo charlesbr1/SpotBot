@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.interactions.DiscordLocale;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.alerts.Alert.Type;
+import org.sbot.entities.alerts.ClientType;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
@@ -17,7 +18,7 @@ import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
-import static net.dv8tion.jda.api.entities.Message.MentionType.USER;
+import static net.dv8tion.jda.api.entities.Message.MentionType.*;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
 import static org.sbot.services.discord.Discord.guildName;
@@ -28,6 +29,7 @@ public interface ArgumentValidator {
 
 
     int MESSAGE_MAX_LENGTH = 210;
+    int SETTINGS_MAX_LENGTH = 96;
     int TICKER_MIN_LENGTH = 2;
     int TICKER_MAX_LENGTH = 5;
     int PAIR_MIN_LENGTH = (2 * TICKER_MIN_LENGTH) + 1;
@@ -164,6 +166,13 @@ public interface ArgumentValidator {
         return message;
     }
 
+    static String requireSettingsMaxLength(@NotNull String settings) {
+        if (settings.length() > SETTINGS_MAX_LENGTH) {
+            throw new IllegalArgumentException("Provided value is too long (" + settings.length() + " chars, max is " + SETTINGS_MAX_LENGTH + ") : " + settings);
+        }
+        return settings;
+    }
+
     static ZonedDateTime requireInFuture(@NotNull ZonedDateTime now, @NotNull ZonedDateTime zonedDateTime) {
         if (zonedDateTime.isBefore(now)) {
             throw new IllegalArgumentException("Provided date must be in the future");
@@ -171,8 +180,8 @@ public interface ArgumentValidator {
         return zonedDateTime;
     }
 
-    static long requireUser(@NotNull String userMention) {
-        return asUser(userMention).orElseThrow(() -> new IllegalArgumentException("Provided string is not an user mention : " + userMention));
+    static long requireUser(@NotNull ClientType clientType, @NotNull String userMention) {
+        return asUser(clientType, userMention).orElseThrow(() -> new IllegalArgumentException("Provided string is not an user mention : " + userMention));
     }
 
     // possibly blocking call
@@ -182,9 +191,31 @@ public interface ArgumentValidator {
         }
     }
 
-    static Optional<Long> asUser(@NotNull String userMention) {
-        Matcher matcher = USER.getPattern().matcher(userMention);
-        return matcher.matches() ? Optional.of(Long.parseLong(matcher.group(1))) : Optional.empty();
+    static Optional<Long> asUser(@NotNull ClientType clientType, @NotNull String userMention) {
+        return switch (clientType) {
+            case DISCORD -> {
+                Matcher matcher = USER.getPattern().matcher(userMention);
+                yield matcher.matches() ? Optional.of(Long.parseLong(matcher.group(1))) : Optional.empty();
+            }
+        };
+    }
+
+    static Optional<Long> asChannel(@NotNull ClientType clientType, @NotNull String channelMention) {
+        return switch (clientType) {
+            case DISCORD -> {
+                Matcher matcher = CHANNEL.getPattern().matcher(channelMention);
+                yield matcher.matches() ? Optional.of(Long.parseLong(matcher.group(1))) : Optional.empty();
+            }
+        };
+    }
+
+    static Optional<Long> asRole(@NotNull ClientType clientType, @NotNull String roleMention) {
+        return switch (clientType) {
+            case DISCORD -> {
+                Matcher matcher = ROLE.getPattern().matcher(roleMention);
+                yield matcher.matches() ? Optional.of(Long.parseLong(matcher.group(1))) : Optional.empty();
+            }
+        };
     }
 
     static Optional<Type> asType(@NotNull String type) {

@@ -14,9 +14,9 @@ import java.util.Optional;
 
 import static java.math.BigDecimal.*;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.Mockito.*;
 import static org.sbot.entities.alerts.Alert.Type.*;
+import static org.sbot.entities.alerts.ClientType.DISCORD;
 import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
 import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
@@ -240,6 +240,7 @@ class ArgumentValidatorTest {
 
     @Test
     void requirePairFormat() {
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requirePairFormat(null));
         assertEquals("ETH/BTC", ArgumentValidator.requirePairFormat("ETH/BTC"));
         assertEquals("ETHHH/BTCCC", ArgumentValidator.requirePairFormat("ETHHH/BTCCC"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("eth/btc"));
@@ -259,6 +260,7 @@ class ArgumentValidatorTest {
 
     @Test
     void requireTickerPairLength() {
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireTickerPairLength(null));
         assertEquals("1INCH/BTC", ArgumentValidator.requireTickerPairLength("1INCH/BTC"));
         assertEquals("BTC", ArgumentValidator.requireTickerPairLength("BTC"));
         assertEquals("AR", ArgumentValidator.requireTickerPairLength("AR"));
@@ -273,14 +275,25 @@ class ArgumentValidatorTest {
 
     @Test
     void requireAlertMessageMaxLength() {
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireAlertMessageMaxLength(null));
         assertEquals("message", ArgumentValidator.requireAlertMessageMaxLength("message"));
         assertEquals("1".repeat(MESSAGE_MAX_LENGTH), ArgumentValidator.requireAlertMessageMaxLength("1".repeat(MESSAGE_MAX_LENGTH)));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireAlertMessageMaxLength("1".repeat(1 + MESSAGE_MAX_LENGTH)));
     }
 
     @Test
+    void requireSettingsMaxLength() {
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireSettingsMaxLength(null));
+        assertEquals("message", ArgumentValidator.requireSettingsMaxLength("message"));
+        assertEquals("1".repeat(SETTINGS_MAX_LENGTH), ArgumentValidator.requireSettingsMaxLength("1".repeat(SETTINGS_MAX_LENGTH)));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireSettingsMaxLength("1".repeat(1 + SETTINGS_MAX_LENGTH)));
+    }
+
+    @Test
     void requireInFuture() {
         ZonedDateTime now = nowUtc();
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireInFuture(now, null));
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireInFuture(null, now));
         assertEquals(now, ArgumentValidator.requireInFuture(now, now));
         assertEquals(now.plusSeconds(1L), ArgumentValidator.requireInFuture(now, now.plusSeconds(1L)));
         assertEquals(now.plusMinutes(1L), ArgumentValidator.requireInFuture(now, now.plusMinutes(1L)));
@@ -292,27 +305,30 @@ class ArgumentValidatorTest {
 
     @Test
     void requireUser() {
-        assertEquals(1234L, ArgumentValidator.requireUser("<@1234>"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(" <@1234>"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("a<@1234>"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("1<@1234>"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("&<@1234>"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("@<@1234>"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<@1234> "));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<@1234>a"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<@1234>1"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<@1234>&"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<@1234"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<@123a4>"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("@1234>"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<1234>"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<@ 1234>"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("< @1234>"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<@1234 >"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<@abcd>"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<@>"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser("<>"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(""));
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireUser(DISCORD, null));
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireUser(null, "<@1234>"));
+
+        assertEquals(1234L, ArgumentValidator.requireUser(DISCORD, "<@1234>"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, " <@1234>"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "a<@1234>"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "1<@1234>"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "&<@1234>"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "@<@1234>"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "<@1234> "));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "<@1234>a"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "<@1234>1"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "<@1234>&"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "<@1234"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "<@123a4>"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "@1234>"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "<1234>"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "<@ 1234>"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "< @1234>"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "<@1234 >"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "<@abcd>"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "<@>"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, "<>"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireUser(DISCORD, ""));
     }
 
     @Test
@@ -334,27 +350,88 @@ class ArgumentValidatorTest {
 
     @Test
     void asUser() {
-        assertEquals(Optional.of(1234L), ArgumentValidator.asUser("<@1234>"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser(" <@1234>"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("a<@1234>"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("1<@1234>"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("&<@1234>"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("@<@1234>"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@1234> "));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@1234>a"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@1234>1"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@1234>&"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@1234"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@123a4>"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("@1234>"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("<1234>"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@ 1234>"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("< @1234>"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@1234 >"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@abcd>"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("<@>"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("<>"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser(""));
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.asUser(DISCORD, null));
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.asUser(null, "<@1234>"));
+
+        assertEquals(Optional.of(1234L), ArgumentValidator.asUser(DISCORD, "<@1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, " <@1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "a<@1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "1<@1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "&<@1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "@<@1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "<@1234> "));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "<@1234>a"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "<@1234>1"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "<@1234>&"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "<@1234"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "<@123a4>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "@1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "<1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "<@ 1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "< @1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "<@1234 >"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "<@abcd>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "<@>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, "<>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asUser(DISCORD, ""));
+    }
+
+    @Test
+    void asChannel() {
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.asChannel(DISCORD, null));
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.asChannel(null, "<@1234>"));
+
+        assertEquals(Optional.of(1234L), ArgumentValidator.asChannel(DISCORD, "<#1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "<@1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, " <#1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "a<#1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "1<#1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "&<#1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "#<#1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "<#1234> "));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "<#1234>a"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "<#1234>1"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "<#1234>&"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "<#1234"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "<#123a4>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "#1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "<1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "<# 1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "< #1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "<#1234 >"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "<#abcd>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "<#>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, "<>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asChannel(DISCORD, ""));
+    }
+
+    @Test
+    void asRole() {
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.asRole(DISCORD, null));
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.asRole(null, "<@1234>"));
+
+        assertEquals(Optional.of(1234L), ArgumentValidator.asRole(DISCORD, "<@&1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "<@1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, " <@&1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "a<@&1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "1<@&1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "&<@&1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "@<@&1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "<@&1234> "));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "<@&1234>a"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "<@&1234>1"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "<@&1234>&"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "<@&1234"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "<@&123a4>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "&1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "<&1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "<& 1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "< &1234>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "<&1234 >"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "<&abcd>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "<&>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, "<>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asRole(DISCORD, ""));
     }
 
     @Test
@@ -363,14 +440,16 @@ class ArgumentValidatorTest {
         assertEquals(Optional.of(trend), ArgumentValidator.asType("trend"));
         assertEquals(Optional.of(remainder), ArgumentValidator.asType("remainder"));
         assertEquals(Optional.empty(), ArgumentValidator.asType(null));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser(""));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("1remainder"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("remainder2"));
-        assertEquals(Optional.empty(), ArgumentValidator.asUser("@<>"));
+        assertEquals(Optional.empty(), ArgumentValidator.asType(""));
+        assertEquals(Optional.empty(), ArgumentValidator.asType("1remainder"));
+        assertEquals(Optional.empty(), ArgumentValidator.asType("remainder2"));
+        assertEquals(Optional.empty(), ArgumentValidator.asType("@<>"));
     }
 
     @Test
     void requireOneItem() {
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireOneItem(null));
+
         assertEquals("1", ArgumentValidator.requireOneItem(List.of("1")));
         assertEquals("test", ArgumentValidator.requireOneItem(List.of("test")));
         assertEquals(ONE, ArgumentValidator.requireOneItem(List.of(ONE)));
