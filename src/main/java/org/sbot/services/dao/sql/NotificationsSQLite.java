@@ -7,7 +7,6 @@ import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.SqlStatement;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jetbrains.annotations.NotNull;
-import org.sbot.entities.notifications.RecipientType;
 import org.sbot.entities.notifications.*;
 import org.sbot.entities.notifications.Notification.NotificationStatus;
 import org.sbot.entities.notifications.Notification.NotificationType;
@@ -29,7 +28,6 @@ import java.util.function.Consumer;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
-import static org.sbot.entities.notifications.RecipientType.DISCORD_USER;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.BLOCKED;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.NEW;
 import static org.sbot.services.dao.sql.NotificationsSQLite.SQL.EXPIRATION_DATE_ARGUMENT;
@@ -70,10 +68,13 @@ public class NotificationsSQLite extends AbstractJDBI implements NotificationsDa
                 fields TEXT NOT NULL) STRICT
                 """;
 
+        String CREATE_STATUS_INDEX = "CREATE INDEX IF NOT EXISTS notifications_status_index ON notifications (status)";
+        String CREATE_CREATION_DATE_INDEX = "CREATE INDEX IF NOT EXISTS notifications_creation_date_index ON notifications (creation_date)";
+        String CREATE_RECIPIENT_INDEX = "CREATE INDEX IF NOT EXISTS notifications_recipient_index ON notifications (recipient_id, recipient_type)";
 
         String INSERT_NOTIFICATION = "INSERT INTO notifications (creation_date,type,status,recipient_type,recipient_id,locale,fields) VALUES (:creation_date,:type,:status,:recipient_type,:recipient_id,:locale,:fields)";
         String SELECT_HAVING_STATUS_NEW = "SELECT * FROM notifications WHERE status LIKE '" + NEW + "' LIMIT :limit";
-        String UPDATE_STATUS_NEW_WHERE_BLOCKED_AND_DISCORD_USER_RECIPIENT = "UPDATE notifications SET status='" + NEW + "' WHERE recipient_id=:recipient_id AND status='" + BLOCKED + "' AND recipient_type='" + DISCORD_USER.shortName + "'";
+        String UPDATE_STATUS_NEW_WHERE_BLOCKED_AND_RECIPIENT = "UPDATE notifications SET status='" + NEW + "' WHERE status='" + BLOCKED + "' AND recipient_id=:recipient_id AND recipient_type=:recipient_type";
         String UPDATE_STATUS_RECIPIENT = "UPDATE notifications SET status=:status,recipient_type=:recipient_type,recipient_id=:recipient_id WHERE id=:id";
         String UPDATE_STATUS_BY_ID = "UPDATE notifications SET status=:status WHERE id=:id";
         String DELETE_BY_ID = "DELETE FROM notifications WHERE id=:id";
@@ -130,6 +131,9 @@ public class NotificationsSQLite extends AbstractJDBI implements NotificationsDa
     @Override
     protected void setupTable(@NotNull Handle handle) {
         handle.execute(SQL.CREATE_TABLE);
+        handle.execute(SQL.CREATE_STATUS_INDEX);
+        handle.execute(SQL.CREATE_CREATION_DATE_INDEX);
+        handle.execute(SQL.CREATE_RECIPIENT_INDEX);
     }
 
     @Override
@@ -143,19 +147,22 @@ public class NotificationsSQLite extends AbstractJDBI implements NotificationsDa
     @NotNull
     public List<Notification> getNewNotifications(long limit) {
         LOGGER.debug("getNewNotifications {}", limit);
-        return query(SQL.SELECT_HAVING_STATUS_NEW, Notification.class, Map.of(LIMIT_ARGUMENT, requireStrictlyPositive(limit)));
+        return query(SQL.SELECT_HAVING_STATUS_NEW, Notification.class,
+                Map.of(LIMIT_ARGUMENT, requireStrictlyPositive(limit)));
     }
 
     @Override
-    public long unblockStatusOfDiscordUser(@NotNull String userId) {
-        LOGGER.debug("unblockStatusOfDiscordUser {}", userId);
-        return update(SQL.UPDATE_STATUS_NEW_WHERE_BLOCKED_AND_DISCORD_USER_RECIPIENT, Map.of(RECIPIENT_ID, userId));
+    public long unblockStatusOfRecipient(@NotNull RecipientType recipientType, @NotNull String recipientId) {
+        LOGGER.debug("unblockStatusOfRecipient {} {}", recipientType, recipientId);
+        return update(SQL.UPDATE_STATUS_NEW_WHERE_BLOCKED_AND_RECIPIENT,
+                Map.of(RECIPIENT_ID, recipientId, RECIPIENT_TYPE, recipientType.shortName));
     }
 
     @Override
     public void statusRecipientBatchUpdate(@NotNull NotificationStatus status, @NotNull String recipientId, @NotNull RecipientType recipientType, @NotNull Consumer<BatchEntry> updater) {
         LOGGER.debug("statusRecipientBatchUpdate {} {} {}", status, recipientId, recipientType);
-        batchUpdates(updater, SQL.UPDATE_STATUS_RECIPIENT, Map.of(STATUS, status, RECIPIENT_TYPE, recipientType.shortName, RECIPIENT_ID, recipientId));
+        batchUpdates(updater, SQL.UPDATE_STATUS_RECIPIENT,
+                Map.of(STATUS, status, RECIPIENT_TYPE, recipientType.shortName, RECIPIENT_ID, recipientId));
     }
 
     @Override

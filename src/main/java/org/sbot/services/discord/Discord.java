@@ -133,11 +133,9 @@ public final class Discord {
                     .setRequestTimeoutRetry(true)
                     .build()
                     .awaitReady();
-        } catch (Exception e) {
-            if(e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            LOGGER.error("Unable to establish discord connection");
+        } catch (InterruptedException e) {
+            LOGGER.error("Unable to establish discord connection", e);
+            Thread.currentThread().interrupt();
             throw new IllegalStateException(e);
         }
     }

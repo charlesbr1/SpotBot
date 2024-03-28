@@ -19,6 +19,7 @@ import static org.sbot.entities.UserSettings.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.Type.range;
 import static org.sbot.entities.alerts.AlertTest.TEST_CLIENT_TYPE;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.*;
+import static org.sbot.entities.notifications.RecipientType.DISCORD_USER;
 import static org.sbot.utils.ArgumentValidator.requireOneItem;
 
 public abstract class NotificationsDaoTest {
@@ -67,8 +68,8 @@ public abstract class NotificationsDaoTest {
 
     @ParameterizedTest
     @MethodSource("provideDao")
-    void unblockStatusOfDiscordUser(NotificationsDao notifications) {
-        assertThrows(NullPointerException.class, () -> notifications.unblockStatusOfDiscordUser(null));
+    void unblockStatusOfRecipient(NotificationsDao notifications) {
+        assertThrows(NullPointerException.class, () -> notifications.unblockStatusOfRecipient(DISCORD_USER, null));
 
         var notificationU1 = MigratedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 111L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
         notifications.addNotification(notificationU1);
@@ -86,7 +87,7 @@ public abstract class NotificationsDaoTest {
         assertTrue(notifs.contains(notificationU2.withId(() -> 3)));
         assertTrue(notifs.contains(notificationU3.withId(() -> 6)));
 
-        assertEquals(1, notifications.unblockStatusOfDiscordUser("222"));
+        assertEquals(1, notifications.unblockStatusOfRecipient(DISCORD_USER, "222"));
         notifs = notifications.getNewNotifications(100);
         assertEquals(4, notifs.size());
         assertTrue(notifs.contains(notificationU1.withId(() -> 1)));
@@ -94,7 +95,7 @@ public abstract class NotificationsDaoTest {
         assertTrue(notifs.contains(notificationU2.withId(() -> 3)));
         assertTrue(notifs.contains(notificationU3.withId(() -> 6)));
 
-        assertEquals(0, notifications.unblockStatusOfDiscordUser("111"));
+        assertEquals(0, notifications.unblockStatusOfRecipient(DISCORD_USER, "111"));
         notifs = notifications.getNewNotifications(100);
         assertEquals(4, notifs.size());
         assertTrue(notifs.contains(notificationU1.withId(() -> 1)));
@@ -102,7 +103,7 @@ public abstract class NotificationsDaoTest {
         assertTrue(notifs.contains(notificationU2.withId(() -> 3)));
         assertTrue(notifs.contains(notificationU3.withId(() -> 6)));
 
-        assertEquals(2, notifications.unblockStatusOfDiscordUser("333"));
+        assertEquals(2, notifications.unblockStatusOfRecipient(DISCORD_USER, "333"));
         notifs = notifications.getNewNotifications(100);
         assertEquals(6, notifs.size());
         assertTrue(notifs.contains(notificationU1.withId(() -> 1)));
@@ -116,10 +117,10 @@ public abstract class NotificationsDaoTest {
     @ParameterizedTest
     @MethodSource("provideDao")
     void statusRecipientBatchUpdate(NotificationsDao notifications) {
-        assertThrows(NullPointerException.class, () -> notifications.statusRecipientBatchUpdate(null, "123", RecipientType.DISCORD_USER, u -> {}));
-        assertThrows(NullPointerException.class, () -> notifications.statusRecipientBatchUpdate(SENDING, null, RecipientType.DISCORD_USER, u -> {}));
+        assertThrows(NullPointerException.class, () -> notifications.statusRecipientBatchUpdate(null, "123", DISCORD_USER, u -> {}));
+        assertThrows(NullPointerException.class, () -> notifications.statusRecipientBatchUpdate(SENDING, null, DISCORD_USER, u -> {}));
         assertThrows(NullPointerException.class, () -> notifications.statusRecipientBatchUpdate(SENDING, "123", null, u -> {}));
-        assertThrows(NullPointerException.class, () -> notifications.statusRecipientBatchUpdate(SENDING, "123", RecipientType.DISCORD_USER, null));
+        assertThrows(NullPointerException.class, () -> notifications.statusRecipientBatchUpdate(SENDING, "123", DISCORD_USER, null));
 
         var notification = MigratedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
         notifications.addNotification(notification);

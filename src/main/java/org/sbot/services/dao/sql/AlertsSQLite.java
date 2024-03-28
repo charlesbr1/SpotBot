@@ -98,15 +98,14 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
                 FOREIGN KEY(server_id) REFERENCES server_settings(discord_server_id)) STRICT
                 """;
 
-        String CREATE_USER_ID_INDEX = "CREATE INDEX IF NOT EXISTS alerts_user_id_index ON alerts (user_id)";
-        String CREATE_CLIENT_TYPE_INDEX = "CREATE INDEX IF NOT EXISTS alerts_client_type_index ON alerts (client_type)";
-        String CREATE_SERVER_ID_INDEX = "CREATE INDEX IF NOT EXISTS alerts_server_id_index ON alerts (server_id)";
-        String CREATE_EXCHANGE_INDEX = "CREATE INDEX IF NOT EXISTS alerts_exchange_index ON alerts (exchange)";
-        String CREATE_PAIR_INDEX = "CREATE INDEX IF NOT EXISTS alerts_pair_index ON alerts (pair)";
-        String CREATE_TYPE_INDEX = "CREATE INDEX IF NOT EXISTS alerts_type_index ON alerts (type)";
+        String CREATE_ID_CLIENT_TYPE_INDEX = "CREATE UNIQUE INDEX IF NOT EXISTS alerts_id_client_type_index ON alerts (id, client_type)";
+        String CREATE_USER_ID_CLIENT_TYPE_INDEX = "CREATE INDEX IF NOT EXISTS alerts_user_id_client_type_index ON alerts (user_id, client_type)";
+        String CREATE_SERVER_ID_CLIENT_TYPE_INDEX = "CREATE INDEX IF NOT EXISTS alerts_server_id_client_type_index ON alerts (server_id, client_type)";
+        String CREATE_EXCHANGE_PAIR_INDEX = "CREATE INDEX IF NOT EXISTS alerts_exchange_pair_index ON alerts (exchange, pair)";
+        String CREATE_TYPE_TO_DATE_INDEX = "CREATE INDEX IF NOT EXISTS alerts_type_to_date_index ON alerts (type, to_date)";
+        String CREATE_TYPE_CLIENT_TYPE_INDEX = "CREATE INDEX IF NOT EXISTS alerts_type_client_type_index ON alerts (type, client_type)";
         String CREATE_REPEAT_INDEX = "CREATE INDEX IF NOT EXISTS alerts_repeat_index ON alerts (repeat)";
         String CREATE_LISTENING_DATE_INDEX = "CREATE INDEX IF NOT EXISTS alerts_listening_date_index ON alerts (listening_date)";
-        String CREATE_TO_DATE_INDEX = "CREATE INDEX IF NOT EXISTS alerts_to_date_index ON alerts (to_date)";
 
         String SELECT_MAX_ID = "SELECT MAX(id) FROM alerts";
         String SELECT_BY_ID_AND_CLIENT_TYPE = "SELECT * FROM alerts WHERE id=:id AND client_type=:client_type";
@@ -134,7 +133,7 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
         String DELETE_BY_ID_AND_CLIENT_TYPE = DELETE_BY_ID + " AND client_type=:client_type";
         String DELETE_BY_SELECTION = "DELETE FROM alerts WHERE ";
         String INSERT_ALERT_FIELDS_MAPPING = "INSERT INTO alerts (id,creation_date,listening_date,type,client_type,user_id,server_id,exchange,pair,message,last_trigger,margin,repeat,snooze,from_price,to_price,from_date,to_date) " +
-                // using class field names arguments (like userId and not user_id), for direct alert mapping using query.bindFields
+                // using class field names arguments (like userId and not user_id), for direct alert mapping using query.bindFields, except for client_type
                 "VALUES (:id,:creationDate,:listeningDate,:type,:client_type,:userId,:serverId,:exchange,:pair,:message,:lastTrigger,:margin,:repeat,:snooze,:fromPrice,:toPrice,:fromDate,:toDate)";
         String UPDATE_ALERT_FIELDS_BY_ID = "UPDATE alerts SET {} WHERE id=:id";
         String UPDATE_ALERTS_SERVER_ID_OF_SELECTION = "UPDATE alerts SET server_id=:newServerId WHERE ";
@@ -203,15 +202,14 @@ public final class AlertsSQLite extends AbstractJDBI implements AlertsDao {
     @Override
     protected void setupTable(@NotNull Handle handle) {
         handle.execute(SQL.CREATE_TABLE);
-        handle.execute(SQL.CREATE_USER_ID_INDEX);
-        handle.execute(SQL.CREATE_CLIENT_TYPE_INDEX);
-        handle.execute(SQL.CREATE_SERVER_ID_INDEX);
-        handle.execute(SQL.CREATE_EXCHANGE_INDEX);
-        handle.execute(SQL.CREATE_PAIR_INDEX);
-        handle.execute(SQL.CREATE_TYPE_INDEX);
+        handle.execute(SQL.CREATE_ID_CLIENT_TYPE_INDEX);
+        handle.execute(SQL.CREATE_USER_ID_CLIENT_TYPE_INDEX);
+        handle.execute(SQL.CREATE_SERVER_ID_CLIENT_TYPE_INDEX);
+        handle.execute(SQL.CREATE_EXCHANGE_PAIR_INDEX);
+        handle.execute(SQL.CREATE_TYPE_TO_DATE_INDEX);
+        handle.execute(SQL.CREATE_TYPE_CLIENT_TYPE_INDEX);
         handle.execute(SQL.CREATE_REPEAT_INDEX);
         handle.execute(SQL.CREATE_LISTENING_DATE_INDEX);
-        handle.execute(SQL.CREATE_TO_DATE_INDEX);
     }
 
     long getMaxId(@NotNull Handle handle) {

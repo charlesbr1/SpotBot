@@ -16,7 +16,7 @@ public interface NotificationsDao {
     @NotNull
     List<Notification> getNewNotifications(long limit);
 
-    long unblockStatusOfDiscordUser(@NotNull String userId);
+    long unblockStatusOfRecipient(@NotNull RecipientType recipientType, @NotNull String userId);
 
     void statusRecipientBatchUpdate(@NotNull NotificationStatus status, @NotNull String recipientId, @NotNull RecipientType recipientType, @NotNull Consumer<BatchEntry> updater);
 

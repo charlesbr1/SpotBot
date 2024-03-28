@@ -18,7 +18,6 @@ import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.NEW;
-import static org.sbot.entities.notifications.RecipientType.DISCORD_USER;
 import static org.sbot.services.dao.BatchEntry.longId;
 import static org.sbot.utils.ArgumentValidator.requireStrictlyPositive;
 
@@ -49,13 +48,14 @@ public final class NotificationsMemory implements NotificationsDao {
     }
 
     @Override
-    public long unblockStatusOfDiscordUser(@NotNull String userId) {
-        LOGGER.debug("unblockStatusOfDiscordUser {}", userId);
-        requireNonNull(userId);
+    public long unblockStatusOfRecipient(@NotNull RecipientType recipientType, @NotNull String recipientId) {
+        LOGGER.debug("unblockStatusOfRecipient {} {}", recipientType, recipientId);
+        requireNonNull(recipientType);
+        requireNonNull(recipientId);
         long[] updated = new long[] {0L};
         notifications.replaceAll((id, notification) ->
-                notification.isBlocked() && DISCORD_USER.equals(notification.recipientType)
-                                         && userId.equals(notification.recipientId)
+                notification.isBlocked() && recipientType.equals(notification.recipientType)
+                                         && recipientId.equals(notification.recipientId)
                                          && ++updated[0] != 0 ?
                 notification.withStatus(NEW) : notification);
         return updated[0];
