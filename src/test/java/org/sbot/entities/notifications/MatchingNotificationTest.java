@@ -13,7 +13,7 @@ import java.util.Objects;
 import static java.math.BigDecimal.ONE;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.entities.FieldParser.format;
-import static org.sbot.entities.UserSettings.DEFAULT_LOCALE;
+import static org.sbot.entities.settings.UserSettings.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
 import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.entities.alerts.AlertTest.*;

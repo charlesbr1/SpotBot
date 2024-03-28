@@ -10,8 +10,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
-import org.sbot.entities.Settings;
-import org.sbot.entities.UserSettings;
+import org.sbot.entities.settings.Settings;
+import org.sbot.entities.settings.UserSettings;
 import org.sbot.services.context.Context;
 import org.sbot.utils.Dates;
 import org.sbot.utils.DatesTest;
@@ -37,7 +37,7 @@ import static org.sbot.commands.interactions.ModalEditInteraction.CHOICE_DENIED;
 import static org.sbot.commands.interactions.ModalEditInteraction.UPDATE_FAILED_FOOTER;
 import static org.sbot.commands.interactions.SelectEditInteraction.CHOICE_DELETE;
 import static org.sbot.commands.interactions.SelectEditInteraction.CHOICE_MIGRATE;
-import static org.sbot.entities.ServerSettings.PRIVATE_SERVER;
+import static org.sbot.entities.settings.ServerSettings.PRIVATE_SERVER;
 
 class ModalEditInteractionTest {
 

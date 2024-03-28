@@ -4,7 +4,7 @@ import net.dv8tion.jda.api.entities.Member;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
-import org.sbot.entities.ServerSettings;
+import org.sbot.entities.settings.ServerSettings;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.services.discord.Discord;
 

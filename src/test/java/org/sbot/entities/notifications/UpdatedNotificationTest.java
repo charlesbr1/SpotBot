@@ -6,7 +6,7 @@ import org.sbot.utils.DatesTest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.sbot.entities.FieldParser.format;
-import static org.sbot.entities.UserSettings.DEFAULT_LOCALE;
+import static org.sbot.entities.settings.UserSettings.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.AlertTest.TEST_CLIENT_TYPE;
 import static org.sbot.entities.notifications.Notification.*;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.NEW;

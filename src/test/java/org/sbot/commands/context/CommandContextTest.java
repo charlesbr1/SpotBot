@@ -2,9 +2,9 @@ package org.sbot.commands.context;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import org.junit.jupiter.api.Test;
-import org.sbot.entities.ServerSettings;
-import org.sbot.entities.Settings;
-import org.sbot.entities.UserSettings;
+import org.sbot.entities.settings.ServerSettings;
+import org.sbot.entities.settings.Settings;
+import org.sbot.entities.settings.UserSettings;
 import org.sbot.services.context.Context;
 
 import java.util.Optional;

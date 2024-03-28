@@ -26,8 +26,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.sbot.commands.CommandAdapter.embedBuilder;
-import static org.sbot.entities.ServerSettings.DEFAULT_BOT_CHANNEL;
-import static org.sbot.entities.ServerSettings.DEFAULT_BOT_ROLE;
+import static org.sbot.entities.settings.ServerSettings.DEFAULT_BOT_CHANNEL;
+import static org.sbot.entities.settings.ServerSettings.DEFAULT_BOT_ROLE;
 
 class DiscordTest {
 

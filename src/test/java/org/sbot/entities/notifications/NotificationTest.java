@@ -12,7 +12,7 @@ import java.time.temporal.ChronoUnit;
 import static java.math.BigDecimal.ONE;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.entities.FieldParser.format;
-import static org.sbot.entities.UserSettings.DEFAULT_LOCALE;
+import static org.sbot.entities.settings.UserSettings.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.AlertTest.createTestAlert;
 import static org.sbot.entities.notifications.MatchingNotification.Field.*;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.*;

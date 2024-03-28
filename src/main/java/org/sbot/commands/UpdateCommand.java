@@ -8,7 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.commands.context.CommandContext;
 import org.sbot.entities.Message;
-import org.sbot.entities.UserSettings;
+import org.sbot.entities.settings.UserSettings;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.entities.notifications.UpdatedNotification;
 import org.sbot.services.dao.NotificationsDao;

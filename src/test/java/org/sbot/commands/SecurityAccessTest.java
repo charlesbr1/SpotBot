@@ -5,7 +5,7 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 import org.junit.jupiter.api.Test;
 import org.sbot.commands.context.CommandContext;
-import org.sbot.entities.ServerSettings;
+import org.sbot.entities.settings.ServerSettings;
 import org.sbot.entities.alerts.Alert;
 
 import java.util.List;
@@ -13,7 +13,7 @@ import java.util.List;
 import static net.dv8tion.jda.api.Permission.ADMINISTRATOR;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static org.sbot.entities.ServerSettings.DEFAULT_BOT_ROLE_ADMIN;
+import static org.sbot.entities.settings.ServerSettings.DEFAULT_BOT_ROLE_ADMIN;
 import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
 import static org.sbot.entities.alerts.AlertTest.TEST_CLIENT_TYPE;
 import static org.sbot.entities.alerts.AlertTest.createTestAlertWithUserId;

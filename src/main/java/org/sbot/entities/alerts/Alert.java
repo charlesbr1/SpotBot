@@ -22,7 +22,7 @@ import java.util.function.LongSupplier;
 
 import static java.util.Objects.requireNonNull;
 import static org.sbot.entities.FieldParser.Type.*;
-import static org.sbot.entities.UserSettings.NO_ID;
+import static org.sbot.entities.settings.UserSettings.NO_ID;
 import static org.sbot.entities.alerts.Alert.Field.*;
 import static org.sbot.entities.alerts.Alert.Type.trend;
 import static org.sbot.services.AlertsWatcher.DONE_ALERTS_DELAY_WEEKS;

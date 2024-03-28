@@ -15,7 +15,7 @@ import static java.util.function.UnaryOperator.identity;
 import static org.sbot.commands.UpdateCommand.*;
 import static org.sbot.commands.interactions.Interactions.interactionId;
 import static org.sbot.commands.interactions.ModalEditInteraction.*;
-import static org.sbot.entities.UserSettings.DEFAULT_LOCALE;
+import static org.sbot.entities.settings.UserSettings.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.DEFAULT_REPEAT;
 import static org.sbot.entities.alerts.Alert.PRIVATE_MESSAGES;
 import static org.sbot.entities.alerts.Alert.Type.range;

@@ -6,7 +6,7 @@ import org.sbot.utils.DatesTest;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.sbot.commands.DeleteCommand.DELETE_ALL;
 import static org.sbot.entities.FieldParser.format;
-import static org.sbot.entities.UserSettings.DEFAULT_LOCALE;
+import static org.sbot.entities.settings.UserSettings.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.Type.range;
 import static org.sbot.entities.alerts.AlertTest.TEST_CLIENT_TYPE;
 import static org.sbot.entities.notifications.DeletedNotification.Field.*;
