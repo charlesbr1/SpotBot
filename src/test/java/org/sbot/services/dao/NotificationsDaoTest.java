@@ -15,11 +15,11 @@ import java.util.Set;
 
 import static java.util.stream.Collectors.toSet;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.sbot.entities.settings.UserSettings.DEFAULT_LOCALE;
 import static org.sbot.entities.alerts.Alert.Type.range;
 import static org.sbot.entities.alerts.AlertTest.TEST_CLIENT_TYPE;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.*;
 import static org.sbot.entities.notifications.RecipientType.DISCORD_USER;
+import static org.sbot.entities.settings.UserSettings.DEFAULT_LOCALE;
 import static org.sbot.utils.ArgumentValidator.requireOneItem;
 
 public abstract class NotificationsDaoTest {
@@ -45,7 +45,10 @@ public abstract class NotificationsDaoTest {
         var notification = MigratedNotification.of(TEST_CLIENT_TYPE, DatesTest.nowUtc(), DEFAULT_LOCALE, 123L, 321L, range, "tickerOrPair", "fromGuild", "toGuild", MigratedNotification.Reason.ADMIN, 1L);
         notifications.addNotification(notification);
         assertEquals(1, notifications.getNewNotifications(100).size());
-        assertDeepEquals(notification.withId(() -> 1L), notifications.getNewNotifications(1).getFirst());
+        var savedNotification = notifications.getNewNotifications(1).getFirst();
+        assertDeepEquals(notification.withId(() -> 1L), savedNotification);
+
+        assertThrows(IllegalArgumentException.class, () -> notifications.addNotification(savedNotification));
     }
 
     @ParameterizedTest

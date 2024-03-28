@@ -27,7 +27,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static java.util.Collections.emptyMap;
-import static java.util.Objects.requireNonNull;
+import static org.sbot.entities.notifications.Notification.NEW_NOTIFICATION_ID;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.BLOCKED;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.NEW;
 import static org.sbot.services.dao.sql.NotificationsSQLite.SQL.EXPIRATION_DATE_ARGUMENT;
@@ -139,7 +139,9 @@ public class NotificationsSQLite extends AbstractJDBI implements NotificationsDa
     @Override
     public void addNotification(@NotNull Notification notification) {
         LOGGER.debug("addNotification {}", notification);
-        requireNonNull(notification);
+        if(NEW_NOTIFICATION_ID != notification.id) {
+            throw new IllegalArgumentException("Notification id is not new : " + notification);
+        }
         update(SQL.INSERT_NOTIFICATION, query -> bindNotificationFields(notification, query));
     }
 

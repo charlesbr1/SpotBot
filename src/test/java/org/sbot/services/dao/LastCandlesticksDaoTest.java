@@ -1,10 +1,12 @@
 package org.sbot.services.dao;
 
+import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.sbot.entities.chart.Candlestick;
 import org.sbot.exchanges.binance.BinanceClient;
 import org.sbot.services.dao.memory.LastCandlesticksMemory;
+import org.sbot.services.dao.sql.LastCandlesticksSQLite;
 
 import java.time.ZonedDateTime;
 import java.util.Map;
@@ -29,6 +31,11 @@ public abstract class LastCandlesticksDaoTest {
         assertEquals(1, lastCandlesticks.getPairsByExchanges().size());
         assertEquals(1, lastCandlesticks.getPairsByExchanges().get(BinanceClient.NAME).size());
         assertEquals(Map.of(BinanceClient.NAME, Set.of("ETH/BTC")), lastCandlesticks.getPairsByExchanges());
+
+        var exClass = lastCandlesticks instanceof LastCandlesticksSQLite ?
+                UnableToExecuteStatementException.class : IllegalArgumentException.class;
+        assertThrows(exClass, () -> lastCandlesticks.setLastCandlestick(BinanceClient.NAME, "ETH/BTC", candlestick));
+
         lastCandlesticks.setLastCandlestick(BinanceClient.NAME, "DOT/BTC", candlestick);
         assertEquals(1, lastCandlesticks.getPairsByExchanges().size());
         assertEquals(2, lastCandlesticks.getPairsByExchanges().get(BinanceClient.NAME).size());

@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
+import static org.sbot.entities.notifications.Notification.NEW_NOTIFICATION_ID;
 import static org.sbot.entities.notifications.Notification.NotificationStatus.NEW;
 import static org.sbot.services.dao.BatchEntry.longId;
 import static org.sbot.utils.ArgumentValidator.requireStrictlyPositive;
@@ -36,6 +37,9 @@ public final class NotificationsMemory implements NotificationsDao {
     @Override
     public void addNotification(@NotNull Notification notification) {
         LOGGER.debug("addNotification {}", notification);
+        if(NEW_NOTIFICATION_ID != notification.id) {
+            throw new IllegalArgumentException("Notification id is not new : " + notification);
+        }
         notification = notification.withId(idGenerator::getAndIncrement);
         notifications.put(notification.id, notification);
     }

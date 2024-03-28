@@ -58,7 +58,9 @@ public final class LastCandlesticksMemory implements LastCandlesticksDao {
     @Override
     public void setLastCandlestick(@NotNull String exchange, @NotNull String pair, @NotNull Candlestick candlestick) {
         LOGGER.debug("setLastCandlestick {} {} {}", exchange, pair, candlestick);
-        lastCandlesticks.put(id(exchange, pair), candlestick);
+        if(null != lastCandlesticks.putIfAbsent(id(exchange, pair), candlestick)) {
+            throw new IllegalArgumentException("Candlestick already exist : " + candlestick);
+        }
     }
 
     @Override
