@@ -138,7 +138,7 @@ final class EventAdapter extends ListenerAdapter {
     private Settings settings(@NotNull User user, @NotNull Locale locale, @Nullable Member member) {
         return context.settingsService().setupSettings(DISCORD, user.getIdLong(),
                 Optional.ofNullable(member).map(Member::getGuild).map(Guild::getIdLong).orElse(NO_ID),
-                locale, context.clock());
+                locale);
     }
 
     @Override
@@ -154,8 +154,7 @@ final class EventAdapter extends ListenerAdapter {
                 command = removeStartingMentions(content);
                 if(!command.isBlank()) {
                     var settings = context.settingsService().accessSettings(DISCORD, event.getAuthor().getIdLong(),
-                                    Optional.ofNullable(event.getMember()).map(Member::getGuild).map(Guild::getIdLong).orElse(NO_ID),
-                                    context.clock());
+                                    Optional.ofNullable(event.getMember()).map(Member::getGuild).map(Guild::getIdLong).orElse(NO_ID));
                     accept |= command.startsWith(SetupCommand.NAME); // accept setup command anywhere
                     if (accept || isSpotBotChannel(event.getChannel(), settings.serverSettings().spotBotChannel())) {
                         LOGGER.info("Discord message received from user {} : {}", event.getAuthor().getEffectiveName(), command);

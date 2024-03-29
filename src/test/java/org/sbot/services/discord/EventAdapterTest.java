@@ -251,7 +251,7 @@ class EventAdapterTest {
         when(user.isBot()).thenReturn(true);
         adapter.onSlashCommandInteraction(event);
         verify(event, never()).replyEmbeds(any(), eq(new MessageEmbed[0]));
-        verify(settingsService, never()).setupSettings(any(), anyLong(), anyLong(), any(), any());
+        verify(settingsService, never()).setupSettings(any(), anyLong(), anyLong(), any());
 
         when(user.isBot()).thenReturn(false);
         MessageChannelUnion channel = mock();
@@ -262,12 +262,12 @@ class EventAdapterTest {
         when(event.getUserLocale()).thenReturn(DiscordLocale.CROATIAN);
         when(event.deferReply(anyBoolean())).thenReturn(mock());
 
-        when(settingsService.setupSettings(DISCORD, 123L, NO_ID, DiscordLocale.CROATIAN.toLocale(), clock))
+        when(settingsService.setupSettings(DISCORD, 123L, NO_ID, DiscordLocale.CROATIAN.toLocale()))
                 .thenReturn(new Settings(NO_USER, PRIVATE_SERVER));
         adapter.onSlashCommandInteraction(event);
         verify(event, times(1)).replyEmbeds(any(), eq(new MessageEmbed[0]));
         verify(event).deferReply(true);
-        verify(settingsService).setupSettings(DISCORD, 123L, NO_ID, DiscordLocale.CROATIAN.toLocale(), clock);
+        verify(settingsService).setupSettings(DISCORD, 123L, NO_ID, DiscordLocale.CROATIAN.toLocale());
     }
 
     @Test
@@ -295,35 +295,35 @@ class EventAdapterTest {
 
         when(user.isBot()).thenReturn(true);
         adapter.onMessageReceived(event);
-        verify(settingsService, never()).accessSettings(DISCORD, 123L, NO_ID, clock);
+        verify(settingsService, never()).accessSettings(DISCORD, 123L, NO_ID);
         verify(event, never()).getMessage();
         verify(message, never()).replyEmbeds(any(), eq(new MessageEmbed[0]));
 
-        when(settingsService.accessSettings(DISCORD, 123L, NO_ID, clock))
+        when(settingsService.accessSettings(DISCORD, 123L, NO_ID))
                 .thenReturn(new Settings(NO_USER, PRIVATE_SERVER));
         when(user.isBot()).thenReturn(false);
         adapter.onMessageReceived(event);
-        verify(settingsService).accessSettings(DISCORD, 123L, NO_ID, clock);
+        verify(settingsService).accessSettings(DISCORD, 123L, NO_ID);
         verify(event, times(2)).getMessage();
         verify(message, never()).replyEmbeds(any(), eq(new MessageEmbed[0]));
 
         when(message.getContentRaw()).thenThrow(IllegalArgumentException.class);
         when(user.getAsMention()).thenReturn("userMention");
         adapter.onMessageReceived(event);
-        verify(settingsService).accessSettings(DISCORD, 123L, NO_ID, clock); // no more calls
+        verify(settingsService).accessSettings(DISCORD, 123L, NO_ID); // no more calls
         verify(event, times(3)).getMessage();
         verify(message, never()).replyEmbeds(any(), eq(new MessageEmbed[0]));
 
         when(message.replyEmbeds(any(), eq(new MessageEmbed[0]))).thenReturn(mock());
-        when(settingsService.accessSettings(DISCORD, 123L, NO_ID, clock))
+        when(settingsService.accessSettings(DISCORD, 123L, NO_ID))
                 .thenThrow(IllegalArgumentException.class);
         doReturn("command").when(message).getContentRaw();
         adapter.onMessageReceived(event);
-        verify(settingsService, times(2)).accessSettings(DISCORD, 123L, NO_ID, clock);
+        verify(settingsService, times(2)).accessSettings(DISCORD, 123L, NO_ID);
         verify(event, times(5)).getMessage();
         verify(message).replyEmbeds(any(), eq(new MessageEmbed[0]));
 
-        doReturn(new Settings(NO_USER, PRIVATE_SERVER)).when(settingsService).accessSettings(DISCORD, 123L, NO_ID, clock);
+        doReturn(new Settings(NO_USER, PRIVATE_SERVER)).when(settingsService).accessSettings(DISCORD, 123L, NO_ID);
         when(channel.getType()).thenReturn(ChannelType.UNKNOWN);
         Discord discord = mock();
         when(context.discord()).thenReturn(discord);
@@ -510,11 +510,11 @@ class EventAdapterTest {
         ReplyCallbackAction replyCallbackAction = mock();
         when(event.replyEmbeds(any(), eq(new MessageEmbed[0]))).thenReturn(replyCallbackAction);
         when(event.getUserLocale()).thenReturn(DiscordLocale.CROATIAN);
-        when(settingsService.setupSettings(DISCORD, 123L, NO_ID, DiscordLocale.CROATIAN.toLocale(), clock))
+        when(settingsService.setupSettings(DISCORD, 123L, NO_ID, DiscordLocale.CROATIAN.toLocale()))
                 .thenReturn(new Settings(NO_USER, PRIVATE_SERVER));
 
         adapter.processInteraction(event, user, v -> commandContext);
-        verify(settingsService).setupSettings(DISCORD, 123L, NO_ID, DiscordLocale.CROATIAN.toLocale(), clock);
+        verify(settingsService).setupSettings(DISCORD, 123L, NO_ID, DiscordLocale.CROATIAN.toLocale());
         verify(discord).getInteractionListener(any());
         verify(event).replyEmbeds(any(), eq(new MessageEmbed[0]));
     }
