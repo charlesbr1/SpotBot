@@ -18,7 +18,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.sbot.entities.Message;
 import org.sbot.services.context.Context;
 
 import java.util.List;
@@ -58,26 +57,26 @@ public final class Discord {
     }
 
     // notifications service
-    public static void sendMessage(@NotNull MessageChannel channel, @NotNull Message message, @NotNull Runnable onSuccess, @NotNull Consumer<Boolean> onFailure) {
+    public static void sendMessage(@NotNull MessageChannel channel, @NotNull org.sbot.entities.Message message, @NotNull Runnable onSuccess, @NotNull Consumer<Boolean> onFailure) {
         sendMessages(List.of(message), channel::sendMessageEmbeds, onSuccess, onFailure, 0);
     }
 
     // CommandContext responses
-    public static void sendMessages(@NotNull List<Message> messages, @NotNull Function<List<MessageEmbed>, MessageCreateAction> mapper, int ttlSeconds) {
+    public static void sendMessages(@NotNull List<org.sbot.entities.Message> messages, @NotNull Function<List<MessageEmbed>, MessageCreateAction> mapper, int ttlSeconds) {
         sendMessages(messages, mapper, null, null, ttlSeconds);
     }
 
 
-    private static void sendMessages(@NotNull List<Message> messages, @NotNull Function<List<MessageEmbed>, MessageCreateAction> mapper, @Nullable Runnable onSuccess, @Nullable Consumer<Boolean> onFailure, int ttlSeconds) {
+    private static void sendMessages(@NotNull List<org.sbot.entities.Message> messages, @NotNull Function<List<MessageEmbed>, MessageCreateAction> mapper, @Nullable Runnable onSuccess, @Nullable Consumer<Boolean> onFailure, int ttlSeconds) {
         submitWithTtl(messages.stream().flatMap(message -> asMessageRequests(message, mapper)), onSuccess, onFailure, ttlSeconds);
     }
 
     // CommandContext reply
-    public static void replyMessages(@NotNull List<Message> messages, @NotNull InteractionHook interactionHook, int ttlSeconds) {
+    public static void replyMessages(@NotNull List<org.sbot.entities.Message> messages, @NotNull InteractionHook interactionHook, int ttlSeconds) {
         submitWithTtl(messages.stream().flatMap(message -> asMessageRequests(message, interactionHook::sendMessageEmbeds)), null, null, ttlSeconds);
     }
 
-    static <T extends MessageCreateRequest<?>> Stream<T> asMessageRequests(@NotNull Message message, @NotNull Function<List<MessageEmbed>, T> mapper) {
+    static <T extends MessageCreateRequest<?>> Stream<T> asMessageRequests(@NotNull org.sbot.entities.Message message, @NotNull Function<List<MessageEmbed>, T> mapper) {
         return split(MAX_EMBED_COUNT, message.embeds().stream().map(EmbedBuilder::build)).map(mapper)
                 .peek(request -> {
                     Optional.ofNullable(message.files()).map(files -> files.stream().map(file -> FileUpload.fromData(file.content(), file.name())).toList()).ifPresent(request::setFiles);
@@ -94,15 +93,23 @@ public final class Discord {
                 });
     }
 
-    // this ensures the rest action are done in order
-    private static void submitWithTtl(@NotNull Stream<RestAction<net.dv8tion.jda.api.entities.Message>> restActions, @Nullable Runnable onSuccess, @Nullable Consumer<Boolean> onFailure, int ttlSeconds) {
-        Consumer<net.dv8tion.jda.api.entities.Message> delete = ttlSeconds <= 0 ? m -> {} :
-                message -> message.delete().queueAfter(ttlSeconds, TimeUnit.SECONDS, null,
-                        new ErrorHandler(err -> LOGGER.error("Unable to delete message {} : {}", message.getId(), err.getMessage())));
-        var success = null == onSuccess ? delete : delete.andThen(m -> onSuccess.run());
+    private static final Consumer<Message> VOID_HANDLER = m -> {};
+
+    private static void submitWithTtl(@NotNull Stream<RestAction<Message>> restActions, @Nullable Runnable onSuccess, @Nullable Consumer<Boolean> onFailure, int ttlSeconds) {
+        Consumer<Message> successHandler = ttlSeconds <= 0 ?
+                (null != onSuccess ? message -> onSuccess.run() : VOID_HANDLER) :
+                message -> {
+                    try {
+                        message.delete().queueAfter(ttlSeconds, TimeUnit.SECONDS, null,
+                                new ErrorHandler(err -> LOGGER.error("Unable to delete message {} : {}", message.getId(), err.getMessage())));
+                    } finally {
+                        Optional.ofNullable(onSuccess).ifPresent(Runnable::run);
+                    }
+                };
         var errorHandler = null != onFailure ? errorHandler(requireNonNull(onSuccess), onFailure) :
                 new ErrorHandler(err -> LOGGER.error("Unable to send message : {}", err.getMessage()));
-        restActions.forEach(restAction -> restAction.queue(success, errorHandler));
+        // jda api ensures that the messages posted on a channel are sent in order
+        restActions.forEach(restAction -> restAction.queue(successHandler, errorHandler));
     }
 
     @NotNull

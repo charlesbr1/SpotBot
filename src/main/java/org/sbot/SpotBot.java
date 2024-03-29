@@ -102,13 +102,12 @@ public class SpotBot {
             LOGGER.info("Entering infinite loop to check prices and send alerts. Scheduling plan (UTC time) : {}",
                     schedulingPlan(nowUtc(context.clock()), context.parameters().checkPeriodMin(), context.parameters().hourlySyncDeltaMin()));
 
-            while(!Thread.interrupted()) {
+            while(!Thread.currentThread().isInterrupted()) {
                 LOGGER.info("SpotBot thread [{}] now checking alerts...", Thread.currentThread().getName());
                 long sleepingMinutes = checkAlerts(context);
                 LOGGER.info("SpotBot thread [{}] now sleeping for {} minutes...", Thread.currentThread().getName(), sleepingMinutes);
                 LockSupport.parkNanos(Duration.ofMinutes(sleepingMinutes).toNanos());
             }
-            Thread.currentThread().interrupt();
         });
     }
 

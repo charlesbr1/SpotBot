@@ -217,17 +217,17 @@ public final class MigrateCommand extends CommandAdapter {
     }
 
     // used by discord EventAdapter onGuildLeave
-    public static List<Long> migrateServerAlertsToPrivateChannel(@NotNull ClientType clientType, @NotNull TransactionalContext txCtx, long serverId, @Nullable Object server) {
+    public static List<Long> migrateServerAlertsToPrivateChannel(@NotNull TransactionalContext txCtx, @NotNull ClientType clientType, long serverId, @Nullable Object server) {
         var alertsDao = txCtx.alertsDao();
         var userIds = alertsDao.getUserIdsByServerId(clientType, serverId);
         if(!userIds.isEmpty()) {
             long totalMigrated = alertsDao.updateServerIdOf(SelectionFilter.ofServer(clientType, serverId, null), PRIVATE_MESSAGES);
             LOGGER.debug("Migrated to private {} alerts on server {}, reason : {}", totalMigrated, serverId, Reason.SERVER_LEAVED);
-            var userLocales = txCtx.userSettingsDao().getLocales(userIds.stream().map(uid -> ClientTypeUserId.of(clientType, uid)).toList());
-            var now = Dates.nowUtc(txCtx.clock());
             var serverName = switch (clientType) {
                 case DISCORD -> Optional.ofNullable((Guild) server).map(Discord::guildName).orElseGet(() -> String.valueOf(serverId));
             };
+            var userLocales = txCtx.userSettingsDao().getLocales(userIds.stream().map(uid -> ClientTypeUserId.of(clientType, uid)).toList());
+            var now = Dates.nowUtc(txCtx.clock());
             userIds.forEach(userId -> txCtx.notificationsDao().addNotification(MigratedNotification
                     .of(clientType, now, userLocales.getOrDefault(ClientTypeUserId.of(clientType, userId), DEFAULT_LOCALE), userId, null, null, MIGRATE_ALL, serverName, null, Reason.SERVER_LEAVED, 0L)));
         }
@@ -235,7 +235,7 @@ public final class MigrateCommand extends CommandAdapter {
     }
 
     // used by NotificationsService and discord EventAdapter onGuildBan, onGuildMemberRemove
-    public static long migrateUserAlertsToPrivateChannel(@NotNull ClientType clientType, @NotNull TransactionalContext txCtx, @NotNull Long userId, @Nullable Locale locale, @NotNull Object server, @NotNull Reason reason) {
+    public static long migrateUserAlertsToPrivateChannel(@NotNull TransactionalContext txCtx, @NotNull ClientType clientType, @NotNull Long userId, @Nullable Locale locale, @NotNull Object server, @NotNull Reason reason) {
         var serverId = switch (clientType) {
             case DISCORD -> ((Guild) server).getIdLong();
         };

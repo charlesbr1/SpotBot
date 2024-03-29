@@ -174,7 +174,7 @@ public abstract class CommandContext implements Context {
                         msg -> Discord.replyMessages(messages, event.getHook().setEphemeral(true), ttlSeconds),
                         editMapper -> event.getHook().retrieveOriginal()
                                 .queue(message -> message.editMessage(editMapper.apply(MessageEditBuilder.fromMessage(message))).queue(),
-                                        err -> LOGGER.error("Failed to retrieve message on slash interaction", err)));
+                                        err -> LOGGER.error("Failed to retrieve original message on slash interaction", err)));
             }
         };
     }

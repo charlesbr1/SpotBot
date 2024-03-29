@@ -868,10 +868,10 @@ class MigrateCommandTest {
         Guild guild = mock();
         when(guild.getIdLong()).thenReturn(123L);
 
-        assertThrows(NullPointerException.class, () -> MigrateCommand.migrateServerAlertsToPrivateChannel(TEST_CLIENT_TYPE, null, 123L, mock()));
+        assertThrows(NullPointerException.class, () -> MigrateCommand.migrateServerAlertsToPrivateChannel(null, TEST_CLIENT_TYPE, 123L, mock()));
 
         when(alertsDao.getUserIdsByServerId(TEST_CLIENT_TYPE, 123L)).thenReturn(List.of());
-        assertTrue(MigrateCommand.migrateServerAlertsToPrivateChannel(TEST_CLIENT_TYPE, txCtx, 123L, guild).isEmpty());
+        assertTrue(MigrateCommand.migrateServerAlertsToPrivateChannel(txCtx, TEST_CLIENT_TYPE, 123L, guild).isEmpty());
         verify(alertsDao).getUserIdsByServerId(TEST_CLIENT_TYPE, 123L);
         verify(alertsDao, never()).updateServerIdOf(any(), anyLong());
         verify(settingsDao, never()).getLocales(anyList());
@@ -881,7 +881,7 @@ class MigrateCommandTest {
         when(alertsDao.getUserIdsByServerId(TEST_CLIENT_TYPE, 321L)).thenReturn(List.of(11L));
         when(alertsDao.updateServerIdOf(SelectionFilter.ofServer(TEST_CLIENT_TYPE, 321L, null), PRIVATE_MESSAGES)).thenReturn(3L);
         when(settingsDao.getLocales(List.of(ClientTypeUserId.of(DISCORD, 11L)))).thenReturn(emptyMap());
-        assertEquals(1L, MigrateCommand.migrateServerAlertsToPrivateChannel(TEST_CLIENT_TYPE, txCtx, 321L, guild).size());
+        assertEquals(1L, MigrateCommand.migrateServerAlertsToPrivateChannel(txCtx, TEST_CLIENT_TYPE, 321L, guild).size());
         verify(alertsDao).getUserIdsByServerId(TEST_CLIENT_TYPE, 321L);
         verify(alertsDao).updateServerIdOf(SelectionFilter.ofServer(TEST_CLIENT_TYPE, 321L, null), PRIVATE_MESSAGES);
         verify(settingsDao).getLocales(List.of(ClientTypeUserId.of(DISCORD, 11L)));
@@ -901,23 +901,23 @@ class MigrateCommandTest {
         Guild guild = mock();
         when(guild.getIdLong()).thenReturn(123L);
 
-        assertThrows(NullPointerException.class, () -> MigrateCommand.migrateUserAlertsToPrivateChannel(null, txCtx, 111L, DEFAULT_LOCALE, guild, Reason.ADMIN));
-        assertThrows(NullPointerException.class, () -> MigrateCommand.migrateUserAlertsToPrivateChannel(TEST_CLIENT_TYPE, null, 111L, DEFAULT_LOCALE, guild, Reason.ADMIN));
+        assertThrows(NullPointerException.class, () -> MigrateCommand.migrateUserAlertsToPrivateChannel(txCtx, null, 111L, DEFAULT_LOCALE, guild, Reason.ADMIN));
+        assertThrows(NullPointerException.class, () -> MigrateCommand.migrateUserAlertsToPrivateChannel(null, TEST_CLIENT_TYPE, 111L, DEFAULT_LOCALE, guild, Reason.ADMIN));
 
         when(alertsDao.updateServerIdOf(any(), anyLong())).thenReturn(0L);
-        assertEquals(0L, MigrateCommand.migrateUserAlertsToPrivateChannel(TEST_CLIENT_TYPE, txCtx, 111L, DEFAULT_LOCALE, guild, Reason.ADMIN));
+        assertEquals(0L, MigrateCommand.migrateUserAlertsToPrivateChannel(txCtx, TEST_CLIENT_TYPE, 111L, DEFAULT_LOCALE, guild, Reason.ADMIN));
         verify(alertsDao).updateServerIdOf(any(), anyLong());
         verify(settingsDao, never()).getUserSettings(eq(DISCORD), anyLong());
         verify(notificationsDao, never()).addNotification(any());
 
         when(alertsDao.updateServerIdOf(any(), anyLong())).thenReturn(3L);
         when(settingsDao.getUserSettings(DISCORD, 111L)).thenReturn(Optional.of(mock()));
-        assertEquals(3L, MigrateCommand.migrateUserAlertsToPrivateChannel(TEST_CLIENT_TYPE, txCtx, 111L, DEFAULT_LOCALE, guild, Reason.ADMIN));
+        assertEquals(3L, MigrateCommand.migrateUserAlertsToPrivateChannel(txCtx, TEST_CLIENT_TYPE, 111L, DEFAULT_LOCALE, guild, Reason.ADMIN));
         verify(alertsDao, times(2)).updateServerIdOf(any(), anyLong());
         verify(settingsDao, never()).getUserSettings(eq(DISCORD), anyLong());
         verify(notificationsDao).addNotification(any());
 
-        assertEquals(3L, MigrateCommand.migrateUserAlertsToPrivateChannel(TEST_CLIENT_TYPE, txCtx, 111L, null, guild, Reason.ADMIN));
+        assertEquals(3L, MigrateCommand.migrateUserAlertsToPrivateChannel(txCtx, TEST_CLIENT_TYPE, 111L, null, guild, Reason.ADMIN));
         verify(alertsDao, times(3)).updateServerIdOf(any(), anyLong());
         verify(settingsDao).getUserSettings(DISCORD, 111L);
         verify(notificationsDao, times(2)).addNotification(any());

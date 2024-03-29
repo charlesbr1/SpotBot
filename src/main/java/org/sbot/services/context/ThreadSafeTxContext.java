@@ -13,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 
+import static org.sbot.utils.ArgumentValidator.requirePositive;
 import static org.sbot.utils.ArgumentValidator.requireStrictlyPositive;
 
 public final class ThreadSafeTxContext extends TransactionalContext {
@@ -51,7 +52,7 @@ public final class ThreadSafeTxContext extends TransactionalContext {
 
     public void commit(int count) {
         LOGGER.debug("committing {} transaction", count);
-        if (countdown.addAndGet(-requireStrictlyPositive(count)) == 0) {
+        if (0 != count && countdown.addAndGet(-requirePositive(count)) == 0) {
             LOGGER.debug("countdown reached, committing whole transaction");
             try {
                 super.commit();

@@ -30,7 +30,7 @@ class ThreadSafeTxContextTest {
         when(context.dataServices()).thenReturn(dataServices);
         when(dataServices.notificationsDao()).thenReturn(v -> mock());
 
-        assertThrows(IllegalArgumentException.class, () -> new ThreadSafeTxContext(context, SERIALIZABLE, 1).commit(0));
+        assertDoesNotThrow(() -> new ThreadSafeTxContext(context, SERIALIZABLE, 1).commit(0));
         assertThrows(IllegalArgumentException.class, () -> new ThreadSafeTxContext(context, SERIALIZABLE, 1).commit(-1));
 
         // test single commit

@@ -52,12 +52,13 @@ public class ServerSettingsMemory implements ServerSettingsDao {
     @Override
     public void addSettings(@NotNull ServerSettings settings) {
         LOGGER.debug("addSettings {}", settings);
-        if(NO_ID != settings.discordServerId()) {
-            if(null != discordServerSettings.putIfAbsent(settings.discordServerId(), settings)) {
-                throw new IllegalArgumentException("ServerSettings already exist : " + settings);
+        for(var clientType : ClientType.values()) {
+            switch (clientType) {
+                case DISCORD:
+                    if(NO_ID != settings.discordServerId() && null != discordServerSettings.putIfAbsent(settings.discordServerId(), settings)) {
+                        throw new IllegalArgumentException("ServerSettings already exist : " + settings);
+                    }
             }
-        } else {
-            throw new IllegalArgumentException("Missing settings serverId : " + settings);
         }
     }
 

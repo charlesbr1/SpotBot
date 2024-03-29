@@ -74,12 +74,13 @@ public class UserSettingsMemory implements UserSettingsDao {
     @Override
     public void addSettings(@NotNull UserSettings settings) {
         LOGGER.debug("addSettings {}", settings);
-        if(NO_ID != settings.discordUserId()) {
-            if(null != discordUserSettings.putIfAbsent(settings.discordUserId(), settings)) {
-                throw new IllegalArgumentException("UserSettings already exist : " + settings);
+        for(var clientType : ClientType.values()) {
+            switch (clientType) {
+                case DISCORD:
+                    if(NO_ID != settings.discordUserId() && null != discordUserSettings.putIfAbsent(settings.discordUserId(), settings)) {
+                            throw new IllegalArgumentException("UserSettings already exist : " + settings);
+                    }
             }
-        } else {
-            throw new IllegalArgumentException("Missing settings userId : " + settings);
         }
     }
 
