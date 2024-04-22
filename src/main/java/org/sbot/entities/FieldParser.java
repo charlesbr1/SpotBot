@@ -4,13 +4,9 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.alerts.Alert;
 import org.sbot.entities.alerts.ClientType;
-
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.ZonedDateTime;
+import org.sbot.utils.MutableDecimalParser;
 
 import static java.util.Objects.requireNonNull;
-import static org.sbot.utils.Dates.UTC;
 
 public interface FieldParser {
 
@@ -36,6 +32,13 @@ public interface FieldParser {
                 return requireNonNull(value);
             }
         },
+        BYTE {
+            @NotNull
+            @Override
+            public Object parse(@NotNull String value) {
+                return Byte.parseByte(value);
+            }
+        },
         SHORT {
             @NotNull
             @Override
@@ -54,16 +57,9 @@ public interface FieldParser {
             @NotNull
             @Override
             public Object parse(@NotNull String value) {
-                return new BigDecimal(value);
+                return MutableDecimalParser.parse(value);
             }
         },
-        ZONED_DATE_TIME {
-            @NotNull
-            @Override
-            public Object parse(@NotNull String value) {
-                return Instant.ofEpochMilli(Long.parseLong(value)).atZone(UTC);
-            }
-        }
     }
 
     @NotNull
@@ -74,8 +70,6 @@ public interface FieldParser {
         return switch (value) {
             case null -> "";
             case ClientType ct -> ct.shortName;
-            case BigDecimal bd -> bd.toPlainString();
-            case ZonedDateTime zdt -> String.valueOf(zdt.toInstant().toEpochMilli());
             default -> value.toString();
         };
     }
