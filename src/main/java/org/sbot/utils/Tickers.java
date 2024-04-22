@@ -6,6 +6,8 @@ import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 
+import static org.sbot.utils.MutableDecimal.ImmutableDecimal.ZERO;
+
 public interface Tickers {
 
     @NotNull
@@ -17,8 +19,8 @@ public interface Tickers {
                 (ticker.equals("BTC") ? "₿" : ticker.toLowerCase()))));
     }
 
-    static String formatPrice(@NotNull BigDecimal price, @NotNull String ticker) {
-        if (price.compareTo(BigDecimal.ZERO) == 0) {
+    static String formatPrice(@NotNull MutableDecimal price, @NotNull String ticker) {
+        if (price.compareTo(ZERO) == 0) {
             return "0 " + getSymbol(ticker);
         }
         DecimalFormatSymbols symbols = new DecimalFormatSymbols();
@@ -27,7 +29,8 @@ public interface Tickers {
         decimalFormat.setGroupingUsed(false);
         decimalFormat.setDecimalFormatSymbols(symbols);
         decimalFormat.setMinimumFractionDigits(0);
-        BigDecimal absPrice = price.abs();
+        var priceBigDecimal = price.bigDecimal();
+        BigDecimal absPrice = priceBigDecimal.abs();
         if (absPrice.compareTo(BigDecimal.TWO) > 0) { // 2 digits after the comma
             decimalFormat.setMaximumFractionDigits(2);
         } else if (absPrice.compareTo(BigDecimal.ONE) >= 0) { // 4 digits after the comma
@@ -41,6 +44,6 @@ public interface Tickers {
             }
             decimalFormat.setMaximumFractionDigits(Math.min(16, nbZerosPlusOne + 4));
         }
-        return decimalFormat.format(price) + ' ' + getSymbol(ticker);
+        return decimalFormat.format(priceBigDecimal) + ' ' + getSymbol(ticker);
     }
 }
