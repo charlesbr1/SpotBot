@@ -5,22 +5,24 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.requests.restaction.CacheRestAction;
 import org.junit.jupiter.api.Test;
+import org.sbot.exchanges.Exchange;
+import org.sbot.exchanges.binance.BinanceClient;
 
-import java.math.BigDecimal;
-import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static java.math.BigDecimal.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
+import static org.sbot.entities.alerts.Alert.NO_DATE;
 import static org.sbot.entities.alerts.Alert.Type.*;
 import static org.sbot.entities.alerts.ClientType.DISCORD;
-import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
-import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
 import static org.sbot.utils.ArgumentValidator.*;
 import static org.sbot.utils.DatesTest.nowUtc;
+import static org.sbot.utils.MutableDecimal.ImmutableDecimal.ZERO;
+import static org.sbot.utils.MutableDecimalTest.ONE;
+import static org.sbot.utils.MutableDecimalTest.TEN;
 
 class ArgumentValidatorTest {
 
@@ -52,17 +54,18 @@ class ArgumentValidatorTest {
         assertTrue(PAIR_PATTERN.matcher("1INCH/BTC").matches());
         assertTrue(PAIR_PATTERN.matcher("123/123").matches());
         assertTrue(PAIR_PATTERN.matcher("12/123").matches());
-        assertFalse(PAIR_PATTERN.matcher("1/123").matches());
+        assertTrue(PAIR_PATTERN.matcher("1/123").matches());
         assertFalse(PAIR_PATTERN.matcher("/123").matches());
         assertFalse(PAIR_PATTERN.matcher("/").matches());
         assertFalse(PAIR_PATTERN.matcher("").matches());
         assertFalse(PAIR_PATTERN.matcher("123").matches());
         assertTrue(PAIR_PATTERN.matcher("123/12").matches());
-        assertFalse(PAIR_PATTERN.matcher("123/1").matches());
         assertFalse(PAIR_PATTERN.matcher("123/").matches());
         assertTrue(PAIR_PATTERN.matcher("12345/ABCDE").matches());
-        assertFalse(PAIR_PATTERN.matcher("123456/12345").matches());
-        assertFalse(PAIR_PATTERN.matcher("12345/ABCDEF").matches());
+        assertTrue(PAIR_PATTERN.matcher("12345678/12345678").matches());
+        assertFalse(PAIR_PATTERN.matcher("123456/123456789").matches());
+        assertFalse(PAIR_PATTERN.matcher("123456789/12345678").matches());
+        assertFalse(PAIR_PATTERN.matcher("12345/ABCDEFGHI").matches());
     }
 
     @Test
@@ -108,11 +111,11 @@ class ArgumentValidatorTest {
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(-1L));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(-300L));
         assertEquals(ZERO, ArgumentValidator.requirePositive(ZERO));
-        assertEquals(ZERO, ArgumentValidator.requirePositive(ZERO.negate()));
+        assertEquals(ZERO, ArgumentValidator.requirePositive(MutableDecimal.of(-0L, (byte) 0)));
         assertEquals(ONE, ArgumentValidator.requirePositive(ONE));
         assertEquals(TEN, ArgumentValidator.requirePositive(TEN));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(ONE.negate()));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(TEN.negate()));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(MutableDecimal.of(-1L, (byte) 0)));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(MutableDecimal.of(-10L, (byte) 0)));
     }
 
     @Test
@@ -128,6 +131,13 @@ class ArgumentValidatorTest {
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireStrictlyPositive(0L));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(-1L));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePositive(-300L));
+    }
+
+    @Test
+    void requireEpoch() {
+        assertEquals(123L, ArgumentValidator.requireEpoch(123L));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireEpoch(NO_DATE));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireEpoch(-1L));
     }
 
     @Test
@@ -155,32 +165,12 @@ class ArgumentValidatorTest {
     @Test
     void requirePrice() {
         assertThrows(NullPointerException.class, () -> ArgumentValidator.requirePrice(null));
-        assertEquals(ONE, ArgumentValidator.requirePriceLength(ONE));
         assertEquals(ZERO, ArgumentValidator.requirePrice(ZERO));
-        assertEquals(new BigDecimal("1234567890"), ArgumentValidator.requirePrice(new BigDecimal("1234567890")));
-        assertEquals(new BigDecimal("12345678901234567890"), ArgumentValidator.requirePrice(new BigDecimal("12345678901234567890")));
-        assertEquals(new BigDecimal("1234567890123456789.00000000000000000000000000000000000000000000"), ArgumentValidator.requirePrice(new BigDecimal("1234567890123456789.00000000000000000000000000000000000000000000")));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePrice(new BigDecimal("-1")));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePrice(new BigDecimal("123456789012345678901")));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePrice(new BigDecimal("-12345678901234567890")));
-        assertDoesNotThrow(() -> ArgumentValidator.requirePrice(new BigDecimal("1.2345678901234567890")));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePrice(new BigDecimal("1.2345678901234567891")));
-    }
-
-    @Test
-    void requirePriceLength() {
-        assertEquals(null, ArgumentValidator.requirePriceLength(null));
-        assertEquals(ONE, ArgumentValidator.requirePriceLength(ONE));
-        assertEquals(ZERO, ArgumentValidator.requirePriceLength(ZERO));
-        assertEquals(new BigDecimal("1234567890"), ArgumentValidator.requirePriceLength(new BigDecimal("1234567890")));
-        assertEquals(new BigDecimal("12345678901234567890"), ArgumentValidator.requirePriceLength(new BigDecimal("12345678901234567890")));
-        assertEquals(new BigDecimal("1234567890123456789.00000000000000000000000000000000000000000000"), ArgumentValidator.requirePriceLength(new BigDecimal("1234567890123456789.00000000000000000000000000000000000000000000")));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePriceLength(new BigDecimal("-1")));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePriceLength(new BigDecimal("123456789012345678901")));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePriceLength(new BigDecimal("-12345678901234567890")));
-        assertDoesNotThrow(() -> ArgumentValidator.requirePriceLength(new BigDecimal("1.2345678901234567890")));
-        assertDoesNotThrow(() -> ArgumentValidator.requirePriceLength(new BigDecimal("1.23456789012345678900000000")));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePriceLength(new BigDecimal("1.2345678901234567891")));
+        assertEquals(MutableDecimal.of(1234567890L, (byte) 0), ArgumentValidator.requirePrice(MutableDecimal.of(1234567890L, (byte) 0)));
+        assertEquals(MutableDecimal.of(1234567890123456789L, (byte) 0), ArgumentValidator.requirePrice(MutableDecimal.of(1234567890123456789L, (byte) 0)));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePrice(MutableDecimal.of(-1L, (byte) 0)));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePrice(MutableDecimal.of(-1234567890123456789L, (byte) 0)));
+        assertDoesNotThrow(() -> ArgumentValidator.requirePrice(MutableDecimal.of(1234567890123456789L, (byte) 18)));
     }
 
     @Test
@@ -232,10 +222,34 @@ class ArgumentValidatorTest {
     }
 
     @Test
-    void requireSupportedExchange() {
-        SUPPORTED_EXCHANGES.forEach(exchange -> assertEquals(exchange, ArgumentValidator.requireSupportedExchange(exchange)));
-        VIRTUAL_EXCHANGES.forEach(exchange -> assertEquals(exchange, ArgumentValidator.requireSupportedExchange(exchange)));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireSupportedExchange("exchange"));
+    void requireRealExchange() {
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireRealExchange("exchange"));
+        assertEquals(Exchange.BINANCE, ArgumentValidator.requireRealExchange(BinanceClient.NAME));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireRealExchange(Exchange.VIRTUAL.shortName));
+    }
+
+    @Test
+    void requireAnyExchange() {
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireAnyExchange("exchange"));
+        assertEquals(Exchange.BINANCE, ArgumentValidator.requireAnyExchange(BinanceClient.NAME));
+        assertEquals(Exchange.VIRTUAL, ArgumentValidator.requireAnyExchange(Exchange.VIRTUAL.shortName));
+    }
+
+    @Test
+    void requireExchangePairOrFormat() {
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireExchangePairOrFormat(null, "btc/usdt"));
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireExchangePairOrFormat(Exchange.BINANCE, null));
+        assertEquals("BTC/USDT", ArgumentValidator.requireExchangePairOrFormat(Exchange.BINANCE, "btc/usdt"));
+        assertEquals("NOP/NOPNOP", ArgumentValidator.requireExchangePairOrFormat(Exchange.BINANCE, "nop/nopnop"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireExchangePairOrFormat(Exchange.BINANCE, "nop/"));
+    }
+
+    @Test
+    void requireExchangePair() {
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireExchangePair(null, "btc/usdt"));
+        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireExchangePair(Exchange.BINANCE, null));
+        assertEquals("BTC/USDT", ArgumentValidator.requireExchangePair(Exchange.BINANCE, "btc/usdt"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireExchangePair(Exchange.BINANCE, "nop/nopnop"));
     }
 
     @Test
@@ -243,19 +257,19 @@ class ArgumentValidatorTest {
         assertThrows(NullPointerException.class, () -> ArgumentValidator.requirePairFormat(null));
         assertEquals("ETH/BTC", ArgumentValidator.requirePairFormat("ETH/BTC"));
         assertEquals("ETHHH/BTCCC", ArgumentValidator.requirePairFormat("ETHHH/BTCCC"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("eth/btc"));
+        assertEquals("ETH/BTC", ArgumentValidator.requirePairFormat("eth/btc"));
         assertEquals("1INCH/BTC", ArgumentValidator.requirePairFormat("1INCH/BTC"));
         assertEquals("123/123", ArgumentValidator.requirePairFormat("123/123"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("1/123"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("123/"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("/123"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("/"));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat(""));
         assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("123"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("123/1"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("123/"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("123/123456789"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("123456789/1"));
         assertEquals("12345/ABCDE", ArgumentValidator.requirePairFormat("12345/ABCDE"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("123456/12345"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("12345/ABCDEF"));
+        assertEquals("12345678/12345678", ArgumentValidator.requirePairFormat("12345678/12345678"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requirePairFormat("123456789/123456789"));
     }
 
     @Test
@@ -264,13 +278,17 @@ class ArgumentValidatorTest {
         assertEquals("1INCH/BTC", ArgumentValidator.requireTickerPairLength("1INCH/BTC"));
         assertEquals("BTC", ArgumentValidator.requireTickerPairLength("BTC"));
         assertEquals("AR", ArgumentValidator.requireTickerPairLength("AR"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("B"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("BT3456"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength(""));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("123456789"));
+        assertEquals("12345678", ArgumentValidator.requireTickerPairLength("12345678"));
         assertEquals("12345/ABCDE", ArgumentValidator.requireTickerPairLength("12345/ABCDE"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("5/ABC"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("56/C"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("1234567/ABC"));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("123456/ABCDE"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("/ABC"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("BTC/"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("/BTC"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("/"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("123456789/ABC"));
+        assertEquals("12345678/12345678", ArgumentValidator.requireTickerPairLength("12345678/12345678"));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireTickerPairLength("12345678/123456789"));
     }
 
     @Test
@@ -291,16 +309,12 @@ class ArgumentValidatorTest {
 
     @Test
     void requireInFuture() {
-        ZonedDateTime now = nowUtc();
-        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireInFuture(now, null));
-        assertThrows(NullPointerException.class, () -> ArgumentValidator.requireInFuture(null, now));
+        var now = nowUtc();
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInFuture(now, now - 1));
+        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInFuture(now, now - 15));
         assertEquals(now, ArgumentValidator.requireInFuture(now, now));
-        assertEquals(now.plusSeconds(1L), ArgumentValidator.requireInFuture(now, now.plusSeconds(1L)));
-        assertEquals(now.plusMinutes(1L), ArgumentValidator.requireInFuture(now, now.plusMinutes(1L)));
-        assertEquals(now.plusDays(3L), ArgumentValidator.requireInFuture(now, now.plusDays(3L)));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInFuture(now, now.minusSeconds(1L)));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInFuture(now, now.minusMinutes(1L)));
-        assertThrows(IllegalArgumentException.class, () -> ArgumentValidator.requireInFuture(now, now.minusDays(3L)));
+        assertEquals(now + 1 , ArgumentValidator.requireInFuture(now, now + 1));
+        assertEquals(now + 1002 , ArgumentValidator.requireInFuture(now, now + 1002));
     }
 
     @Test

@@ -6,9 +6,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.sbot.entities.alerts.Alert.Type;
 import org.sbot.entities.alerts.ClientType;
+import org.sbot.exchanges.Exchange;
 
-import java.math.BigDecimal;
-import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -19,9 +18,12 @@ import java.util.stream.Stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static net.dv8tion.jda.api.entities.Message.MentionType.*;
-import static org.sbot.exchanges.Exchanges.SUPPORTED_EXCHANGES;
-import static org.sbot.exchanges.Exchanges.VIRTUAL_EXCHANGES;
+import static org.sbot.entities.alerts.Alert.NO_DATE;
+import static org.sbot.exchanges.Exchange.EXCHANGES;
+import static org.sbot.exchanges.Exchange.VIRTUAL;
 import static org.sbot.services.discord.Discord.guildName;
+import static org.sbot.utils.MutableDecimal.ImmutableDecimal.ZERO;
+import static org.sbot.utils.MutableDecimalParser.MAX_COMPACT_DIGITS;
 
 public interface ArgumentValidator {
 
@@ -30,11 +32,11 @@ public interface ArgumentValidator {
 
     int MESSAGE_MAX_LENGTH = 210;
     int SETTINGS_MAX_LENGTH = 96;
-    int TICKER_MIN_LENGTH = 2;
-    int TICKER_MAX_LENGTH = 5;
+    int TICKER_MIN_LENGTH = 1;
+    int TICKER_MAX_LENGTH = 8;
     int PAIR_MIN_LENGTH = (2 * TICKER_MIN_LENGTH) + 1;
     int PAIR_MAX_LENGTH = (2 * TICKER_MAX_LENGTH) + 1;
-    int PRICE_MAX_LENGTH = String.valueOf(Long.MAX_VALUE).length() + 1;
+    int PRICE_MAX_LENGTH = MAX_COMPACT_DIGITS;
     int REPEAT_MIN = 0;
     int REPEAT_MAX = 100;
     int SNOOZE_MIN = 1;
@@ -54,50 +56,62 @@ public interface ArgumentValidator {
         return (int) requireStrictlyPositive((long) value);
     }
 
+    static long requireEpoch(long value) {
+        if(value <= NO_DATE) {
+            throw zeroOrNegativeValue(value);
+        }
+        return value;
+    }
+
     static long requireStrictlyPositive(long value) {
         if(value <= 0) {
-            throw new IllegalArgumentException("Zero or negative value : " + value);
+            throw zeroOrNegativeValue(value);
         }
         return value;
     }
 
     static long requirePositive(long value) {
         if(value < 0) {
-            throw new IllegalArgumentException("Negative value : " + value);
+            throw negativeValue(value);
         }
         return value;
     }
 
-    static BigDecimal requirePositive(BigDecimal value) {
-        if(value.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("Negative value : " + value);
+    @NotNull
+    static MutableDecimal requirePositive(@NotNull MutableDecimal value) {
+        if(value.compareTo(ZERO) < 0) {
+            throw negativeValue(value);
         }
         return value;
     }
+
+    @NotNull
+    private static IllegalArgumentException negativeValue(@NotNull Object value) {
+        return new IllegalArgumentException("Negative value : " + value);
+    }
+
+    @NotNull
+    private static IllegalArgumentException zeroOrNegativeValue(@NotNull Object value) {
+        return new IllegalArgumentException("Zero or negative value : " + value);
+    }
+
 
     static short requireRepeat(long repeat) {
         if (repeat < REPEAT_MIN || repeat > REPEAT_MAX) {
-            throw new IllegalArgumentException("Provided repeat must be between " + REPEAT_MIN + " and " + REPEAT_MAX + ", provided value : " + repeat);
+            throw new IllegalArgumentException("Repeat must be between " + REPEAT_MIN + " and " + REPEAT_MAX + ", provided value : " + repeat);
         }
         return (short) repeat;
     }
 
     static short requireSnooze(long snooze) {
         if (snooze < SNOOZE_MIN || snooze > SNOOZE_MAX) {
-            throw new IllegalArgumentException("Provided snooze must be between " + SNOOZE_MIN + " and " + SNOOZE_MAX + " : " + snooze);
+            throw new IllegalArgumentException("Snooze must be between " + SNOOZE_MIN + " and " + SNOOZE_MAX + " , provided value : " + snooze);
         }
         return (short) snooze;
     }
 
-    static BigDecimal requirePrice(@NotNull BigDecimal price) {
-        return requirePriceLength(requireNonNull(price));
-    }
-
-    static BigDecimal requirePriceLength(@Nullable BigDecimal price) {
-        if (null != price && requirePositive(price).stripTrailingZeros().toPlainString().length() > PRICE_MAX_LENGTH) {
-            throw new IllegalArgumentException("Provided price is too long (" + PRICE_MAX_LENGTH + " chars max) : " + price.toPlainString());
-        }
-        return price;
+    static MutableDecimal requirePrice(@NotNull MutableDecimal price) {
+        return requirePositive(requireNonNull(price));
     }
 
     static String requireNotBlank(@NotNull String value, @NotNull String fieldName) {
@@ -130,33 +144,81 @@ public interface ArgumentValidator {
     }
 
     @NotNull
-    static String requireSupportedExchange(@NotNull String exchange) {
-        if(!VIRTUAL_EXCHANGES.contains(exchange.toLowerCase()) && !SUPPORTED_EXCHANGES.contains(exchange.toLowerCase())) {
-            throw new IllegalArgumentException("Provided exchange is not supported : " + exchange + " (expected " + String.join(", ", SUPPORTED_EXCHANGES) + ')');
+    static Exchange requireRealExchange(@NotNull String exchange) {
+        if(VIRTUAL.shortName.equalsIgnoreCase(exchange)) {
+            throw unsupportedExchange(exchange);
         }
-        return exchange;
+        return requireAnyExchange(exchange);
+    }
+
+    @NotNull
+    static Exchange requireAnyExchange(@NotNull String exchange) {
+        try {
+            return Exchange.of(exchange);
+        } catch (RuntimeException e) {
+            throw unsupportedExchange(exchange);
+        }
+    }
+
+    @NotNull
+    private static IllegalArgumentException unsupportedExchange(@NotNull String exchange) {
+        throw new IllegalArgumentException("Provided exchange is not supported : " + exchange + " (expected " + String.join(", ", EXCHANGES) + ')');
+    }
+
+    @NotNull
+    static String requireExchangePairOrFormat(@NotNull Exchange exchange, @NotNull String pair) {
+        requireNonNull(exchange);
+        try {
+            return requireExchangePair(exchange, pair);
+        } catch (RuntimeException e) {
+            return requirePairFormat(pair);
+        }
+    }
+
+    @NotNull
+    static String requireExchangePair(@NotNull Exchange exchange, @NotNull String pair) {
+        var xchangePair = exchange.getPair(pair.toUpperCase());
+        if(null == xchangePair) {
+            throw unsupportedPair(pair, false);
+        }
+        return xchangePair;
     }
 
     @NotNull
     static String requirePairFormat(@NotNull String pair) {
-        if(!PAIR_PATTERN.matcher(pair).matches()) {
-            throw new IllegalArgumentException("Invalid pair : " + pair  + ", should be like EUR/USD");
+        var upperCasePair = pair.toUpperCase();
+        if(!PAIR_PATTERN.matcher(upperCasePair).matches()) {
+            throw unsupportedPair(pair, true);
         }
-        return pair;
+        return upperCasePair;
+    }
+
+    @NotNull
+    private static IllegalArgumentException unsupportedPair(@NotNull String pair, boolean sample) {
+        return new IllegalArgumentException("Invalid pair : " + pair  + (sample ? ", should be like EUR/USD" : ""));
     }
 
     @NotNull
     static String requireTickerPairLength(@NotNull String tickerPair) {
         int slashIndex = tickerPair.indexOf('/');
-        if(slashIndex > 0) { // pair
-            boolean badTicker = slashIndex > TICKER_MAX_LENGTH || slashIndex < TICKER_MIN_LENGTH;
-            if (badTicker || tickerPair.length() > PAIR_MAX_LENGTH || tickerPair.length() < PAIR_MIN_LENGTH) {
-                throw new IllegalArgumentException("Provided  pair is invalid : " + tickerPair + " (expected " + PAIR_MIN_LENGTH + " to " + PAIR_MAX_LENGTH + " chars)");
-            }
-        } else if (tickerPair.length() > TICKER_MAX_LENGTH || tickerPair.length() < TICKER_MIN_LENGTH) {
-                throw new IllegalArgumentException("Provided ticker is invalid : " + tickerPair + " (expected " + TICKER_MIN_LENGTH + " to " + TICKER_MAX_LENGTH + " chars)");
+        if(tickerPair.indexOf(' ') >= 0) {
+            throw unsupportedTickerPair(tickerPair, PAIR_MIN_LENGTH, PAIR_MAX_LENGTH, slashIndex >= 0);
         }
-        return tickerPair;
+        if(slashIndex >= 0) { // pair
+            boolean badTicker = slashIndex > TICKER_MAX_LENGTH || slashIndex < TICKER_MIN_LENGTH || slashIndex == tickerPair.length() - 1;
+            if (badTicker || tickerPair.length() > PAIR_MAX_LENGTH) {
+                throw unsupportedTickerPair(tickerPair, PAIR_MIN_LENGTH, PAIR_MAX_LENGTH, true);
+            }
+        } else if (tickerPair.length() > TICKER_MAX_LENGTH || tickerPair.isEmpty()) {
+            throw unsupportedTickerPair(tickerPair, TICKER_MIN_LENGTH, TICKER_MAX_LENGTH, false);
+        }
+        return tickerPair.toUpperCase();
+    }
+
+
+    @NotNull
+    private static IllegalArgumentException unsupportedTickerPair(@NotNull String tickerPair, int minLength, int maxLength, boolean pair) {
+        throw new IllegalArgumentException("Provided " + (pair ? "pair" : "ticker") + " is invalid : " + tickerPair + " (expected " + minLength + " to " + maxLength + " chars)");
     }
 
     static String requireAlertMessageMaxLength(@NotNull String message) {
@@ -173,11 +235,11 @@ public interface ArgumentValidator {
         return settings;
     }
 
-    static ZonedDateTime requireInFuture(@NotNull ZonedDateTime now, @NotNull ZonedDateTime zonedDateTime) {
-        if (zonedDateTime.isBefore(now)) {
+    static long requireInFuture(long now, long epochTime) {
+        if (epochTime < now) {
             throw new IllegalArgumentException("Provided date must be in the future");
         }
-        return zonedDateTime;
+        return epochTime;
     }
 
     static long requireUser(@NotNull ClientType clientType, @NotNull String userMention) {
