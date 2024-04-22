@@ -5,8 +5,6 @@ import net.dv8tion.jda.api.utils.TimeFormat;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.math.BigDecimal;
-import java.sql.Timestamp;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -14,7 +12,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
@@ -23,6 +20,7 @@ import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toMap;
 import static net.dv8tion.jda.api.interactions.DiscordLocale.UNKNOWN;
 import static org.sbot.utils.ArgumentValidator.BLANK_SPACES;
+import static org.sbot.utils.ArgumentValidator.requireEpoch;
 
 public interface Dates {
 
@@ -44,22 +42,38 @@ public interface Dates {
     DateTimeFormatter ZONED_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(DATE_TIME_FORMAT + ZONED_FORMAT);
     DateTimeFormatter DASH_ZONED_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(DATE_TIME_FORMAT + DASH_ZONED_FORMAT);
 
+    long ONE_CENTURY_MINUTES = Duration.of(365L * 100L, ChronoUnit.DAYS).toMinutes();
+    long ONE_WEEK_MILLIS = Duration.of(7, ChronoUnit.DAYS).toMillis();
+    long ONE_HOUR_MILLIS = Duration.of(1, ChronoUnit.HOURS).toMillis();
+    long ONE_MINUTE_MILLIS = Duration.of(1, ChronoUnit.MINUTES).toMillis();
+    long ONE_SECOND_MILLIS = Duration.of(1, ChronoUnit.SECONDS).toMillis();
+    long ONE_MILLIS_NANOS = Duration.of(1, ChronoUnit.MILLIS).toNanos();
+
     Map<Locale, String> LocalePatterns = Collections.unmodifiableMap(localePatterns());
 
     static LocalDateTime parseLocalDateTime(@NotNull Locale locale, @NotNull String dateTime) {
         return LocalDateTime.parse(asDateTimeFormat(locale, dateTime), DATE_TIME_FORMATTER);
     }
 
-    static ZonedDateTime parse(@NotNull Locale locale, @Nullable ZoneId timezone, @NotNull Clock clock, @NotNull String dateTime) {
-        requireNonNull(locale);
-        requireNonNull(clock);
+    static long parse(@NotNull Locale locale, @Nullable ZoneId timezone, @NotNull Clock clock, @NotNull String dateTime) {
         dateTime = dateTime.strip();
-        timezone = null != timezone ? timezone : UTC;
-        if(dateTime.toLowerCase().startsWith(NOW_ARGUMENT)) {
-            return parseNow(timezone, clock, dateTime);
-        }
+        return dateTime.toLowerCase().startsWith(NOW_ARGUMENT) ?
+                plusMinutes(nowEpoch(clock), parseOffsetInMinutes(dateTime)) :
+                parseDateTime(locale, timezone, dateTime).toInstant().toEpochMilli();
+    }
+
+    static ZonedDateTime parseDateTime(@NotNull Locale locale, @Nullable ZoneId timezone, @NotNull Clock clock, @NotNull String dateTime) {
+        dateTime = dateTime.strip();
+        return dateTime.toLowerCase().startsWith(NOW_ARGUMENT) ?
+                nowUtc(clock).plusMinutes(parseOffsetInMinutes(dateTime)) :
+                parseDateTime(locale, timezone, dateTime);
+    }
+
+    private static ZonedDateTime parseDateTime(@NotNull Locale locale, @Nullable ZoneId timezone, @NotNull String dateTime) {
+        requireNonNull(locale);
         dateTime = asDateTimeFormat(locale, dateTime);
         try { // try to parse at default zone
+            timezone = null != timezone ? timezone : UTC;
             return LocalDateTime.parse(dateTime, DATE_TIME_FORMATTER).atZone(timezone);
         } catch (DateTimeException e) {
             try { // try to parse at provided zone
@@ -70,7 +84,7 @@ public interface Dates {
         }
     }
 
-    private static ZonedDateTime parseNow(@NotNull ZoneId timezone, @NotNull Clock clock, @NotNull String nowTime) {
+    private static long parseOffsetInMinutes(@NotNull String nowTime) {
         long offset = 0L;
         if(nowTime.length() > NOW_ARGUMENT.length()) { // parse offset part
             String offsetHours = nowTime.substring(NOW_ARGUMENT.length()).strip();
@@ -78,16 +92,19 @@ public interface Dates {
                 throw new DateTimeParseException("Malformed now offset", nowTime, nowTime.length() - offsetHours.length());
             }
             try {
-                offset = new BigDecimal(offsetHours.replaceFirst(",", ".")).multiply(new BigDecimal(60)).longValue();
+                var value = Double.parseDouble(offsetHours.replaceFirst(",", "."));
+                if(Double.isNaN(value)) {
+                    throw new NumberFormatException("NaN value");
+                }
+                offset = (long) (value * 60d);
             } catch (NumberFormatException e) {
                 throw new DateTimeParseException("Malformed now offset", nowTime, nowTime.length() - offsetHours.length(), e);
             }
-            long oneCenturyMinutes = Duration.of(36500L, ChronoUnit.DAYS).toMinutes();
-            if(Math.abs(offset) > oneCenturyMinutes) {
-                throw new DateTimeParseException("Offset too far, can't be more than one century : " + oneCenturyMinutes / 60 + " hours", nowTime, nowTime.length() - offsetHours.length());
+            if(Math.abs(offset) > ONE_CENTURY_MINUTES) {
+                throw new DateTimeParseException("Offset too far, can't be more than one century : " + ONE_CENTURY_MINUTES / 60 + " hours", nowTime, nowTime.length() - offsetHours.length());
             }
         }
-        return clock.instant().atZone(UTC).withZoneSameInstant(timezone).plusMinutes(offset);
+        return offset;
     }
 
     // this extract the localized date part of a date time and rebuild it formatted as DATE_TIME_FORMAT
@@ -110,37 +127,50 @@ public interface Dates {
                 (timeAndZone.startsWith(" ") ? "" : " ") + timeAndZone;
     }
 
-    static String formatDiscord(@NotNull ZonedDateTime dateTime) {
-        return TimeFormat.DATE_SHORT.format(dateTime) + ' ' + TimeFormat.TIME_SHORT.format(dateTime);
+    static String formatDiscord(long dateTime) {
+        return TimeFormat.DATE_SHORT.format(requireEpoch(dateTime)) + ' ' + TimeFormat.TIME_SHORT.format(dateTime);
     }
 
-    static String formatDiscordRelative(@NotNull ZonedDateTime dateTime) {
-        return TimeFormat.RELATIVE.format(dateTime);
+    static String formatDiscordRelative(long dateTime) {
+        return TimeFormat.RELATIVE.format(requireEpoch(dateTime));
     }
 
     static String format(@NotNull Locale locale, @NotNull ZonedDateTime dateTime) {
         return dateTime.format(LOCALIZED_DATE_FORMATTER.withLocale(locale)) + '-' + dateTime.format(TIME_FORMATTER);
     }
 
-    static String formatUTC(@NotNull Locale locale, @NotNull ZonedDateTime dateTime) {
-        return format(locale, dateTime.withZoneSameInstant(Dates.UTC));
+    static String formatUTC(@NotNull Locale locale, long dateTime) {
+        return format(locale, Instant.ofEpochMilli(dateTime).atZone(UTC));
+    }
+
+    static long nowEpoch(@NotNull Clock clock) {
+        return clock.instant().toEpochMilli();
     }
 
     static ZonedDateTime nowUtc(@NotNull Clock clock) {
         return ZonedDateTime.ofInstant(clock.instant(), UTC);
     }
 
-    // sql mapper
-
-    static Optional<ZonedDateTime> parseUtcDateTime(@Nullable Timestamp timestamp) {
-        return Optional.ofNullable(timestamp)
-                .map(dateTime -> dateTime.toInstant().atZone(UTC));
+    static long plusWeeks(long epochMs, long weeks) {
+        return epochMs + (ONE_WEEK_MILLIS * weeks);
     }
 
-    @Nullable
-    static ZonedDateTime parseUtcDateTimeOrNull(@Nullable Timestamp timestamp) {
-        return parseUtcDateTime(timestamp).orElse(null);
+    static long plusHours(long epochMs, long hours) {
+        return epochMs + (ONE_HOUR_MILLIS * hours);
     }
+
+    static long plusMinutes(long epochMs, long minutes) {
+        return epochMs + (ONE_MINUTE_MILLIS * minutes);
+    }
+
+    static long minusMinutes(long epochMs, long minutes) {
+        return epochMs - (ONE_MINUTE_MILLIS * minutes);
+    }
+
+    static long plusSeconds(long epochMs, long seconds) {
+        return epochMs + (ONE_SECOND_MILLIS * seconds);
+    }
+
 
     @NotNull
     private static Map<Locale, String> localePatterns() {
