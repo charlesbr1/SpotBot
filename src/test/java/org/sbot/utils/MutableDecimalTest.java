@@ -329,6 +329,8 @@ public class MutableDecimalTest {
 
     @Test
     void equals() {
+        assertThrows(UnsupportedOperationException.class, () -> MutableDecimal.empty().hashCode());
+        assertThrows(UnsupportedOperationException.class, ONE::hashCode);
         assertEquals(MutableDecimal.of(10L, (byte) 1), MutableDecimal.of(1L, (byte) 0));
         assertEquals(MutableDecimal.of(10L, (byte) 0), MutableDecimal.of(1L, (byte) -1));
         assertEquals(MutableDecimal.of(1000L, (byte) 0), MutableDecimal.of(1L, (byte) -3));
@@ -337,10 +339,6 @@ public class MutableDecimalTest {
         assertEquals(MutableDecimal.of(10L, (byte) 1), MutableDecimal.of(10000L, (byte) 4));
         assertEquals(MutableDecimal.of(0L, (byte) 1), MutableDecimal.of(0L, (byte) -14));
         assertEquals(MutableDecimal.of(0L, (byte) 0), MutableDecimal.of(0L, (byte) 14));
-        assertEquals(MutableDecimal.of(0L, (byte) 0).hashCode(), MutableDecimal.of(0L, (byte) 14).hashCode());
-        assertEquals(MutableDecimal.of(12L, (byte) 0).hashCode(), MutableDecimal.of(12L, (byte) 0).hashCode());
-        assertNotEquals(MutableDecimal.of(12L, (byte) 0).hashCode(), MutableDecimal.of(21L, (byte) 0).hashCode());
-        assertNotEquals(MutableDecimal.of(12L, (byte) 0).hashCode(), MutableDecimal.of(12L, (byte) 1).hashCode());
 
         for(int i = TEST_LOOP; i-- != 0;) {
             var rand = (Math.random() - 0.5d) * 10d * i;
@@ -351,19 +349,15 @@ public class MutableDecimalTest {
             var decimal = MutableDecimalParser.parse(value);
             var same = MutableDecimal.of(decimal.value(), decimal.scale());
             assertTrue(same.equals(decimal));
-            assertEquals(decimal.hashCode(), same.hashCode());
             same.multiplyCaped(10L);
             assertNotEquals(decimal, same);
             same.divideCaped(10L);
             assertTrue(decimal.equals(same));
             assertTrue(same.equals(decimal));
-            assertEquals(decimal.hashCode(), same.hashCode());
             same.add(TWO);
             assertNotEquals(decimal, same);
-            assertNotEquals(decimal.hashCode(), same.hashCode());
             same.subtract(TWO);
             assertEquals(decimal, same);
-            assertEquals(decimal.hashCode(), same.hashCode());
         }
     }
 }

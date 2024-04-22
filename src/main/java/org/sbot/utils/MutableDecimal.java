@@ -508,14 +508,8 @@ public class MutableDecimal {
     }
 
     @Override
-    public final int hashCode() { // rely on compacted mantissa value
-        long mantissa = this.value;
-        int exp = this.scale;
-        int scaleInc = exp < 0 ? 1 : -1;
-        while (0L != mantissa && 0L == mantissa % 10L) {
-            mantissa /= 10L;
-            exp += scaleInc;
-        }
-        return 0L == mantissa ? 0 : Long.hashCode(mantissa ^ exp);
+    public final int hashCode() {
+        // probably a bad idea to use a mutable value as a key in a map
+        throw new UnsupportedOperationException();
     }
 }
