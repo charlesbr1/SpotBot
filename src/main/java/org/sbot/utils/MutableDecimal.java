@@ -10,6 +10,8 @@ public class MutableDecimal {
     public static final class ImmutableDecimal extends MutableDecimal {
 
         public static final MutableDecimal ZERO = new ImmutableDecimal(0L, (byte) 0);
+        public static final MutableDecimal ONE = new ImmutableDecimal(1L, (byte) 0);
+        public static final MutableDecimal TWO = new ImmutableDecimal(2L, (byte) 0);
 
         public ImmutableDecimal(long value, byte scale) {
             this.value = value;
@@ -75,6 +77,7 @@ public class MutableDecimal {
     private static final long DIV_NUM_BASE = (1L<<32); // Number base (32 bits).
 
     protected long value; // mantissa
+    //TODO dans l'autre sens...
     protected byte scale; // exponent
 
     @NotNull
@@ -105,6 +108,7 @@ public class MutableDecimal {
     }
 
     public void scale(byte scale) {
+        // todo shceck scale round up
         this.scale = scale;
     }
 
@@ -113,6 +117,19 @@ public class MutableDecimal {
         value(unscaledVal);
         scale(scale);
         return this;
+    }
+
+    @NotNull
+    public final MutableDecimal copy() {
+        return empty().set(value, scale);
+    }
+
+    public final void shrunkScale() {
+        // shrunk scale keeping same precision
+        while (scale > Byte.MIN_VALUE && 0L != value && 0L == value % 10L) {
+            scale(checkScale(scale - 1));
+            value(value / 10L);
+        }
     }
 
     public final void max(@NotNull MutableDecimal mutableDecimal) {
@@ -125,15 +142,27 @@ public class MutableDecimal {
         }
     }
 
+    public final int compareAbsTo(@NotNull MutableDecimal mutableDecimal) {
+        return compareAbsTo(value, this.scale, mutableDecimal.value, mutableDecimal.scale);
+    }
+
     public final int compareTo(@NotNull MutableDecimal mutableDecimal) {
         return compareTo(mutableDecimal.value, mutableDecimal.scale);
     }
 
     public final int compareTo(long unscaledVal, byte scale) {
-        if (this.scale == scale) {
-            return this.value != unscaledVal ? ((this.value > unscaledVal) ? 1 : -1) : 0;
+        return compareTo(value, this.scale, unscaledVal, scale);
+    }
+
+    private static int compareAbsTo(long value, byte s, long unscaledVal, byte scale) {
+        return compareTo(absCaped(value), s, absCaped(unscaledVal), scale);
+    }
+
+    private static int compareTo(long value, byte s, long unscaledVal, byte scale) {
+        if (s == scale) {
+            return value != unscaledVal ? ((value > unscaledVal) ? 1 : -1) : 0;
         }
-        int xsign = Long.signum(this.value);
+        int xsign = Long.signum(value);
         int ysign = Long.signum(unscaledVal);
         if (xsign != ysign) {
             return (xsign > ysign) ? 1 : -1;
@@ -141,24 +170,23 @@ public class MutableDecimal {
         if (xsign == 0) {
             return 0;
         }
-        int cmp = compareMagnitude(unscaledVal, scale);
+        int cmp = compareMagnitude(value, s, unscaledVal, scale);
         return xsign > 0 ? cmp : -cmp;
     }
 
-    private int compareMagnitude(long unscaledVal, byte scale) {
-        var thisValue = value;
-        if (thisValue == 0) {
+    private static int compareMagnitude(long value, byte s, long unscaledVal, byte scale) {
+        if (value == 0) {
             return (unscaledVal == 0) ? 0 : -1;
         }
         if (unscaledVal == 0) {
             return 1;
         }
 
-        int sdiff = this.scale;
+        int sdiff = s;
         sdiff -= scale;
         if (0 != sdiff) {
             // Avoid matching scales if the (adjusted) exponents differ
-            long xae = (long) longDigitLength(thisValue) - this.scale;      // [-1]
+            long xae = (long) longDigitLength(value) - s;      // [-1]
             long yae = (long) longDigitLength(unscaledVal) - scale;  // [-1]
             if (xae < yae) {
                 return -1;
@@ -166,12 +194,12 @@ public class MutableDecimal {
                 return 1;
             }
             if (sdiff < 0) {
-                thisValue = longMultiplyPowerTen(thisValue, -sdiff);
+                value = longMultiplyPowerTen(value, -sdiff);
             } else {
                 unscaledVal = longMultiplyPowerTen(unscaledVal, sdiff);
             }
         }
-        return Long.compare(Math.abs(thisValue), Math.abs(unscaledVal));
+        return Long.compare(absCaped(value), absCaped(unscaledVal));
     }
 
     public static int longDigitLength(long value) {
@@ -193,38 +221,79 @@ public class MutableDecimal {
     }
 
     public final void subtract(long unscaledVal, byte scale) {
-        add(-unscaledVal, scale);
+        boolean overflow = Long.MIN_VALUE == unscaledVal;
+        add(overflow ? Long.MAX_VALUE : -unscaledVal, scale, overflow);
     }
 
     public final void add(@NotNull MutableDecimal mutableDecimal) {
-        add(mutableDecimal.value, mutableDecimal.scale);
+        add(mutableDecimal.value, mutableDecimal.scale, false);
     }
 
     public final void add(long unscaledVal, byte scale) {
-        int sdiff = this.scale - scale;
-        if (sdiff == 0) {
-            add(this.value, unscaledVal, this.scale);
-        } else if (sdiff < 0) {
-            long scaledX = longMultiplyPowerTen(this.value, -sdiff);
-            add(scaledX, unscaledVal, scale);
-        } else {
-            long scaledY = longMultiplyPowerTen(unscaledVal, sdiff);
-            add(this.value, scaledY, this.scale);
+        add(unscaledVal, scale, false);
+    }
+
+    private void add(long unscaledVal, byte scale, boolean carry) {
+        try {
+            if (0L == value) {
+                set(unscaledVal, scale);
+                return;
+            } else if (0L == unscaledVal) {
+                return;
+            }
+            // TODO reduce scale
+            int sdiff = this.scale - scale;
+            if (Math.abs(sdiff) >= LONG_TEN_POWERS_TABLE.length) {
+                // precision overflow, keep the biggest absolute result
+                if (compareTo(absCaped(value), this.scale, absCaped(unscaledVal), scale) < 0) {
+                    set(unscaledVal, scale);
+                }
+                return;
+            }
+            if (0 == sdiff ||
+                    sdiff > 0 && absCaped(unscaledVal) <= THRESHOLDS_TABLE[sdiff] ||
+                    sdiff < 0 && absCaped(this.value) <= THRESHOLDS_TABLE[-sdiff]) {
+                // scaling can not overflow but the adding can
+                boolean noOverflow;
+                if (sdiff == 0) {
+                    noOverflow = add(this.value, unscaledVal, this.scale, carry);
+                } else if (sdiff < 0) {
+                    long scaled = longMultiplyPowerTen(this.value, -sdiff);
+                    noOverflow = add(scaled, unscaledVal, scale, carry);
+                } else {
+                    long scaled = longMultiplyPowerTen(unscaledVal, sdiff);
+                    noOverflow = add(this.value, scaled, this.scale, carry);
+                }
+                if(noOverflow) {
+                    return;
+                }
+            }
+            // computing result will overflow, use 128 bits then reduce precision to fit result into a long
+            if (sdiff <= 0) {
+                scale(scale); // is updated by multiplyAdd128AndSet
+                multiplyAdd128AndSet(this.value, LONG_TEN_POWERS_TABLE[-sdiff], unscaledVal, carry);
+            } else {
+                multiplyAdd128AndSet(unscaledVal, LONG_TEN_POWERS_TABLE[sdiff], this.value, carry);
+            }
+        } finally {
+            shrunkScale();
         }
     }
 
-    private void add(long x, long y, byte scale) {
+    private boolean add(long x, long y, byte scale, boolean carry) {
         long sum = x + y;
-        if (((sum ^ x) & (sum ^ y)) < 0L) {
-            throw overflowException(false);
+        if (((sum ^ x) & (sum ^ y)) < 0L && (!carry || (Long.MIN_VALUE != x || Long.MIN_VALUE != y))) {
+                return false;
         }
-        // shrunk size keeping same precision
-        byte scaleInc = scale < 0 ? (byte) 1 : (byte) -1;
-        while (0L != sum && 0L == sum % 10L) {
-            scale = checkScale(scale + scaleInc); // this can not overflow
-            sum /= 10L;
+        if(carry) { // reversed Long.MIN_VALUE value adjustment
+            long adjustedSum = sum + 1;
+            if (((adjustedSum ^ sum) & (adjustedSum ^ 1)) < 0L) {
+                return false;
+            }
+            sum = adjustedSum;
         }
         set(sum, scale);
+        return true;
     }
 
     private static byte checkScale(int scale) {
@@ -232,6 +301,10 @@ public class MutableDecimal {
             throw overflowException(true);
         }
         return (byte) scale;
+    }
+
+    private static long absCaped(long value) {
+        return Long.MIN_VALUE == value ? Long.MAX_VALUE : (value < 0L ? -value : value);
     }
 
     private static ArithmeticException overflowException(boolean exponent) {
@@ -242,27 +315,54 @@ public class MutableDecimal {
         if (0L == value || power <= 0) {
             return value;
         }
-        if (power < LONG_TEN_POWERS_TABLE.length) {
-            long tenpower = LONG_TEN_POWERS_TABLE[power];
-            if (1L == value) {
-                return tenpower;
-            }
-            if (Math.abs(value) <= THRESHOLDS_TABLE[power]) {
-                return value * tenpower;
-            }
+        long tenpower = LONG_TEN_POWERS_TABLE[power];
+        if (1L == value) {
+            return tenpower;
         }
-        throw overflowException(false);
+        if (absCaped(value) <= THRESHOLDS_TABLE[power]) {
+            return value * tenpower;
+        }
+        // overflow, should not happen here (compareTo)
+        return Long.MAX_VALUE;
     }
 
     // divide and cap max / min result to MutableDecimal capacities
+    public final void divide(long divisor) {
+        divide(divisor, false);
+    }
+
     public final void divideCaped(long divisor) {
+        divide(divisor, true);
+    }
+
+    public final void divide(long divisor, boolean caped) {
         if (0L == divisor) {   // x/0
             throw new ArithmeticException(0L == this.value ? "Division undefined" : "Division by zero");
         } else if (0L == this.value) {
             return;
+        } else if((this.value & 1) == 0 && isPow2(divisor)) {
+            var exponent = Long.numberOfTrailingZeros(value);
+            var exponent2 = Long.numberOfTrailingZeros(divisor);
+            var delta = exponent >= exponent2 ? 0 : exponent2 - exponent;
+            value(this.value >> (exponent2 - delta));
+            if(0 == delta) {
+                value(divisor < 0 ? -this.value : this.value);
+                return;
+            }
+            divisor >>= (exponent2 - delta);
+        } else {
+            int pow10index = pow10Scale(divisor);
+            if (pow10index >= 0) { // divisor is a pow of ten, do quick scale update
+                if (Byte.MAX_VALUE >= scale + pow10index && (Long.MIN_VALUE != this.value || divisor >= 0)) {
+                    scale((byte) (scale + pow10index));
+                    value(divisor < 0 ? -this.value : this.value);
+                    return;
+                }
+                pow10index = Byte.MAX_VALUE - scale;
+                value /= LONG_TEN_POWERS_TABLE[pow10index];
+                scale((byte) (scale + pow10index));
+            }
         }
-        boolean incScale = scale >= 0;
-        byte scaleInc = incScale ?  (byte) 1 : (byte) -1;
 
         long newValue;
         try {
@@ -272,7 +372,7 @@ public class MutableDecimal {
                 // reduce the quotien size if possible to let more room for the remainder (figures after the comma)
                 while (0L != quotien && 0L == remainder % 10L && 0L == quotien % 10L) {
                     try {
-                        scale(checkScale(scale - scaleInc));
+                        scale(checkScale(scale - 1));
                     } catch (ArithmeticException e) { // scale overflow, process with current figures
                         break;
                     }
@@ -280,7 +380,7 @@ public class MutableDecimal {
                     remainder /= 10;
                 }
                 // find the biggest scale for remainder values (decimals after the comma)
-                int scaleDelta = LONG_TEN_POWERS_TABLE.length - 1;
+                int scaleDelta = Math.min(Byte.MAX_VALUE - scale, LONG_TEN_POWERS_TABLE.length - 1);
                 for (var absQuotien = Math.abs(quotien); absQuotien > THRESHOLDS_TABLE[scaleDelta]; scaleDelta--);
                 // optimistic division strategy, reducing precision until it fit into long format with supported scale
                 for(;;) {
@@ -289,12 +389,15 @@ public class MutableDecimal {
                         long scaled = quotien * LONG_TEN_POWERS_TABLE[scaleDelta];
                         newValue = Math.addExact(scaled, decimals);
                         try {
-                            scale(checkScale(scale + (incScale ? scaleDelta : -scaleDelta)));
-                        } catch (ArithmeticException e) { // scale overflow
+                            scale(checkScale(scale + scaleDelta));
+                        } catch (ArithmeticException e) {
                             // if scale overflow above byte limits,
                             // the number is either close to 0, either close to max/min mutable decimal values, depending on scale
                             // round or cape to max / min, and return
-                            setOverflow(value >= 0L == divisor >= 0L, scale + (incScale ? scaleDelta : -scaleDelta));
+                            if(!caped) {
+                                throw e;
+                            }
+                            setOverflow(value >= 0L == divisor >= 0L, scale + scaleDelta);
                             return;
                         }
                         break;
@@ -303,38 +406,70 @@ public class MutableDecimal {
                     }
                 }
             }
-            // clean up trailing zeros, scale can not overflow here
-            while (0L != newValue && 0L == newValue % 10L) {
-                newValue /= 10L;
-                scale(checkScale(scale - scaleInc));
-            }
         } catch (ArithmeticException e) { // divideExact special error case, positive overflow
+            if(!caped) {
+                throw e;
+            }
             setOverflow(true, scale);
             return;
         }
         value(newValue);
+        shrunkScale();
+    }
+
+    private boolean isPow2(long value) {
+        if(Long.MIN_VALUE == value) {
+            return false;
+        } // TODO check 0
+        value = value & LONG_MASK;
+        return (value & (value - 1)) == 0L;
+    }
+
+    private static int pow10Scale(long value) {
+        value = Math.abs(value);
+        for(int i = LONG_TEN_POWERS_TABLE.length; i-- != 0;) {
+            if(LONG_TEN_POWERS_TABLE[i] == value) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     // divide and cap max / min result to MutableDecimal capacities
     public final void multiplyCaped(long value) {
-        byte scaleInc = this.value < 0 ? (byte) 1 : (byte) -1;
-        for(;;) {
-            try {
-                value(Math.multiplyExact(this.value, value));
-                return;
-            } catch (ArithmeticException e) { // overflow, try to reduce precision
-                if(Math.abs(this.value) > Math.abs(value)) {
-                    value(this.value / 10L);
-                } else {
-                    value /= 10L;
-                }
-                try {
-                    scale(checkScale(scale + scaleInc));
-                } catch (ArithmeticException e2) { // scale overflow, set to limits
-                    setOverflow(this.value >= 0L == value >= 0L, scale + scaleInc);
+        if (0L == this.value || 0L == value) {
+            value(0L);
+            return;
+        }
+        if(isPow2(value)) {
+            var exponent = Long.numberOfLeadingZeros(this.value);
+            if(exponent > 0) {
+                var exponent2 = Long.numberOfTrailingZeros(value);
+                var delta = exponent > exponent2 ? 0 : (exponent2 - exponent + 1);
+                value(this.value << (exponent2 - delta));
+                if(0 == delta) {
+                    value(value < 0 ? -this.value : this.value);
                     return;
                 }
+                value >>= (exponent2 - delta);
             }
+        }
+        int pow10index = pow10Scale(value);
+        if(pow10index >= 0) { // value is a pow of ten, do quick scale update
+            if(Byte.MIN_VALUE <= scale - pow10index && (Long.MIN_VALUE != this.value || value >= 0)) {
+                scale((byte) (scale - pow10index));
+                value(value < 0 ? - this.value : this.value);
+                return;
+            }
+            pow10index = Math.abs(Byte.MIN_VALUE - scale);
+            value /= LONG_TEN_POWERS_TABLE[pow10index];
+            scale((byte) (scale - pow10index));
+        }
+        try {
+            value(Math.multiplyExact(this.value, value));
+            shrunkScale();
+        } catch (ArithmeticException e) { // overflow, try to reduce precision
+            multiplyAdd128AndSet(this.value, value, 0L, false);
         }
     }
 
@@ -344,115 +479,174 @@ public class MutableDecimal {
         scale(zero ? (byte) 0 : Byte.MIN_VALUE);
     }
 
+    // border effect on value & scale fields, they are updated by this function
+    private void multiplyAdd128AndSet(long x, long y, long value, boolean carry) {
+        int sign = Long.signum(x) * Long.signum(y);
+        if(0 == sign) { // trivial case not expected
+            throw new IllegalArgumentException();
+        }
+        int sOverflow = Math.max(longDigitLength(value), longDigitLength(x) + longDigitLength(y)) - LONG_TEN_POWERS_TABLE.length;
+        x = Math.abs(x);
+        y = Math.abs(y);
+
+        long lo0 = y & LONG_MASK;
+        long hi0 = x & LONG_MASK;
+        long product = hi0 * lo0;
+        long hi1 = product >>> 32;
+        long lo1 = product & LONG_MASK;
+        x >>>= 32;
+        product = x * lo0 + hi1;
+        hi1 = product & LONG_MASK;
+        lo0 = product >>> 32;
+        y >>>= 32;
+        product = hi0 * y + hi1;
+        hi1 = product & LONG_MASK;
+        lo0 += product >>> 32;
+        hi0 = lo0 >>> 32;
+        lo0 &= LONG_MASK;
+        product = x * y + lo0;
+        lo0 = product & LONG_MASK;
+        hi0 = ((product >>> 32) + hi0) & LONG_MASK;
+        x = hi0 << 32 | lo0;
+        y = hi1 << 32 | lo1;
+
+        // add the value
+        value = sign > 0 ? value : -value;
+        lo0 = y + value;
+        if ((((y ^ lo0) & (value ^ lo0)) < 0) && (y < 0L || value < 0L)) { // TODO check, use add binary
+            // handle overflow only for underflow, one signed addition do not overflow one unsigned 64 bits
+            x++;
+        }
+        lo0 += carry ? 1 : 0;//TODO check overflow
+        y = lo0;
+
+        if (x == 0L && y >= 0L) {
+            value(sign >= 0 ? y : -y);
+            return;
+        } else if (sOverflow == 1) { // simple overflow
+            set(divide128(x, y, 10, sign), checkScale(this.scale - 1));
+            return;
+        }
+        try { // extended overflow
+            // TODO check scale overflow at start
+            var delta = Math.min(sOverflow, LONG_TEN_POWERS_TABLE.length) - 1;
+            scale(checkScale(this.scale - delta));
+            var tmp = new Uint128(x, y);
+            var div = new Uint128(0L, LONG_TEN_POWERS_TABLE[delta]);
+            var qu = new Uint128(0L, 0L);
+            var rem = new Uint128(0L, 0L);
+            Bits128.divmod128(tmp, div, qu, rem);
+            x = qu.high;
+            y = qu.low;
+            if(x == 0L && sign < 0 && y == Long.MIN_VALUE) {
+                value(y);
+            } else if(x != 0L || y < 0L) {
+                set(divide128(x, y, 10, sign), checkScale(this.scale - 1));
+            } else {
+                value(sign >= 0 ? y : -y);
+            }
+        } catch (ArithmeticException e) {
+            throw e;
+        }
+    }
+
     private static long multiplyDivide128(long x, long y, long divisor) {
         int sign = Long.signum(x) * Long.signum(y) * Long.signum(divisor);
         if(0 == sign) { // x can be 0, fast path
             return 0L;
-        }
+        } // else if x ou y = 1 simply fy
         x = Math.abs(x);
         y = Math.abs(y);
         divisor = Math.abs(divisor);
 
-        long word = y & LONG_MASK;
-        long word2 = x & LONG_MASK;
-        long product = word2 * word;
-        long d1 = product >>> 32;
-        long d0 = product & LONG_MASK;
-        long hi0 = x >>> 32;
-        product = hi0 * word + d1;
-        d1 = product & LONG_MASK;
-        word = product >>> 32;
-        long hi1 = y >>> 32;
-        product = word2 * hi1 + d1;
-        d1 = product & LONG_MASK;
-        word += product >>> 32;
-        word2 = word >>> 32;
-        word &= LONG_MASK;
-        product = hi0 * hi1 + word;
-        word = product & LONG_MASK;
-        word2 = ((product >>> 32) + word2) & LONG_MASK;
-        return divide128(make64(word2, word), make64(d1, d0), divisor, sign);
+        long lo0 = y & LONG_MASK;
+        long hi0 = x & LONG_MASK;
+        long product = hi0 * lo0;
+        long hi1 = product >>> 32;
+        long lo1 = product & LONG_MASK;
+        x >>= 32;
+        product = x * lo0 + hi1;
+        hi1 = product & LONG_MASK;
+        lo0 = product >>> 32;
+        y >>>= 32;
+        product = hi0 * y + hi1;
+        hi1 = product & LONG_MASK;
+        lo0 += product >>> 32;
+        hi0 = lo0 >>> 32;
+        lo0 &= LONG_MASK;
+        product = x * y + lo0;
+        lo0 = product & LONG_MASK;
+        hi0 = ((product >>> 32) + hi0) & LONG_MASK;
+        if(Long.MIN_VALUE == divisor) {
+            Uint128 tmp = new Uint128(hi0 << 32 | lo0, hi1 << 32 | lo1);
+            Uint128 div = new Uint128(0L, Long.MIN_VALUE);
+            Uint128 qu = new Uint128(0L, 0L);
+            Uint128 rem = new Uint128(0L, 0L);
+            Bits128.divmod128(tmp, div, qu, rem);
+            return sign * qu.low;
+        }
+        return divide128(hi0 << 32 | lo0, hi1 << 32 | lo1, divisor, sign);
     }
 
-    /*
-     * divideAndRound 128-bit value by long divisor.
-     * Specialized version of Knuth's division
-     */
-    private static long divide128(final long dividendHi, final long dividendLo, long divisor, int sign) {
+    // divide 128-bit value by long divisor
+    public static long divide128(long dividendHi, long dividendLo, long divisor, int sign) {
         if (dividendHi >= divisor) {
             throw overflowException(false);
         }
 
         int shift = Long.numberOfLeadingZeros(divisor);
-        divisor <<= shift;
-
-        long v1 = divisor >>> 32;
-        long v0 = divisor & LONG_MASK;
-
         long tmp = dividendLo << shift;
-        long u1 = tmp >>> 32;
-        long u0 = tmp & LONG_MASK;
-
+        long lo = tmp & LONG_MASK;
+        long hi = tmp >>> 32;
         tmp = (dividendHi << shift) | (dividendLo >>> 64 - shift);
-        long u2 = tmp & LONG_MASK;
-        long q0 = 0L, q1 = 0L, r_tmp;
 
-        for(int i = 2; i-- != 0;) {
+        divisor <<= shift;
+        dividendHi = divisor >>> 32;
+        dividendLo = divisor & LONG_MASK;
+
+        for(boolean loTurn = false ;; loTurn = true) {
             long q;
-            if (v1 == 1) {
+            long remainder;
+            if (dividendHi == 1) {
                 q = tmp;
-                r_tmp = 0L;
+                remainder = 0L;
             } else if (tmp >= 0L) {
-                q = tmp / v1;
-                r_tmp = tmp - q * v1;
+                q = tmp / dividendHi;
+                remainder = tmp - q * dividendHi;
             } else {
                 // Approximate the quotient and remainder
-                q = (tmp >>> 1) / (v1 >>> 1);
-                r_tmp = tmp - q * v1;
+                q = (tmp >>> 1) / (dividendHi >>> 1);
+                remainder = tmp - q * dividendHi;
                 // Correct the approximation
-                while (r_tmp < 0) {
-                    r_tmp += v1;
+                while (remainder < 0) {
+                    remainder += dividendHi;
                     q--;
                 }
-                while (r_tmp >= v1) {
-                    r_tmp -= v1;
+                while (remainder >= dividendHi) {
+                    remainder -= dividendHi;
                     q++;
                 }
             }
-            boolean q0Loop = i == 0; // 2 turns, compute q1 then q0 (into q)
-            while(q >= DIV_NUM_BASE || unsignedLongCompare(q * v0, make64(r_tmp, q0Loop ? u0 : u1))) {
+            while(q >= DIV_NUM_BASE || (((q * dividendLo) + Long.MIN_VALUE) > ((remainder << 32 | (loTurn ? lo : hi)) + Long.MIN_VALUE))) {
                 q--;
-                r_tmp += v1;
-                if (r_tmp >= DIV_NUM_BASE)
+                remainder += dividendHi;
+                if (remainder >= DIV_NUM_BASE)
                     break;
             }
-            if(q0Loop) {
-                q0 = q;
-            } else {
-                q1 = q;
-                tmp = mulsub(u2, u1, v1, v0, q1);
+            if(loTurn) { // 2 turns, compute high word then low (into q)
+                divisor |= q;
+                return sign >= 0 && divisor >= 0L ? divisor : -divisor;
+                // return remainder
+            } else { // fist turn, compute high word
+                if((int) q < 0) { // negative unsigned max value
+                    throw overflowException(false);
+                }
+                divisor = tmp & LONG_MASK;
+                tmp = hi - q * dividendLo;
+                tmp = (divisor + (tmp >>> 32) - q * dividendHi) << 32 | (tmp & LONG_MASK);
+                divisor = q << 32;
             }
         }
-
-        if((int) q1 < 0) {
-            // negative unsigned max value
-            throw overflowException(false);
-        }
-        long quotien = make64(q1, q0);
-        return sign >= 0 && quotien >= 0L ? quotien : -quotien;
-    }
-
-    private static long mulsub(long u1, long u0, final long v1, final long v0, long q0) {
-        long tmp = u0 - q0 * v0;
-        return make64(u1 + (tmp >>> 32) - q0 * v1,tmp & LONG_MASK);
-    }
-
-    private static boolean unsignedLongCompare(long one, long two) {
-        return (one + Long.MIN_VALUE) > (two + Long.MIN_VALUE);
-    }
-
-    private static long make64(long hi, long lo) {
-        return hi<<32 | lo;
     }
 
     @Override
@@ -463,7 +657,7 @@ public class MutableDecimal {
     }
 
     public final void toPlainString(@NotNull StringBuilder stringBuilder) {
-        if(scale == 0) {
+        if(0L == value || 0 == scale) {
             stringBuilder.append(value);
             return;
         }
@@ -481,6 +675,9 @@ public class MutableDecimal {
             return;
         }
         stringBuilder.append(Math.abs(value));
+        if(Long.MIN_VALUE == value) { // can't be positive
+            stringBuilder.deleteCharAt(0);
+        }
         fillValueString(stringBuilder, signum, scale);
     }
 
@@ -494,7 +691,7 @@ public class MutableDecimal {
             if (signum < 0) {
                 intString.insert(0, '-');
             }
-        } else { /* We must insert zeros between point and intVal */
+        } else { /* insert zeros between point and significant numbers */
             for (int i = 0; i < -insertionPoint; i++) {
                 intString.insert(0, '0');
             }
